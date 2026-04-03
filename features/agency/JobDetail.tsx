@@ -999,7 +999,7 @@ export default function JobDetail({
                 submission={s}
                 jobCategory={job.category}
                 hasSentContract={sentContracts.has(s.id)}
-                isAgency={role === "agency"}
+                isAgency={!!agencyId || role === "agency"}
                 isSelected={selected.has(s.id)}
                 onSelect={() => openContractModal(s)}
                 onToggleSelect={() => toggleSelect(s.id)}
