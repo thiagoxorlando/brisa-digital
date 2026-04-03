@@ -19,6 +19,7 @@ export default async function AgencyProfilePage() {
 
   return (
     <AgencyProfile
+      userId={user?.id ?? ""}
       companyName={agency?.company_name ?? ""}
       avatarUrl={agency?.avatar_url ?? null}
       email={user?.email ?? ""}
