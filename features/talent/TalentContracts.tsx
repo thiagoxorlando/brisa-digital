@@ -18,9 +18,10 @@ export type TalentContract = {
 };
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-  sent:     { label: "Awaiting Your Response", cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-100" },
-  accepted: { label: "Accepted",               cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" },
-  rejected: { label: "Rejected",               cls: "bg-rose-50 text-rose-600 ring-1 ring-rose-100" },
+  sent:     { label: "Awaiting Your Signature", cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-100" },
+  signed:   { label: "Signed",                  cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" },
+  accepted: { label: "Signed",                  cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" },
+  rejected: { label: "Rejected",                cls: "bg-rose-50 text-rose-600 ring-1 ring-rose-100" },
 };
 const STATUS_FALLBACK = { label: "Unknown", cls: "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200" };
 
@@ -228,7 +229,7 @@ function ContractCard({
                 disabled={acting === c.id}
                 className="flex-1 py-2.5 text-[13px] font-semibold bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {acting === c.id ? "Accepting…" : "Accept Contract"}
+                {acting === c.id ? "Signing…" : "Sign Contract"}
               </button>
             </div>
           )}
@@ -256,11 +257,11 @@ export default function TalentContracts({ contracts: initial }: { contracts: Tal
     });
 
     if (res.ok) {
-      const newStatus = action === "accept" ? "accepted" : "rejected";
+      const newStatus = action === "accept" ? "signed" : "rejected";
       setContracts((prev) => prev.map((c) => c.id === id ? { ...c, status: newStatus } : c));
       setToast({
         msg: action === "accept"
-          ? "Contract accepted — a booking has been created."
+          ? "Contract signed — a booking is now pending payment."
           : "Contract rejected.",
         type: action === "accept" ? "success" : "error",
       });

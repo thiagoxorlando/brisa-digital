@@ -142,19 +142,33 @@ export default function NotificationBell() {
   }
 
   useEffect(() => {
-    let userId: string | null = null;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      userId = user.id;
       fetchNotifications(user.id);
+
+      // Real-time: push new notifications instantly
+      channel = supabase
+        .channel(`notifications:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            setItems((prev) => [payload.new as Notification, ...prev]);
+          }
+        )
+        .subscribe();
     });
 
-    const interval = setInterval(() => {
-      if (userId) fetchNotifications(userId);
-    }, 30_000);
-
-    return () => clearInterval(interval);
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {

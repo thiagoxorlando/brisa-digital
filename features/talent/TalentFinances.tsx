@@ -161,9 +161,9 @@ export default function TalentFinances() {
               stripe="from-indigo-500 to-violet-500"
             />
             <StatCard
-              label="Pending"
+              label="Awaiting Payment"
               value={usd(pendingEarnings)}
-              sub="Awaiting payment"
+              sub="Agency hasn't paid yet"
               stripe="from-amber-400 to-orange-500"
             />
             <StatCard
@@ -193,6 +193,19 @@ export default function TalentFinances() {
               Withdraw
             </button>
           </div>
+
+          {/* Pending payment notice */}
+          {pendingEarnings > 0 && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+              <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-[12px] text-amber-800 leading-relaxed">
+                <strong>{usd(pendingEarnings)}</strong> is awaiting payment from the agency — this will move to your available balance once paid.
+              </p>
+            </div>
+          )}
 
           {/* Commission info */}
           <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">

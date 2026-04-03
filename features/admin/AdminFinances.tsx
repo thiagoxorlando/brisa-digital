@@ -428,7 +428,7 @@ export default function AdminFinances({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Each agency pays <strong className="text-zinc-600 mx-1">$2,500/month</strong> — the only subscription plan.
+          Pro Plan — <strong className="text-zinc-600 mx-1">$2,500/month</strong> per agency. This is the only subscription plan available at sign-up.
           {activeAgencies.length > 0 && (
             <span className="ml-1">{activeAgencies.length} active {activeAgencies.length === 1 ? "agency" : "agencies"} = {usd(monthlySubscriptionTotal)}/mo</span>
           )}
@@ -449,14 +449,17 @@ export default function AdminFinances({
                   <p className="text-[14px] font-semibold text-zinc-900 truncate">{agency.name}</p>
                   <p className="text-[12px] text-zinc-400 mt-0.5">Member since {formatDate(agency.joinedAt)}</p>
                 </div>
-                <span className={[
-                  "text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0",
-                  agency.subscriptionStatus === "active"
-                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-                    : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
-                ].join(" ")}>
-                  {agency.subscriptionStatus}
-                </span>
+                <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                  <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Pro Plan</span>
+                  <span className={[
+                    "text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize",
+                    agency.subscriptionStatus === "active"
+                      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                      : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
+                  ].join(" ")}>
+                    {agency.subscriptionStatus}
+                  </span>
+                </div>
                 <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0 min-w-[80px] text-right">
                   {usd(agency.monthlyFee)}/mo
                 </p>
