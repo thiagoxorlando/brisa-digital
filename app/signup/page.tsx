@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Role = "agency" | "talent";
-type Plan = "basic" | "pro";
+type Plan = "pro";
 
 const ROLE_HOME: Record<Role, string> = {
   agency: "/agency/dashboard",
@@ -18,20 +18,17 @@ const ROLE_LABELS: Record<Role, { title: string; sub: string }> = {
   talent: { title: "Join as Talent",        sub: "Apply for jobs and get booked." },
 };
 
-const PLANS: { id: Plan; name: string; price: string; features: string[] }[] = [
-  {
-    id: "basic",
-    name: "Basic",
-    price: "$29/mo",
-    features: ["Up to 5 active jobs", "Basic applicant management", "Email support"],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "$99/mo",
-    features: ["Unlimited active jobs", "Advanced analytics", "Priority support", "Media submissions"],
-  },
-];
+const PRO_PLAN = {
+  name: "Pro Plan",
+  price: "$2,500/mo",
+  features: [
+    "Unlimited active jobs",
+    "Full casting & contract management",
+    "Talent media submissions",
+    "Advanced analytics",
+    "Priority support",
+  ],
+};
 
 export default function SignupPage() {
   const router       = useRouter();
@@ -41,7 +38,7 @@ export default function SignupPage() {
 
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [plan,     setPlan]     = useState<Plan>("basic");
+  const [plan]     = useState<Plan>("pro");
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
 
@@ -102,40 +99,28 @@ export default function SignupPage() {
           <span className="text-[16px] font-semibold tracking-tight text-zinc-900">ucastanet</span>
         </div>
 
-        {/* Agency plan selection */}
+        {/* Agency plan — Pro only */}
         {role === "agency" && (
-          <div className="mb-6 space-y-3">
+          <div className="mb-6">
             <p className="text-[12px] font-semibold uppercase tracking-widest text-zinc-400 text-center mb-4">
-              Choose a plan
+              Your plan
             </p>
-            {PLANS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setPlan(p.id)}
-                className={[
-                  "w-full text-left px-5 py-4 rounded-2xl border-2 transition-all duration-150 cursor-pointer",
-                  plan === p.id
-                    ? "border-zinc-900 bg-white shadow-sm"
-                    : "border-zinc-200 bg-white hover:border-zinc-300",
-                ].join(" ")}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[15px] font-semibold text-zinc-900">{p.name}</span>
-                  <span className="text-[14px] font-semibold text-zinc-700">{p.price}</span>
-                </div>
-                <ul className="space-y-1">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-500">
-                      <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </button>
-            ))}
+            <div className="w-full text-left px-5 py-4 rounded-2xl border-2 border-zinc-900 bg-white shadow-sm">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[15px] font-semibold text-zinc-900">{PRO_PLAN.name}</span>
+                <span className="text-[14px] font-semibold text-zinc-700">{PRO_PLAN.price}</span>
+              </div>
+              <ul className="space-y-1">
+                {PRO_PLAN.features.map((f) => (
+                  <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-500">
+                    <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
 
