@@ -1,28 +1,40 @@
-import { createServerClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-export type NotifType =
-  | "job_application"
-  | "job_selected"
-  | "booking_created"
-  | "new_job"
-  | "payment_received"
-  | "booking_cancelled"
-  | "contract_received"
-  | "contract_signed"
-  | "booking_updated"
-  | "payment_update";
-
+/**
+ * Insert one or more notification rows using the service role key
+ * so RLS is bypassed. Logs errors instead of swallowing them.
+ */
 export async function notify(
   userIds: string | string[],
-  type: NotifType,
+  type: string,
   message: string,
-  link?: string
+  link: string
 ) {
   const ids = Array.isArray(userIds) ? userIds : [userIds];
   if (ids.length === 0) return;
 
-  const supabase = createServerClient({ useServiceRole: true });
-  await supabase.from("notifications").insert(
-    ids.map((user_id) => ({ user_id, type, message, is_read: false, link: link ?? null }))
-  );
+  const url     = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const svcKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !svcKey) {
+    console.error("[notify] Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    return;
+  }
+
+  const supabase = createClient(url, svcKey, { auth: { persistSession: false } });
+
+  const rows = ids.map((user_id) => ({
+    user_id,
+    type,
+    message,
+    link,
+    is_read: false,
+    created_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from("notifications").insert(rows);
+
+  if (error) {
+    console.error("[notify] Insert failed:", error.message, { type, message, ids });
+  }
 }

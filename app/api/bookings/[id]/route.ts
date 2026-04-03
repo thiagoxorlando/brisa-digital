@@ -39,64 +39,9 @@ export async function PATCH(
   if (mark_paid && booking?.talent_user_id) {
     await notify(
       booking.talent_user_id,
-      "payment_update",
-      `Payment confirmed for "${jobTitle}". Funds are now available.`,
+      "payment",
+      "You received payment",
       "/talent/finances"
-    );
-  }
-
-  // Notify admin + talent on cancellation
-  if (notify_admin && newStatus === "cancelled") {
-    let talentDisplayName = "A talent";
-    if (booking?.talent_user_id) {
-      const { data: profile } = await supabase
-        .from("talent_profiles")
-        .select("full_name")
-        .eq("id", booking.talent_user_id)
-        .single();
-      talentDisplayName = profile?.full_name ?? talentDisplayName;
-    }
-
-    const { data: adminUsers } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("role", "admin");
-
-    if (adminUsers?.length) {
-      await notify(
-        adminUsers.map((u) => u.id),
-        "booking_cancelled",
-        `Booking for ${talentDisplayName} on "${jobTitle}" was cancelled.`,
-        "/admin/bookings"
-      );
-    }
-
-    if (booking?.talent_user_id) {
-      await notify(
-        booking.talent_user_id,
-        "booking_updated",
-        `Your booking for "${jobTitle}" has been cancelled.`,
-        "/talent/bookings"
-      );
-    }
-
-    if (booking?.agency_id) {
-      await notify(
-        booking.agency_id,
-        "booking_cancelled",
-        `Booking for "${jobTitle}" has been cancelled.`,
-        "/agency/bookings"
-      );
-    }
-  }
-
-  // Notify talent on other status changes from agency
-  if (!notify_admin && !mark_paid && booking?.talent_user_id && newStatus !== booking.status) {
-    await notify(
-      booking.talent_user_id,
-      "booking_updated",
-      `Your booking for "${jobTitle}" status changed to ${newStatus.replace("_", " ")}.`,
-      "/talent/bookings"
     );
   }
 

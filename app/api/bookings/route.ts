@@ -30,24 +30,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  const title = job_title ?? "a job";
-
-  // Notify talent: selected for a job
-  await notify(talent_id, "job_selected", `You've been selected for "${title}"!`);
-
-  // Notify agency: booking was created (look up agency_id from job if not passed)
-  let agencyUserId = agency_id ?? null;
-  if (!agencyUserId && job_id) {
-    const { data: job } = await supabase
-      .from("jobs")
-      .select("agency_id")
-      .eq("id", job_id)
-      .single();
-    agencyUserId = job?.agency_id ?? null;
-  }
-  if (agencyUserId) {
-    await notify(agencyUserId, "booking_created", `Booking confirmed for "${title}"`);
-  }
+  // Notify talent: booked
+  await notify(talent_id, "booking", "You were booked", "/talent/bookings");
 
   return NextResponse.json({ booking: data }, { status: 201 });
 }

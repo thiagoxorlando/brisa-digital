@@ -71,13 +71,8 @@ export async function POST(req: NextRequest) {
     status:         "pending",
   });
 
-  // Notify talent — contract is waiting for review
-  await notify(
-    talent_id,
-    "contract_received",
-    `You have a new contract waiting for your review: "${jobTitle}".`,
-    "/talent/contracts"
-  );
+  // Notify talent — contract received
+  await notify(talent_id, "contract", "You received a contract", "/talent/contracts");
 
   return NextResponse.json({ contract }, { status: 201 });
 }

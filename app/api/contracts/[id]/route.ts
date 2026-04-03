@@ -65,19 +65,9 @@ export async function PATCH(
     }
 
     // Notify agency — contract signed
-    await notify(
-      contract.agency_id,
-      "contract_signed",
-      `Talent signed your contract. Payment is now pending.`,
-      "/agency/bookings"
-    );
-    // Notify talent — booking status updated
-    await notify(
-      contract.talent_id,
-      "booking_updated",
-      `Your contract has been signed. Booking is pending payment.`,
-      "/talent/bookings"
-    );
+    await notify(contract.agency_id, "contract", "Talent signed the contract", "/agency/bookings");
+    // Notify talent — booking confirmed
+    await notify(contract.talent_id, "booking", "You were booked", "/talent/bookings");
   } else {
     // Remove the pending booking created when the contract was sent
     if (contract.job_id) {
@@ -89,12 +79,7 @@ export async function PATCH(
         .eq("status", "pending");
     }
 
-    await notify(
-      contract.agency_id,
-      "booking_cancelled",
-      `Talent rejected your contract offer.`,
-      "/agency/contracts"
-    );
+    await notify(contract.agency_id, "contract", "Talent rejected your contract", "/agency/contracts");
   }
 
   return NextResponse.json({ ok: true, status: newStatus });
