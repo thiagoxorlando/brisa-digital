@@ -309,6 +309,16 @@ function ContractModal({
     setSubmitting(true);
     setError("");
 
+    // Fire job_invite notifications immediately, before contracts are sent
+    await fetch("/api/jobs/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        job_id:     job.id,
+        talent_ids: targets.map((t) => t.talentId),
+      }),
+    });
+
     const payload = {
       job_id:           job.id,
       agency_id:        agencyId,

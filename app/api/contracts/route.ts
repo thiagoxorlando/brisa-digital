@@ -71,9 +71,6 @@ export async function POST(req: NextRequest) {
     status:         "pending",
   });
 
-  // Notify talent — job invite
-  await notify(talent_id, "job_invite", "You were invited to apply for a job", `/talent/jobs/${job_id}`);
-
   // Notify talent — contract received
   await notify(talent_id, "contract", "You received a new contract", "/talent/contracts");
 
