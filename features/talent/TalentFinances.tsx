@@ -1,26 +1,49 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+const TALENT_RATE   = 0.85; // 85% of deal value
+const REFERRAL_RATE = 0.02; // 2% referral commission
+
 function usd(n: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency", currency: "USD", maximumFractionDigits: 0,
   }).format(n);
 }
 
-// Mock data
-const summary = {
-  totalEarnings:      8500,
-  pendingPayments:    4200,
-  completedPayments:  4300,
+type Payment = {
+  id: string;
+  job: string;
+  amount: number;      // deal value
+  earnings: number;    // 85% of amount
+  status: string;
+  date: string;
 };
 
-const payments = [
-  { id: "PAY-001", job: "Fashion Creator — Spring Campaign",    amount: 8500, status: "completed", date: "2026-03-18" },
-  { id: "PAY-002", job: "Meal Prep Series — Health Food Brand", amount: 4200, status: "pending",   date: "2026-03-22" },
-];
+type Referral = {
+  id: string;
+  talentName: string;
+  job: string;
+  amount: number;      // deal value
+  commission: number;  // 2% of amount
+  date: string;
+};
 
 const STATUS_CLS: Record<string, string> = {
-  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  pending:   "bg-amber-50  text-amber-700  ring-1 ring-amber-100",
+  paid:            "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  confirmed:       "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100", // legacy
+  pending_payment: "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  pending:         "bg-zinc-100   text-zinc-400    ring-1 ring-zinc-200",
+  cancelled:       "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  paid:            "Paid",
+  confirmed:       "Paid",
+  pending_payment: "Pending Payment",
+  pending:         "Pending",
+  cancelled:       "Cancelled",
 };
 
 function StatCard({ label, value, sub, stripe }: { label: string; value: string; sub?: string; stripe: string }) {
@@ -37,49 +60,216 @@ function StatCard({ label, value, sub, stripe }: { label: string; value: string;
 }
 
 export default function TalentFinances() {
+  const [payments, setPayments]   = useState<Payment[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [loading, setLoading]     = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setLoading(false); return; }
+
+      // My bookings
+      const { data: bookingsData } = await supabase
+        .from("bookings")
+        .select("id, job_title, price, status, created_at")
+        .eq("talent_user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      setPayments(
+        (bookingsData ?? []).map((b) => ({
+          id:       b.id,
+          job:      b.job_title ?? "Untitled job",
+          amount:   b.price ?? 0,
+          earnings: Math.round((b.price ?? 0) * TALENT_RATE),
+          status:   b.status ?? "pending",
+          date:     b.created_at,
+        }))
+      );
+
+      // Referral earnings: find submissions where I am the referrer
+      const { data: refSubs } = await supabase
+        .from("submissions")
+        .select("talent_user_id, job_id")
+        .eq("referrer_id", user.id)
+        .not("talent_user_id", "is", null);
+
+      if (refSubs && refSubs.length > 0) {
+        const refTalentIds = [...new Set(refSubs.map((s) => s.talent_user_id).filter(Boolean))];
+
+        const [{ data: refBookings }, { data: refTalentProfiles }] = await Promise.all([
+          supabase
+            .from("bookings")
+            .select("id, job_title, talent_user_id, price, created_at")
+            .in("talent_user_id", refTalentIds)
+            .in("status", ["paid", "confirmed"]),
+          supabase
+            .from("talent_profiles")
+            .select("id, full_name")
+            .in("id", refTalentIds),
+        ]);
+
+        const nameMap = new Map<string, string>();
+        for (const p of refTalentProfiles ?? []) nameMap.set(p.id, p.full_name ?? "Unknown");
+
+        setReferrals(
+          (refBookings ?? []).map((b) => ({
+            id:         b.id,
+            talentName: b.talent_user_id ? (nameMap.get(b.talent_user_id) ?? "Unknown") : "Unknown",
+            job:        b.job_title ?? "Untitled job",
+            amount:     b.price ?? 0,
+            commission: Math.round((b.price ?? 0) * REFERRAL_RATE),
+            date:       b.created_at,
+          }))
+        );
+      }
+
+      setLoading(false);
+    });
+  }, []);
+
+  const completed         = payments.filter((p) => p.status === "paid" || p.status === "confirmed");
+  const pendingPayment    = payments.filter((p) => p.status === "pending_payment");
+  const totalEarnings     = completed.reduce((s, p) => s + p.earnings, 0);
+  const pendingEarnings   = pendingPayment.reduce((s, p) => s + p.earnings, 0);
+  const referralEarnings  = referrals.reduce((s, r) => s + r.commission, 0);
+  const availableToWithdraw = totalEarnings;
+
   return (
     <div className="max-w-3xl space-y-8">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Overview</p>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Finances</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">Your earnings summary — mock data</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Total Earnings"     value={usd(summary.totalEarnings)}     sub="All time"         stripe="from-indigo-500 to-violet-500" />
-        <StatCard label="Pending Payments"   value={usd(summary.pendingPayments)}   sub="Awaiting payment" stripe="from-amber-400 to-orange-500"  />
-        <StatCard label="Completed Payments" value={usd(summary.completedPayments)} sub="Received"         stripe="from-emerald-400 to-teal-500"  />
-      </div>
-
-      {/* Payments list */}
-      <div className="space-y-4">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Payment History</p>
-
-        {payments.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center">
-            <p className="text-[14px] font-medium text-zinc-500">No payments yet</p>
-            <p className="text-[13px] text-zinc-400 mt-1">Apply for jobs and get booked to earn.</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
-            {payments.map((p) => (
-              <div key={p.id} className="flex items-center gap-4 px-6 py-4 hover:bg-zinc-50/60 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold text-zinc-900 truncate">{p.job}</p>
-                  <p className="text-[12px] text-zinc-400 mt-0.5">{new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
-                </div>
-                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${STATUS_CLS[p.status] ?? ""}`}>
-                  {p.status}
-                </span>
-                <p className="text-[15px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">
-                  {usd(p.amount)}
-                </p>
-              </div>
-            ))}
-          </div>
+        {!loading && (
+          <p className="text-[13px] text-zinc-400 mt-1">
+            {payments.length} bookings · {referrals.length} referral{referrals.length !== 1 ? "s" : ""}
+          </p>
         )}
       </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-24">
+          <div className="w-5 h-5 rounded-full border-2 border-zinc-200 border-t-zinc-900 animate-spin" />
+        </div>
+      ) : (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatCard
+              label="Total Earnings"
+              value={usd(totalEarnings + referralEarnings)}
+              sub="Paid bookings + referrals"
+              stripe="from-indigo-500 to-violet-500"
+            />
+            <StatCard
+              label="Pending"
+              value={usd(pendingEarnings)}
+              sub="Awaiting payment"
+              stripe="from-amber-400 to-orange-500"
+            />
+            <StatCard
+              label="Available"
+              value={usd(availableToWithdraw)}
+              sub="Paid bookings"
+              stripe="from-emerald-400 to-teal-500"
+            />
+            <StatCard
+              label="Referrals"
+              value={usd(referralEarnings)}
+              sub={`${referrals.length} booking${referrals.length !== 1 ? "s" : ""} (2%)`}
+              stripe="from-violet-400 to-purple-500"
+            />
+          </div>
+
+          {/* Withdraw */}
+          <div className="flex items-center justify-between bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] px-6 py-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Available to Withdraw</p>
+              <p className="text-[1.5rem] font-semibold tracking-tighter text-zinc-900 leading-none">{usd(availableToWithdraw)}</p>
+            </div>
+            <button
+              disabled={availableToWithdraw === 0}
+              className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+            >
+              Withdraw
+            </button>
+          </div>
+
+          {/* Commission info */}
+          <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            You receive <strong className="text-zinc-600 mx-1">85%</strong> of each deal value.
+            Refer talent and earn <strong className="text-zinc-600 mx-1">2%</strong> of their confirmed bookings.
+          </div>
+
+          {/* My bookings */}
+          <div className="space-y-3">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">My Bookings</p>
+
+            {payments.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
+                <p className="text-[14px] font-medium text-zinc-500">No bookings yet</p>
+                <p className="text-[13px] text-zinc-400 mt-1">Apply for jobs to get booked.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
+                {payments.map((p) => (
+                  <div key={p.id} className="flex items-center gap-4 px-6 py-4 hover:bg-zinc-50/60 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-semibold text-zinc-900 truncate">{p.job}</p>
+                      <p className="text-[12px] text-zinc-400 mt-0.5">
+                        {new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </div>
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${STATUS_CLS[p.status] ?? "bg-zinc-100 text-zinc-500"}`}>
+                      {STATUS_LABEL[p.status] ?? p.status}
+                    </span>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[15px] font-semibold text-zinc-900 tabular-nums">{usd(p.earnings)}</p>
+                      <p className="text-[11px] text-zinc-400 tabular-nums">of {usd(p.amount)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Referral earnings */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Referral Earnings</p>
+              <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">2% per booking</span>
+            </div>
+
+            {referrals.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
+                <p className="text-[14px] font-medium text-zinc-500">No referral earnings yet</p>
+                <p className="text-[13px] text-zinc-400 mt-1">Refer talent to jobs and earn when they get booked.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
+                {referrals.map((r) => (
+                  <div key={r.id} className="flex items-center gap-4 px-6 py-4 hover:bg-zinc-50/60 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-semibold text-zinc-900 truncate">{r.talentName}</p>
+                      <p className="text-[12px] text-zinc-400 mt-0.5 truncate">{r.job}</p>
+                    </div>
+                    <span className="text-[11px] font-semibold bg-violet-50 text-violet-700 ring-1 ring-violet-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                      Referral
+                    </span>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[15px] font-semibold text-violet-700 tabular-nums">{usd(r.commission)}</p>
+                      <p className="text-[11px] text-zinc-400 tabular-nums">of {usd(r.amount)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

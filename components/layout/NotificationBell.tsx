@@ -1,37 +1,143 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+type NotifType =
+  | "job_application"
+  | "job_selected"
+  | "booking_created"
+  | "new_job"
+  | "payment_received"
+  | "booking_cancelled"
+  | "contract_received"
+  | "contract_signed"
+  | "booking_updated"
+  | "payment_update"
+  | string;
 
 type Notification = {
   id: string;
+  type: NotifType;
   message: string;
-  read: boolean;
+  is_read: boolean;
   created_at: string;
+  link: string | null;
 };
 
 function formatTime(s: string) {
-  const d = new Date(s);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  const diff = Math.floor((Date.now() - new Date(s).getTime()) / 1000);
+  if (diff < 60)    return "just now";
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function TypeIcon({ type }: { type: NotifType }) {
+  const base = "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0";
+
+  if (type === "job_application") {
+    return (
+      <div className={`${base} bg-sky-50`}>
+        <svg className="w-3.5 h-3.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </div>
+    );
+  }
+  if (type === "job_selected" || type === "booking_created") {
+    return (
+      <div className={`${base} bg-emerald-50`}>
+        <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    );
+  }
+  if (type === "contract_received") {
+    return (
+      <div className={`${base} bg-violet-50`}>
+        <svg className="w-3.5 h-3.5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </div>
+    );
+  }
+  if (type === "contract_signed") {
+    return (
+      <div className={`${base} bg-emerald-50`}>
+        <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </div>
+    );
+  }
+  if (type === "booking_updated" || type === "payment_update") {
+    return (
+      <div className={`${base} bg-amber-50`}>
+        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      </div>
+    );
+  }
+  if (type === "new_job") {
+    return (
+      <div className={`${base} bg-amber-50`}>
+        <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      </div>
+    );
+  }
+  if (type === "payment_received") {
+    return (
+      <div className={`${base} bg-emerald-50`}>
+        <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+    );
+  }
+  if (type === "booking_cancelled") {
+    return (
+      <div className={`${base} bg-rose-50`}>
+        <svg className="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div className={`${base} bg-zinc-100`}>
+      <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+    </div>
+  );
 }
 
 export default function NotificationBell() {
-  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const [open, setOpen]   = useState(false);
   const [items, setItems] = useState<Notification[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
   async function fetchNotifications(userId: string) {
     const { data } = await supabase
       .from("notifications")
-      .select("*")
+      .select("id, type, message, is_read, created_at, link")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(30);
     setItems(data ?? []);
   }
 
@@ -51,7 +157,6 @@ export default function NotificationBell() {
     return () => clearInterval(interval);
   }, []);
 
-  // Close on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -62,27 +167,42 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const unread = items.filter((n) => !n.read).length;
+  const unread = items.filter((n) => !n.is_read).length;
 
-  async function handleOpen() {
-    setOpen((v) => !v);
-    if (!open && unread > 0) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  async function handleClick(n: Notification) {
+    // Mark as read
+    if (!n.is_read) {
       await supabase
         .from("notifications")
-        .update({ read: true })
-        .eq("user_id", user.id)
-        .eq("read", false);
-      setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+        .update({ is_read: true })
+        .eq("id", n.id);
+      setItems((prev) =>
+        prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
+      );
     }
+    // Navigate if there's a link
+    if (n.link) {
+      setOpen(false);
+      router.push(n.link);
+    }
+  }
+
+  async function markAllRead() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={handleOpen}
-        className="relative w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+        onClick={() => setOpen((v) => !v)}
+        className="relative w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors cursor-pointer"
         aria-label="Notifications"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,33 +210,79 @@ export default function NotificationBell() {
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         {unread > 0 && (
-          <span className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-rose-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center px-0.5 leading-none">
+          <span className="absolute top-0.5 right-0.5 min-w-[15px] h-[15px] bg-rose-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center px-0.5 leading-none">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 bg-white rounded-2xl border border-zinc-100 shadow-[0_4px_24px_rgba(0,0,0,0.08)] z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-100">
-            <p className="text-[13px] font-semibold text-zinc-900">Notifications</p>
+        <div className="absolute right-0 top-10 w-[340px] bg-white rounded-2xl border border-zinc-100 shadow-[0_8px_32px_rgba(0,0,0,0.10)] z-50 overflow-hidden">
+
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <p className="text-[13px] font-semibold text-zinc-900">Notifications</p>
+              {unread > 0 && (
+                <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {unread}
+                </span>
+              )}
+            </div>
+            {unread > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-[11px] font-medium text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+              >
+                Mark all read
+              </button>
+            )}
           </div>
 
+          {/* List */}
           {items.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <p className="text-[13px] text-zinc-400">No notifications yet</p>
+            <div className="px-4 py-10 text-center">
+              <div className="w-9 h-9 rounded-full bg-zinc-50 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-4 h-4 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </div>
+              <p className="text-[13px] font-medium text-zinc-500">No notifications yet</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">You're all caught up.</p>
             </div>
           ) : (
-            <ul className="max-h-72 overflow-y-auto divide-y divide-zinc-50">
+            <ul className="max-h-80 overflow-y-auto divide-y divide-zinc-50">
               {items.map((n) => (
-                <li key={n.id} className={`flex gap-3 px-4 py-3 ${n.read ? "" : "bg-zinc-50"}`}>
-                  {!n.read && (
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
-                  )}
-                  <div className={n.read ? "pl-[18px]" : ""}>
-                    <p className="text-[13px] text-zinc-700 leading-snug">{n.message}</p>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">{formatTime(n.created_at)}</p>
+                <li
+                  key={n.id}
+                  onClick={() => handleClick(n)}
+                  className={[
+                    "flex items-start gap-3 px-4 py-3 transition-colors",
+                    n.link || !n.is_read ? "cursor-pointer hover:bg-zinc-50/80" : "",
+                    n.is_read ? "bg-white" : "bg-zinc-50/80",
+                  ].join(" ")}
+                >
+                  <TypeIcon type={n.type} />
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className={`text-[13px] leading-snug ${n.is_read ? "text-zinc-500" : "text-zinc-800 font-medium"}`}>
+                      {n.message}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-[11px] text-zinc-400">{formatTime(n.created_at)}</p>
+                      {n.link && (
+                        <span className="text-[10px] font-medium text-zinc-400 flex items-center gap-0.5">
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          view
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  {!n.is_read && (
+                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
+                  )}
                 </li>
               ))}
             </ul>

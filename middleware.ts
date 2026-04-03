@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { createMiddlewareClient } from "@/lib/supabase";
 import type { UserRole } from "@/lib/auth";
-
-const ROLE_HOME: Record<UserRole, string> = {
-  agency: "/agency/dashboard",
-  talent: "/talent/dashboard",
-  admin:  "/admin/dashboard",
-};
 
 // Which path prefixes each role is allowed to access
 const ROLE_ALLOWED: Record<UserRole, string[]> = {
@@ -39,8 +34,13 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Fetch role from profiles
-  const { data: profile } = await supabase
+  // Fetch role using service role to bypass any RLS on the profiles table
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+  const { data: profile } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)

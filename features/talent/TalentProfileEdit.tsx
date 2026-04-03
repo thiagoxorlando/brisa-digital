@@ -8,8 +8,12 @@ const TALENT_CATEGORIES = [
   "Comedian", "Presenter", "Content Creator", "Photographer", "Athlete",
 ];
 
-const inputCls =
-  "w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors bg-white placeholder:text-zinc-400";
+const inputBase =
+  "w-full px-4 py-3 text-[14px] rounded-xl border hover:border-zinc-300 focus:outline-none transition-colors bg-white placeholder:text-zinc-400";
+
+function inputCls(hasError: boolean) {
+  return `${inputBase} ${hasError ? "border-rose-300 focus:border-rose-400" : "border-zinc-200 focus:border-zinc-900"}`;
+}
 
 const labelCls = "block text-[12px] font-medium text-zinc-600 mb-1.5";
 
@@ -25,10 +29,41 @@ type Form = {
   youtube: string;
 };
 
+type FormErrors = Partial<Record<keyof Form, string>>;
+
 const DEFAULTS: Form = {
   fullName: "", phone: "", country: "", city: "",
   bio: "", categories: [], instagram: "", tiktok: "", youtube: "",
 };
+
+const BIO_MAX = 300;
+
+function validate(form: Form): FormErrors {
+  const e: FormErrors = {};
+  if (!form.fullName.trim())
+    e.fullName = "Full name is required.";
+  else if (form.fullName.trim().length < 2)
+    e.fullName = "Name must be at least 2 characters.";
+  if (form.bio.length > BIO_MAX)
+    e.bio = `Bio must be ${BIO_MAX} characters or fewer (currently ${form.bio.length}).`;
+  if (form.instagram && /[\s@]/.test(form.instagram))
+    e.instagram = "Enter your handle without @ or spaces.";
+  if (form.tiktok && /[\s@]/.test(form.tiktok))
+    e.tiktok = "Enter your handle without @ or spaces.";
+  return e;
+}
+
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <p className="flex items-center gap-1 text-[12px] text-rose-500 mt-1.5">
+      <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+      {msg}
+    </p>
+  );
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -41,12 +76,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function TalentProfileEdit() {
   const [form, setForm]       = useState<Form>(DEFAULTS);
+  const [errors, setErrors]   = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Partial<Record<keyof Form, boolean>>>({});
   const [preview, setPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError]     = useState("");
+  const [serverError, setServerError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,7 +117,10 @@ export default function TalentProfileEdit() {
   }, []);
 
   function set(key: keyof Form, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
+    const updated = { ...form, [key]: value };
+    setForm(updated);
+    setTouched((t) => ({ ...t, [key]: true }));
+    setErrors(validate(updated));
   }
 
   function toggleCategory(cat: string) {
@@ -99,32 +139,39 @@ export default function TalentProfileEdit() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.fullName.trim()) { setError("Full name is required."); return; }
-    setError("");
+
+    // Mark all fields touched and show all errors
+    setTouched({ fullName: true, bio: true, instagram: true, tiktok: true });
+    const errs = validate(form);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    setServerError("");
     setSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Not authenticated."); setSaving(false); return; }
+    if (!user) { setServerError("Not authenticated."); setSaving(false); return; }
 
     let avatarUrl: string | undefined;
 
     if (avatarFile) {
       const ext = avatarFile.name.split(".").pop();
-      const path = `avatars/${user.id}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("talent-media")
-        .upload(path, avatarFile, { upsert: true });
-      if (uploadError) {
-        setError("Photo upload failed: " + uploadError.message);
+      const formData = new FormData();
+      formData.append("file", avatarFile);
+      formData.append("path", `avatars/${user.id}.${ext}`);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const json = await res.json();
+      if (!res.ok) {
+        setServerError("Photo upload failed: " + (json.error ?? "Unknown error"));
         setSaving(false);
         return;
       }
-      const { data: urlData } = supabase.storage.from("talent-media").getPublicUrl(path);
-      avatarUrl = urlData.publicUrl;
+      avatarUrl = json.url;
     }
 
     const payload: Record<string, unknown> = {
       id:         user.id,
+      user_id:    user.id,
       full_name:  form.fullName.trim(),
       phone:      form.phone.trim(),
       country:    form.country.trim(),
@@ -142,7 +189,7 @@ export default function TalentProfileEdit() {
       .upsert(payload, { onConflict: "id" });
 
     if (dbError) {
-      setError(dbError.message);
+      setServerError(dbError.message);
       setSaving(false);
       return;
     }
@@ -167,7 +214,7 @@ export default function TalentProfileEdit() {
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">My Profile</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <Section title="Profile Photo">
           <div>
             <p className={labelCls}>Photo</p>
@@ -184,43 +231,56 @@ export default function TalentProfileEdit() {
               )}
             </div>
             <input
-              ref={fileRef} type="file" accept="image/*" className="hidden"
+              ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
               onChange={(e) => { if (e.target.files?.[0]) handleAvatarChange(e.target.files[0]); }}
             />
-            <p className="text-[11px] text-zinc-400 mt-1.5">Click to upload · JPG, PNG, WebP</p>
+            <p className="text-[11px] text-zinc-400 mt-1.5">Click to upload · JPG, PNG, WebP · max 5 MB</p>
           </div>
         </Section>
 
         <Section title="Personal Info">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Full Name *</label>
-              <input className={inputCls} placeholder="Sofia Mendes" value={form.fullName}
-                onChange={(e) => set("fullName", e.target.value)} />
+              <label className={labelCls}>
+                Full Name <span className="text-rose-400">*</span>
+              </label>
+              <input
+                className={inputCls(!!errors.fullName && !!touched.fullName)}
+                placeholder="Sofia Mendes"
+                value={form.fullName}
+                onChange={(e) => set("fullName", e.target.value)}
+              />
+              {touched.fullName && <FieldError msg={errors.fullName} />}
             </div>
             <div>
               <label className={labelCls}>Phone Number</label>
-              <input className={inputCls} placeholder="+55 11 99999-9999" value={form.phone}
+              <input className={inputCls(false)} placeholder="+55 11 99999-9999" value={form.phone}
                 onChange={(e) => set("phone", e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>Country</label>
-              <input className={inputCls} placeholder="Brazil" value={form.country}
+              <input className={inputCls(false)} placeholder="Brazil" value={form.country}
                 onChange={(e) => set("country", e.target.value)} />
             </div>
             <div>
               <label className={labelCls}>City</label>
-              <input className={inputCls} placeholder="São Paulo" value={form.city}
+              <input className={inputCls(false)} placeholder="São Paulo" value={form.city}
                 onChange={(e) => set("city", e.target.value)} />
             </div>
           </div>
           <div>
-            <label className={labelCls}>Bio</label>
+            <label className={labelCls}>
+              Bio
+              <span className={`ml-2 font-normal ${form.bio.length > BIO_MAX ? "text-rose-400" : "text-zinc-300"}`}>
+                {form.bio.length}/{BIO_MAX}
+              </span>
+            </label>
             <textarea
-              rows={4} className={`${inputCls} resize-none`}
+              rows={4} className={`${inputCls(!!errors.bio && !!touched.bio)} resize-none`}
               placeholder="Tell agencies what makes you unique."
               value={form.bio} onChange={(e) => set("bio", e.target.value)}
             />
+            {touched.bio && <FieldError msg={errors.bio} />}
           </div>
         </Section>
 
@@ -248,34 +308,50 @@ export default function TalentProfileEdit() {
             <label className={labelCls}>Instagram</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
-              <input className={`${inputCls} pl-8`} placeholder="yourhandle" value={form.instagram}
-                onChange={(e) => set("instagram", e.target.value)} />
+              <input
+                className={`${inputCls(!!errors.instagram && !!touched.instagram)} pl-8`}
+                placeholder="yourhandle"
+                value={form.instagram}
+                onChange={(e) => set("instagram", e.target.value)}
+              />
             </div>
+            {touched.instagram && <FieldError msg={errors.instagram} />}
           </div>
           <div>
             <label className={labelCls}>TikTok</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
-              <input className={`${inputCls} pl-8`} placeholder="yourhandle" value={form.tiktok}
-                onChange={(e) => set("tiktok", e.target.value)} />
+              <input
+                className={`${inputCls(!!errors.tiktok && !!touched.tiktok)} pl-8`}
+                placeholder="yourhandle"
+                value={form.tiktok}
+                onChange={(e) => set("tiktok", e.target.value)}
+              />
             </div>
+            {touched.tiktok && <FieldError msg={errors.tiktok} />}
           </div>
           <div>
             <label className={labelCls}>YouTube</label>
-            <input className={inputCls} placeholder="https://youtube.com/@channel" value={form.youtube}
+            <input className={inputCls(false)} placeholder="https://youtube.com/@channel" value={form.youtube}
               onChange={(e) => set("youtube", e.target.value)} />
           </div>
         </Section>
 
-        {error && (
-          <p className="text-[13px] text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
-            {error}
-          </p>
+        {serverError && (
+          <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3.5">
+            <svg className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p className="text-[13px] text-rose-600">{serverError}</p>
+          </div>
         )}
         {success && (
-          <p className="text-[13px] text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
-            Profile saved successfully.
-          </p>
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3.5">
+            <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-[13px] text-emerald-700 font-medium">Profile saved successfully.</p>
+          </div>
         )}
 
         <button

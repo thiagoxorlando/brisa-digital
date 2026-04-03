@@ -78,6 +78,82 @@ const AGENCY_NAV: NavItem[] = [
       </svg>
     ),
   },
+  {
+    label: "Contracts",
+    href: "/agency/contracts",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
+];
+
+const ADMIN_NAV: NavItem[] = [
+  {
+    label: "Dashboard",
+    href: "/admin/dashboard",
+    exact: true,
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M9 21V12h6v9" />
+      </svg>
+    ),
+  },
+  {
+    label: "Jobs",
+    href: "/admin/jobs",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Users",
+    href: "/admin/users",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Bookings",
+    href: "/admin/bookings",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Finances",
+    href: "/admin/finances",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Contracts",
+    href: "/admin/contracts",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
 ];
 
 const TALENT_NAV: NavItem[] = [
@@ -134,6 +210,16 @@ const TALENT_NAV: NavItem[] = [
       </svg>
     ),
   },
+  {
+    label: "Contracts",
+    href: "/talent/contracts",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
 ];
 
 type SidebarProps = {
@@ -145,16 +231,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { role } = useRole();
-  const { displayName, email, initials, loading } = useUserProfile();
+  const { displayName, email, initials, avatarUrl, loading } = useUserProfile();
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/");
   }
 
-  const inferredRole = role ?? (pathname.startsWith("/talent") ? "talent" : "agency");
-  const navItems = inferredRole === "talent" ? TALENT_NAV : AGENCY_NAV;
-  const portalLabel = inferredRole === "talent" ? "Talent Portal" : "Agency Portal";
+  const inferredRole = role ?? (
+    pathname.startsWith("/talent") ? "talent" :
+    pathname.startsWith("/admin")  ? "admin"  : "agency"
+  );
+  const navItems =
+    inferredRole === "talent" ? TALENT_NAV :
+    inferredRole === "admin"  ? ADMIN_NAV  : AGENCY_NAV;
+  const portalLabel =
+    inferredRole === "talent" ? "Talent Portal" :
+    inferredRole === "admin"  ? "Admin Portal"  : "Agency Portal";
 
   return (
     <>
@@ -247,8 +340,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* User + Logout */}
         <div className="px-3 py-3 flex-shrink-0 space-y-1">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-              {loading ? "…" : initials}
+            <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden">
+              {!loading && avatarUrl ? (
+                <img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[11px] font-bold text-white">
+                  {loading ? "…" : initials}
+                </div>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium text-zinc-200 truncate leading-none">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type TalentRow = {
@@ -46,6 +47,7 @@ export default function AgencyTalentProfile({
   talent: TalentRow | null;
   jobs: Job[];
 }) {
+  const router = useRouter();
   const [selectedJob, setSelectedJob] = useState("");
   const [attaching, setAttaching]     = useState(false);
   const [attached, setAttached]       = useState(false);
@@ -72,7 +74,7 @@ export default function AgencyTalentProfile({
   ].filter((p): p is string => !!p);
 
   async function handleAttach() {
-    if (!selectedJob) return;
+    if (!talent || !selectedJob) return;
     setAttaching(true);
     setAttachError("");
 
@@ -82,12 +84,11 @@ export default function AgencyTalentProfile({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        job_id:         selectedJob,
-        talent_name:    name,
-        email:          "",
-        bio:            talent.bio ?? "",
-        mode:           "other",
-        talent_user_id: talent.id,
+        job_id:    selectedJob,
+        talent_id: talent.id,
+        email:     "",
+        bio:       talent.bio ?? "",
+        mode:      "other",
       }),
     });
 
@@ -96,6 +97,7 @@ export default function AgencyTalentProfile({
     if (res.ok) {
       setAttached(true);
       setShowJobDropdown(false);
+      router.refresh();
     } else {
       const d = await res.json();
       setAttachError(d.error ?? "Failed to attach talent");

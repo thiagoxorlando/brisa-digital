@@ -113,7 +113,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
     if (errors[key]) setErrors((e) => { const n = { ...e }; delete n[key]; return n; });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
@@ -126,10 +126,11 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         job_id:        job!.id,
-        talent_name:   form.talentName.trim(),
+        talent_name:   form.talentName.trim(),   // external referral — no account
         email:         form.contactInfo.trim(),
         bio:           form.bio.trim(),
         referrer_name: form.referrerName.trim(),
+        referrer_id:   null,                     // no platform account — not tracked
         mode,
       }),
     });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 // ─── Types & constants ────────────────────────────────────────────────────────
 
@@ -12,9 +13,16 @@ type FormData = {
   category: string;
   budget: string;
   deadline: string;
+  location: string;
+  gender: string;
+  age_min: string;
+  age_max: string;
+  number_of_talents_required: string;
 };
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
+
+const GENDER_OPTIONS = ["any", "male", "female"];
 
 const CATEGORIES = [
   "Lifestyle & Fashion",
@@ -39,6 +47,11 @@ const INITIAL: FormData = {
   category: "",
   budget: "",
   deadline: "",
+  location: "",
+  gender: "any",
+  age_min: "",
+  age_max: "",
+  number_of_talents_required: "1",
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -54,6 +67,9 @@ function validate(f: FormData): FormErrors {
   else if (isNaN(Number(f.budget)) || Number(f.budget) <= 0) e.budget = "Enter a valid amount.";
   if (!f.deadline) e.deadline = "Deadline is required.";
   else if (new Date(f.deadline) <= new Date()) e.deadline = "Must be in the future.";
+  if (f.age_min && (isNaN(Number(f.age_min)) || Number(f.age_min) < 1)) e.age_min = "Invalid age.";
+  if (f.age_max && (isNaN(Number(f.age_max)) || Number(f.age_max) < 1)) e.age_max = "Invalid age.";
+  if (f.age_min && f.age_max && Number(f.age_min) > Number(f.age_max)) e.age_max = "Must be ≥ min age.";
   return e;
 }
 
@@ -261,28 +277,28 @@ function JobPreview({ form }: { form: FormData }) {
 
 // ─── Success screen ───────────────────────────────────────────────────────────
 
-function SuccessScreen({ title }: { title: string }) {
+function SuccessScreen({ title, draft }: { title: string; draft?: boolean }) {
   return (
     <div className="max-w-sm mx-auto pt-16 text-center">
       <div className="relative w-16 h-16 mx-auto mb-6">
-        <div className="absolute inset-0 rounded-full bg-emerald-100 animate-ping opacity-30" />
-        <div className="relative w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center">
-          <svg className="w-7 h-7 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <div className={`absolute inset-0 rounded-full ${draft ? "bg-amber-100" : "bg-emerald-100"} animate-ping opacity-30`} />
+        <div className={`relative w-16 h-16 rounded-full ${draft ? "bg-amber-50 border-amber-100" : "bg-emerald-50 border-emerald-100"} border flex items-center justify-center`}>
+          <svg className={`w-7 h-7 ${draft ? "text-amber-500" : "text-emerald-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={draft ? "M5 5h14M5 12h14M5 19h14" : "M5 13l4 4L19 7"} />
           </svg>
         </div>
       </div>
-      <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">Job posted!</h2>
+      <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">{draft ? "Draft saved!" : "Job posted!"}</h2>
       <p className="text-sm text-zinc-500 mt-2.5 leading-relaxed">
         <span className="font-medium text-zinc-700">&ldquo;{title}&rdquo;</span>{" "}
-        is now live and visible to talent.
+        {draft ? "has been saved as a draft. You can publish it from your jobs list." : "is now live and visible to talent."}
       </p>
       <p className="text-xs text-zinc-400 mt-6 flex items-center justify-center gap-1.5">
         <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
         </svg>
-        Redirecting to dashboard…
+        Redirecting to jobs…
       </p>
     </div>
   );
@@ -295,9 +311,11 @@ export default function PostJobForm() {
   const [form, setForm]       = useState<FormData>(INITIAL);
   const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<"posted" | "draft" | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [postedTitle, setPostedTitle] = useState("");
 
   const errors    = validate(form);
   const hasErrors = Object.keys(errors).length > 0;
@@ -312,14 +330,13 @@ export default function PostJobForm() {
     return submitAttempted || touched[k] ? errors[k] : undefined;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitAttempted(true);
-    if (hasErrors) return;
-
-    setLoading(true);
+  async function postJob(status: "open" | "draft") {
     setSubmitError(null);
-
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setSubmitError("Not authenticated. Please log in again.");
+      return false;
+    }
     const res = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -329,27 +346,62 @@ export default function PostJobForm() {
         category: form.category,
         budget: Number(form.budget),
         deadline: form.deadline,
-        agency_id: "00000000-0000-0000-0000-000000000001", // mock agency
+        agency_id: user.id,
+        location: form.location.trim() || null,
+        gender: form.gender !== "any" ? form.gender : null,
+        age_min: form.age_min ? Number(form.age_min) : null,
+        age_max: form.age_max ? Number(form.age_max) : null,
+        number_of_talents_required: Number(form.number_of_talents_required) || 1,
+        status,
       }),
     });
-
-    setLoading(false);
-
     if (!res.ok) {
       const { error } = await res.json();
-      console.error("Failed to insert job:", error);
       setSubmitError(error ?? "Something went wrong. Please try again.");
-      return;
+      return false;
     }
+    return true;
+  }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitAttempted(true);
+    if (hasErrors) return;
+
+    setLoading(true);
+    const ok = await postJob("open");
+    setLoading(false);
+    if (!ok) return;
+
+    setPostedTitle(form.title.trim());
     setForm(INITIAL);
     setTouched({});
     setSubmitAttempted(false);
-    setSubmitted(true);
-    setTimeout(() => router.push("/agency/dashboard"), 2200);
+    setSubmitted("posted");
+    router.refresh();
+    setTimeout(() => router.push("/agency/jobs"), 2200);
   }
 
-  if (submitted) return <SuccessScreen title={form.title} />;
+  async function handleSaveDraft() {
+    if (!form.title.trim()) {
+      setSubmitError("A job title is required to save a draft.");
+      return;
+    }
+    setSavingDraft(true);
+    const ok = await postJob("draft");
+    setSavingDraft(false);
+    if (!ok) return;
+
+    setPostedTitle(form.title.trim());
+    setForm(INITIAL);
+    setTouched({});
+    setSubmitAttempted(false);
+    setSubmitted("draft");
+    router.refresh();
+    setTimeout(() => router.push("/agency/jobs"), 2200);
+  }
+
+  if (submitted) return <SuccessScreen title={postedTitle} draft={submitted === "draft"} />;
 
   return (
     <div className="max-w-5xl space-y-8">
@@ -447,6 +499,17 @@ export default function PostJobForm() {
                 </div>
               </div>
             </Field>
+            {/* Location */}
+            <Field label="Location" error={err("location")} hint="City, state, or 'Remote'">
+              <input
+                type="text"
+                value={form.location}
+                onChange={(e) => set("location", e.target.value)}
+                onBlur={() => touch("location")}
+                placeholder="e.g. Los Angeles, CA or Remote"
+                className={`${base} ${ring(!!err("location"))} px-4 py-3`}
+              />
+            </Field>
           </div>
 
           {/* Terms card */}
@@ -496,6 +559,64 @@ export default function PostJobForm() {
                 />
               </Field>
             </div>
+
+            {/* Gender + Age range */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <Field label="Gender" error={err("gender")}>
+                <div className="relative">
+                  <select
+                    value={form.gender}
+                    onChange={(e) => set("gender", e.target.value)}
+                    className={`${base} ${ring()} px-4 py-3 appearance-none pr-10 cursor-pointer capitalize`}
+                  >
+                    {GENDER_OPTIONS.map((g) => (
+                      <option key={g} value={g} className="capitalize">{g === "any" ? "Any gender" : g.charAt(0).toUpperCase() + g.slice(1)}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </Field>
+              <Field label="Min Age" error={err("age_min")}>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={form.age_min}
+                  onChange={(e) => set("age_min", e.target.value)}
+                  onBlur={() => touch("age_min")}
+                  placeholder="e.g. 18"
+                  className={`${base} ${ring(!!err("age_min"))} px-4 py-3`}
+                />
+              </Field>
+              <Field label="Max Age" error={err("age_max")}>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={form.age_max}
+                  onChange={(e) => set("age_max", e.target.value)}
+                  onBlur={() => touch("age_max")}
+                  placeholder="e.g. 35"
+                  className={`${base} ${ring(!!err("age_max"))} px-4 py-3`}
+                />
+              </Field>
+            </div>
+
+            {/* Talents required */}
+            <Field label="Talents Required" hint="How many talents do you need to cast for this job?">
+              <input
+                type="number"
+                min="1"
+                value={form.number_of_talents_required}
+                onChange={(e) => set("number_of_talents_required", e.target.value)}
+                placeholder="1"
+                className={`${base} ${ring()} px-4 py-3`}
+              />
+            </Field>
           </div>
 
           {/* Submit */}
@@ -524,10 +645,10 @@ export default function PostJobForm() {
               </div>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || savingDraft}
                 className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all duration-150 cursor-pointer"
               >
                 {loading ? (
@@ -550,7 +671,23 @@ export default function PostJobForm() {
               </button>
               <button
                 type="button"
-                disabled={loading}
+                disabled={loading || savingDraft}
+                onClick={handleSaveDraft}
+                className="inline-flex items-center gap-2 bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-[15px] font-medium px-5 py-3 rounded-xl transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {savingDraft ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Saving…
+                  </>
+                ) : "Save as Draft"}
+              </button>
+              <button
+                type="button"
+                disabled={loading || savingDraft}
                 onClick={() => router.push("/agency/dashboard")}
                 className="text-[15px] font-medium text-zinc-400 hover:text-zinc-700 px-4 py-3 rounded-xl hover:bg-zinc-50 transition-all duration-150 cursor-pointer disabled:opacity-40"
               >

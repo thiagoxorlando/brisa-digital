@@ -9,6 +9,7 @@ export type TalentJob = {
   budget: number;
   deadline: string;
   description: string;
+  applied?: boolean;
 };
 
 function usd(n: number) {
@@ -75,12 +76,21 @@ export default function TalentJobList({ jobs }: { jobs: TalentJob[] }) {
                     <span className="text-[13px] font-semibold text-emerald-600">{usd(job.budget)}</span>
                     <span className="text-[12px] text-zinc-400">Due {formatDate(job.deadline)}</span>
                   </div>
+                  {job.applied ? (
+                    <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Applied
+                    </span>
+                  ) : (
                   <Link
                     href={`/talent/jobs/${job.id}`}
                     className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-all duration-150 active:scale-[0.97]"
                   >
                     View Job
                   </Link>
+                  )}
                 </div>
               </div>
             </div>

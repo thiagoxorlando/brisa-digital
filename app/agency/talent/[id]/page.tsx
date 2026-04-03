@@ -21,7 +21,6 @@ export default async function AgencyTalentProfilePage({
     supabase
       .from("jobs")
       .select("id, title")
-      .eq("status", "open")
       .order("created_at", { ascending: false }),
   ]);
 

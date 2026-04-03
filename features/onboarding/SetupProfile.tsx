@@ -49,19 +49,37 @@ const AGENCY_DEFAULTS: AgencyForm = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const inputCls =
-  "w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors bg-white placeholder:text-zinc-400";
+const inputBase =
+  "w-full px-4 py-3 text-[14px] rounded-xl border hover:border-zinc-300 focus:outline-none transition-colors bg-white placeholder:text-zinc-400";
+
+const inputCls = `${inputBase} border-zinc-200 focus:border-zinc-900`;
+
+function inputErrCls(hasError: boolean) {
+  return `${inputBase} ${hasError ? "border-rose-300 focus:border-rose-400" : "border-zinc-200 focus:border-zinc-900"}`;
+}
 
 const labelCls = "block text-[12px] font-medium text-zinc-600 mb-1.5";
 
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <p className="flex items-center gap-1 text-[12px] text-rose-500 mt-1.5">
+      <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+      {msg}
+    </p>
+  );
+}
+
 function Field({
-  label, children, hint,
-}: { label: string; children: React.ReactNode; hint?: string }) {
+  label, children, hint, error,
+}: { label: string; children: React.ReactNode; hint?: string; error?: string }) {
   return (
     <div>
       <label className={labelCls}>{label}</label>
       {children}
-      {hint && <p className="text-[11px] text-zinc-400 mt-1">{hint}</p>}
+      {error ? <FieldError msg={error} /> : hint && <p className="text-[11px] text-zinc-400 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -106,15 +124,31 @@ function AvatarUpload({
 
 // ── Talent form ───────────────────────────────────────────────────────────────
 
+type TalentErrors = Partial<Record<keyof TalentForm, string>>;
+const BIO_MAX = 300;
+
+function validateTalent(form: TalentForm): TalentErrors {
+  const e: TalentErrors = {};
+  if (!form.fullName.trim()) e.fullName = "Full name is required.";
+  else if (form.fullName.trim().length < 2) e.fullName = "Name must be at least 2 characters.";
+  if (form.bio.length > BIO_MAX) e.bio = `Bio must be ${BIO_MAX} characters or fewer.`;
+  if (form.instagram && /[\s@]/.test(form.instagram)) e.instagram = "Enter handle without @ or spaces.";
+  if (form.tiktok && /[\s@]/.test(form.tiktok)) e.tiktok = "Enter handle without @ or spaces.";
+  return e;
+}
+
 function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void }) {
   const [form, setForm]       = useState<TalentForm>(TALENT_DEFAULTS);
+  const [errors, setErrors]   = useState<TalentErrors>({});
   const [avatar, setAvatar]   = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [serverError, setServerError] = useState("");
 
   function set(key: keyof TalentForm, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
+    const updated = { ...form, [key]: value };
+    setForm(updated);
+    setErrors(validateTalent(updated));
   }
 
   function toggleCategory(cat: string) {
@@ -133,26 +167,50 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.fullName.trim()) { setError("Full name is required."); return; }
-    setError("");
+    const errs = validateTalent(form);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    setServerError("");
     setLoading(true);
 
-    const { error: dbError } = await supabase.from("talent_profiles").upsert({
-      id:           userId,
-      full_name:    form.fullName.trim(),
-      phone:        form.phone.trim(),
-      country:      form.country.trim(),
-      city:         form.city.trim(),
-      bio:          form.bio.trim(),
-      categories:   form.categories,
-      instagram:    form.instagram.trim(),
-      tiktok:       form.tiktok.trim(),
-      youtube:      form.youtube.trim(),
-    }, { onConflict: "id" });
+    // Upload avatar if selected
+    let avatarUrl: string | undefined;
+    if (avatar) {
+      const ext = avatar.name.split(".").pop();
+      const formData = new FormData();
+      formData.append("file", avatar);
+      formData.append("path", `avatars/${userId}.${ext}`);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const json = await res.json();
+      if (!res.ok) {
+        setServerError("Photo upload failed: " + (json.error ?? "Unknown error"));
+        setLoading(false);
+        return;
+      }
+      avatarUrl = json.url;
+    }
+
+    const payload: Record<string, unknown> = {
+      id:         userId,
+      user_id:    userId,
+      full_name:  form.fullName.trim(),
+      phone:      form.phone.trim(),
+      country:    form.country.trim(),
+      city:       form.city.trim(),
+      bio:        form.bio.trim(),
+      categories: form.categories,
+      instagram:  form.instagram.trim(),
+      tiktok:     form.tiktok.trim(),
+      youtube:    form.youtube.trim(),
+    };
+    if (avatarUrl) payload.avatar_url = avatarUrl;
+
+    const { error: dbError } = await supabase
+      .from("talent_profiles")
+      .upsert(payload, { onConflict: "id" });
 
     if (dbError) {
-      console.error(dbError);
-      setError(dbError.message);
+      setServerError(dbError.message);
       setLoading(false);
       return;
     }
@@ -161,7 +219,7 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
 
       <Section title="Profile Photo">
         <AvatarUpload label="Photo" preview={preview} onChange={handleAvatar} />
@@ -169,9 +227,13 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
 
       <Section title="Personal Info">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Full Name *">
-            <input className={inputCls} placeholder="Sofia Mendes" value={form.fullName}
-              onChange={(e) => set("fullName", e.target.value)} />
+          <Field label="Full Name *" error={errors.fullName}>
+            <input
+              className={inputErrCls(!!errors.fullName)}
+              placeholder="Sofia Mendes"
+              value={form.fullName}
+              onChange={(e) => set("fullName", e.target.value)}
+            />
           </Field>
           <Field label="Phone Number">
             <input className={inputCls} placeholder="+55 11 99999-9999" value={form.phone}
@@ -186,9 +248,13 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
               onChange={(e) => set("city", e.target.value)} />
           </Field>
         </div>
-        <Field label="Bio" hint="Tell agencies what makes you unique.">
+        <Field
+          label={`Bio — ${form.bio.length}/${BIO_MAX}`}
+          hint="Tell agencies what makes you unique."
+          error={errors.bio}
+        >
           <textarea
-            rows={4} className={`${inputCls} resize-none`}
+            rows={4} className={`${inputErrCls(!!errors.bio)} resize-none`}
             placeholder="I'm a lifestyle creator based in São Paulo…"
             value={form.bio} onChange={(e) => set("bio", e.target.value)}
           />
@@ -217,18 +283,26 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
       </Section>
 
       <Section title="Social Links">
-        <Field label="Instagram">
+        <Field label="Instagram" error={errors.instagram}>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
-            <input className={`${inputCls} pl-8`} placeholder="yourhandle" value={form.instagram}
-              onChange={(e) => set("instagram", e.target.value)} />
+            <input
+              className={`${inputErrCls(!!errors.instagram)} pl-8`}
+              placeholder="yourhandle"
+              value={form.instagram}
+              onChange={(e) => set("instagram", e.target.value)}
+            />
           </div>
         </Field>
-        <Field label="TikTok">
+        <Field label="TikTok" error={errors.tiktok}>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
-            <input className={`${inputCls} pl-8`} placeholder="yourhandle" value={form.tiktok}
-              onChange={(e) => set("tiktok", e.target.value)} />
+            <input
+              className={`${inputErrCls(!!errors.tiktok)} pl-8`}
+              placeholder="yourhandle"
+              value={form.tiktok}
+              onChange={(e) => set("tiktok", e.target.value)}
+            />
           </div>
         </Field>
         <Field label="YouTube">
@@ -237,10 +311,13 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
         </Field>
       </Section>
 
-      {error && (
-        <p className="text-[13px] text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
-          {error}
-        </p>
+      {serverError && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3.5">
+          <svg className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <p className="text-[13px] text-rose-600">{serverError}</p>
+        </div>
       )}
 
       <button
@@ -255,15 +332,28 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
 
 // ── Agency form ───────────────────────────────────────────────────────────────
 
+type AgencyErrors = Partial<Record<keyof AgencyForm, string>>;
+
+function validateAgency(form: AgencyForm): AgencyErrors {
+  const e: AgencyErrors = {};
+  if (!form.companyName.trim()) e.companyName = "Company name is required.";
+  else if (form.companyName.trim().length < 2) e.companyName = "Must be at least 2 characters.";
+  if (form.description.length > 500) e.description = "Description must be 500 characters or fewer.";
+  return e;
+}
+
 function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void }) {
   const [form, setForm]       = useState<AgencyForm>(AGENCY_DEFAULTS);
+  const [errors, setErrors]   = useState<AgencyErrors>({});
   const [logo, setLogo]       = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [serverError, setServerError] = useState("");
 
   function set(key: keyof AgencyForm, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
+    const updated = { ...form, [key]: value };
+    setForm(updated);
+    setErrors(validateAgency(updated));
   }
 
   function handleLogo(file: File) {
@@ -273,8 +363,10 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.companyName.trim()) { setError("Company name is required."); return; }
-    setError("");
+    const errs = validateAgency(form);
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    setServerError("");
     setLoading(true);
 
     const { error: dbError } = await supabase.from("agencies").upsert({
@@ -289,8 +381,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
     }, { onConflict: "id" });
 
     if (dbError) {
-      console.error(dbError);
-      setError(dbError.message);
+      setServerError(dbError.message);
       setLoading(false);
       return;
     }
@@ -299,7 +390,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
 
       <Section title="Company Logo">
         <AvatarUpload label="Logo" preview={preview} onChange={handleLogo} />
@@ -307,9 +398,13 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
 
       <Section title="Company Info">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Company Name *">
-            <input className={inputCls} placeholder="Spark Agency" value={form.companyName}
-              onChange={(e) => set("companyName", e.target.value)} />
+          <Field label="Company Name *" error={errors.companyName}>
+            <input
+              className={inputErrCls(!!errors.companyName)}
+              placeholder="Spark Agency"
+              value={form.companyName}
+              onChange={(e) => set("companyName", e.target.value)}
+            />
           </Field>
           <Field label="Contact Name">
             <input className={inputCls} placeholder="Carlos Rodrigues" value={form.contactName}
@@ -332,19 +427,26 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
               onChange={(e) => set("city", e.target.value)} />
           </Field>
         </div>
-        <Field label="Company Description" hint="What does your agency do?">
+        <Field
+          label={`Company Description — ${form.description.length}/500`}
+          hint="What does your agency do?"
+          error={errors.description}
+        >
           <textarea
-            rows={4} className={`${inputCls} resize-none`}
+            rows={4} className={`${inputErrCls(!!errors.description)} resize-none`}
             placeholder="We connect top creators with leading brands across Latin America…"
             value={form.description} onChange={(e) => set("description", e.target.value)}
           />
         </Field>
       </Section>
 
-      {error && (
-        <p className="text-[13px] text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
-          {error}
-        </p>
+      {serverError && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3.5">
+          <svg className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <p className="text-[13px] text-rose-600">{serverError}</p>
+        </div>
       )}
 
       <button

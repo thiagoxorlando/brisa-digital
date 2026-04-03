@@ -17,7 +17,14 @@ const pageMeta: Record<string, { title: string; description: string }> = {
   "/talent/profile":   { title: "Profile",    description: "Manage your talent profile" },
   "/agency/finances":  { title: "Finances",   description: "Revenue, payments and commissions" },
   "/talent/finances":  { title: "Finances",   description: "Your earnings and payment history" },
-  "/agency/talent":    { title: "Talent",     description: "Browse and discover talent" },
+  "/admin/dashboard":  { title: "Dashboard",  description: "Platform-wide overview" },
+  "/admin/jobs":       { title: "Jobs",       description: "All jobs across the platform" },
+  "/admin/users":      { title: "Users",      description: "Manage agencies and talent" },
+  "/admin/bookings":   { title: "Bookings",   description: "All bookings across the platform" },
+  "/admin/finances":   { title: "Finances",   description: "Platform revenue and commissions" },
+  "/admin/contracts":  { title: "Contracts",  description: "All platform contracts" },
+  "/agency/contracts": { title: "Contracts",  description: "Manage your talent contracts" },
+  "/talent/contracts": { title: "Contracts",  description: "Your contracts and agreements" },
 };
 
 type TopbarProps = {
@@ -26,7 +33,7 @@ type TopbarProps = {
 
 export default function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname();
-  const { displayName, email, initials, loading } = useUserProfile();
+  const { displayName, email, initials, avatarUrl, loading } = useUserProfile();
 
   const meta = pageMeta[pathname] ?? { title: "", description: "" };
 
@@ -66,8 +73,14 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
 
         {/* User */}
         <div className="flex items-center gap-2 pl-1 py-1 pr-2.5">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
-            {loading ? "…" : initials}
+          <div className="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden">
+            {!loading && avatarUrl ? (
+              <img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">
+                {loading ? "…" : initials}
+              </div>
+            )}
           </div>
           <div className="hidden md:block text-left">
             <p className="text-[12px] font-semibold text-zinc-900 leading-none truncate max-w-[140px]">

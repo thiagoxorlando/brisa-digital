@@ -1,10 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type DashboardBooking = {
+type DashboardBooking = {
   id: string;
-  talentName: string;
+  jobTitle: string;
   status: string;
   price: number;
   createdAt: string;
@@ -28,21 +32,21 @@ function formatDate(s: string) {
 // ── Status config ─────────────────────────────────────────────────────────────
 
 const BOOKING_STATUS: Record<string, string> = {
-  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  confirmed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
   pending:   "bg-amber-50  text-amber-700  ring-1 ring-amber-100",
-  disputed:  "bg-rose-50   text-rose-600   ring-1 ring-rose-100",
+  cancelled: "bg-zinc-100  text-zinc-500   ring-1 ring-zinc-200",
 };
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
 function StatCard({
-  label, value, sub, stripe, icon,
+  label, value, sub, stripe, icon, href,
 }: {
   label: string; value: string; sub: string;
-  stripe: string; icon: React.ReactNode;
+  stripe: string; icon: React.ReactNode; href?: string;
 }) {
-  return (
-    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+  const inner = (
+    <>
       <div className={`h-[3px] bg-gradient-to-r ${stripe}`} />
       <div className="p-6 flex items-start gap-4">
         <div className="w-9 h-9 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center flex-shrink-0">
@@ -54,22 +58,70 @@ function StatCard({
           {sub && <p className="text-[12px] text-zinc-400 mt-1.5 font-medium">{sub}</p>}
         </div>
       </div>
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className="block bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden hover:shadow-[0_4px_12px_rgba(0,0,0,0.07)] hover:border-zinc-200 transition-all duration-150">
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+      {inner}
     </div>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function TalentDashboard({
-  bookings,
-  submissionsCount,
-}: {
-  bookings: DashboardBooking[];
-  submissionsCount: number;
-}) {
+export default function TalentDashboard() {
+  const [bookings, setBookings]             = useState<DashboardBooking[]>([]);
+  const [submissionsCount, setSubmissionsCount] = useState(0);
+  const [loading, setLoading]               = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { setLoading(false); return; }
+
+      Promise.all([
+        supabase
+          .from("bookings")
+          .select("id, job_title, status, price, created_at")
+          .eq("talent_user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("talent_user_id", user.id),
+      ]).then(([{ data: bookingsData }, { count }]) => {
+        setBookings(
+          (bookingsData ?? []).map((b) => ({
+            id:        b.id,
+            jobTitle:  b.job_title  ?? "Booking",
+            status:    b.status     ?? "pending",
+            price:     b.price      ?? 0,
+            createdAt: b.created_at ?? "",
+          }))
+        );
+        setSubmissionsCount(count ?? 0);
+        setLoading(false);
+      });
+    });
+  }, []);
+
   const earnings = bookings
-    .filter((b) => b.status === "completed")
+    .filter((b) => b.status === "confirmed")
     .reduce((sum, b) => sum + b.price, 0);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="w-5 h-5 rounded-full border-2 border-zinc-200 border-t-zinc-900 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl space-y-8">
@@ -90,6 +142,7 @@ export default function TalentDashboard({
           label="Applications"
           value={String(submissionsCount)}
           sub="Jobs applied to"
+          href="/talent/jobs"
           stripe="from-sky-400 to-blue-500"
           icon={
             <svg className="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,6 +155,7 @@ export default function TalentDashboard({
           label="Bookings"
           value={String(bookings.length)}
           sub="All time"
+          href="/talent/bookings"
           stripe="from-violet-400 to-purple-500"
           icon={
             <svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,7 +167,8 @@ export default function TalentDashboard({
         <StatCard
           label="Earnings"
           value={usd(earnings)}
-          sub="Completed bookings"
+          sub="Confirmed bookings"
+          href="/talent/finances"
           stripe="from-emerald-400 to-teal-500"
           icon={
             <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,7 +197,7 @@ export default function TalentDashboard({
               return (
                 <div key={b.id} className="flex items-center gap-4 px-6 py-4 hover:bg-zinc-50/60 transition-colors">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-zinc-900 truncate">{b.talentName}</p>
+                    <p className="text-[14px] font-semibold text-zinc-900 truncate">{b.jobTitle}</p>
                     <p className="text-[12px] text-zinc-400 mt-0.5">{formatDate(b.createdAt)}</p>
                   </div>
                   <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${statusCls}`}>

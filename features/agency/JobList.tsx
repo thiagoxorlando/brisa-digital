@@ -2,9 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { Job } from "@/lib/mockData";
+import { useRouter } from "next/navigation";
 
-type JobStatus = "open" | "closed" | "draft" | "inactive" | "deleted";
+export type Job = {
+  id: string;
+  title: string;
+  category: string;
+  budget: number;
+  deadline: string;
+  description: string;
+  status: "open" | "closed" | "draft" | "inactive";
+  applicants: number;
+  postedAt: string;
+};
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,9 +41,10 @@ function daysUntil(raw: string) {
 }
 
 const STATUS_STYLES: Record<Job["status"], string> = {
-  open:   "bg-emerald-50 text-emerald-600",
-  closed: "bg-zinc-100 text-zinc-500",
-  draft:  "bg-amber-50 text-amber-600",
+  open:     "bg-emerald-50 text-emerald-600",
+  closed:   "bg-zinc-100 text-zinc-500",
+  draft:    "bg-amber-50 text-amber-600",
+  inactive: "bg-zinc-100 text-zinc-400",
 };
 
 const CATEGORY_STRIPES: Record<string, string> = {
@@ -56,11 +68,12 @@ function stripe(category: string) {
 
 // ─── Job Card ─────────────────────────────────────────────────────────────────
 
-function JobCard({ job, onUpdate, onDelete }: {
+function JobCard({ job, onUpdate, onRemove }: {
   job: Job;
   onUpdate: (id: string, patch: Partial<Job>) => void;
-  onDelete: (id: string) => void;
+  onRemove: (id: string) => void;
 }) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen]     = useState(false);
   const [deleting, setDeleting]     = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
@@ -77,14 +90,25 @@ function JobCard({ job, onUpdate, onDelete }: {
       body: JSON.stringify({ status: newStatus }),
     });
     setStatusBusy(false);
-    if (res.ok) onUpdate(job.id, { status: newStatus });
+    if (res.ok) {
+      onUpdate(job.id, { status: newStatus });
+      router.refresh();
+    }
   }
 
   async function handleDelete() {
+    if (!confirm(`Permanently delete "${job.title}" and all its submissions? This cannot be undone.`)) return;
     setDeleting(true);
-    const res = await fetch(`/api/jobs/${job.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/jobs/${job.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hard: true }),
+    });
     setDeleting(false);
-    if (res.ok) onDelete(job.id);
+    if (res.ok) {
+      onRemove(job.id);
+      router.refresh();
+    }
   }
 
   return (
@@ -217,7 +241,7 @@ function JobCard({ job, onUpdate, onDelete }: {
 
 // ─── Filter bar ───────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS = ["All", "Open", "Draft", "Closed"] as const;
+const STATUS_OPTIONS = ["All", "Open", "Draft", "Closed", "Inactive"] as const;
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -230,11 +254,11 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
     setJobs((prev) => prev.map((j) => j.id === id ? { ...j, ...patch } : j));
   }
 
-  function handleDelete(id: string) {
+  function handleRemove(id: string) {
     setJobs((prev) => prev.filter((j) => j.id !== id));
   }
 
-  const filtered = jobs.filter((j) => {
+const filtered = jobs.filter((j) => {
     const matchSearch =
       j.title.toLowerCase().includes(search.toLowerCase()) ||
       j.category.toLowerCase().includes(search.toLowerCase());
@@ -305,7 +329,7 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map((job) => (
-            <JobCard key={job.id} job={job} onUpdate={handleUpdate} onDelete={handleDelete} />
+            <JobCard key={job.id} job={job} onUpdate={handleUpdate} onRemove={handleRemove} />
           ))}
         </div>
       ) : (
