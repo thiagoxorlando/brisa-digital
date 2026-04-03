@@ -79,6 +79,15 @@ export async function PATCH(
         "/talent/bookings"
       );
     }
+
+    if (booking?.agency_id) {
+      await notify(
+        booking.agency_id,
+        "booking_cancelled",
+        `Booking for "${jobTitle}" has been cancelled.`,
+        "/agency/bookings"
+      );
+    }
   }
 
   // Notify talent on other status changes from agency

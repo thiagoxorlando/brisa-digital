@@ -17,16 +17,27 @@ export type AdminBooking = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  confirmed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  pending:   "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  cancelled: "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
-  disputed:  "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
+  pending:         "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
+  pending_payment: "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  paid:            "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  confirmed:       "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  cancelled:       "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
+  disputed:        "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  pending:         "Awaiting Signature",
+  pending_payment: "Pending Payment",
+  paid:            "Paid",
+  confirmed:       "Paid",
+  cancelled:       "Cancelled",
 };
 
 const CONTRACT_STYLES: Record<string, string> = {
-  sent:     "bg-amber-50 text-amber-700",
+  sent:     "bg-violet-50  text-violet-700",
+  signed:   "bg-emerald-50 text-emerald-700",
   accepted: "bg-emerald-50 text-emerald-700",
-  rejected: "bg-rose-50 text-rose-600",
+  rejected: "bg-rose-50    text-rose-600",
 };
 
 const STATUS_FALLBACK = "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
@@ -63,8 +74,8 @@ export default function AdminBookings({ bookings }: { bookings: AdminBooking[] }
     });
 
   const totalValue     = filtered.reduce((s, b) => s + b.price, 0);
-  const confirmed      = filtered.filter((b) => b.status === "confirmed");
-  const confirmedValue = confirmed.reduce((s, b) => s + b.price, 0);
+  const paid           = filtered.filter((b) => b.status === "paid" || b.status === "confirmed");
+  const confirmedValue = paid.reduce((s, b) => s + b.price, 0);
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -79,10 +90,10 @@ export default function AdminBookings({ bookings }: { bookings: AdminBooking[] }
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total",     value: usd(totalValue),     stripe: "from-zinc-400 to-zinc-600"    },
-          { label: "Confirmed", value: usd(confirmedValue), stripe: "from-emerald-400 to-teal-500" },
-          { label: "Pending",   value: String(filtered.filter((b) => b.status === "pending").length),   stripe: "from-amber-400 to-orange-500" },
-          { label: "Cancelled", value: String(filtered.filter((b) => b.status === "cancelled").length), stripe: "from-zinc-300 to-zinc-400"    },
+          { label: "Total",           value: usd(totalValue),     stripe: "from-zinc-400 to-zinc-600"    },
+          { label: "Paid",            value: usd(confirmedValue), stripe: "from-emerald-400 to-teal-500" },
+          { label: "Pending Payment", value: String(filtered.filter((b) => b.status === "pending_payment").length), stripe: "from-amber-400 to-orange-500" },
+          { label: "Cancelled",       value: String(filtered.filter((b) => b.status === "cancelled").length),       stripe: "from-zinc-300 to-zinc-400"    },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className={`h-[3px] bg-gradient-to-r ${s.stripe}`} />
@@ -115,7 +126,7 @@ export default function AdminBookings({ bookings }: { bookings: AdminBooking[] }
           />
         </div>
         <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start">
-          {(["all", "confirmed", "pending", "cancelled"] as const).map((s) => (
+          {(["all", "pending", "pending_payment", "paid", "cancelled"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -124,7 +135,7 @@ export default function AdminBookings({ bookings }: { bookings: AdminBooking[] }
                 statusFilter === s ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700",
               ].join(" ")}
             >
-              {s}
+              {{ all: "All", pending: "Awaiting Sig.", pending_payment: "Pending Payment", paid: "Paid", cancelled: "Cancelled" }[s]}
             </button>
           ))}
         </div>
@@ -152,8 +163,8 @@ export default function AdminBookings({ bookings }: { bookings: AdminBooking[] }
                 const ctCls    = b.contractStatus ? (CONTRACT_STYLES[b.contractStatus] ?? "bg-zinc-100 text-zinc-500") : null;
                 const isExp    = expanded === b.id;
 
-                // Payment status: confirmed = paid, else pending
-                const paymentStatus   = b.status === "confirmed" ? "paid" : "pending";
+                // Payment status
+                const paymentStatus = (b.status === "paid" || b.status === "confirmed") ? "paid" : "pending";
                 const paymentCls      = paymentStatus === "paid"
                   ? "bg-emerald-50 text-emerald-700"
                   : "bg-amber-50 text-amber-700";
@@ -177,8 +188,8 @@ export default function AdminBookings({ bookings }: { bookings: AdminBooking[] }
                         <span className="text-[13px] text-zinc-500">{b.agencyName}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${stCls}`}>
-                          {b.status}
+                        <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full ${stCls}`}>
+                          {STATUS_LABEL[b.status] ?? b.status.replace("_", " ")}
                         </span>
                       </td>
                       <td className="px-4 py-4 hidden sm:table-cell">

@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     if (talentProfiles?.length) {
       const talentIds = talentProfiles.map((p) => p.id);
-      await notify(talentIds, "new_job", `New job posted: "${title ?? "Untitled"}"`);
+      await notify(talentIds, "new_job", `New job posted: "${title ?? "Untitled"}"`, `/talent/jobs/${data.id}`);
     }
   }
 
