@@ -189,17 +189,6 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
   return (
     <div className="max-w-7xl space-y-6">
 
-      {/* ── Header ── */}
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Roster</p>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Talent</h1>
-        </div>
-        <p className="text-[13px] text-zinc-400 pb-1">
-          {filtered.length} of {talent.length}
-        </p>
-      </div>
-
       {/* ── Search + filter toggle ── */}
       <div className="flex gap-3">
         <div className="relative flex-1">
