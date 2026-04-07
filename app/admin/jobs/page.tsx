@@ -10,7 +10,7 @@ export default async function AdminJobsPage() {
   const [{ data: jobsData }, { data: agenciesData }, { data: submissionsData }] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, title, category, budget, deadline, created_at, agency_id, status")
+      .select("id, title, category, budget, deadline, created_at, agency_id, status, description, location, gender, age_min, age_max, job_date")
       .order("created_at", { ascending: false }),
     supabase.from("agencies").select("id, company_name"),
     supabase.from("submissions").select("job_id"),
@@ -28,14 +28,20 @@ export default async function AdminJobsPage() {
 
   const jobs = (jobsData ?? []).map((j) => ({
     id:              j.id,
-    title:           j.title      ?? "Untitled",
-    category:        j.category   ?? null,
-    budget:          j.budget     ?? null,
-    deadline:        j.deadline   ?? null,
-    created_at:      j.created_at ?? "",
-    status:          j.status     ?? "open",
+    title:           j.title       ?? "Untitled",
+    category:        j.category    ?? null,
+    budget:          j.budget      ?? null,
+    deadline:        j.deadline    ?? null,
+    created_at:      j.created_at  ?? "",
+    status:          j.status      ?? "open",
     agencyName:      j.agency_id ? (agencyMap.get(j.agency_id) ?? "Unknown Agency") : "—",
     submissionCount: submissionCountMap.get(j.id) ?? 0,
+    description:     j.description ?? null,
+    location:        j.location    ?? null,
+    gender:          j.gender      ?? null,
+    ageMin:          j.age_min     ?? null,
+    ageMax:          j.age_max     ?? null,
+    jobDate:         j.job_date    ?? null,
   }));
 
   return <AdminJobs jobs={jobs} />;

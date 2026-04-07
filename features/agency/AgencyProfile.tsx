@@ -9,14 +9,18 @@ type Props = {
   avatarUrl: string | null;
   email: string;
   subscriptionStatus: string;
+  phone: string;
+  address: string;
 };
 
-export default function AgencyProfile({ userId, companyName, avatarUrl, email, subscriptionStatus }: Props) {
+export default function AgencyProfile({ userId, companyName, avatarUrl, email, subscriptionStatus, phone: initialPhone, address: initialAddress }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName]           = useState(companyName);
   const [avatar, setAvatar]       = useState(avatarUrl ?? "");
+  const [phone, setPhone]         = useState(initialPhone);
+  const [address, setAddress]     = useState(initialAddress);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null);
@@ -62,6 +66,8 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
       body: JSON.stringify({
         company_name: name.trim(),
         avatar_url:   avatar || null,
+        phone:        phone.trim() || null,
+        address:      address.trim() || null,
       }),
     });
 
@@ -175,6 +181,28 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-100 bg-zinc-50 text-zinc-400 cursor-not-allowed"
           />
           <p className="text-[11px] text-zinc-400 mt-1.5">Email cannot be changed here.</p>
+        </div>
+
+        <div>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Phone</label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+1 555 000 0000"
+            className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Address</label>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="123 Main St, City, Country"
+            className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
+          />
         </div>
 
         <button

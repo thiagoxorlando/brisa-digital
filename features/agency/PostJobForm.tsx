@@ -13,6 +13,7 @@ type FormData = {
   category: string;
   budget: string;
   deadline: string;
+  job_date: string;
   location: string;
   gender: string;
   age_min: string;
@@ -47,6 +48,7 @@ const INITIAL: FormData = {
   category: "",
   budget: "",
   deadline: "",
+  job_date: "",
   location: "",
   gender: "any",
   age_min: "",
@@ -346,6 +348,7 @@ export default function PostJobForm() {
         category: form.category,
         budget: Number(form.budget),
         deadline: form.deadline,
+        job_date: form.job_date || null,
         agency_id: user.id,
         location: form.location.trim() || null,
         gender: form.gender !== "any" ? form.gender : null,
@@ -556,6 +559,19 @@ export default function PostJobForm() {
                   onBlur={() => touch("deadline")}
                   min={new Date().toISOString().split("T")[0]}
                   className={`${base} ${ring(!!err("deadline"))} px-4 py-3`}
+                />
+              </Field>
+
+              {/* Job Date */}
+              <Field
+                label="Job Date"
+                hint="When the actual job takes place"
+              >
+                <input
+                  type="date"
+                  value={form.job_date}
+                  onChange={(e) => set("job_date", e.target.value)}
+                  className={`${base} ${ring()} px-4 py-3`}
                 />
               </Field>
             </div>

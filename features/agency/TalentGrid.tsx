@@ -105,7 +105,10 @@ function TalentCard({ talent, onClick }: { talent: Talent; onClick: () => void }
 
       {/* Bottom info strip */}
       <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 bg-gradient-to-t from-black/70 to-transparent">
-        <p className="text-[13px] font-semibold text-white leading-snug truncate">{name}</p>
+        <p className="text-[13px] font-semibold text-white leading-snug truncate">
+          {name}
+          {talent.age && <span className="ml-1.5 text-[11px] font-normal text-white/60">{talent.age}y</span>}
+        </p>
         {(talent.city || talent.country) && (
           <p className="text-[11px] text-white/60 truncate mt-0.5">
             {[talent.city, talent.country].filter(Boolean).join(", ")}

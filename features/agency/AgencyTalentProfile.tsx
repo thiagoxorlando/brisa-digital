@@ -78,18 +78,10 @@ export default function AgencyTalentProfile({
     setAttaching(true);
     setAttachError("");
 
-    const job = jobs.find((j) => j.id === selectedJob);
-
-    const res = await fetch("/api/submissions", {
+    const res = await fetch("/api/jobs/invite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        job_id:    selectedJob,
-        talent_id: talent.id,
-        email:     "",
-        bio:       talent.bio ?? "",
-        mode:      "other",
-      }),
+      body: JSON.stringify({ job_id: selectedJob, talent_ids: [talent.id] }),
     });
 
     setAttaching(false);
@@ -97,10 +89,9 @@ export default function AgencyTalentProfile({
     if (res.ok) {
       setAttached(true);
       setShowJobDropdown(false);
-      router.refresh();
     } else {
-      const d = await res.json();
-      setAttachError(d.error ?? "Failed to attach talent");
+      const d = await res.json().catch(() => ({}));
+      setAttachError(d.error ?? "Failed to send invite");
     }
   }
 
@@ -221,7 +212,7 @@ export default function AgencyTalentProfile({
               <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-[13px] text-emerald-700 font-medium">Talent attached to job successfully</p>
+              <p className="text-[13px] text-emerald-700 font-medium">Job invite sent to talent</p>
             </div>
           ) : showJobDropdown ? (
             <div className="space-y-2">

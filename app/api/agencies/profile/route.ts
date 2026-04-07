@@ -10,11 +10,13 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { company_name, avatar_url } = await req.json();
+  const { company_name, avatar_url, phone, address } = await req.json();
 
-  const updates: Record<string, string> = {};
+  const updates: Record<string, string | null> = {};
   if (company_name !== undefined) updates.company_name = company_name;
-  if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+  if (avatar_url   !== undefined) updates.avatar_url   = avatar_url;
+  if (phone        !== undefined) updates.phone        = phone;
+  if (address      !== undefined) updates.address      = address;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

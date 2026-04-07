@@ -15,71 +15,165 @@ type Booking = {
   location: string | null;
   job_date: string | null;
   contract_id: string | null;
-  contract_status: string | null; // sent | signed | rejected | null
+  contract_status: string | null;
 };
 
-// Derive the display state from booking + contract
-type DisplayState =
-  | "pending_signature"  // contract sent, not signed yet
-  | "pending_payment"    // contract signed, waiting agency to pay
-  | "paid"               // agency paid
-  | "confirmed"          // legacy confirmed
-  | "cancelled"
-  | "other";
-
-function getDisplayState(b: Booking): DisplayState {
+function getSection(b: Booking): "signature" | "payment" | "paid" | "completed" | "cancelled" | "other" {
   if (b.status === "cancelled") return "cancelled";
-  if (b.status === "paid")     return "paid";
-  if (b.status === "pending_payment") return "pending_payment";
-  if (b.status === "confirmed") return "confirmed";
-  // pending booking + contract sent but not signed → pending_signature
-  if (b.status === "pending" && b.contract_status === "sent") return "pending_signature";
+  if (b.status === "paid")      return "paid";
+  if (b.status === "confirmed") return "completed";
+  if (b.status === "pending_payment") return "payment";
+  if (b.status === "pending" && b.contract_status === "sent") return "signature";
   return "other";
 }
 
-const STATUS_LABEL: Record<DisplayState, string> = {
-  pending_signature: "Pending Signature",
-  pending_payment:   "Pending Payment",
-  paid:              "Paid",
-  confirmed:         "Confirmed",
-  cancelled:         "Cancelled",
-  other:             "Pending",
+const SECTION_LABEL: Record<string, string> = {
+  signature: "Waiting Signature",
+  payment:   "Pending Payment",
+  paid:      "Paid",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  other:     "Pending",
 };
 
-const STATUS_CLS: Record<DisplayState, string> = {
-  pending_signature: "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
-  pending_payment:   "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  paid:              "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  confirmed:         "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  cancelled:         "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
-  other:             "bg-zinc-100   text-zinc-400    ring-1 ring-zinc-200",
+const SECTION_CLS: Record<string, string> = {
+  signature: "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
+  payment:   "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  paid:      "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  cancelled: "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
+  other:     "bg-zinc-100   text-zinc-400    ring-1 ring-zinc-200",
 };
 
 function usd(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(n);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
-
 function formatDate(s: string | null) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  });
+  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function formatJobDate(s: string | null) {
+  if (!s) return null;
+  return new Date(s + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
-function formatJobDate(s: string | null) {
-  if (!s) return "—";
-  return new Date(s + "T00:00:00").toLocaleDateString("en-US", {
-    weekday: "short", month: "short", day: "numeric", year: "numeric",
-  });
+function BookingCard({ booking: b, onCancel, cancelling }: {
+  booking: Booking;
+  onCancel: (id: string) => void;
+  cancelling: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const section  = getSection(b);
+  const label    = SECTION_LABEL[section];
+  const stCls    = SECTION_CLS[section];
+  const canCancel = b.status !== "cancelled" && b.status !== "paid" && b.status !== "confirmed";
+  const jobDate   = formatJobDate(b.job_date);
+
+  return (
+    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.03)] overflow-hidden">
+      {/* Header row */}
+      <div
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-4 px-6 py-4 hover:bg-zinc-50/60 transition-colors cursor-pointer"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-semibold text-zinc-900 truncate">{b.job_title}</p>
+          <p className="text-[12px] text-zinc-400 mt-0.5">
+            {jobDate ?? formatDate(b.created_at)}
+          </p>
+        </div>
+        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${stCls}`}>
+          {label}
+        </span>
+        <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0 min-w-[60px] text-right">
+          {b.price > 0 ? usd(b.price) : "—"}
+        </p>
+        <svg className={`w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+
+      {/* Expanded */}
+      {open && (
+        <div className="bg-zinc-50/80 px-6 py-4 border-t border-zinc-100 space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[12px]">
+            <div>
+              <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Deal Value</p>
+              <p className="text-zinc-700 font-semibold">{b.price > 0 ? usd(b.price) : "—"}</p>
+              <p className="text-zinc-400 mt-0.5">You receive {b.price > 0 ? usd(Math.round(b.price * 0.85)) : "—"}</p>
+            </div>
+            <div>
+              <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Job Date</p>
+              <p className="text-zinc-700">{jobDate ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Location</p>
+              <p className="text-zinc-700">{b.location ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Booked</p>
+              <p className="text-zinc-700">{formatDate(b.created_at)}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap pt-1">
+            {section === "signature" && b.contract_id && (
+              <Link
+                href="/talent/contracts"
+                className="inline-flex items-center gap-2 text-[12px] font-semibold px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Sign Contract
+              </Link>
+            )}
+            {canCancel && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onCancel(b.id); }}
+                disabled={cancelling === b.id}
+                className="inline-flex items-center gap-2 text-[12px] font-semibold px-3.5 py-2 rounded-lg bg-white border border-zinc-200 hover:border-rose-200 hover:bg-rose-50 text-zinc-600 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {cancelling === b.id ? "Cancelling…" : "Cancel Booking"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionBlock({ title, bookings, badge, onCancel, cancelling }: {
+  title: string; bookings: Booking[]; badge?: string;
+  onCancel: (id: string) => void; cancelling: string | null;
+}) {
+  if (bookings.length === 0) return null;
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h2 className="text-[13px] font-semibold text-zinc-700">{title}</h2>
+        {badge && (
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge}`}>
+            {bookings.length}
+          </span>
+        )}
+      </div>
+      <div className="space-y-2">
+        {bookings.map((b) => (
+          <BookingCard key={b.id} booking={b} onCancel={onCancel} cancelling={cancelling} />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export default function TalentBookings() {
   const router = useRouter();
   const [bookings, setBookings]     = useState<Booking[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [expanded, setExpanded]     = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [toast, setToast]           = useState<{ msg: string; ok: boolean } | null>(null);
 
@@ -100,22 +194,9 @@ export default function TalentBookings() {
           .eq("talent_id", user.id),
       ]);
 
-      // Map job_id → latest contract for this talent
-      const contractMap = new Map<string, {
-        id: string;
-        status: string;
-        location: string | null;
-        job_date: string | null;
-      }>();
+      const contractMap = new Map<string, { id: string; status: string; location: string | null; job_date: string | null }>();
       for (const c of contractsData ?? []) {
-        if (c.job_id) {
-          contractMap.set(c.job_id, {
-            id:       c.id,
-            status:   c.status,
-            location: c.location,
-            job_date: c.job_date,
-          });
-        }
+        if (c.job_id) contractMap.set(c.job_id, { id: c.id, status: c.status, location: c.location, job_date: c.job_date });
       }
 
       setBookings(
@@ -159,9 +240,15 @@ export default function TalentBookings() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  return (
-    <div className="max-w-3xl space-y-6">
+  const signature = bookings.filter((b) => getSection(b) === "signature");
+  const payment   = bookings.filter((b) => getSection(b) === "payment");
+  const paid      = bookings.filter((b) => getSection(b) === "paid");
+  const completed = bookings.filter((b) => getSection(b) === "completed");
+  const cancelled = bookings.filter((b) => getSection(b) === "cancelled");
+  const other     = bookings.filter((b) => getSection(b) === "other");
 
+  return (
+    <div className="max-w-3xl space-y-8">
       {toast && (
         <div className={[
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-[13px] font-medium text-white",
@@ -174,6 +261,9 @@ export default function TalentBookings() {
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Activity</p>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">My Bookings</h1>
+        {!loading && (
+          <p className="text-[13px] text-zinc-400 mt-1">{bookings.length} total</p>
+        )}
       </div>
 
       {loading ? (
@@ -186,107 +276,14 @@ export default function TalentBookings() {
           <p className="text-[13px] text-zinc-400 mt-1">Apply for jobs to get booked.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
-          {bookings.map((b) => {
-            const state     = getDisplayState(b);
-            const label     = STATUS_LABEL[state];
-            const stCls     = STATUS_CLS[state];
-            const isExp     = expanded === b.id;
-            const canCancel = b.status !== "cancelled" && b.status !== "paid";
-
-            return (
-              <div key={b.id}>
-                {/* Row */}
-                <div
-                  onClick={() => setExpanded(isExp ? null : b.id)}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-zinc-50/60 transition-colors cursor-pointer"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-zinc-900 truncate">{b.job_title}</p>
-                    <p className="text-[12px] text-zinc-400 mt-0.5">
-                      {b.job_date ? formatJobDate(b.job_date) : formatDate(b.created_at)}
-                    </p>
-                  </div>
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${stCls}`}>
-                    {label}
-                  </span>
-                  <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0 min-w-[64px] text-right">
-                    {b.price > 0 ? usd(b.price) : "—"}
-                  </p>
-                  <svg className={`w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform ${isExp ? "rotate-180" : ""}`}
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-
-                {/* Expanded detail */}
-                {isExp && (
-                  <div className="bg-zinc-50/80 px-6 py-4 border-t border-zinc-100 space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[12px]">
-                      <div>
-                        <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Payment</p>
-                        <p className="text-zinc-700 font-semibold">{b.price > 0 ? usd(b.price) : "—"}</p>
-                        <p className="text-zinc-400 mt-0.5">You receive {b.price > 0 ? usd(Math.round(b.price * 0.85)) : "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Job Date</p>
-                        <p className="text-zinc-700">{formatJobDate(b.job_date)}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Location</p>
-                        <p className="text-zinc-700">{b.location ?? "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Booked</p>
-                        <p className="text-zinc-700">{formatDate(b.created_at)}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Status</p>
-                        <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full ${stCls}`}>
-                          {label}
-                        </span>
-                      </div>
-                      {b.contract_status && (
-                        <div>
-                          <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Contract</p>
-                          <p className="text-zinc-700 capitalize">{b.contract_status}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3 pt-1">
-                      {/* Sign Contract button when pending signature */}
-                      {state === "pending_signature" && b.contract_id && (
-                        <Link
-                          href="/talent/contracts"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-2 text-[12px] font-semibold px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          Sign Contract
-                        </Link>
-                      )}
-
-                      {canCancel && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleCancel(b.id); }}
-                          disabled={cancelling === b.id}
-                          className="inline-flex items-center gap-2 text-[12px] font-semibold px-3.5 py-2 rounded-lg bg-white border border-zinc-200 hover:border-rose-200 hover:bg-rose-50 text-zinc-600 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
-                        >
-                          {cancelling === b.id ? "Cancelling…" : "Cancel Booking"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <>
+          <SectionBlock title="Waiting Signature" bookings={signature} badge="bg-violet-100 text-violet-700" onCancel={handleCancel} cancelling={cancelling} />
+          <SectionBlock title="Pending Payment"   bookings={payment}   badge="bg-amber-100 text-amber-700"   onCancel={handleCancel} cancelling={cancelling} />
+          {other.length > 0 && <SectionBlock title="Pending" bookings={other} onCancel={handleCancel} cancelling={cancelling} />}
+          <SectionBlock title="Paid"              bookings={paid}      badge="bg-emerald-100 text-emerald-700" onCancel={handleCancel} cancelling={cancelling} />
+          <SectionBlock title="Completed"         bookings={completed} badge="bg-emerald-100 text-emerald-700" onCancel={handleCancel} cancelling={cancelling} />
+          <SectionBlock title="Cancelled"         bookings={cancelled} onCancel={handleCancel} cancelling={cancelling} />
+        </>
       )}
     </div>
   );

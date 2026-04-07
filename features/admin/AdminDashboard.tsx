@@ -97,8 +97,24 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   );
 }
 
+type DateFilter = "all" | "today" | "this_month";
+
+function matchesDateFilter(bookedAt: string, df: DateFilter): boolean {
+  if (df === "all") return true;
+  const d = new Date(bookedAt);
+  const now = new Date();
+  if (df === "today") {
+    return d.getFullYear() === now.getFullYear() &&
+           d.getMonth()    === now.getMonth()    &&
+           d.getDate()     === now.getDate();
+  }
+  // this_month
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
 export default function AdminDashboard({ bookings, stats }: { bookings: Booking[]; stats: AdminStats }) {
   const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter]     = useState<DateFilter>("all");
   const [sortKey, setSortKey]           = useState<SortKey>("bookedAt");
   const [sortDir, setSortDir]           = useState<SortDir>("desc");
   const [search, setSearch]             = useState("");
@@ -110,6 +126,7 @@ export default function AdminDashboard({ bookings, stats }: { bookings: Booking[
 
   const filtered = bookings
     .filter((b) => statusFilter === "all" || b.status === statusFilter)
+    .filter((b) => matchesDateFilter(b.bookedAt, dateFilter))
     .filter((b) => {
       const q = search.toLowerCase();
       return (
@@ -127,6 +144,10 @@ export default function AdminDashboard({ bookings, stats }: { bookings: Booking[
   const totalValue      = filtered.reduce((s, b) => s + b.totalValue, 0);
   const totalCommission = filtered.reduce((s, b) => s + b.platformCommission, 0);
   const totalReferral   = filtered.reduce((s, b) => s + (b.hasReferrer ? b.referralPayout : 0), 0);
+
+  // Date-filtered bookings for stat cards (independent of search/status)
+  const dateFilteredBookings = bookings.filter((b) => matchesDateFilter(b.bookedAt, dateFilter));
+  const dateFilteredRevenue  = dateFilteredBookings.reduce((s, b) => s + b.platformCommission, 0);
 
   function ColHeader({ col, label, align = "right" }: { col: SortKey; label: string; align?: "left" | "right" }) {
     return (
@@ -146,9 +167,20 @@ export default function AdminDashboard({ bookings, stats }: { bookings: Booking[
     <div className="max-w-7xl space-y-8">
 
       {/* ── Page header ── */}
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Platform Admin</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Overview</h1>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Platform Admin</p>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Overview</h1>
+        </div>
+        <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1">
+          {(["all", "today", "this_month"] as const).map((df) => (
+            <button key={df} onClick={() => setDateFilter(df)}
+              className={["px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap",
+                dateFilter === df ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"].join(" ")}>
+              {df === "all" ? "All Time" : df === "today" ? "Today" : "This Month"}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Stat cards ── */}
@@ -164,12 +196,14 @@ export default function AdminDashboard({ bookings, stats }: { bookings: Booking[
           icon={<svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
         />
         <StatCard
-          label="Total Bookings" value={String(stats.totalBookings)} sub="All time"
+          label="Total Bookings" value={String(dateFilteredBookings.length)}
+          sub={dateFilter === "all" ? "All time" : dateFilter === "today" ? "Today" : "This month"}
           href="/admin/bookings" stripe="from-indigo-400 to-blue-500"
           icon={<svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
         />
         <StatCard
-          label="Platform Revenue" value={usd(stats.totalRevenue)} sub="Net commissions earned"
+          label="Platform Revenue" value={usd(dateFilteredRevenue)}
+          sub={dateFilter === "all" ? "All time" : dateFilter === "today" ? "Today" : "This month"}
           href="/admin/finances" stripe="from-emerald-400 to-teal-500"
           icon={<svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
         />

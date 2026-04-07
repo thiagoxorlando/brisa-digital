@@ -11,6 +11,8 @@ export type TalentListItem = {
   categories: string[] | null;
   avatar_url: string | null;
   instagram: string | null;
+  age: number | null;
+  gender: string | null;
 };
 
 const GRADIENTS = [
@@ -84,7 +86,10 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
                           {initials(name)}
                         </div>
                       )}
-                      <p className="text-[13px] font-semibold text-zinc-900 truncate leading-none">{name}</p>
+                      <p className="text-[13px] font-semibold text-zinc-900 truncate leading-none">
+                        {name}
+                        {t.age && <span className="ml-1.5 text-[11px] font-normal text-zinc-400">{t.age}y</span>}
+                      </p>
                     </div>
                   </td>
                   <td className="px-4 py-4 hidden sm:table-cell">

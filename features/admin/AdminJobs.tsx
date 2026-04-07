@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export type AdminJob = {
   id: string;
@@ -13,6 +12,12 @@ export type AdminJob = {
   status: string;
   agencyName: string;
   submissionCount: number;
+  description: string | null;
+  location: string | null;
+  gender: string | null;
+  ageMin: number | null;
+  ageMax: number | null;
+  jobDate: string | null;
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -23,21 +28,115 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function usd(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(n);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 }
 
-function formatDate(s: string) {
+function formatDate(s: string | null) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  });
+  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatJobDate(s: string | null) {
+  if (!s) return null;
+  return new Date(s + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+function DetailGrid({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-[12px]">
+      {items.map(({ label, value }) => (
+        <div key={label}>
+          <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{label}</p>
+          <p className="text-zinc-700 font-medium">{value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function JobRow({ job }: { job: AdminJob }) {
+  const [expanded, setExpanded] = useState(false);
+  const stCls = STATUS_STYLES[job.status] ?? STATUS_STYLES["closed"];
+
+  const detailItems = [
+    { label: "Agency",      value: job.agencyName },
+    { label: "Status",      value: job.status },
+    { label: "Budget",      value: job.budget ? usd(job.budget) : "—" },
+    { label: "Applications",value: String(job.submissionCount) },
+    { label: "Category",    value: job.category ?? "—" },
+    { label: "Location",    value: job.location ?? "—" },
+    { label: "Gender",      value: job.gender ?? "—" },
+    { label: "Age Range",   value: job.ageMin || job.ageMax ? `${job.ageMin ?? "Any"} – ${job.ageMax ?? "Any"}` : "—" },
+    { label: "Job Date",    value: formatJobDate(job.jobDate) ?? "—" },
+    { label: "Deadline",    value: formatDate(job.deadline) },
+    { label: "Posted",      value: formatDate(job.created_at) },
+  ];
+
+  return (
+    <>
+      <tr
+        onClick={() => setExpanded((v) => !v)}
+        className="hover:bg-zinc-50/60 transition-colors cursor-pointer"
+      >
+        <td className="px-6 py-4">
+          <div className="flex items-center gap-2">
+            <svg className={`w-3.5 h-3.5 text-zinc-300 flex-shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <p className="text-[13px] font-semibold text-zinc-900 truncate max-w-[180px]">{job.title}</p>
+          </div>
+        </td>
+        <td className="px-4 py-4">
+          <span className="text-[13px] text-zinc-500 truncate max-w-[160px] block">{job.agencyName}</span>
+        </td>
+        <td className="px-4 py-4 hidden sm:table-cell">
+          <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${stCls}`}>
+            {job.status}
+          </span>
+        </td>
+        <td className="px-4 py-4 hidden sm:table-cell">
+          {job.category
+            ? <span className="text-[11px] font-medium bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full">{job.category}</span>
+            : <span className="text-[13px] text-zinc-300">—</span>
+          }
+        </td>
+        <td className="px-4 py-4 text-right hidden md:table-cell">
+          <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">
+            {job.budget ? usd(job.budget) : "—"}
+          </span>
+        </td>
+        <td className="px-4 py-4 text-right hidden md:table-cell">
+          <span className="text-[13px] text-zinc-500 tabular-nums">{job.submissionCount}</span>
+        </td>
+        <td className="px-4 py-4 hidden lg:table-cell">
+          <span className="text-[13px] text-zinc-500">{job.deadline ? formatDate(job.deadline) : "—"}</span>
+        </td>
+        <td className="px-4 py-4 hidden lg:table-cell">
+          <span className="text-[12px] text-zinc-400">{formatDate(job.created_at)}</span>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={8} className="px-0 py-0">
+            <div className="border-t border-zinc-50 bg-zinc-50/60 px-6 py-5 space-y-4">
+              <DetailGrid items={detailItems} />
+              {job.description && (
+                <div>
+                  <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-1">Description</p>
+                  <p className="text-[13px] text-zinc-600 leading-relaxed whitespace-pre-line max-w-2xl">{job.description}</p>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
 }
 
 export default function AdminJobs({ jobs }: { jobs: AdminJob[] }) {
-  const router = useRouter();
-  const [search, setSearch]   = useState("");
+  const [search, setSearch]         = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const filtered = jobs.filter((j) => {
@@ -119,48 +218,9 @@ export default function AdminJobs({ jobs }: { jobs: AdminJob[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {filtered.map((job) => {
-                const stCls = STATUS_STYLES[job.status] ?? STATUS_STYLES["closed"];
-                return (
-                  <tr
-                    key={job.id}
-                    onClick={() => router.push(`/admin/jobs/${job.id}`)}
-                    className="hover:bg-zinc-50/60 transition-colors cursor-pointer"
-                  >
-                    <td className="px-6 py-4">
-                      <p className="text-[13px] font-semibold text-zinc-900 truncate max-w-[200px]">{job.title}</p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-[13px] text-zinc-500 truncate max-w-[160px] block">{job.agencyName}</span>
-                    </td>
-                    <td className="px-4 py-4 hidden sm:table-cell">
-                      <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${stCls}`}>
-                        {job.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 hidden sm:table-cell">
-                      {job.category
-                        ? <span className="text-[11px] font-medium bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full">{job.category}</span>
-                        : <span className="text-[13px] text-zinc-300">—</span>
-                      }
-                    </td>
-                    <td className="px-4 py-4 text-right hidden md:table-cell">
-                      <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">
-                        {job.budget ? usd(job.budget) : "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-right hidden md:table-cell">
-                      <span className="text-[13px] text-zinc-500 tabular-nums">{job.submissionCount}</span>
-                    </td>
-                    <td className="px-4 py-4 hidden lg:table-cell">
-                      <span className="text-[13px] text-zinc-500">{job.deadline ? formatDate(job.deadline) : "—"}</span>
-                    </td>
-                    <td className="px-4 py-4 hidden lg:table-cell">
-                      <span className="text-[12px] text-zinc-400">{formatDate(job.created_at)}</span>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filtered.map((job) => (
+                <JobRow key={job.id} job={job} />
+              ))}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-6 py-16 text-center">

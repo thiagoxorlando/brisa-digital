@@ -13,7 +13,7 @@ export default async function TalentJobsPage() {
   const [jobsResult, subsResult] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, title, category, budget, deadline, description, status")
+      .select("id, title, category, budget, deadline, job_date, description, status, location")
       .eq("status", "open")
       .order("created_at", { ascending: false }),
     user
@@ -34,7 +34,9 @@ export default async function TalentJobsPage() {
     category:    row.category    ?? "",
     budget:      row.budget      ?? 0,
     deadline:    row.deadline    ?? "",
+    jobDate:     row.job_date    ?? null,
     description: row.description ?? "",
+    location:    row.location    ?? null,
     applied:     appliedJobIds.has(String(row.id)),
   }));
 

@@ -8,6 +8,26 @@ const TALENT_CATEGORIES = [
   "Comedian", "Presenter", "Content Creator", "Photographer", "Athlete",
 ];
 
+const GENDER_OPTIONS = ["", "Male", "Female", "Non-binary", "Other", "Prefer not to say"];
+
+const COUNTRY_CODES = [
+  { code: "+1",  flag: "🇺🇸", label: "US" },
+  { code: "+1",  flag: "🇨🇦", label: "CA" },
+  { code: "+55", flag: "🇧🇷", label: "BR" },
+  { code: "+44", flag: "🇬🇧", label: "UK" },
+  { code: "+34", flag: "🇪🇸", label: "ES" },
+  { code: "+33", flag: "🇫🇷", label: "FR" },
+  { code: "+49", flag: "🇩🇪", label: "DE" },
+  { code: "+39", flag: "🇮🇹", label: "IT" },
+  { code: "+52", flag: "🇲🇽", label: "MX" },
+  { code: "+54", flag: "🇦🇷", label: "AR" },
+  { code: "+61", flag: "🇦🇺", label: "AU" },
+  { code: "+81", flag: "🇯🇵", label: "JP" },
+  { code: "+86", flag: "🇨🇳", label: "CN" },
+  { code: "+91", flag: "🇮🇳", label: "IN" },
+  { code: "+7",  flag: "🇷🇺", label: "RU" },
+];
+
 const inputBase =
   "w-full px-4 py-3 text-[14px] rounded-xl border hover:border-zinc-300 focus:outline-none transition-colors bg-white placeholder:text-zinc-400";
 
@@ -18,22 +38,29 @@ function inputCls(hasError: boolean) {
 const labelCls = "block text-[12px] font-medium text-zinc-600 mb-1.5";
 
 type Form = {
-  fullName: string;
-  phone: string;
-  country: string;
-  city: string;
-  bio: string;
-  categories: string[];
-  instagram: string;
-  tiktok: string;
-  youtube: string;
+  fullName:    string;
+  phoneCode:   string;
+  phone:       string;
+  country:     string;
+  city:        string;
+  bio:         string;
+  categories:  string[];
+  age:         string;
+  gender:      string;
+  instagram:   string;
+  tiktok:      string;
+  youtube:     string;
+  xHandle:     string;
+  website:     string;
+  imdb:        string;
 };
 
 type FormErrors = Partial<Record<keyof Form, string>>;
 
 const DEFAULTS: Form = {
-  fullName: "", phone: "", country: "", city: "",
-  bio: "", categories: [], instagram: "", tiktok: "", youtube: "",
+  fullName: "", phoneCode: "+1", phone: "", country: "", city: "",
+  bio: "", categories: [], age: "", gender: "",
+  instagram: "", tiktok: "", youtube: "", xHandle: "", website: "", imdb: "",
 };
 
 const BIO_MAX = 300;
@@ -50,6 +77,10 @@ function validate(form: Form): FormErrors {
     e.instagram = "Enter your handle without @ or spaces.";
   if (form.tiktok && /[\s@]/.test(form.tiktok))
     e.tiktok = "Enter your handle without @ or spaces.";
+  if (form.xHandle && /[\s@]/.test(form.xHandle))
+    e.xHandle = "Enter your handle without @ or spaces.";
+  if (form.age && (isNaN(Number(form.age)) || Number(form.age) < 1 || Number(form.age) > 120))
+    e.age = "Enter a valid age.";
   return e;
 }
 
@@ -98,16 +129,34 @@ export default function TalentProfileEdit() {
         .single();
 
       if (data) {
+        // Parse stored phone into code + number
+        const storedPhone: string = data.phone ?? "";
+        let phoneCode = "+1";
+        let phone = storedPhone;
+        for (const cc of COUNTRY_CODES) {
+          if (storedPhone.startsWith(cc.code + " ")) {
+            phoneCode = cc.code;
+            phone = storedPhone.slice(cc.code.length + 1);
+            break;
+          }
+        }
+
         setForm({
           fullName:   data.full_name   ?? "",
-          phone:      data.phone       ?? "",
+          phoneCode,
+          phone,
           country:    data.country     ?? "",
           city:       data.city        ?? "",
           bio:        data.bio         ?? "",
           categories: data.categories  ?? [],
+          age:        data.age != null ? String(data.age) : "",
+          gender:     data.gender      ?? "",
           instagram:  data.instagram   ?? "",
           tiktok:     data.tiktok      ?? "",
           youtube:    data.youtube     ?? "",
+          xHandle:    data.x_handle    ?? "",
+          website:    data.website     ?? "",
+          imdb:       data.imdb        ?? "",
         });
         if (data.avatar_url) setPreview(data.avatar_url);
       }
@@ -139,9 +188,7 @@ export default function TalentProfileEdit() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    // Mark all fields touched and show all errors
-    setTouched({ fullName: true, bio: true, instagram: true, tiktok: true });
+    setTouched({ fullName: true, bio: true, instagram: true, tiktok: true, xHandle: true, age: true });
     const errs = validate(form);
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
@@ -169,18 +216,27 @@ export default function TalentProfileEdit() {
       avatarUrl = json.url;
     }
 
+    const fullPhone = form.phone.trim()
+      ? `${form.phoneCode} ${form.phone.trim()}`
+      : "";
+
     const payload: Record<string, unknown> = {
       id:         user.id,
       user_id:    user.id,
       full_name:  form.fullName.trim(),
-      phone:      form.phone.trim(),
-      country:    form.country.trim(),
-      city:       form.city.trim(),
-      bio:        form.bio.trim(),
+      phone:      fullPhone || null,
+      country:    form.country.trim() || null,
+      city:       form.city.trim()    || null,
+      bio:        form.bio.trim()     || null,
       categories: form.categories,
-      instagram:  form.instagram.trim(),
-      tiktok:     form.tiktok.trim(),
-      youtube:    form.youtube.trim(),
+      age:        form.age ? Number(form.age) : null,
+      gender:     form.gender || null,
+      instagram:  form.instagram.trim() || null,
+      tiktok:     form.tiktok.trim()    || null,
+      youtube:    form.youtube.trim()   || null,
+      x_handle:   form.xHandle.trim()  || null,
+      website:    form.website.trim()  || null,
+      imdb:       form.imdb.trim()     || null,
     };
     if (avatarUrl) payload.avatar_url = avatarUrl;
 
@@ -207,6 +263,8 @@ export default function TalentProfileEdit() {
     );
   }
 
+  const selectCls = `${inputBase} appearance-none pr-10 cursor-pointer`;
+
   return (
     <div className="max-w-2xl space-y-6">
       <div>
@@ -215,6 +273,8 @@ export default function TalentProfileEdit() {
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
+
+        {/* Profile Photo */}
         <Section title="Profile Photo">
           <div>
             <p className={labelCls}>Photo</p>
@@ -238,12 +298,11 @@ export default function TalentProfileEdit() {
           </div>
         </Section>
 
+        {/* Personal Info */}
         <Section title="Personal Info">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>
-                Full Name <span className="text-rose-400">*</span>
-              </label>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
               <input
                 className={inputCls(!!errors.fullName && !!touched.fullName)}
                 placeholder="Sofia Mendes"
@@ -252,11 +311,38 @@ export default function TalentProfileEdit() {
               />
               {touched.fullName && <FieldError msg={errors.fullName} />}
             </div>
-            <div>
+
+            {/* Phone with country code */}
+            <div className="sm:col-span-2">
               <label className={labelCls}>Phone Number</label>
-              <input className={inputCls(false)} placeholder="+55 11 99999-9999" value={form.phone}
-                onChange={(e) => set("phone", e.target.value)} />
+              <div className="flex gap-2">
+                <div className="relative">
+                  <select
+                    value={form.phoneCode}
+                    onChange={(e) => set("phoneCode", e.target.value)}
+                    className="pl-3 pr-8 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none bg-white appearance-none cursor-pointer transition-colors"
+                  >
+                    {COUNTRY_CODES.map((cc) => (
+                      <option key={`${cc.flag}-${cc.code}`} value={cc.code}>
+                        {cc.flag} {cc.code}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+                <input
+                  className={`${inputCls(false)} flex-1`}
+                  placeholder="(555) 000-0000"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                />
+              </div>
             </div>
+
             <div>
               <label className={labelCls}>Country</label>
               <input className={inputCls(false)} placeholder="Brazil" value={form.country}
@@ -267,7 +353,41 @@ export default function TalentProfileEdit() {
               <input className={inputCls(false)} placeholder="São Paulo" value={form.city}
                 onChange={(e) => set("city", e.target.value)} />
             </div>
+
+            <div>
+              <label className={labelCls}>Age</label>
+              <input
+                type="number" min="1" max="120"
+                className={inputCls(!!errors.age && !!touched.age)}
+                placeholder="25"
+                value={form.age}
+                onChange={(e) => set("age", e.target.value)}
+              />
+              {touched.age && <FieldError msg={errors.age} />}
+            </div>
+
+            <div>
+              <label className={labelCls}>Gender</label>
+              <div className="relative">
+                <select
+                  value={form.gender}
+                  onChange={(e) => set("gender", e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="">Select…</option>
+                  {GENDER_OPTIONS.filter(Boolean).map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
+
           <div>
             <label className={labelCls}>
               Bio
@@ -284,6 +404,7 @@ export default function TalentProfileEdit() {
           </div>
         </Section>
 
+        {/* Categories */}
         <Section title="Categories">
           <div className="flex flex-wrap gap-2">
             {TALENT_CATEGORIES.map((cat) => {
@@ -303,7 +424,9 @@ export default function TalentProfileEdit() {
           </div>
         </Section>
 
+        {/* Social Links */}
         <Section title="Social Links">
+          {/* Instagram */}
           <div>
             <label className={labelCls}>Instagram</label>
             <div className="relative">
@@ -317,6 +440,8 @@ export default function TalentProfileEdit() {
             </div>
             {touched.instagram && <FieldError msg={errors.instagram} />}
           </div>
+
+          {/* TikTok */}
           <div>
             <label className={labelCls}>TikTok</label>
             <div className="relative">
@@ -330,18 +455,46 @@ export default function TalentProfileEdit() {
             </div>
             {touched.tiktok && <FieldError msg={errors.tiktok} />}
           </div>
+
+          {/* X (Twitter) */}
+          <div>
+            <label className={labelCls}>X (Twitter)</label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
+              <input
+                className={`${inputCls(!!errors.xHandle && !!touched.xHandle)} pl-8`}
+                placeholder="yourhandle"
+                value={form.xHandle}
+                onChange={(e) => set("xHandle", e.target.value)}
+              />
+            </div>
+            {touched.xHandle && <FieldError msg={errors.xHandle} />}
+          </div>
+
+          {/* YouTube */}
           <div>
             <label className={labelCls}>YouTube</label>
             <input className={inputCls(false)} placeholder="https://youtube.com/@channel" value={form.youtube}
               onChange={(e) => set("youtube", e.target.value)} />
           </div>
+
+          {/* Website */}
+          <div>
+            <label className={labelCls}>Website</label>
+            <input className={inputCls(false)} placeholder="https://yourwebsite.com" value={form.website}
+              onChange={(e) => set("website", e.target.value)} />
+          </div>
+
+          {/* IMDb */}
+          <div>
+            <label className={labelCls}>IMDb</label>
+            <input className={inputCls(false)} placeholder="https://imdb.com/name/nm..." value={form.imdb}
+              onChange={(e) => set("imdb", e.target.value)} />
+          </div>
         </Section>
 
         {serverError && (
           <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3.5">
-            <svg className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
             <p className="text-[13px] text-rose-600">{serverError}</p>
           </div>
         )}
