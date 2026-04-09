@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminJobs from "@/features/admin/AdminJobs";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Admin — Jobs — ucastanet" };
+export const metadata: Metadata = { title: "Admin — Jobs — Brisa Digital" };
 
 export default async function AdminJobsPage() {
   const supabase = createServerClient({ useServiceRole: true });

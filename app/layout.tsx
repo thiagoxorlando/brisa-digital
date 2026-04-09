@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { RoleProvider } from "@/lib/RoleProvider";
+import { LanguageProvider } from "@/lib/LanguageContext";
 import "./globals.css";
 
 const geist = Geist({
@@ -9,9 +10,8 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "ucastanet — Connect talent with agencies",
-  description:
-    "A modern platform for agencies to discover and manage creators, and for talent to get found.",
+  title: "Brisa Digital",
+  description: "Sistema para gerenciar staff, eventos, contratos e pagamentos",
   icons: { icon: "/logo.png" },
 };
 
@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full bg-white text-zinc-900 font-sans">
-        <RoleProvider>{children}</RoleProvider>
+        <LanguageProvider><RoleProvider>{children}</RoleProvider></LanguageProvider>
       </body>
     </html>
   );

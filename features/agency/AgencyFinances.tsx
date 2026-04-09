@@ -16,6 +16,7 @@ export type AgencyTransaction = {
   amount: number;
   status: string;
   date: string;
+  type?: "booking" | "subscription";
 };
 
 export type AgencyFinanceSummary = {
@@ -205,18 +206,45 @@ export default function AgencyFinances({
                   {transactions.map((t) => (
                     <tr key={t.id} className="hover:bg-zinc-50/60 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="text-[13px] font-semibold text-zinc-900">{t.talent}</p>
+                        {t.type === "subscription" ? (
+                          <div>
+                            <p className="text-[13px] font-semibold text-zinc-900">Pro Plan</p>
+                            <p className="text-[10px] text-indigo-500 font-semibold">Subscription</p>
+                          </div>
+                        ) : (
+                          <p className="text-[13px] font-semibold text-zinc-900">{t.talent}</p>
+                        )}
                       </td>
                       <td className="px-4 py-4 hidden md:table-cell">
-                        <p className="text-[12px] text-zinc-500 truncate max-w-[200px]">{t.job || "—"}</p>
+                        <p className="text-[12px] text-zinc-500 truncate max-w-[200px]">
+                          {t.type === "subscription" ? "$2,500/mo · Platform subscription" : (t.job || "—")}
+                        </p>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <p className="text-[14px] font-semibold text-zinc-900 tabular-nums">{usd(t.amount)}</p>
+                        <p className={`text-[14px] font-semibold tabular-nums ${
+                          t.type === "subscription" && t.status === "upcoming"
+                            ? "text-amber-600"
+                            : t.type === "subscription"
+                            ? "text-indigo-700"
+                            : "text-zinc-900"
+                        }`}>
+                          {usd(t.amount)}
+                        </p>
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[t.status] ?? "bg-zinc-100 text-zinc-500"}`}>
-                          {STATUS_LABEL[t.status] ?? t.status}
-                        </span>
+                        {t.type === "subscription" ? (
+                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                            t.status === "upcoming"
+                              ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
+                              : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
+                          }`}>
+                            {t.status === "upcoming" ? "Upcoming" : "Charged"}
+                          </span>
+                        ) : (
+                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[t.status] ?? "bg-zinc-100 text-zinc-500"}`}>
+                            {STATUS_LABEL[t.status] ?? t.status}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right hidden sm:table-cell">
                         <p className="text-[12px] text-zinc-400">

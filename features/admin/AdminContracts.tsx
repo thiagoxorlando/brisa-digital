@@ -4,9 +4,13 @@ import { Fragment, useState } from "react";
 
 export type AdminContractRow = {
   id: string;
+  jobId: string | null;
+  jobTitle: string;
+  talentId: string | null;
   talentName: string;
   agencyName: string;
   jobDate: string | null;
+  jobTime: string | null;
   location: string | null;
   jobDescription: string | null;
   paymentMethod: string | null;
@@ -14,21 +18,31 @@ export type AdminContractRow = {
   paymentAmount: number;
   status: string;
   createdAt: string;
+  signedAt: string | null;
+  agencySignedAt: string | null;
+  depositPaidAt: string | null;
+  paidAt: string | null;
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  sent:     "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  accepted: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  rejected: "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
+  sent:      "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  signed:    "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
+  confirmed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  paid:      "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  rejected:  "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
+  cancelled: "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  sent:     "Awaiting Talent",
-  accepted: "Accepted",
-  rejected: "Rejected",
+  sent:      "Awaiting Talent",
+  signed:    "Pending Deposit",
+  confirmed: "Job Confirmed",
+  paid:      "Paid",
+  rejected:  "Rejected",
+  cancelled: "Cancelled",
 };
 
-const CONTRACT_STATUSES = ["sent", "accepted", "rejected"];
+const CONTRACT_STATUSES = ["sent", "signed", "confirmed", "paid", "rejected", "cancelled"];
 
 function usd(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -146,6 +160,9 @@ function ContractRow({ contract: c, onDelete }: { contract: AdminContractRow; on
           <p className="text-[13px] font-semibold text-zinc-900">{local.talentName}</p>
         </td>
         <td className="px-4 py-4 hidden sm:table-cell">
+          <p className="text-[13px] text-zinc-700 font-medium truncate max-w-[160px]">{local.jobTitle}</p>
+        </td>
+        <td className="px-4 py-4 hidden sm:table-cell">
           <p className="text-[13px] text-zinc-500">{local.agencyName}</p>
         </td>
         <td className="px-4 py-4 hidden md:table-cell">
@@ -178,7 +195,7 @@ function ContractRow({ contract: c, onDelete }: { contract: AdminContractRow; on
       </tr>
       {expanded && (
         <tr className="bg-zinc-50/80">
-          <td colSpan={8} className="px-6 py-5">
+          <td colSpan={9} className="px-6 py-5">
             {editing ? (
               <div className="space-y-4 max-w-lg">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Edit Contract</p>
@@ -221,6 +238,7 @@ function ContractRow({ contract: c, onDelete }: { contract: AdminContractRow; on
               <div className="space-y-4">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[12px]">
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Contract ID</p><p className="font-mono text-zinc-700 truncate">{local.id}</p></div>
+                  <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Job</p><p className="text-zinc-700 font-semibold">{local.jobTitle}</p></div>
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Sent</p><p className="text-zinc-700">{fmtDate(local.createdAt)}</p></div>
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Job Date</p><p className="text-zinc-700">{fmtJobDate(local.jobDate)}</p></div>
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Location</p><p className="text-zinc-700">{local.location ?? "—"}</p></div>
@@ -228,6 +246,10 @@ function ContractRow({ contract: c, onDelete }: { contract: AdminContractRow; on
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Method</p><p className="text-zinc-700">{local.paymentMethod ?? "—"}</p></div>
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Talent</p><p className="text-zinc-700">{local.talentName}</p></div>
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Agency</p><p className="text-zinc-700">{local.agencyName}</p></div>
+                  {local.signedAt && <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Talent Signed</p><p className="text-zinc-700">{fmtDate(local.signedAt)}</p></div>}
+                  {local.agencySignedAt && <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Agency Signed</p><p className="text-zinc-700">{fmtDate(local.agencySignedAt)}</p></div>}
+                  {local.depositPaidAt && <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Deposit Paid</p><p className="text-zinc-700">{fmtDate(local.depositPaidAt)}</p></div>}
+                  {local.paidAt && <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Paid Out</p><p className="text-zinc-700">{fmtDate(local.paidAt)}</p></div>}
                 </div>
                 {local.jobDescription && (
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Description</p>
@@ -267,10 +289,10 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
     .filter((c) => {
       if (!search) return true;
       const q = search.toLowerCase();
-      return c.talentName.toLowerCase().includes(q) || c.agencyName.toLowerCase().includes(q);
+      return c.talentName.toLowerCase().includes(q) || c.agencyName.toLowerCase().includes(q) || c.jobTitle.toLowerCase().includes(q);
     });
 
-  const totalAccepted = filtered.filter((c) => c.status === "accepted").reduce((s, c) => s + c.paymentAmount, 0);
+  const totalConfirmed = filtered.filter((c) => c.status === "confirmed" || c.status === "paid").reduce((s, c) => s + c.paymentAmount, 0);
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -282,10 +304,10 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total",    value: String(contracts.length),                                              stripe: "from-zinc-400 to-zinc-600" },
-          { label: "Pending",  value: String(contracts.filter((c) => c.status === "sent").length),           stripe: "from-amber-400 to-orange-500" },
-          { label: "Accepted", value: String(contracts.filter((c) => c.status === "accepted").length),       stripe: "from-emerald-400 to-teal-500" },
-          { label: "Rejected", value: String(contracts.filter((c) => c.status === "rejected").length),       stripe: "from-rose-400 to-red-500" },
+          { label: "Total",           value: String(contracts.length),                                                              stripe: "from-zinc-400 to-zinc-600" },
+          { label: "Pending Deposit", value: String(contracts.filter((c) => c.status === "signed").length),                         stripe: "from-violet-400 to-purple-500" },
+          { label: "Confirmed",       value: String(contracts.filter((c) => c.status === "confirmed" || c.status === "paid").length), stripe: "from-emerald-400 to-teal-500" },
+          { label: "Rejected",        value: String(contracts.filter((c) => c.status === "rejected").length),                        stripe: "from-rose-400 to-red-500" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className={`h-[3px] bg-gradient-to-r ${s.stripe}`} />
@@ -305,12 +327,12 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
           <input type="text" placeholder="Search contracts…" value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-[13px] bg-white border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors" />
         </div>
-        <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start">
-          {(["all", "sent", "accepted", "rejected"] as const).map((s) => (
+        <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start flex-wrap">
+          {(["all", "sent", "signed", "confirmed", "paid", "cancelled", "rejected"] as const).map((s) => (
             <button key={s} onClick={() => setStatus(s)}
-              className={["px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all capitalize cursor-pointer whitespace-nowrap",
+              className={["px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap",
                 statusFilter === s ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"].join(" ")}>
-              {s}
+              {s === "all" ? "All" : (STATUS_LABELS[s] ?? s)}
             </button>
           ))}
         </div>
@@ -322,6 +344,7 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
             <thead>
               <tr className="border-b border-zinc-100">
                 <th className="text-left px-6 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Talent</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Job</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Agency</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden md:table-cell">Job Date</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Location</th>
@@ -334,7 +357,7 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
             <tbody className="divide-y divide-zinc-50">
               {filtered.map((c) => <ContractRow key={c.id} contract={c} onDelete={handleDelete} />)}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="px-6 py-16 text-center">
+                <tr><td colSpan={9} className="px-6 py-16 text-center">
                   <p className="text-[14px] font-medium text-zinc-500">No contracts found</p>
                 </td></tr>
               )}
@@ -342,11 +365,11 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
             {filtered.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-zinc-100 bg-zinc-50/80">
-                  <td colSpan={4} className="px-6 py-3.5">
+                  <td colSpan={5} className="px-6 py-3.5">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{filtered.length} contracts</p>
                   </td>
                   <td className="px-4 py-3.5 text-right hidden sm:table-cell">
-                    <p className="text-[13px] font-semibold text-emerald-700 tabular-nums">{usd(totalAccepted)} accepted</p>
+                    <p className="text-[13px] font-semibold text-emerald-700 tabular-nums">{usd(totalConfirmed)} confirmed</p>
                   </td>
                   <td colSpan={3} />
                 </tr>

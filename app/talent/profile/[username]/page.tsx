@@ -13,9 +13,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .select("full_name, bio")
     .eq("instagram", username)
     .single();
-  if (!data) return { title: "Profile not found — ucastanet" };
+  if (!data) return { title: "Profile not found — Brisa Digital" };
   return {
-    title: `${data.full_name ?? username} — ucastanet`,
+    title: `${data.full_name ?? username} — Brisa Digital`,
     description: data.bio ?? undefined,
   };
 }

@@ -15,8 +15,8 @@ const ROLE_HOME: Record<Role, string> = {
 };
 
 const ROLE_LABELS: Record<Role, { title: string; sub: string }> = {
-  agency: { title: "Create Agency Account", sub: "Post jobs and manage talent." },
-  talent: { title: "Join as Talent",        sub: "Apply for jobs and get booked." },
+  agency: { title: "Criar conta como Agência", sub: "Publique vagas e gerencie talentos." },
+  talent: { title: "Criar conta como Talento", sub: "Candidate-se a vagas e seja contratado." },
 };
 
 const PRO_PLAN = {
@@ -154,7 +154,7 @@ export default function SignupPage() {
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 6 characters"
+                placeholder="Mín. 6 caracteres"
                 className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
               />
             </div>
@@ -170,15 +170,15 @@ export default function SignupPage() {
               disabled={loading}
               className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
             >
-              {loading ? "Creating account…" : "Create account"}
+              {loading ? "Criando conta…" : "Criar conta"}
             </button>
           </form>
         </div>
 
         <p className="text-center text-[13px] text-zinc-400 mt-5">
-          Already have an account?{" "}
+          Já tem uma conta?{" "}
           <Link href="/login" className="text-zinc-700 font-medium hover:text-zinc-900 transition-colors">
-            Sign in
+            Entrar
           </Link>
         </p>
 

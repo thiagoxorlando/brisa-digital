@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 
 type Props = { params: Promise<{ id: string }> };
 
-export const metadata: Metadata = { title: "User Profile — Admin — ucastanet" };
+export const metadata: Metadata = { title: "User Profile — Admin — Brisa Digital" };
 
 const COMMISSION_RATE = 0.15;
 

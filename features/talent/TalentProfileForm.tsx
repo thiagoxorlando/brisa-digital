@@ -701,7 +701,7 @@ export default function TalentProfileForm() {
               <Field
                 label="Username"
                 error={err("username")}
-                hint={`ucastanet.com/talent/profile/${form.username || "username"}`}
+                hint={`brisadigital.com/talent/profile/${form.username || "username"}`}
                 required
               >
                 <div className="relative">

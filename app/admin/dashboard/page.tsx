@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import AdminDashboard from "@/features/admin/AdminDashboard";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Admin Dashboard — ucastanet" };
+export const metadata: Metadata = { title: "Admin Dashboard — Brisa Digital" };
 
 const COMMISSION_RATE = 0.15;
-const REFERRAL_RATE   = 0.08;
+const REFERRAL_RATE   = 0.02;
 
 export default async function AdminDashboardPage() {
   const supabase = createServerClient({ useServiceRole: true });

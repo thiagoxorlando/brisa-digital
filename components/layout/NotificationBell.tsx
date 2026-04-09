@@ -181,10 +181,27 @@ export default function NotificationBell() {
     setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
 
+  async function handleBellClick() {
+    const next = !open;
+    setOpen(next);
+    if (next && unread > 0) {
+      // Mark all as read when the panel is opened
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("notifications")
+          .update({ is_read: true })
+          .eq("user_id", user.id)
+          .eq("is_read", false);
+        setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      }
+    }
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleBellClick}
         className="relative w-8 h-8 rounded-xl flex items-center justify-center text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors cursor-pointer"
         aria-label="Notifications"
       >

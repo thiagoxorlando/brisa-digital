@@ -4,7 +4,7 @@ import TalentList from "@/features/agency/TalentList";
 import TalentViewToggle from "@/features/agency/TalentViewToggle";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Talent — ucastanet" };
+export const metadata: Metadata = { title: "Talent — Brisa Digital" };
 
 export default async function AgencyTalentPage() {
   const supabase = createServerClient({ useServiceRole: true });

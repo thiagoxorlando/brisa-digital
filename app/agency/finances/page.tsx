@@ -4,7 +4,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import AgencyFinances from "@/features/agency/AgencyFinances";
 import type { AgencyTransaction, AgencyFinanceSummary } from "@/features/agency/AgencyFinances";
 
-export const metadata: Metadata = { title: "Finances — ucastanet" };
+export const metadata: Metadata = { title: "Finances — Brisa Digital" };
 
 export default async function AgencyFinancesPage() {
   const session = await createSessionClient();
@@ -20,7 +20,7 @@ export default async function AgencyFinancesPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("agencies")
-      .select("subscription_status, updated_at")
+      .select("subscription_status, created_at")
       .eq("id", user?.id ?? "")
       .single(),
   ]);
@@ -38,17 +38,60 @@ export default async function AgencyFinancesPage() {
     for (const p of profiles ?? []) nameMap.set(p.id, p.full_name ?? "Unknown");
   }
 
-  const transactions: AgencyTransaction[] = rows.map((b) => ({
+  const bookingTransactions: AgencyTransaction[] = rows.map((b) => ({
     id:     b.id,
     talent: nameMap.get(b.talent_user_id) ?? "Unknown",
     job:    b.job_title ?? "",
     amount: b.price ?? 0,
     status: b.status ?? "pending",
     date:   b.created_at,
+    type:   "booking" as const,
   }));
 
-  const completed = transactions.filter((t) => t.status === "paid" || t.status === "confirmed");
-  const pending   = transactions.filter((t) => t.status === "pending_payment");
+  // Generate recurring monthly subscription charges from account creation date
+  const subTransactions: AgencyTransaction[] = [];
+  if (agency?.subscription_status === "active" && agency?.created_at) {
+    const start = new Date(agency.created_at);
+    const now   = new Date();
+    let current = new Date(start);
+    let idx     = 0;
+
+    // Past + current charges
+    while (current <= now) {
+      subTransactions.push({
+        id:     `sub-${user?.id}-${idx}`,
+        talent: "Platform",
+        job:    "Pro Plan subscription",
+        amount: 2500,
+        status: "paid",
+        date:   current.toISOString(),
+        type:   "subscription" as const,
+      });
+      const next = new Date(current);
+      next.setMonth(next.getMonth() + 1);
+      current = next;
+      idx++;
+    }
+
+    // Next upcoming charge
+    subTransactions.push({
+      id:     `sub-${user?.id}-next`,
+      talent: "Platform",
+      job:    "Pro Plan subscription",
+      amount: 2500,
+      status: "upcoming",
+      date:   current.toISOString(),
+      type:   "subscription" as const,
+    });
+  }
+
+  const transactions: AgencyTransaction[] = [
+    ...subTransactions,
+    ...bookingTransactions,
+  ];
+
+  const completed = bookingTransactions.filter((t) => t.status === "paid" || t.status === "confirmed");
+  const pending   = bookingTransactions.filter((t) => t.status === "pending" || t.status === "pending_payment");
 
   const completedTotal = completed.reduce((sum, t) => sum + t.amount, 0);
   const pendingTotal   = pending.reduce((sum, t) => sum + t.amount, 0);

@@ -3,7 +3,7 @@ import BookingList from "@/features/agency/BookingList";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
-export const metadata: Metadata = { title: "Bookings — ucastanet" };
+export const metadata: Metadata = { title: "Bookings — Brisa Digital" };
 
 export default async function BookingsPage() {
   const session = await createSessionClient();
@@ -29,7 +29,7 @@ export default async function BookingsPage() {
       ? supabase.from("talent_profiles").select("id, full_name").in("id", talentIds)
       : Promise.resolve({ data: [] }),
     jobIds.length
-      ? supabase.from("contracts").select("job_id, talent_id, status, signed_at, job_date").in("job_id", jobIds)
+      ? supabase.from("contracts").select("job_id, talent_id, status, signed_at, job_date, paid_at").in("job_id", jobIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -37,9 +37,9 @@ export default async function BookingsPage() {
   for (const p of profilesRes.data ?? []) profileMap.set(p.id, p.full_name ?? "");
 
   // Map job_id → contract for this talent
-  const contractMap = new Map<string, { status: string; signed_at: string | null; job_date: string | null }>();
+  const contractMap = new Map<string, { status: string; signed_at: string | null; job_date: string | null; paid_at: string | null }>();
   for (const c of contractsRes.data ?? []) {
-    if (c.job_id) contractMap.set(`${c.job_id}::${c.talent_id}`, { status: c.status, signed_at: c.signed_at ?? null, job_date: c.job_date ?? null });
+    if (c.job_id) contractMap.set(`${c.job_id}::${c.talent_id}`, { status: c.status, signed_at: c.signed_at ?? null, job_date: c.job_date ?? null, paid_at: c.paid_at ?? null });
   }
 
   const bookings = (data ?? []).map((row) => {
@@ -57,6 +57,7 @@ export default async function BookingsPage() {
       contractStatus:  contract?.status ?? null,
       contractSigned:  contract?.signed_at ?? null,
       jobDate:         contract?.job_date ?? null,
+      paidAt:          contract?.paid_at ?? null,
     };
   });
 

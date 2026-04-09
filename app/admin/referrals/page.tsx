@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminReferrals from "@/features/admin/AdminReferrals";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Admin — Referrals — ucastanet" };
+export const metadata: Metadata = { title: "Admin — Referrals — Brisa Digital" };
 
 const REFERRAL_RATE = 0.02;
 

@@ -6,6 +6,8 @@ import Link from "next/link";
 export type AgencyContract = {
   id: string;
   jobId: string | null;
+  jobTitle: string;
+  talentId: string | null;
   talentName: string;
   jobDate: string | null;
   jobTime: string | null;
@@ -16,14 +18,24 @@ export type AgencyContract = {
   additionalNotes: string | null;
   status: string;
   createdAt: string;
+  signedAt: string | null;
+  agencySignedAt: string | null;
+  depositPaidAt: string | null;
+  paidAt: string | null;
 };
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-  sent:     { label: "Awaiting Talent",  cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-100" },
-  accepted: { label: "Accepted",         cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" },
-  rejected: { label: "Rejected",         cls: "bg-rose-50 text-rose-600 ring-1 ring-rose-100" },
+  sent:      { label: "Awaiting Talent",  cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-100"    },
+  signed:    { label: "Pending Deposit",  cls: "bg-violet-50 text-violet-700 ring-1 ring-violet-100" },
+  confirmed: { label: "Job Confirmed",    cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" },
+  paid:      { label: "Paid",             cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" },
+  rejected:  { label: "Rejected",         cls: "bg-rose-50 text-rose-600 ring-1 ring-rose-100"       },
+  cancelled: { label: "Cancelled",        cls: "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200"       },
 };
 const STATUS_FALLBACK = { label: "Unknown", cls: "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200" };
+
+const ALL_STATUSES = ["all", "sent", "signed", "confirmed", "paid", "rejected", "cancelled"] as const;
+type FilterStatus = typeof ALL_STATUSES[number];
 
 function usd(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -39,6 +51,16 @@ function fmtJobDate(s: string | null) {
   return new Date(s + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
+function fmtDateTime(s: string | null) {
+  if (!s) return null;
+  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function jobDatePassed(s: string | null) {
+  if (!s) return false;
+  return new Date(s + "T23:59:59") < new Date();
+}
+
 function downloadContract(c: AgencyContract) {
   const lines = [
     "CONTRACT DETAILS",
@@ -51,6 +73,10 @@ function downloadContract(c: AgencyContract) {
     `Job Time:         ${c.jobTime ?? "—"}`,
     `Location:         ${c.location ?? "—"}`,
     `Sent:             ${fmtDate(c.createdAt)}`,
+    c.signedAt    ? `Talent Signed:    ${fmtDate(c.signedAt)}`    : null,
+    c.agencySignedAt ? `Agency Signed:  ${fmtDate(c.agencySignedAt)}` : null,
+    c.depositPaidAt  ? `Deposit Paid:   ${fmtDate(c.depositPaidAt)}` : null,
+    c.paidAt         ? `Paid:           ${fmtDate(c.paidAt)}`         : null,
     "",
     "JOB DESCRIPTION",
     "---------------",
@@ -59,7 +85,8 @@ function downloadContract(c: AgencyContract) {
     "ADDITIONAL NOTES",
     "----------------",
     c.additionalNotes ?? "None.",
-  ];
+  ].filter((l) => l !== null);
+
   const blob = new Blob([lines.join("\n")], { type: "text/plain" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -69,22 +96,51 @@ function downloadContract(c: AgencyContract) {
   URL.revokeObjectURL(url);
 }
 
-function ContractCard({ contract: c }: { contract: AgencyContract }) {
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{label}</p>
+      <p className="text-[13px] font-medium text-zinc-700">{value}</p>
+    </div>
+  );
+}
+
+function ContractCard({
+  contract: c,
+  onUpdate,
+}: {
+  contract: AgencyContract;
+  onUpdate: (id: string, updates: Partial<AgencyContract>) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [acting, setActing]     = useState<string | null>(null);
   const st = STATUS[c.status] ?? STATUS_FALLBACK;
 
+  const isJobPast = jobDatePassed(c.jobDate);
+
+  async function callAction(action: string, nextStatus: string, updates: Partial<AgencyContract>) {
+    setActing(action);
+    const res = await fetch(`/api/contracts/${c.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      onUpdate(c.id, { status: nextStatus, ...updates });
+    }
+    setActing(null);
+  }
+
   return (
-    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+    <div>
       {/* Header row */}
       <div className="flex items-center gap-4 px-6 py-4 flex-wrap sm:flex-nowrap">
-        {/* Talent + job */}
+        {/* Talent name */}
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-zinc-900 truncate">{c.talentName}</p>
-          <p className="text-[12px] text-zinc-400 mt-0.5">
-            {c.jobDate ? fmtJobDate(c.jobDate) : "Date TBD"}
-            {c.jobTime ? ` · ${c.jobTime}` : ""}
-            {c.location ? ` · ${c.location}` : ""}
-          </p>
+          {c.jobTime && (
+            <p className="text-[12px] text-zinc-400 mt-0.5">{c.jobTime}</p>
+          )}
         </div>
 
         {/* Amount */}
@@ -94,6 +150,36 @@ function ContractCard({ contract: c }: { contract: AgencyContract }) {
         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${st.cls}`}>
           {st.label}
         </span>
+
+        {/* Action buttons (based on status) */}
+        {c.status === "signed" && (
+          <button
+            onClick={() => callAction("agency_sign", "confirmed", { agencySignedAt: new Date().toISOString(), depositPaidAt: new Date().toISOString() })}
+            disabled={acting !== null}
+            className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {acting === "agency_sign" ? "…" : "Deposit & Sign"}
+          </button>
+        )}
+
+        {c.status === "confirmed" && (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => callAction("pay", "paid", { paidAt: new Date().toISOString() })}
+              disabled={acting !== null}
+              className="text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {acting === "pay" ? "…" : "Pay Talent"}
+            </button>
+            <button
+              onClick={() => callAction("cancel_job", "cancelled", {})}
+              disabled={acting !== null}
+              className="text-[12px] font-semibold px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {acting === "cancel_job" ? "…" : "Cancel"}
+            </button>
+          </div>
+        )}
 
         {/* Download */}
         <button
@@ -129,6 +215,39 @@ function ContractCard({ contract: c }: { contract: AgencyContract }) {
             <Field label="Location" value={c.location ?? "—"} />
             <Field label="Payment Method" value={c.paymentMethod ?? "—"} />
           </div>
+
+          {/* Signing timeline */}
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Signing Timeline</p>
+            <div className="flex flex-col gap-2">
+              {[
+                { label: "Contract sent",              date: fmtDate(c.createdAt),          done: true                 },
+                { label: "Talent signed",              date: fmtDateTime(c.signedAt),       done: !!c.signedAt         },
+                { label: "Agency deposit & sign",      date: fmtDateTime(c.agencySignedAt), done: !!c.agencySignedAt   },
+                { label: "Funds held in escrow",       date: fmtDateTime(c.depositPaidAt),  done: !!c.depositPaidAt    },
+                { label: "Job date",                   date: c.jobDate ? fmtJobDate(c.jobDate) : "TBD", done: isJobPast },
+                { label: "Payment released to talent", date: fmtDateTime(c.paidAt),         done: !!c.paidAt           },
+              ].map((step, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className={[
+                    "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold",
+                    step.done ? "bg-emerald-500 text-white" : "bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200",
+                  ].join(" ")}>
+                    {step.done ? (
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : i + 1}
+                  </div>
+                  <div>
+                    <p className={`text-[12px] font-medium ${step.done ? "text-zinc-800" : "text-zinc-400"}`}>{step.label}</p>
+                    {step.date && step.done && <p className="text-[10px] text-zinc-400">{step.date}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {c.jobDescription && (
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Job Description</p>
@@ -148,34 +267,128 @@ function ContractCard({ contract: c }: { contract: AgencyContract }) {
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+// ─── Job group ────────────────────────────────────────────────────────────────
+
+function JobGroup({
+  jobTitle,
+  jobId,
+  contracts,
+  onUpdate,
+}: {
+  jobTitle: string;
+  jobId: string | null;
+  contracts: AgencyContract[];
+  onUpdate: (id: string, updates: Partial<AgencyContract>) => void;
+}) {
+  const pendingDeposit = contracts.filter((c) => c.status === "signed").length;
+  const confirmed      = contracts.filter((c) => c.status === "confirmed" || c.status === "paid").length;
+  const jobDate        = contracts[0]?.jobDate ?? null;
+  const location       = contracts[0]?.location ?? null;
+
   return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{label}</p>
-      <p className="text-[13px] font-medium text-zinc-700">{value}</p>
+    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+      {/* Job header */}
+      <div className="px-6 py-4 border-b border-zinc-50 flex items-center justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href={jobId ? `/agency/jobs/${jobId}` : "#"}
+              className="text-[15px] font-semibold text-zinc-900 hover:text-zinc-600 transition-colors truncate"
+            >
+              {jobTitle}
+            </Link>
+            {pendingDeposit > 0 && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                {pendingDeposit} pending deposit
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-[12px] text-zinc-400 flex-wrap">
+            {jobDate && (
+              <span className="flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {fmtJobDate(jobDate)}
+              </span>
+            )}
+            {location && (
+              <span className="flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                </svg>
+                {location}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 text-[12px] text-zinc-400">
+          <span>{contracts.length} talent{contracts.length !== 1 ? "s" : ""}</span>
+          {confirmed > 0 && (
+            <span className="text-emerald-600 font-medium">· {confirmed} confirmed</span>
+          )}
+        </div>
+      </div>
+
+      {/* Contract rows */}
+      <div className="divide-y divide-zinc-50">
+        {contracts.map((c) => (
+          <ContractCard key={c.id} contract={c} onUpdate={onUpdate} />
+        ))}
+      </div>
     </div>
   );
 }
 
-export default function AgencyContracts({ contracts }: { contracts: AgencyContract[] }) {
-  const [filter, setFilter] = useState<"all" | "sent" | "accepted" | "rejected">("all");
+// ─── Main component ───────────────────────────────────────────────────────────
 
-  const filtered = filter === "all" ? contracts : contracts.filter((c) => c.status === filter);
-  const pending  = contracts.filter((c) => c.status === "sent").length;
+export default function AgencyContracts({ contracts: initialContracts }: { contracts: AgencyContract[] }) {
+  const [contracts, setContracts] = useState<AgencyContract[]>(initialContracts);
+  const [filter, setFilter]       = useState<FilterStatus>("all");
+
+  function handleUpdate(id: string, updates: Partial<AgencyContract>) {
+    setContracts((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+  }
+
+  const filtered       = filter === "all" ? contracts : contracts.filter((c) => c.status === filter);
+  const pendingDeposit = contracts.filter((c) => c.status === "signed").length;
+  const awaitingTalent = contracts.filter((c) => c.status === "sent").length;
+
+  // Group filtered contracts by jobId
+  const jobOrder: string[] = [];
+  const byJob = new Map<string, AgencyContract[]>();
+  for (const c of filtered) {
+    const key = c.jobId ?? "no-job";
+    if (!byJob.has(key)) { byJob.set(key, []); jobOrder.push(key); }
+    byJob.get(key)!.push(c);
+  }
 
   return (
     <div className="max-w-4xl space-y-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agency</p>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Contracts</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">{contracts.length} contract{contracts.length !== 1 ? "s" : ""}</p>
+        <p className="text-[13px] text-zinc-400 mt-1">
+          {contracts.length} contract{contracts.length !== 1 ? "s" : ""} across {byJob.size || new Set(contracts.map(c => c.jobId)).size} job{byJob.size !== 1 ? "s" : ""}
+        </p>
       </div>
 
-      {pending > 0 && (
+      {awaitingTalent > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
           <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
           <p className="text-[13px] font-medium text-amber-800">
-            {pending} contract{pending !== 1 ? "s" : ""} awaiting talent response.
+            {awaitingTalent} contract{awaitingTalent !== 1 ? "s" : ""} awaiting talent response.
+          </p>
+        </div>
+      )}
+
+      {pendingDeposit > 0 && (
+        <div className="flex items-center gap-3 bg-violet-50 border border-violet-100 rounded-xl px-4 py-3">
+          <div className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0" />
+          <p className="text-[13px] font-medium text-violet-800">
+            {pendingDeposit} contract{pendingDeposit !== 1 ? "s" : ""} require your deposit — talent has signed.
           </p>
         </div>
       )}
@@ -194,8 +407,8 @@ export default function AgencyContracts({ contracts }: { contracts: AgencyContra
       )}
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start w-fit">
-        {(["all", "sent", "accepted", "rejected"] as const).map((s) => (
+      <div className="flex flex-wrap items-center gap-1 bg-zinc-100 rounded-xl p-1 w-fit">
+        {ALL_STATUSES.map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -204,7 +417,7 @@ export default function AgencyContracts({ contracts }: { contracts: AgencyContra
               filter === s ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700",
             ].join(" ")}
           >
-            {s}
+            {s === "all" ? "All" : STATUS[s]?.label ?? s}
           </button>
         ))}
       </div>
@@ -218,9 +431,7 @@ export default function AgencyContracts({ contracts }: { contracts: AgencyContra
             </svg>
           </div>
           <p className="text-[14px] font-medium text-zinc-500">No contracts yet</p>
-          <p className="text-[13px] text-zinc-400 mt-1">
-            Select a talent from a job submission to send a contract.
-          </p>
+          <p className="text-[13px] text-zinc-400 mt-1">Select a talent from a job submission to send a contract.</p>
           <Link
             href="/agency/jobs"
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors mt-4"
@@ -232,8 +443,19 @@ export default function AgencyContracts({ contracts }: { contracts: AgencyContra
           </Link>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((c) => <ContractCard key={c.id} contract={c} />)}
+        <div className="space-y-5">
+          {jobOrder.map((key) => {
+            const group = byJob.get(key)!;
+            return (
+              <JobGroup
+                key={key}
+                jobTitle={group[0].jobTitle}
+                jobId={group[0].jobId}
+                contracts={group}
+                onUpdate={handleUpdate}
+              />
+            );
+          })}
         </div>
       )}
     </div>

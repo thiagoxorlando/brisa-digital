@@ -8,7 +8,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = createServerClient({ useServiceRole: true });
   const { data } = await supabase.from("jobs").select("title").eq("id", id).single();
-  return { title: data ? `${data.title} — Admin — ucastanet` : "Job — Admin — ucastanet" };
+  return { title: data ? `${data.title} — Admin — Brisa Digital` : "Job — Admin — Brisa Digital" };
 }
 
 function usd(n: number) {

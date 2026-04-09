@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useSubscription } from "@/lib/SubscriptionContext";
 
 // ─── Types & constants ────────────────────────────────────────────────────────
 
@@ -310,6 +311,7 @@ function SuccessScreen({ title, draft }: { title: string; draft?: boolean }) {
 
 export default function PostJobForm() {
   const router = useRouter();
+  const { isActive } = useSubscription();
   const [form, setForm]       = useState<FormData>(INITIAL);
   const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -662,45 +664,56 @@ export default function PostJobForm() {
             )}
 
             <div className="flex items-center gap-3 flex-wrap">
-              <button
-                type="submit"
-                disabled={loading || savingDraft}
-                className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all duration-150 cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Posting…
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    Post Job
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                disabled={loading || savingDraft}
-                onClick={handleSaveDraft}
-                className="inline-flex items-center gap-2 bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-[15px] font-medium px-5 py-3 rounded-xl transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {savingDraft ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Saving…
-                  </>
-                ) : "Save as Draft"}
-              </button>
+              {!isActive ? (
+                <Link
+                  href="/agency/finances"
+                  className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-colors cursor-pointer"
+                >
+                  Reactivate Subscription
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="submit"
+                    disabled={loading || savingDraft}
+                    className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all duration-150 cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Posting…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Post Job
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading || savingDraft}
+                    onClick={handleSaveDraft}
+                    className="inline-flex items-center gap-2 bg-white border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 text-zinc-700 text-[15px] font-medium px-5 py-3 rounded-xl transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {savingDraft ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Saving…
+                      </>
+                    ) : "Save as Draft"}
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 disabled={loading || savingDraft}

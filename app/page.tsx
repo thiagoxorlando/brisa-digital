@@ -31,19 +31,16 @@ export default function Home() {
       {/* ── Nav ── */}
       <nav className="px-6 lg:px-10 h-16 flex items-center justify-between border-b border-zinc-100 sticky top-0 bg-white/90 backdrop-blur-sm z-10">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-zinc-900 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
-            </svg>
+          <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
+            <img src="/logo.png" alt="Brisa Digital" className="w-full h-full object-contain" />
           </div>
-          <span className="text-[15px] font-semibold text-zinc-900 tracking-tight">ucastanet</span>
+          <span className="text-[15px] font-semibold text-zinc-900 tracking-tight">Brisa Digital</span>
         </div>
         <Link
           href="/login"
           className="text-[13px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors px-3 py-2 rounded-lg hover:bg-zinc-50"
         >
-          Sign in
+          Entrar
         </Link>
       </nav>
 
@@ -68,13 +65,13 @@ export default function Home() {
             href="/signup?role=agency"
             className="bg-zinc-900 text-white px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-zinc-800 transition-all duration-150 active:scale-[0.98] shadow-sm"
           >
-            Create Agency Account
+            Criar conta como Agência
           </Link>
           <Link
             href="/signup?role=talent"
             className="bg-white text-zinc-800 border border-zinc-200 px-6 py-3.5 rounded-xl text-[14px] font-semibold hover:bg-zinc-50 hover:border-zinc-300 transition-all duration-150 active:scale-[0.98]"
           >
-            Join as Talent
+            Entrar como Talento
           </Link>
         </div>
 
@@ -153,10 +150,12 @@ export default function Home() {
       <footer className="px-6 lg:px-10 py-6 border-t border-zinc-100">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-zinc-900 rounded-md" />
-            <span className="text-[13px] font-semibold text-zinc-700">ucastanet</span>
+            <div className="w-5 h-5 rounded overflow-hidden">
+              <img src="/logo.png" alt="Brisa Digital" className="w-full h-full object-contain" />
+            </div>
+            <span className="text-[13px] font-semibold text-zinc-700">Brisa Digital</span>
           </div>
-          <p className="text-[12px] text-zinc-400">© 2026 ucastanet. All rights reserved.</p>
+          <p className="text-[12px] text-zinc-400">© 2026 Brisa Digital. Todos os direitos reservados.</p>
         </div>
       </footer>
 

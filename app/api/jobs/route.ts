@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import { requireActiveSubscription } from "@/lib/requireActiveSubscription";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { title, description, category, budget, deadline, agency_id, location, gender, age_min, age_max, status, number_of_talents_required } = body;
+
+  const blocked = await requireActiveSubscription(agency_id);
+  if (blocked) return blocked;
 
   const supabase = createServerClient({ useServiceRole: true });
 

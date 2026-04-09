@@ -3,7 +3,7 @@ import AgencyReferrals from "@/features/agency/AgencyReferrals";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
-export const metadata: Metadata = { title: "Referrals — ucastanet" };
+export const metadata: Metadata = { title: "Referrals — Brisa Digital" };
 
 export default async function AgencyReferralsPage() {
   const session = await createSessionClient();

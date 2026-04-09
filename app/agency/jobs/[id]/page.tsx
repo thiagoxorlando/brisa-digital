@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = createServerClient({ useServiceRole: true });
   const { data } = await supabase.from("jobs").select("title").eq("id", id).single();
-  return { title: data ? `${data.title} — ucastanet` : "Job Not Found — ucastanet" };
+  return { title: data ? `${data.title} — Brisa Digital` : "Job Not Found — Brisa Digital" };
 }
 
 export default async function JobDetailPage({ params }: Props) {
@@ -21,7 +21,7 @@ export default async function JobDetailPage({ params }: Props) {
   const [{ data: jobData }, { data: submissionsData }, { data: bookingsData }] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, title, description, category, budget, deadline, status, created_at, number_of_talents_required")
+      .select("id, title, description, category, budget, deadline, job_date, status, created_at, number_of_talents_required")
       .eq("id", id)
       .single(),
     supabase
@@ -63,6 +63,7 @@ export default async function JobDetailPage({ params }: Props) {
         category:    jobData.category    ?? "",
         budget:      jobData.budget      ?? 0,
         deadline:    jobData.deadline    ?? "",
+        jobDate:     jobData.job_date   ?? null,
         status:                    (jobData.status ?? "open") as "open" | "closed" | "draft" | "inactive",
         postedAt:                  jobData.created_at ?? "",
         agencyId:                  user?.id,

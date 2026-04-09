@@ -5,10 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/lib/RoleProvider";
 import { supabase } from "@/lib/supabase";
 import { useUserProfile } from "@/lib/useUserProfile";
+import { useT } from "@/lib/LanguageContext";
 import Logo from "@/components/Logo";
 
 type NavItem = {
-  label: string;
+  labelKey: string;
   href: string;
   exact?: boolean;
   icon: React.ReactNode;
@@ -16,7 +17,7 @@ type NavItem = {
 
 const AGENCY_NAV: NavItem[] = [
   {
-    label: "Dashboard",
+    labelKey: "nav_dashboard",
     href: "/agency/dashboard",
     exact: true,
     icon: (
@@ -29,7 +30,7 @@ const AGENCY_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Jobs",
+    labelKey: "nav_jobs",
     href: "/agency/jobs",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -39,7 +40,17 @@ const AGENCY_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Bookings",
+    labelKey: "nav_talent",
+    href: "/agency/talent",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
+      </svg>
+    ),
+  },
+  {
+    labelKey: "nav_bookings",
     href: "/agency/bookings",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,18 +60,7 @@ const AGENCY_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Talent",
-    href: "/agency/talent",
-    exact: true,
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
-      </svg>
-    ),
-  },
-  {
-    label: "Post Job",
+    labelKey: "nav_post_job",
     href: "/agency/post-job",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,7 +70,7 @@ const AGENCY_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Finances",
+    labelKey: "nav_finances",
     href: "/agency/finances",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,7 +80,7 @@ const AGENCY_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Contracts",
+    labelKey: "nav_contracts",
     href: "/agency/contracts",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,17 +90,7 @@ const AGENCY_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Referrals",
-    href: "/agency/referrals",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    label: "Profile",
+    labelKey: "nav_profile",
     href: "/agency/profile",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,7 +103,7 @@ const AGENCY_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   {
-    label: "Dashboard",
+    labelKey: "nav_dashboard",
     href: "/admin/dashboard",
     exact: true,
     icon: (
@@ -126,7 +116,7 @@ const ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Jobs",
+    labelKey: "nav_jobs",
     href: "/admin/jobs",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +126,7 @@ const ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Users",
+    labelKey: "nav_users",
     href: "/admin/users",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,7 +136,7 @@ const ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Bookings",
+    labelKey: "nav_bookings",
     href: "/admin/bookings",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,7 +146,7 @@ const ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Finances",
+    labelKey: "nav_finances",
     href: "/admin/finances",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +156,7 @@ const ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Contracts",
+    labelKey: "nav_contracts",
     href: "/admin/contracts",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,7 +166,7 @@ const ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Referrals",
+    labelKey: "nav_referrals",
     href: "/admin/referrals",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,7 +176,7 @@ const ADMIN_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Trash",
+    labelKey: "nav_trash",
     href: "/admin/trash",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,7 +189,7 @@ const ADMIN_NAV: NavItem[] = [
 
 const TALENT_NAV: NavItem[] = [
   {
-    label: "Dashboard",
+    labelKey: "nav_dashboard",
     href: "/talent/dashboard",
     exact: true,
     icon: (
@@ -212,7 +202,7 @@ const TALENT_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Jobs",
+    labelKey: "nav_jobs",
     href: "/talent/jobs",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,7 +212,7 @@ const TALENT_NAV: NavItem[] = [
     ),
   },
   {
-    label: "My Bookings",
+    labelKey: "nav_bookings",
     href: "/talent/bookings",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,7 +222,7 @@ const TALENT_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Profile",
+    labelKey: "nav_profile",
     href: "/talent/profile",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,7 +232,7 @@ const TALENT_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Finances",
+    labelKey: "nav_finances",
     href: "/talent/finances",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,7 +242,7 @@ const TALENT_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Contracts",
+    labelKey: "nav_contracts",
     href: "/talent/contracts",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -262,7 +252,7 @@ const TALENT_NAV: NavItem[] = [
     ),
   },
   {
-    label: "Referrals",
+    labelKey: "nav_referrals",
     href: "/talent/referrals",
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,7 +272,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { role } = useRole();
-  const { displayName, email, initials, avatarUrl, loading } = useUserProfile();
+  const { displayName, agentName, email, initials, avatarUrl, loading } = useUserProfile();
+  const { lang, setLang, t } = useT();
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -297,8 +288,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     inferredRole === "talent" ? TALENT_NAV :
     inferredRole === "admin"  ? ADMIN_NAV  : AGENCY_NAV;
   const portalLabel =
-    inferredRole === "talent" ? "Talent Portal" :
-    inferredRole === "admin"  ? "Admin Portal"  : "Agency Portal";
+    inferredRole === "talent" ? t("portal_talent") :
+    inferredRole === "admin"  ? t("portal_admin")  : t("portal_agency");
 
   return (
     <>
@@ -327,7 +318,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
             <div className="min-w-0">
               <p className="text-[14px] font-semibold text-white leading-none tracking-tight">
-                ucastanet
+                Brisa Digital
               </p>
               <p className="text-[10px] text-zinc-500 mt-0.5 leading-none tracking-wide uppercase">
                 {portalLabel}
@@ -349,7 +340,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-5 overflow-y-auto">
           <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 px-3 mb-2.5">
-            Menu
+            {t("nav_menu")}
           </p>
           <ul className="flex flex-col gap-0.5">
             {navItems.map((item) => {
@@ -372,7 +363,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     <span className={isActive ? "text-zinc-600" : "text-zinc-500"}>
                       {item.icon}
                     </span>
-                    {item.label}
+                    {t(item.labelKey as any)}
                   </Link>
                 </li>
               );
@@ -401,10 +392,46 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               <p className="text-[13px] font-medium text-zinc-200 truncate leading-none">
                 {loading ? "…" : (displayName || email)}
               </p>
-              <p className="text-[11px] text-zinc-500 truncate mt-0.5">
-                {loading ? "" : email}
-              </p>
+              {inferredRole === "agency" && !loading && agentName ? (
+                <p className="text-[10px] text-zinc-500 truncate mt-0.5">
+                  <span className="text-zinc-600 font-semibold uppercase tracking-wide">Agent</span>
+                  {" · "}{agentName}
+                </p>
+              ) : (
+                <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                  {loading ? "" : email}
+                </p>
+              )}
             </div>
+          </div>
+
+          {/* Language toggle */}
+          <div className="flex items-center gap-1 px-3 py-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 mr-auto">
+              {lang === "en" ? "Language" : "Idioma"}
+            </span>
+            <button
+              onClick={() => setLang("en")}
+              className={[
+                "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150",
+                lang === "en"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-300",
+              ].join(" ")}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang("pt")}
+              className={[
+                "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150",
+                lang === "pt"
+                  ? "bg-white text-zinc-900 shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-300",
+              ].join(" ")}
+            >
+              PT
+            </button>
           </div>
 
           <button
@@ -415,7 +442,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
                 d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
-            Logout
+            {t("nav_logout")}
           </button>
         </div>
       </aside>

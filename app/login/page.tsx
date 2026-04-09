@@ -54,10 +54,10 @@ export default function LoginPage() {
         {/* Card */}
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-8">
           <h1 className="text-[1.25rem] font-semibold tracking-tight text-zinc-900 mb-1">
-            Sign in
+            Entrar
           </h1>
           <p className="text-[13px] text-zinc-400 mb-7">
-            Enter your credentials to continue.
+            Digite suas credenciais para continuar.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -100,15 +100,15 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed active:scale-[0.99]"
             >
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? "Entrando…" : "Entrar"}
             </button>
           </form>
         </div>
 
         <p className="text-center text-[13px] text-zinc-400 mt-5">
-          Don't have an account?{" "}
+          Não tem uma conta?{" "}
           <a href="/" className="text-zinc-700 font-medium hover:text-zinc-900 transition-colors">
-            Sign up
+            Criar conta
           </a>
         </p>
 

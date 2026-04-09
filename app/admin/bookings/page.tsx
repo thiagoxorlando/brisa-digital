@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminBookings from "@/features/admin/AdminBookings";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Admin — Bookings — ucastanet" };
+export const metadata: Metadata = { title: "Admin — Bookings — Brisa Digital" };
 
 export default async function AdminBookingsPage() {
   const supabase = createServerClient({ useServiceRole: true });

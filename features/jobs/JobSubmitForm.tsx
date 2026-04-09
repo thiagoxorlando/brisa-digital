@@ -163,7 +163,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             </svg>
             Back to Job
           </Link>
-          <span className="text-[14px] font-semibold text-zinc-900 tracking-tight">ucastanet</span>
+          <span className="text-[14px] font-semibold text-zinc-900 tracking-tight">Brisa Digital</span>
         </div>
       </nav>
 
@@ -339,7 +339,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             )}
           </button>
           <p className="text-center text-[12px] text-zinc-400 mt-3">
-            By submitting you agree to ucastanet's submission terms.
+            Ao enviar você concorda com os termos de submissão da Brisa Digital.
           </p>
         </form>
       </div>

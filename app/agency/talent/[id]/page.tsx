@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AgencyTalentProfile from "@/features/agency/AgencyTalentProfile";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Talent Profile — ucastanet" };
+export const metadata: Metadata = { title: "Talent Profile — Brisa Digital" };
 
 export default async function AgencyTalentProfilePage({
   params,

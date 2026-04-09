@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireActiveSubscription } from "@/lib/requireActiveSubscription";
 
 export async function POST(req: NextRequest) {
-  const { job_id, talent_ids } = await req.json();
+  const { job_id, talent_ids, agency_id } = await req.json();
 
   if (!job_id || !Array.isArray(talent_ids) || talent_ids.length === 0) {
     return NextResponse.json({ error: "job_id and talent_ids are required" }, { status: 400 });
@@ -13,6 +14,16 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
+
+  // Resolve agency_id from job if not provided directly
+  let resolvedAgencyId = agency_id ?? null;
+  if (!resolvedAgencyId && job_id) {
+    const { data: job } = await supabase.from("jobs").select("agency_id").eq("id", job_id).single();
+    resolvedAgencyId = job?.agency_id ?? null;
+  }
+
+  const blocked = await requireActiveSubscription(resolvedAgencyId ?? "");
+  if (blocked) return blocked;
 
   for (const talent_id of talent_ids) {
     if (!talent_id) continue;

@@ -6,6 +6,7 @@ import { useRole } from "@/lib/RoleProvider";
 
 type UserProfile = {
   displayName: string;
+  agentName: string;
   email: string;
   initials: string;
   avatarUrl: string | null;
@@ -15,9 +16,10 @@ type UserProfile = {
 export function useUserProfile(): UserProfile {
   const { role } = useRole();
   const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [agentName, setAgentName]     = useState("");
+  const [email, setEmail]             = useState("");
+  const [avatarUrl, setAvatarUrl]     = useState<string | null>(null);
+  const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -25,6 +27,13 @@ export function useUserProfile(): UserProfile {
       if (!user) { setLoading(false); return; }
 
       setEmail(user.email ?? "");
+
+      // Personal agent name from auth metadata (works across all roles)
+      const metaName =
+        (user.user_metadata?.full_name as string | undefined) ??
+        (user.user_metadata?.name as string | undefined) ??
+        user.email?.split("@")[0] ?? "";
+      setAgentName(metaName);
 
       if (role === "talent") {
         const { data } = await supabase
@@ -55,5 +64,5 @@ export function useUserProfile(): UserProfile {
     ? displayName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
     : "?";
 
-  return { displayName, email, initials, avatarUrl, loading };
+  return { displayName, agentName, email, initials, avatarUrl, loading };
 }

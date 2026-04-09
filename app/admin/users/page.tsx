@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminUsers from "@/features/admin/AdminUsers";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Admin — Users — ucastanet" };
+export const metadata: Metadata = { title: "Admin — Users — Brisa Digital" };
 
 const COMMISSION_RATE = 0.15;
 

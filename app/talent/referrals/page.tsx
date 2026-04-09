@@ -3,7 +3,7 @@ import TalentReferrals from "@/features/talent/TalentReferrals";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
-export const metadata: Metadata = { title: "Referrals — ucastanet" };
+export const metadata: Metadata = { title: "Referrals — Brisa Digital" };
 
 const REFERRAL_RATE = 0.02;
 

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import Badge from "@/components/ui/Badge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,6 +25,9 @@ type ActivityItem = {
   title: string;
   sub: string;
   time: string;
+  link?: string;
+  avatarUrl?: string | null;
+  jobDate?: string | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,6 +39,11 @@ function timeAgo(iso: string) {
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 172800) return "Yesterday";
   return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function fmtJobDate(s: string | null) {
+  if (!s) return null;
+  return new Date(s + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
 const GRADIENTS = [
@@ -150,6 +161,79 @@ function SectionHeader({ title, meta, href, hrefLabel }: {
   );
 }
 
+// ─── Activity item ────────────────────────────────────────────────────────────
+
+function ActivityItemRow({ item, index, total }: { item: ActivityItem; index: number; total: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const cfg = activityMeta[item.type];
+  const jobDate = fmtJobDate(item.jobDate ?? null);
+
+  const inner = (
+    <li className={[
+      "relative flex items-start gap-4 px-5 py-4",
+      index < total - 1 ? "border-b border-zinc-50" : "",
+    ].join(" ")}>
+      <div className="flex-shrink-0 w-[1.875rem] flex justify-center pt-[5px]">
+        {item.avatarUrl ? (
+          <img src={item.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover ring-2 ring-white" />
+        ) : (
+          <span className={`w-2 h-2 rounded-full ring-4 ring-white ${cfg.dot} mt-1.5`} />
+        )}
+      </div>
+      <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <p className="text-[13px] font-semibold text-zinc-800 leading-snug">{item.title}</p>
+            {cfg.badge}
+          </div>
+          <p className="text-[12px] text-zinc-400 leading-relaxed">{item.sub}</p>
+          {jobDate && (
+            <p className="text-[11px] text-violet-500 font-medium mt-0.5">Job: {jobDate}</p>
+          )}
+
+          {/* Expandable detail for submissions */}
+          {item.type === "submission" && expanded && item.avatarUrl && (
+            <div className="mt-3 flex items-center gap-3 bg-zinc-50 rounded-xl px-3 py-2.5">
+              <img src={item.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[12px] font-semibold text-zinc-800 truncate">{item.sub.split(" applied")[0]}</p>
+                {item.link && (
+                  <Link href={item.link} className="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium">
+                    View submission →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <p className="text-[11px] text-zinc-400 tabular-nums whitespace-nowrap mt-0.5">
+            {timeAgo(item.time)}
+          </p>
+          {item.type === "submission" && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded((v) => !v); }}
+              className="text-[10px] text-zinc-400 hover:text-zinc-600 transition-colors"
+            >
+              {expanded ? "less" : "more"}
+            </button>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+
+  if (item.link && item.type !== "submission") {
+    return (
+      <Link href={item.link} className="block hover:bg-zinc-50/60 transition-colors">
+        {inner}
+      </Link>
+    );
+  }
+
+  return <>{inner}</>;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function AgencyDashboardOverview({
@@ -201,31 +285,9 @@ export default function AgencyDashboardOverview({
             <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
               <ul className="relative">
                 <div className="absolute left-[2.375rem] top-6 bottom-6 w-px bg-zinc-100" />
-                {recentActivity.map((item, i) => {
-                  const cfg = activityMeta[item.type];
-                  return (
-                    <li key={item.id} className={[
-                      "relative flex items-start gap-4 px-5 py-4",
-                      i < recentActivity.length - 1 ? "border-b border-zinc-50" : "",
-                    ].join(" ")}>
-                      <div className="flex-shrink-0 w-[1.875rem] flex justify-center pt-[5px]">
-                        <span className={`w-2 h-2 rounded-full ring-4 ring-white ${cfg.dot}`} />
-                      </div>
-                      <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <p className="text-[13px] font-semibold text-zinc-800 leading-snug">{item.title}</p>
-                            {cfg.badge}
-                          </div>
-                          <p className="text-[12px] text-zinc-400 leading-relaxed">{item.sub}</p>
-                        </div>
-                        <p className="text-[11px] text-zinc-400 flex-shrink-0 mt-0.5 tabular-nums whitespace-nowrap">
-                          {timeAgo(item.time)}
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
+                {recentActivity.map((item, i) => (
+                  <ActivityItemRow key={item.id} item={item} index={i} total={recentActivity.length} />
+                ))}
               </ul>
             </div>
           )}

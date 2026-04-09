@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useT } from "@/lib/LanguageContext";
 
 export type Job = {
   id: string;
@@ -10,9 +11,12 @@ export type Job = {
   category: string;
   budget: number;
   deadline: string;
+  jobDate: string | null;
   description: string;
   status: "open" | "closed" | "draft" | "inactive";
   applicants: number;
+  talentsNeeded: number;
+  talentsSelected: number;
   postedAt: string;
 };
 
@@ -74,6 +78,7 @@ function JobCard({ job, onUpdate, onRemove }: {
   onRemove: (id: string) => void;
 }) {
   const router = useRouter();
+  const { t } = useT();
   const [menuOpen, setMenuOpen]     = useState(false);
   const [deleting, setDeleting]     = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
@@ -97,7 +102,7 @@ function JobCard({ job, onUpdate, onRemove }: {
   }
 
   async function handleDelete() {
-    if (!confirm(`Permanently delete "${job.title}" and all its submissions? This cannot be undone.`)) return;
+    if (!confirm(t("jobs_confirm_delete"))) return;
     setDeleting(true);
     const res = await fetch(`/api/jobs/${job.id}`, {
       method: "DELETE",
@@ -138,7 +143,7 @@ function JobCard({ job, onUpdate, onRemove }: {
         </p>
 
         {/* Meta row */}
-        <div className="flex items-center gap-5 pt-3 border-t border-zinc-50 text-[13px]">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-3 border-t border-zinc-50 text-[13px]">
           {/* Budget */}
           <div className="flex items-center gap-1.5 text-zinc-600 font-medium">
             <svg className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,19 +159,36 @@ function JobCard({ job, onUpdate, onRemove }: {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
+            <span className="text-zinc-300 text-[11px] mr-0.5">{t("jobs_apply_by")}</span>
             {urgent ? `${days}d left` : formatDeadline(job.deadline)}
           </div>
 
-          {/* Applicants */}
-          {job.status !== "draft" && (
-            <div className="flex items-center gap-1.5 text-zinc-400 ml-auto">
+          {/* Job date */}
+          {job.jobDate && (
+            <div className="flex items-center gap-1.5 text-violet-500 font-medium">
               <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              {job.applicants}
+              {formatDeadline(job.jobDate)}
             </div>
           )}
+
+          {/* Talent slots */}
+          <div className={[
+            "flex items-center gap-1.5 ml-auto text-[12px] font-medium px-2 py-0.5 rounded-full",
+            job.talentsSelected >= job.talentsNeeded
+              ? "bg-emerald-50 text-emerald-600"
+              : job.talentsSelected > 0
+              ? "bg-amber-50 text-amber-600"
+              : "bg-zinc-100 text-zinc-400",
+          ].join(" ")}>
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
+            </svg>
+            {job.talentsSelected}/{job.talentsNeeded} {t("jobs_selected")}
+          </div>
         </div>
 
         {/* Actions row */}
@@ -175,7 +197,7 @@ function JobCard({ job, onUpdate, onRemove }: {
             href={`/agency/jobs/${job.id}`}
             className="flex-1 inline-flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl transition-all duration-150"
           >
-            View
+            {t("action_view")}
           </Link>
 
           {/* Status dropdown */}
@@ -184,7 +206,7 @@ function JobCard({ job, onUpdate, onRemove }: {
               onClick={() => setMenuOpen((v) => !v)}
               disabled={statusBusy}
               className="w-9 h-9 flex items-center justify-center rounded-xl border border-zinc-200 hover:border-zinc-300 text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer disabled:opacity-40"
-              title="Change status"
+              title={t("jobs_change_status")}
             >
               {statusBusy ? (
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -249,6 +271,7 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
   const [jobs, setJobs]     = useState(initial);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<typeof STATUS_OPTIONS[number]>("All");
+  const { t } = useT();
 
   function handleUpdate(id: string, patch: Partial<Job>) {
     setJobs((prev) => prev.map((j) => j.id === id ? { ...j, ...patch } : j));
@@ -273,9 +296,9 @@ const filtered = jobs.filter((j) => {
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Jobs</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{t("page_jobs")}</h1>
           <p className="text-sm text-zinc-400 mt-1">
-            {jobs.filter((j) => j.status === "open").length} open positions
+            {jobs.filter((j) => j.status === "open").length} {t("jobs_open_positions")}
           </p>
         </div>
         <Link
@@ -285,7 +308,7 @@ const filtered = jobs.filter((j) => {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Post a Job
+          {t("jobs_post_a_job")}
         </Link>
       </div>
 

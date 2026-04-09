@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useT } from "@/lib/LanguageContext";
 
 export type Booking = {
   id: string;
@@ -14,6 +15,7 @@ export type Booking = {
   contractStatus: string | null;
   contractSigned: string | null;
   jobDate: string | null;
+  paidAt: string | null;
 };
 
 const COMMISSION_RATE = 0.15;
@@ -91,6 +93,7 @@ function BookingRow({
   onStatusChange: (id: string, status: string) => void;
 }) {
   const router = useRouter();
+  const { t } = useT();
   const [acting, setActing]         = useState<"pay" | "cancel" | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [expanded, setExpanded]     = useState(false);
@@ -99,13 +102,13 @@ function BookingRow({
   const jobDate = formatJobDate(booking.jobDate);
 
   const timelineSteps: TimelineStep[] = [
-    { label: "Contract sent",   done: !!booking.contractStatus,                                   date: formatDate(booking.createdAt) },
-    { label: "Contract signed", done: booking.contractStatus === "signed" || booking.contractStatus === "accepted", date: booking.contractSigned ? formatDate(booking.contractSigned) : null },
-    { label: "Job date",        done: false,                                                       date: jobDate ?? "TBD" },
-    { label: "Payment",         done: booking.status === "paid" || booking.status === "confirmed" },
+    { label: t("contracts_sent"),   done: !!booking.contractStatus,                                   date: formatDate(booking.createdAt) },
+    { label: t("contracts_signed"), done: booking.contractStatus === "signed" || booking.contractStatus === "accepted", date: booking.contractSigned ? formatDate(booking.contractSigned) : null },
+    { label: t("jobs_job_date"),    done: !!booking.jobDate && new Date(booking.jobDate + "T23:59:59") < new Date(), date: jobDate ?? t("general_tbd") },
+    { label: t("status_paid"),      done: booking.status === "paid" || booking.status === "confirmed", date: booking.paidAt ? formatDate(booking.paidAt) : null },
   ];
   if (booking.status === "cancelled") {
-    timelineSteps.push({ label: "Cancelled", done: true });
+    timelineSteps.push({ label: t("status_cancelled"), done: true });
   }
 
   async function handlePay() {
@@ -151,47 +154,47 @@ function BookingRow({
         {booking.totalValue > 0 && (
           <div className="text-right flex-shrink-0">
             <p className="text-[14px] font-semibold text-zinc-900 tabular-nums">{usd(booking.totalValue)}</p>
-            <p className="text-[11px] text-zinc-400 tabular-nums">Talent: {usd(talentEarnings)}</p>
+            <p className="text-[11px] text-zinc-400 tabular-nums">{t("nav_talent")}: {usd(talentEarnings)}</p>
           </div>
         )}
 
         <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           {booking.status === "pending" && (
             <span className="text-[12px] font-medium text-violet-600 bg-violet-50 border border-violet-100 px-3 py-1.5 rounded-xl">
-              Awaiting Signature
+              {t("contract_status_sent")}
             </span>
           )}
           {booking.status === "pending_payment" && (
             <>
               <button onClick={handlePay} disabled={acting !== null}
                 className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer disabled:opacity-50">
-                {acting === "pay" ? "…" : "Pay"}
+                {acting === "pay" ? "…" : t("action_pay")}
               </button>
               {!confirming ? (
                 <button onClick={() => setConfirming(true)} disabled={acting !== null}
                   className="text-[12px] font-semibold px-4 py-2 rounded-xl border border-zinc-200 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 text-zinc-500 transition-all cursor-pointer">
-                  Cancel Cast
+                  {t("action_cancel_job")}
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] text-zinc-500">Sure?</span>
+                  <span className="text-[12px] text-zinc-500">{t("general_yes")}?</span>
                   <button onClick={handleCancel} disabled={acting !== null}
                     className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-colors cursor-pointer disabled:opacity-60">
-                    {acting === "cancel" ? "…" : "Yes"}
+                    {acting === "cancel" ? "…" : t("general_yes")}
                   </button>
                   <button onClick={() => setConfirming(false)}
                     className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors cursor-pointer">
-                    No
+                    {t("general_no")}
                   </button>
                 </div>
               )}
             </>
           )}
           {(booking.status === "paid" || booking.status === "confirmed") && (
-            <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">Paid</span>
+            <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">{t("status_paid")}</span>
           )}
           {booking.status === "cancelled" && (
-            <span className="text-[12px] font-medium text-zinc-400">Cancelled</span>
+            <span className="text-[12px] font-medium text-zinc-400">{t("status_cancelled")}</span>
           )}
         </div>
 
@@ -204,7 +207,7 @@ function BookingRow({
       {/* Timeline expansion */}
       {expanded && (
         <div className="border-t border-zinc-50 bg-zinc-50/60 px-6 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Timeline</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("page_bookings")}</p>
           <Timeline steps={timelineSteps} />
         </div>
       )}
@@ -247,6 +250,7 @@ function Section({ title, count, total, children, empty }: {
 
 export default function BookingList({ bookings: initial }: { bookings: Booking[] }) {
   const [bookings, setBookings] = useState(initial);
+  const { t } = useT();
 
   function handleStatusChange(id: string, status: string) {
     setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
@@ -263,8 +267,8 @@ export default function BookingList({ bookings: initial }: { bookings: Booking[]
     <div className="max-w-4xl space-y-8">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agency</p>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Bookings</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("portal_agency")}</p>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{t("page_bookings")}</h1>
         </div>
         <p className="text-[13px] text-zinc-400 font-medium pb-1">{bookings.length} total</p>
       </div>
@@ -274,28 +278,28 @@ export default function BookingList({ bookings: initial }: { bookings: Booking[]
           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Platform fee: <strong className="text-zinc-600 ml-1">15%</strong>
+          {t("finances_platform_commission")}: <strong className="text-zinc-600 ml-1">15%</strong>
           <span className="mx-1">·</span>
-          Talent receives: <strong className="text-zinc-600 ml-1">85% of deal value</strong>
+          {t("nav_talent")}: <strong className="text-zinc-600 ml-1">85%</strong>
           <span className="mx-1">·</span>
-          <strong className="text-violet-600">+2% referral fee (if applicable)</strong>
+          <strong className="text-violet-600">+2% {t("finances_referral_payouts")}</strong>
         </div>
       )}
 
-      <Section title="Awaiting Signature" count={awaitingSignature.length} empty="No bookings awaiting signature">
+      <Section title={t("contract_status_sent")} count={awaitingSignature.length} empty={t("bookings_no_bookings")}>
         {awaitingSignature.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
       </Section>
 
-      <Section title="Pending Payment" count={pendingPayment.length}
-        total={pendingPayment.reduce((s, b) => s + b.totalValue, 0)} empty="No bookings pending payment">
+      <Section title={t("status_pending_payment")} count={pendingPayment.length}
+        total={pendingPayment.reduce((s, b) => s + b.totalValue, 0)} empty={t("bookings_no_bookings")}>
         {pendingPayment.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
       </Section>
 
-      <Section title="Paid" count={paid.length} total={paidTotal} empty="No paid bookings">
+      <Section title={t("status_paid")} count={paid.length} total={paidTotal} empty={t("bookings_no_bookings")}>
         {paid.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
       </Section>
 
-      <Section title="Cancelled" count={cancelled.length} empty="No cancelled bookings">
+      <Section title={t("status_cancelled")} count={cancelled.length} empty={t("bookings_no_bookings")}>
         {cancelled.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
       </Section>
     </div>

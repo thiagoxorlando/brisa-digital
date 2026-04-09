@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useRole } from "@/lib/RoleProvider";
+import { useSubscription } from "@/lib/SubscriptionContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ type Job = {
   category: string;
   budget: number;
   deadline: string;
+  jobDate?: string | null;
   status: "open" | "closed" | "draft" | "inactive";
   postedAt: string;
   agencyId?: string;
@@ -165,32 +167,6 @@ function DetailRow({
 
 const PHOTO_LABELS = ["Front", "Left", "Right"] as const;
 
-function PhotoStrip({ submission }: { submission: Submission }) {
-  const slots = [submission.photoFrontUrl, submission.photoLeftUrl, submission.photoRightUrl];
-  if (!slots.some(Boolean)) return null;
-  return (
-    <div className="grid grid-cols-3 gap-px bg-zinc-100">
-      {slots.map((url, i) => (
-        <div key={i} className="relative aspect-[3/4] bg-zinc-100 overflow-hidden">
-          {url ? (
-            <img src={url} alt={PHOTO_LABELS[i]} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-          )}
-          <span className="absolute bottom-0 left-0 right-0 text-center text-[9px] font-semibold uppercase tracking-wider text-white/90 bg-gradient-to-t from-black/50 to-transparent py-1.5">
-            {PHOTO_LABELS[i]}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function VideoPlayer({ url }: { url: string }) {
   const [playing, setPlaying] = useState(false);
@@ -560,7 +536,7 @@ function ContractModal({
   );
 }
 
-// ─── Submission card ──────────────────────────────────────────────────────────
+// ─── Submission row (collapsible list item) ───────────────────────────────────
 
 function SubmissionCard({
   submission,
@@ -579,101 +555,145 @@ function SubmissionCard({
   onSelect: () => void;
   onToggleSelect?: () => void;
 }) {
+  const { isActive } = useSubscription();
+  const [expanded, setExpanded] = useState(false);
   const statusCls = SUBMISSION_STATUS[submission.status] ?? SUBMISSION_STATUS["pending"];
   const hasMedia = !!(submission.photoFrontUrl || submission.photoLeftUrl || submission.photoRightUrl || submission.videoUrl);
+  const photos = [submission.photoFrontUrl, submission.photoLeftUrl, submission.photoRightUrl].filter(Boolean) as string[];
 
   return (
-    <div className={[
-      "bg-white rounded-2xl border overflow-hidden flex flex-col transition-shadow duration-200",
-      hasSentContract
-        ? "border-emerald-200 shadow-[0_0_0_3px_rgba(16,185,129,0.12),0_4px_16px_rgba(0,0,0,0.04)]"
-        : "border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.07),0_12px_32px_rgba(0,0,0,0.05)]",
-    ].join(" ")}>
-
-      <div className={`h-[3px] bg-gradient-to-r ${stripe(jobCategory)}`} />
-      <PhotoStrip submission={submission} />
-      {submission.videoUrl && <VideoPlayer url={submission.videoUrl} />}
-
-      {!hasMedia && (
-        <div className="bg-zinc-50 py-6 flex flex-col items-center gap-1.5">
-          <svg className="w-6 h-6 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <p className="text-[11px] text-zinc-400">No media submitted</p>
-        </div>
-      )}
-
-      <div className="p-5 flex flex-col gap-3 flex-1">
-        <div className="flex items-center gap-3">
-          {submission.avatarUrl ? (
-            <img src={submission.avatarUrl} alt={submission.talentName}
-              className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-          ) : (
-            <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarGradient(submission.talentName)} flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white`}>
-              {initials(submission.talentName)}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-semibold text-zinc-900 leading-snug truncate">
-              {submission.talentName}
-            </p>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
-              {submission.mode === "self" ? "Self-submitted" : "Referred"}
-            </p>
+    <div className={hasSentContract ? "border-l-2 border-emerald-400" : ""}>
+      {/* Collapsed row */}
+      <div
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-4 px-5 py-3.5 hover:bg-zinc-50/70 transition-colors cursor-pointer"
+      >
+        {/* Avatar */}
+        {submission.avatarUrl ? (
+          <img src={submission.avatarUrl} alt={submission.talentName}
+            className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+        ) : (
+          <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarGradient(submission.talentName)} flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white`}>
+            {initials(submission.talentName)}
           </div>
-          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0 ${statusCls}`}>
-            {submission.status}
-          </span>
-        </div>
-
-        {submission.bio && (
-          <p className="text-[13px] text-zinc-500 leading-relaxed line-clamp-2">{submission.bio}</p>
         )}
 
-        <div className="flex items-center justify-between pt-2 mt-auto border-t border-zinc-50">
-          <p className="text-[11px] text-zinc-400">{formatDate(submission.submittedAt)}</p>
+        {/* Name + meta */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold text-zinc-900 leading-snug truncate">{submission.talentName}</p>
+          <p className="text-[11px] text-zinc-400 mt-0.5">
+            {submission.mode === "self" ? "Self-submitted" : "Referred"}
+            {" · "}
+            {formatDate(submission.submittedAt)}
+            {hasMedia && (
+              <span className="ml-2 text-violet-500 font-medium">
+                {photos.length > 0 && `${photos.length} photo${photos.length !== 1 ? "s" : ""}`}
+                {photos.length > 0 && submission.videoUrl && " · "}
+                {submission.videoUrl && "video"}
+              </span>
+            )}
+          </p>
+        </div>
+
+        {/* Status + contract badge */}
+        <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${statusCls}`}>
+            {submission.status}
+          </span>
+
           {isAgency && (
             hasSentContract ? (
-              <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
-                Contract Sent
+                Sent
               </span>
             ) : submission.talentId ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
                   className={[
-                    "w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors cursor-pointer",
-                    isSelected
-                      ? "bg-zinc-900 border-zinc-900"
-                      : "border-zinc-300 hover:border-zinc-500",
+                    "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer",
+                    isSelected ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 hover:border-zinc-500",
                   ].join(" ")}
                   title={isSelected ? "Deselect" : "Select for bulk contract"}
                 >
                   {isSelected && (
-                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
                 </button>
-                <button
-                  onClick={onSelect}
-                  className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-all active:scale-[0.97] cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Send Contract
-                </button>
+                {isActive ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onSelect(); }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white transition-all cursor-pointer"
+                  >
+                    Send Contract
+                  </button>
+                ) : (
+                  <Link
+                    href="/agency/finances"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-colors cursor-pointer"
+                  >
+                    Reactivate
+                  </Link>
+                )}
               </div>
             ) : null
           )}
         </div>
+
+        {/* Chevron */}
+        <svg className={`w-4 h-4 text-zinc-300 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </div>
+
+      {/* Expanded: photos + video + bio */}
+      {expanded && (
+        <div className="border-t border-zinc-50 bg-zinc-50/50 px-5 py-4 space-y-4">
+          {hasMedia ? (
+            <>
+              {photos.length > 0 && (
+                <div className={`grid gap-3 ${photos.length === 1 ? "grid-cols-1 max-w-xs" : photos.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                  {photos.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                      className="aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100 block group relative">
+                      <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <svg className="w-5 h-5 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+              {submission.videoUrl && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Video</p>
+                  <VideoPlayer url={submission.videoUrl} />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-zinc-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p className="text-[12px]">No media submitted</p>
+            </div>
+          )}
+          {submission.bio && (
+            <p className="text-[13px] text-zinc-500 leading-relaxed">{submission.bio}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -790,6 +810,7 @@ export default function JobDetail({
 }) {
   const router = useRouter();
   const { role } = useRole();
+  const { isActive } = useSubscription(); // used for bulk-send button
   const [contractModal, setContractModal] = useState<ContractTarget[] | null>(null);
   const [sentContracts, setSentContracts] = useState<Set<string>>(new Set());
   const [bookings, setBookings]           = useState<JobBooking[]>(initialBookings ?? []);
@@ -928,11 +949,18 @@ export default function JobDetail({
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
           <DetailRow
-            label="Deadline"
+            label="Apply by"
             value={urgent ? `${formatDate(job.deadline)} — ${days}d left` : formatDate(job.deadline)}
             highlight={urgent}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
           />
+          {job.jobDate && (
+            <DetailRow
+              label="Job Date"
+              value={formatDate(job.jobDate)}
+              icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
+            />
+          )}
           <DetailRow label="Submissions" value={`${safeSubmissions.length} received`}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" /></svg>}
           />
@@ -981,28 +1009,37 @@ export default function JobDetail({
               </div>
             )}
             {role === "agency" && selected.size > 0 && (
-              <button
-                onClick={openBulkContractModal}
-                disabled={selected.size < 1}
-                className={[
-                  "inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer",
-                  selected.size >= numberOfTalentsRequired
-                    ? "bg-zinc-900 hover:bg-zinc-800 text-white"
-                    : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700",
-                ].join(" ")}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Send Contracts ({selected.size}/{numberOfTalentsRequired})
-              </button>
+              isActive ? (
+                <button
+                  onClick={openBulkContractModal}
+                  disabled={selected.size < 1}
+                  className={[
+                    "inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer",
+                    selected.size >= numberOfTalentsRequired
+                      ? "bg-zinc-900 hover:bg-zinc-800 text-white"
+                      : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700",
+                  ].join(" ")}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Send Contracts ({selected.size}/{numberOfTalentsRequired})
+                </button>
+              ) : (
+                <Link
+                  href="/agency/finances"
+                  className="inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition-colors cursor-pointer"
+                >
+                  Reactivate Subscription
+                </Link>
+              )
             )}
           </div>
         </div>
 
         {safeSubmissions.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
             {safeSubmissions.map((s) => (
               <SubmissionCard
                 key={s.id}

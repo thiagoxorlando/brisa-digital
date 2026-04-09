@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useSubscription } from "@/lib/SubscriptionContext";
 
 type TalentRow = {
   id: string;
@@ -47,7 +46,7 @@ export default function AgencyTalentProfile({
   talent: TalentRow | null;
   jobs: Job[];
 }) {
-  const router = useRouter();
+  const { isActive } = useSubscription();
   const [selectedJob, setSelectedJob] = useState("");
   const [attaching, setAttaching]     = useState(false);
   const [attached, setAttached]       = useState(false);
@@ -205,59 +204,69 @@ export default function AgencyTalentProfile({
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
-        {/* Attach to Job */}
-        <div className="flex-1">
-          {attached ? (
-            <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-              <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-[13px] text-emerald-700 font-medium">Job invite sent to talent</p>
-            </div>
-          ) : showJobDropdown ? (
-            <div className="space-y-2">
-              <select
-                value={selectedJob}
-                onChange={(e) => setSelectedJob(e.target.value)}
-                className="w-full px-4 py-3 text-[13px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors bg-white"
-              >
-                <option value="">Select a job…</option>
-                {jobs.map((j) => (
-                  <option key={j.id} value={j.id}>{j.title}</option>
-                ))}
-              </select>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAttach}
-                  disabled={!selectedJob || attaching}
-                  className="flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
-                >
-                  {attaching ? "Attaching…" : "Confirm"}
-                </button>
-                <button
-                  onClick={() => { setShowJobDropdown(false); setSelectedJob(""); }}
-                  className="px-4 py-2.5 bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 text-[13px] font-medium rounded-xl transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
+        {!isActive ? (
+          /* Subscription inactive — replace all actions */
+          <Link
+            href="/agency/finances"
+            className="flex-1 flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
+          >
+            Reactivate Subscription
+          </Link>
+        ) : (
+          /* Attach to Job */
+          <div className="flex-1">
+            {attached ? (
+              <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-[13px] text-emerald-700 font-medium">Job invite sent to talent</p>
               </div>
-              {attachError && (
-                <p className="text-[12px] text-rose-500">{attachError}</p>
-              )}
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowJobDropdown(true)}
-              disabled={jobs.length === 0}
-              className="w-full flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              {jobs.length === 0 ? "No active jobs" : "Attach to Job"}
-            </button>
-          )}
-        </div>
+            ) : showJobDropdown ? (
+              <div className="space-y-2">
+                <select
+                  value={selectedJob}
+                  onChange={(e) => setSelectedJob(e.target.value)}
+                  className="w-full px-4 py-3 text-[13px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors bg-white"
+                >
+                  <option value="">Select a job…</option>
+                  {jobs.map((j) => (
+                    <option key={j.id} value={j.id}>{j.title}</option>
+                  ))}
+                </select>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAttach}
+                    disabled={!selectedJob || attaching}
+                    className="flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+                  >
+                    {attaching ? "Attaching…" : "Confirm"}
+                  </button>
+                  <button
+                    onClick={() => { setShowJobDropdown(false); setSelectedJob(""); }}
+                    className="px-4 py-2.5 bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 text-[13px] font-medium rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {attachError && (
+                  <p className="text-[12px] text-rose-500">{attachError}</p>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowJobDropdown(true)}
+                disabled={jobs.length === 0}
+                className="w-full flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                {jobs.length === 0 ? "No active jobs" : "Attach to Job"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
     </div>

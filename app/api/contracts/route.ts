@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import { requireActiveSubscription } from "@/lib/requireActiveSubscription";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest) {
   if (!payment_amount || Number(payment_amount) <= 0) {
     return NextResponse.json({ error: "payment_amount must be greater than 0" }, { status: 400 });
   }
+
+  const blocked = await requireActiveSubscription(agency_id);
+  if (blocked) return blocked;
 
   const supabase = createServerClient({ useServiceRole: true });
 
