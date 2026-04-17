@@ -15,57 +15,100 @@ export default async function AdminBookingsPage() {
 
   const rows = bookingsData ?? [];
 
-  // Resolve talent and agency names
-  const talentIds = [...new Set(rows.map((b) => b.talent_user_id).filter(Boolean))] as string[];
-  const agencyIds = [...new Set(rows.map((b) => b.agency_id).filter(Boolean))] as string[];
-  const jobIds    = [...new Set(rows.map((b) => b.job_id).filter(Boolean))] as string[];
+  const talentIds = [...new Set(rows.map((b) => b.talent_user_id).filter((x): x is string => !!x))];
+  const agencyIds = [...new Set(rows.map((b) => b.agency_id).filter((x): x is string => !!x))];
 
-  const [talentRes, agencyRes, contractsRes] = await Promise.all([
-    talentIds.length
-      ? supabase.from("talent_profiles").select("id, full_name").in("id", talentIds)
-      : Promise.resolve({ data: [] }),
-    agencyIds.length
-      ? supabase.from("agencies").select("id, company_name").in("id", agencyIds)
-      : Promise.resolve({ data: [] }),
-    jobIds.length
-      ? supabase
-          .from("contracts")
-          .select("job_id, talent_id, status, created_at")
-          .in("job_id", jobIds)
-      : Promise.resolve({ data: [] }),
+  type TalentRow  = { id: string; full_name: string | null };
+  type AgencyRow  = { id: string; company_name: string | null };
+  type ContractRow = {
+    job_id:           string | null;
+    talent_id:        string;
+    agency_id:        string | null;
+    status:           string;
+    payment_amount:   number | null;
+    created_at:       string;
+    signed_at:        string | null;
+    confirmed_at:     string | null;
+    agency_signed_at: string | null;
+  };
+
+  const [talentData, agencyData, contractData] = await Promise.all([
+    (async (): Promise<TalentRow[]> => {
+      if (!talentIds.length) return [];
+      const { data } = await supabase
+        .from("talent_profiles")
+        .select("id, full_name")
+        .in("id", talentIds);
+      return data ?? [];
+    })(),
+    (async (): Promise<AgencyRow[]> => {
+      if (!agencyIds.length) return [];
+      const { data } = await supabase
+        .from("agencies")
+        .select("id, company_name")
+        .in("id", agencyIds);
+      return data ?? [];
+    })(),
+    // Look up contracts by talent_id — catches bookings with or without a job_id
+    (async (): Promise<ContractRow[]> => {
+      if (!talentIds.length) return [];
+      const { data } = await supabase
+        .from("contracts")
+        .select("job_id, talent_id, agency_id, status, payment_amount, created_at, signed_at, confirmed_at, agency_signed_at")
+        .in("talent_id", talentIds);
+      return data ?? [];
+    })(),
   ]);
 
   const talentMap = new Map<string, string>();
   const agencyMap = new Map<string, string>();
-  for (const t of talentRes.data ?? []) talentMap.set(t.id, t.full_name ?? "Unknown");
-  for (const a of agencyRes.data ?? []) agencyMap.set(a.id, a.company_name ?? "Unknown");
+  for (const t of talentData) talentMap.set(t.id, t.full_name ?? "Sem nome");
+  for (const a of agencyData) agencyMap.set(a.id, a.company_name ?? "Sem nome");
 
-  // Build a map: `${job_id}:${talent_id}` → contract row
-  type ContractRow = { status: string; created_at: string };
-  const contractMap = new Map<string, ContractRow>();
-  for (const c of contractsRes.data ?? []) {
-    if (c.job_id && c.talent_id) {
-      contractMap.set(`${c.job_id}:${c.talent_id}`, { status: c.status, created_at: c.created_at });
+  // Group contracts by talent_id for fast lookup
+  const contractsByTalent = new Map<string, ContractRow[]>();
+  for (const c of contractData) {
+    const list = contractsByTalent.get(c.talent_id) ?? [];
+    list.push(c);
+    contractsByTalent.set(c.talent_id, list);
+  }
+
+  function findContract(
+    talentId: string,
+    agencyId: string | null,
+    jobId: string | null
+  ): ContractRow | null {
+    const candidates = (contractsByTalent.get(talentId) ?? []).filter(
+      (c) => c.agency_id === agencyId
+    );
+    if (!candidates.length) return null;
+    if (jobId) {
+      const exact = candidates.find((c) => c.job_id === jobId);
+      if (exact) return exact;
     }
+    return candidates.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )[0] ?? null;
   }
 
   const bookings = rows.map((b) => {
-    const contract = b.job_id && b.talent_user_id
-      ? contractMap.get(`${b.job_id}:${b.talent_user_id}`) ?? null
+    const contract = b.talent_user_id
+      ? findContract(b.talent_user_id, b.agency_id ?? null, b.job_id ?? null)
       : null;
 
     return {
-      id:                 b.id,
-      jobTitle:           b.job_title        ?? "—",
-      talentName:         b.talent_user_id   ? (talentMap.get(b.talent_user_id) ?? "Unknown Talent") : "Unknown",
-      agencyName:         b.agency_id        ? (agencyMap.get(b.agency_id)      ?? "Unknown Agency") : "—",
-      status:             b.status           ?? "pending",
-      price:              b.price            ?? 0,
-      created_at:         b.created_at       ?? "",
-      // contract fields — use booking created_at as accepted_at proxy
-      contractStatus:     contract?.status   ?? null,
-      contractSentAt:     contract?.created_at ?? null,
-      contractAcceptedAt: contract?.status === "accepted" ? b.created_at : null,
+      id:                  b.id,
+      jobTitle:            b.job_title       ?? "—",
+      talentName:          b.talent_user_id  ? (talentMap.get(b.talent_user_id) ?? "Talento sem nome") : "Sem nome",
+      agencyName:          b.agency_id       ? (agencyMap.get(b.agency_id)      ?? "Agência sem nome") : "—",
+      status:              b.status          ?? "pending",
+      price:               b.price           ?? 0,
+      contractAmount:      contract?.payment_amount ?? null,
+      created_at:          b.created_at      ?? "",
+      contractStatus:      contract?.status         ?? null,
+      contractSentAt:      contract?.created_at     ?? null,
+      contractSignedAt:    contract?.signed_at      ?? null,
+      contractConfirmedAt: contract?.confirmed_at ?? contract?.agency_signed_at ?? null,
     };
   });
 
