@@ -21,6 +21,7 @@ export default async function TalentJobsPage() {
           .from("submissions")
           .select("job_id")
           .eq("talent_user_id", user.id)
+          .neq("status", "rejected")
       : Promise.resolve({ data: [] }),
   ]);
 

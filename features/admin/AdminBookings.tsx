@@ -9,27 +9,31 @@ export type AdminBooking = {
   agencyName: string;
   status: string;
   price: number;
+  contractAmount: number | null;
   created_at: string;
   contractStatus: string | null;
   contractSentAt: string | null;
-  contractAcceptedAt: string | null;
+  contractSignedAt: string | null;
+  contractConfirmedAt: string | null;
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  pending:         "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
-  pending_payment: "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  paid:            "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  confirmed:       "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  cancelled:       "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
-  disputed:        "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
+  pending:           "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
+  pending_payment:   "bg-sky-50     text-sky-700     ring-1 ring-sky-100",
+  awaiting_deposit:  "bg-sky-50     text-sky-700     ring-1 ring-sky-100",
+  confirmed:         "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  paid:              "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  cancelled:         "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
+  disputed:          "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending:         "Awaiting Signature",
-  pending_payment: "Pending Payment",
-  paid:            "Paid",
-  confirmed:       "Paid",
-  cancelled:       "Cancelled",
+  pending:           "Aguardando Assinatura",
+  pending_payment:   "Aguardando Depósito",
+  awaiting_deposit:  "Aguardando Depósito",
+  confirmed:         "Aguardando Pagamento",
+  paid:              "Pago",
+  cancelled:         "Cancelado",
 };
 
 const CONTRACT_STYLES: Record<string, string> = {
@@ -39,15 +43,15 @@ const CONTRACT_STYLES: Record<string, string> = {
   rejected: "bg-rose-50    text-rose-600",
 };
 
-const BOOKING_STATUSES = ["pending", "pending_payment", "paid", "cancelled"];
+const BOOKING_STATUSES = ["pending", "pending_payment", "confirmed", "paid", "cancelled"];
 
-function usd(n: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+function brl(n: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
 }
 
 function formatDate(s: string | null) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function ConfirmDialog({ message, onConfirm, onCancel }: { message: string; onConfirm: () => void; onCancel: () => void }) {
@@ -58,16 +62,23 @@ function ConfirmDialog({ message, onConfirm, onCancel }: { message: string; onCo
         <div className="flex gap-3">
           <button onClick={onCancel}
             className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer">
-            Cancel
+            Cancelar
           </button>
           <button onClick={onConfirm}
             className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[13px] font-semibold transition-colors cursor-pointer">
-            Move to Trash
+            Mover para Lixeira
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+/** Derives the effective display status from booking + contract state. */
+function effectiveStatus(status: string, contractStatus: string | null): string {
+  // Contract signed but booking not yet promoted (both pending and pending_payment)
+  if (contractStatus === "signed" && (status === "pending" || status === "pending_payment")) return "awaiting_deposit";
+  return status;
 }
 
 function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete: (id: string) => void }) {
@@ -79,10 +90,12 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
   const [editPrice, setEditPrice]   = useState(String(b.price));
   const [local, setLocal]           = useState(b);
 
-  const stCls = STATUS_STYLES[local.status] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
+  const effStatus = effectiveStatus(local.status, local.contractStatus);
+  const stCls = STATUS_STYLES[effStatus] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
   const ctCls = local.contractStatus ? (CONTRACT_STYLES[local.contractStatus] ?? "bg-zinc-100 text-zinc-500") : null;
-  const paymentStatus = (local.status === "paid" || local.status === "confirmed") ? "paid" : "pending";
-  const paymentCls    = paymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
+  const isPaid = effStatus === "paid";
+  const paymentCls   = isPaid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
+  const paymentLabel = isPaid ? "Pago" : "Pendente";
 
   async function handleSave() {
     setSaving(true);
@@ -108,7 +121,7 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
     <Fragment>
       {confirm && (
         <ConfirmDialog
-          message={`Move booking for "${local.jobTitle}" to trash?`}
+          message={`Mover reserva de "${local.jobTitle}" para a lixeira?`}
           onConfirm={handleDelete}
           onCancel={() => setConfirm(false)}
         />
@@ -126,7 +139,7 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
         </td>
         <td className="px-4 py-4">
           <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full ${stCls}`}>
-            {STATUS_LABEL[local.status] ?? local.status.replace("_", " ")}
+            {STATUS_LABEL[effStatus] ?? effStatus.replace("_", " ")}
           </span>
         </td>
         <td className="px-4 py-4 hidden sm:table-cell">
@@ -137,7 +150,7 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
           ) : <span className="text-[12px] text-zinc-300">—</span>}
         </td>
         <td className="px-4 py-4 text-right hidden sm:table-cell">
-          <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">{local.price > 0 ? usd(local.price) : "—"}</span>
+          <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">{(local.contractAmount ?? local.price) > 0 ? brl(local.contractAmount ?? local.price) : "—"}</span>
         </td>
         <td className="px-4 py-4 hidden lg:table-cell">
           <span className="text-[12px] text-zinc-400">{formatDate(local.created_at)}</span>
@@ -146,11 +159,11 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
           <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { setEditing((v) => !v); setExpanded(true); }}
               className="text-[11px] font-medium text-zinc-400 hover:text-zinc-800 transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-zinc-100">
-              Edit
+              Editar
             </button>
             <button onClick={() => setConfirm(true)}
               className="text-[11px] font-medium text-rose-400 hover:text-rose-600 transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-rose-50">
-              Delete
+              Excluir
             </button>
           </div>
         </td>
@@ -160,7 +173,7 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
           <td colSpan={8} className="px-6 py-5">
             {editing ? (
               <div className="space-y-4 max-w-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Edit Booking</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Editar Reserva</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Status</label>
@@ -170,7 +183,7 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Price (USD)</label>
+                    <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Valor (R$)</label>
                     <input type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
                       className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none bg-white" />
                   </div>
@@ -178,39 +191,102 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
                 <div className="flex gap-2">
                   <button onClick={handleSave} disabled={saving}
                     className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white text-[12px] font-semibold rounded-xl transition-colors cursor-pointer">
-                    {saving ? "Saving…" : "Save Changes"}
+                    {saving ? "Salvando…" : "Salvar"}
                   </button>
                   <button onClick={() => setEditing(false)}
                     className="px-4 py-2 bg-white border border-zinc-200 text-zinc-600 text-[12px] font-medium rounded-xl hover:border-zinc-300 transition-colors cursor-pointer">
-                    Cancel
+                    Cancelar
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 text-[12px]">
-                <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Job</p><p className="text-zinc-700 font-medium">{local.jobTitle || "—"}</p></div>
-                <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Booking ID</p><p className="font-mono text-zinc-700 truncate">{local.id}</p></div>
-                <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Talent</p><p className="text-zinc-700">{local.talentName}</p></div>
-                <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Agency</p><p className="text-zinc-700">{local.agencyName}</p></div>
+              <div className="space-y-5">
+                {/* Awaiting deposit explanation */}
+                {effStatus === "awaiting_deposit" && (
+                  <div className="flex items-start gap-2.5 bg-sky-50 border border-sky-100 rounded-xl px-4 py-3">
+                    <svg className="w-4 h-4 text-sky-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-[12px] text-sky-700 font-medium">
+                      Aguardando depósito da agência para garantir o pagamento do talento
+                    </p>
+                  </div>
+                )}
+                {/* Timeline */}
                 <div>
-                  <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-1">Contract Sent</p>
-                  <p className="text-zinc-700">{formatDate(local.contractSentAt)}</p>
-                  {local.contractStatus && (
-                    <span className={`inline-flex mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${CONTRACT_STYLES[local.contractStatus] ?? "bg-zinc-100 text-zinc-500"}`}>
-                      {local.contractStatus}
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Fluxo</p>
+                  <div className="flex items-center gap-0 overflow-x-auto pb-1">
+                    {[
+                      {
+                        label: "Criado",
+                        done:  true,
+                        date:  local.created_at,
+                      },
+                      {
+                        label: "Contrato Enviado",
+                        done:  !!local.contractSentAt,
+                        date:  local.contractSentAt,
+                      },
+                      {
+                        label: "Contrato Assinado",
+                        done:  !!local.contractSignedAt || local.contractStatus === "signed" || local.contractStatus === "confirmed" || local.contractStatus === "paid",
+                        date:  local.contractSignedAt,
+                      },
+                      {
+                        label: "Depósito",
+                        done:  !!local.contractConfirmedAt || local.contractStatus === "confirmed" || local.contractStatus === "paid",
+                        date:  local.contractConfirmedAt,
+                      },
+                      {
+                        label: "Pago",
+                        done:  local.status === "paid" || local.status === "confirmed",
+                        date:  null,
+                      },
+                    ].map((step, i, arr) => (
+                      <div key={step.label} className="flex items-center flex-shrink-0">
+                        <div className="flex flex-col items-center gap-1.5">
+                          <div className={[
+                            "w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+                            step.done ? "bg-emerald-500 border-emerald-500" : "bg-white border-zinc-200",
+                          ].join(" ")}>
+                            {step.done && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <p className={`text-[10px] font-medium text-center whitespace-nowrap ${step.done ? "text-zinc-700" : "text-zinc-300"}`}>
+                            {step.label}
+                          </p>
+                          {step.date && step.done && (
+                            <p className="text-[9px] text-zinc-400 whitespace-nowrap">{formatDate(step.date)}</p>
+                          )}
+                        </div>
+                        {i < arr.length - 1 && (
+                          <div className={`w-10 h-0.5 mb-6 mx-1 flex-shrink-0 ${step.done && arr[i + 1].done ? "bg-emerald-300" : "bg-zinc-100"}`} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Details grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 text-[12px]">
+                  <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Vaga</p><p className="text-zinc-700 font-medium">{local.jobTitle || "—"}</p></div>
+                  <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">ID da Reserva</p><p className="font-mono text-zinc-700 truncate">{local.id}</p></div>
+                  <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Talento</p><p className="text-zinc-700">{local.talentName}</p></div>
+                  <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Agência</p><p className="text-zinc-700">{local.agencyName}</p></div>
+                  <div>
+                    <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-1">Pagamento</p>
+                    <p className="text-zinc-700 font-semibold">{(local.contractAmount ?? local.price) > 0 ? brl(local.contractAmount ?? local.price) : "—"}</p>
+                    <span className={`inline-flex mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${paymentCls}`}>{paymentLabel}</span>
+                  </div>
+                  <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Status</p>
+                    <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${stCls}`}>
+                      {STATUS_LABEL[effStatus] ?? effStatus}
                     </span>
-                  )}
+                  </div>
+                  <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Criado em</p><p className="text-zinc-700">{formatDate(local.created_at)}</p></div>
                 </div>
-                <div>
-                  <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-1">Contract Signed</p>
-                  <p className="text-zinc-700">{local.contractStatus === "accepted" ? formatDate(local.contractAcceptedAt) : "—"}</p>
-                </div>
-                <div>
-                  <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-1">Payment</p>
-                  <p className="text-zinc-700 font-semibold">{local.price > 0 ? usd(local.price) : "—"}</p>
-                  <span className={`inline-flex mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${paymentCls}`}>{paymentStatus}</span>
-                </div>
-                <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Booked</p><p className="text-zinc-700">{formatDate(local.created_at)}</p></div>
               </div>
             )}
           </td>
@@ -230,30 +306,40 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
   }
 
   const filtered = bookings
-    .filter((b) => statusFilter === "all" || b.status === statusFilter)
+    .filter((b) => {
+      if (statusFilter === "all") return true;
+      const eff = effectiveStatus(b.status, b.contractStatus);
+      // pending_payment tab catches both pending_payment and awaiting_deposit
+      if (statusFilter === "pending_payment") return eff === "pending_payment" || eff === "awaiting_deposit";
+      return eff === statusFilter;
+    })
     .filter((b) => {
       if (!search) return true;
       const q = search.toLowerCase();
       return b.jobTitle.toLowerCase().includes(q) || b.talentName.toLowerCase().includes(q) || b.agencyName.toLowerCase().includes(q);
     });
 
-  const totalValue     = filtered.reduce((s, b) => s + b.price, 0);
-  const confirmedValue = filtered.filter((b) => b.status === "paid" || b.status === "confirmed").reduce((s, b) => s + b.price, 0);
+  const totalValue     = filtered.reduce((s, b) => s + (b.contractAmount ?? b.price), 0);
+  const confirmedValue = filtered.filter((b) => {
+    const eff = effectiveStatus(b.status, b.contractStatus);
+    return eff === "paid" || eff === "confirmed";
+  }).reduce((s, b) => s + (b.contractAmount ?? b.price), 0);
 
   return (
     <div className="max-w-7xl space-y-6">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Platform Admin</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Bookings</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">{bookings.length} total bookings</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Admin da Plataforma</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Reservas</h1>
+        <p className="text-[13px] text-zinc-400 mt-1">{bookings.length} reservas no total</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[
-          { label: "Total",           value: usd(totalValue),     stripe: "from-zinc-400 to-zinc-600"    },
-          { label: "Paid",            value: usd(confirmedValue), stripe: "from-emerald-400 to-teal-500" },
-          { label: "Pending Payment", value: String(filtered.filter((b) => b.status === "pending_payment").length), stripe: "from-amber-400 to-orange-500" },
-          { label: "Cancelled",       value: String(filtered.filter((b) => b.status === "cancelled").length),       stripe: "from-zinc-300 to-zinc-400"    },
+          { label: "Total",                value: brl(totalValue),     stripe: "from-zinc-400 to-zinc-600"    },
+          { label: "Pago",                 value: brl(confirmedValue), stripe: "from-emerald-400 to-teal-500" },
+          { label: "Aguardando Depósito",   value: String(filtered.filter((b) => ["pending_payment","awaiting_deposit"].includes(effectiveStatus(b.status, b.contractStatus))).length), stripe: "from-sky-400 to-blue-500"    },
+          { label: "Aguardando Pagamento", value: String(filtered.filter((b) => effectiveStatus(b.status, b.contractStatus) === "confirmed").length),         stripe: "from-amber-400 to-orange-500" },
+          { label: "Cancelado",            value: String(filtered.filter((b) => effectiveStatus(b.status, b.contractStatus) === "cancelled").length),        stripe: "from-zinc-300 to-zinc-400"    },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className={`h-[3px] bg-gradient-to-r ${s.stripe}`} />
@@ -270,15 +356,15 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input type="text" placeholder="Search bookings…" value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" placeholder="Buscar reservas…" value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-[13px] bg-white border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors" />
         </div>
-        <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start">
-          {(["all", "pending", "pending_payment", "paid", "cancelled"] as const).map((s) => (
+        <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start flex-wrap">
+          {(["all", "pending", "pending_payment", "confirmed", "paid", "cancelled"] as const).map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={["px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap",
                 statusFilter === s ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"].join(" ")}>
-              {{ all: "All", pending: "Awaiting Sig.", pending_payment: "Pending Payment", paid: "Paid", cancelled: "Cancelled" }[s]}
+              {{ all: "Todos", pending: "Aguard. Assinatura", pending_payment: "Aguard. Depósito", confirmed: "Aguard. Pagamento", paid: "Pago", cancelled: "Cancelado" }[s]}
             </button>
           ))}
         </div>
@@ -289,13 +375,13 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-100">
-                <th className="text-left px-6 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Job</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Talent</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden md:table-cell">Agency</th>
+                <th className="text-left px-6 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Vaga</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Talento</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden md:table-cell">Agência</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Status</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Contract</th>
-                <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Value</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Date</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Contrato</th>
+                <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Valor</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Data</th>
                 <th className="px-4 py-3.5 w-24" />
               </tr>
             </thead>
@@ -303,7 +389,7 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
               {filtered.map((b) => <BookingRow key={b.id} booking={b} onDelete={handleDelete} />)}
               {filtered.length === 0 && (
                 <tr><td colSpan={8} className="px-6 py-16 text-center">
-                  <p className="text-[14px] font-medium text-zinc-500">No bookings found</p>
+                  <p className="text-[14px] font-medium text-zinc-500">Nenhuma reserva encontrada</p>
                 </td></tr>
               )}
             </tbody>
@@ -311,10 +397,10 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
               <tfoot>
                 <tr className="border-t-2 border-zinc-100 bg-zinc-50/80">
                   <td colSpan={5} className="px-6 py-3.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{filtered.length} bookings</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{filtered.length} reservas</p>
                   </td>
                   <td className="px-4 py-3.5 text-right hidden sm:table-cell">
-                    <p className="text-[13px] font-semibold text-zinc-900 tabular-nums">{usd(totalValue)}</p>
+                    <p className="text-[13px] font-semibold text-zinc-900 tabular-nums">{totalValue > 0 ? brl(totalValue) : "—"}</p>
                   </td>
                   <td colSpan={2} />
                 </tr>

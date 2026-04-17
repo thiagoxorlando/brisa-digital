@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
 
 export type Booking = {
@@ -21,16 +21,16 @@ export type Booking = {
 const COMMISSION_RATE = 0.15;
 const TALENT_RATE     = 1 - COMMISSION_RATE;
 
-function usd(n: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+function brl(n: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
 }
 function formatDate(s: string | null) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
 function formatJobDate(s: string | null) {
   if (!s) return null;
-  return new Date(s + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return new Date(s + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 function initials(name: string) {
   return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -83,6 +83,21 @@ function Timeline({ steps }: { steps: TimelineStep[] }) {
   );
 }
 
+// ── Display status ────────────────────────────────────────────────────────────
+// Booking.status reflects DB state; a booking can be "pending" while the
+// contract is already "signed" (talent uploaded signed PDF). In that case the
+// agency should see "Confirmar Reserva", not "Aguardando Talento".
+function displayStatus(b: Booking) {
+  // Contract signed but booking not yet promoted → show as pending_payment (Confirmar Reserva)
+  if (b.contractStatus === "signed" && (b.status === "pending" || b.status === "pending_payment")) {
+    return "pending_payment";
+  }
+  if (b.status === "pending" && ["confirmed", "paid"].includes(b.contractStatus ?? "")) {
+    return "pending_payment";
+  }
+  return b.status;
+}
+
 // ── Booking row ───────────────────────────────────────────────────────────────
 
 function BookingRow({
@@ -92,11 +107,11 @@ function BookingRow({
   booking: Booking;
   onStatusChange: (id: string, status: string) => void;
 }) {
-  const router = useRouter();
   const { t } = useT();
-  const [acting, setActing]         = useState<"pay" | "cancel" | null>(null);
+  const [acting, setActing]         = useState<"confirm" | "pay" | "cancel" | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [expanded, setExpanded]     = useState(false);
+  const [balanceError, setBalanceError] = useState<{ required: number; available: number } | null>(null);
 
   const talentEarnings = Math.round(booking.totalValue * TALENT_RATE);
   const jobDate = formatJobDate(booking.jobDate);
@@ -111,13 +126,31 @@ function BookingRow({
     timelineSteps.push({ label: t("status_cancelled"), done: true });
   }
 
+  // Confirm booking: checks balance and holds funds in escrow
+  async function handleConfirm() {
+    setBalanceError(null);
+    setActing("confirm");
+    const res = await fetch(`/api/bookings/${booking.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "confirmed" }),
+    });
+    if (res.status === 402) {
+      const d = await res.json();
+      setBalanceError({ required: d.required, available: d.available });
+    } else if (res.ok || res.status === 409) {
+      onStatusChange(booking.id, "confirmed");
+    }
+    setActing(null);
+  }
+
+  // Final payment release after job is completed
   async function handlePay() {
     setActing("pay");
     const res = await fetch(`/api/bookings/${booking.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mark_paid: true }),
     });
-    if (res.ok) { onStatusChange(booking.id, "paid"); router.refresh(); }
+    if (res.ok) { onStatusChange(booking.id, "paid"); }
     setActing(null);
   }
 
@@ -128,7 +161,7 @@ function BookingRow({
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "cancelled", notify_admin: true }),
     });
-    if (res.ok) { onStatusChange(booking.id, "cancelled"); router.refresh(); }
+    if (res.ok) { onStatusChange(booking.id, "cancelled"); }
     setActing(null);
   }
 
@@ -153,48 +186,63 @@ function BookingRow({
 
         {booking.totalValue > 0 && (
           <div className="text-right flex-shrink-0">
-            <p className="text-[14px] font-semibold text-zinc-900 tabular-nums">{usd(booking.totalValue)}</p>
-            <p className="text-[11px] text-zinc-400 tabular-nums">{t("nav_talent")}: {usd(talentEarnings)}</p>
+            <p className="text-[14px] font-semibold text-zinc-900 tabular-nums">{brl(booking.totalValue)}</p>
+            <p className="text-[11px] text-zinc-400 tabular-nums">{t("nav_talent")}: {brl(talentEarnings)}</p>
           </div>
         )}
 
         <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-          {booking.status === "pending" && (
+          {displayStatus(booking) === "pending" && (
             <span className="text-[12px] font-medium text-violet-600 bg-violet-50 border border-violet-100 px-3 py-1.5 rounded-xl">
-              {t("contract_status_sent")}
+              Aguardando Talento
             </span>
           )}
-          {booking.status === "pending_payment" && (
+
+          {displayStatus(booking) === "pending_payment" && (
             <>
-              <button onClick={handlePay} disabled={acting !== null}
-                className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer disabled:opacity-50">
-                {acting === "pay" ? "…" : t("action_pay")}
+              <button
+                onClick={handleConfirm}
+                disabled={acting !== null}
+                className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {acting === "confirm" ? "Verificando…" : "Confirmar Reserva"}
               </button>
               {!confirming ? (
                 <button onClick={() => setConfirming(true)} disabled={acting !== null}
                   className="text-[12px] font-semibold px-4 py-2 rounded-xl border border-zinc-200 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 text-zinc-500 transition-all cursor-pointer">
-                  {t("action_cancel_job")}
+                  Cancelar
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[12px] text-zinc-500">{t("general_yes")}?</span>
+                  <span className="text-[12px] text-zinc-500">Confirmar?</span>
                   <button onClick={handleCancel} disabled={acting !== null}
                     className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-colors cursor-pointer disabled:opacity-60">
-                    {acting === "cancel" ? "…" : t("general_yes")}
+                    {acting === "cancel" ? "…" : "Sim"}
                   </button>
                   <button onClick={() => setConfirming(false)}
                     className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors cursor-pointer">
-                    {t("general_no")}
+                    Não
                   </button>
                 </div>
               )}
             </>
           )}
-          {(booking.status === "paid" || booking.status === "confirmed") && (
-            <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">{t("status_paid")}</span>
+
+          {displayStatus(booking) === "confirmed" && (
+            <button
+              onClick={handlePay}
+              disabled={acting !== null}
+              className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {acting === "pay" ? "…" : "Pagar Talento"}
+            </button>
           )}
-          {booking.status === "cancelled" && (
-            <span className="text-[12px] font-medium text-zinc-400">{t("status_cancelled")}</span>
+
+          {displayStatus(booking) === "paid" && (
+            <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">Pago</span>
+          )}
+          {displayStatus(booking) === "cancelled" && (
+            <span className="text-[12px] font-medium text-zinc-400">Cancelado</span>
           )}
         </div>
 
@@ -203,6 +251,29 @@ function BookingRow({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </div>
+
+      {/* Insufficient balance banner */}
+      {balanceError && (
+        <div className="mx-6 mb-3 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-semibold text-amber-800">Saldo insuficiente</p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              Necessário: <strong>{brl(balanceError.required)}</strong> · Disponível: <strong>{brl(balanceError.available)}</strong>
+            </p>
+          </div>
+          <Link
+            href="/agency/finances"
+            onClick={(e) => e.stopPropagation()}
+            className="flex-shrink-0 text-[12px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Depositar fundos
+          </Link>
+        </div>
+      )}
 
       {/* Timeline expansion */}
       {expanded && (
@@ -229,7 +300,7 @@ function Section({ title, count, total, children, empty }: {
         </div>
         {total !== undefined && total > 0 && (
           <p className="text-[13px] font-semibold text-zinc-700 tabular-nums">
-            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(total)}
+            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(total)}
           </p>
         )}
       </div>
@@ -256,12 +327,15 @@ export default function BookingList({ bookings: initial }: { bookings: Booking[]
     setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
   }
 
-  const awaitingSignature = bookings.filter((b) => b.status === "pending");
-  const pendingPayment    = bookings.filter((b) => b.status === "pending_payment");
-  const paid              = bookings.filter((b) => b.status === "paid" || b.status === "confirmed");
-  const cancelled         = bookings.filter((b) => b.status === "cancelled");
+  const awaitingSignature = bookings.filter((b) => displayStatus(b) === "pending");
+  const awaitingDeposit   = bookings.filter((b) => displayStatus(b) === "awaiting_deposit");
+  const pendingPayment    = bookings.filter((b) => displayStatus(b) === "pending_payment");
+  const awaitingPayment   = bookings.filter((b) => displayStatus(b) === "confirmed");
+  const paid              = bookings.filter((b) => displayStatus(b) === "paid");
+  const cancelled         = bookings.filter((b) => displayStatus(b) === "cancelled");
 
   const paidTotal = paid.reduce((s, b) => s + b.totalValue, 0);
+
 
   return (
     <div className="max-w-4xl space-y-8">
@@ -283,6 +357,7 @@ export default function BookingList({ bookings: initial }: { bookings: Booking[]
           {t("nav_talent")}: <strong className="text-zinc-600 ml-1">85%</strong>
           <span className="mx-1">·</span>
           <strong className="text-violet-600">+2% {t("finances_referral_payouts")}</strong>
+          <span className="text-zinc-300 ml-1">(se aplicável)</span>
         </div>
       )}
 
@@ -290,10 +365,23 @@ export default function BookingList({ bookings: initial }: { bookings: Booking[]
         {awaitingSignature.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
       </Section>
 
+      {awaitingDeposit.length > 0 && (
+        <Section title="Depósito Pendente" count={awaitingDeposit.length} empty={t("bookings_no_bookings")}>
+          {awaitingDeposit.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
+        </Section>
+      )}
+
       <Section title={t("status_pending_payment")} count={pendingPayment.length}
         total={pendingPayment.reduce((s, b) => s + b.totalValue, 0)} empty={t("bookings_no_bookings")}>
         {pendingPayment.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
       </Section>
+
+      {awaitingPayment.length > 0 && (
+        <Section title="Aguardando Pagamento" count={awaitingPayment.length}
+          total={awaitingPayment.reduce((s, b) => s + b.totalValue, 0)} empty={t("bookings_no_bookings")}>
+          {awaitingPayment.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}
+        </Section>
+      )}
 
       <Section title={t("status_paid")} count={paid.length} total={paidTotal} empty={t("bookings_no_bookings")}>
         {paid.map((b) => <BookingRow key={b.id} booking={b} onStatusChange={handleStatusChange} />)}

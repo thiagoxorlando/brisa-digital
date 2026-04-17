@@ -2,20 +2,80 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
 
-const ALLOWED_ACTIONS = ["accept", "reject", "agency_sign", "pay", "cancel_job", "withdraw"];
+const ALLOWED_ACTIONS = ["accept", "reject", "agency_sign", "pay", "cancel_job", "withdraw", "set_file_url", "upload_signed"];
+const REFERRAL_RATE   = 0.02; // 2% referral commission
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { action } = await req.json();
+  const body = await req.json();
+  const { action, contract_file_url } = body;
 
   if (!ALLOWED_ACTIONS.includes(action)) {
     return NextResponse.json({ error: `action must be one of: ${ALLOWED_ACTIONS.join(", ")}` }, { status: 400 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
+
+  // ── Agency: attach/update original contract file URL ─────────────────────
+  if (action === "set_file_url") {
+    if (!contract_file_url) {
+      return NextResponse.json({ error: "contract_file_url is required" }, { status: 400 });
+    }
+    const { error: updateErr } = await supabase
+      .from("contracts")
+      .update({ contract_file_url })
+      .eq("id", id);
+    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Talent: upload signed version of the contract ────────────────────────
+  if (action === "upload_signed") {
+    const { signed_contract_url } = body as { signed_contract_url?: string };
+    if (!signed_contract_url) {
+      return NextResponse.json({ error: "signed_contract_url is required" }, { status: 400 });
+    }
+
+    // Fetch contract first so we can update the booking
+    const { data: c } = await supabase
+      .from("contracts")
+      .select("agency_id, talent_id, job_id")
+      .eq("id", id)
+      .single();
+
+    const { error: updateErr } = await supabase
+      .from("contracts")
+      .update({ signed_contract_url, status: "signed", signed_at: new Date().toISOString() })
+      .eq("id", id);
+    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 });
+
+    // Upgrade the pending booking to pending_payment (same as the accept action)
+    if (c?.talent_id && c?.agency_id) {
+      let bookingQuery = supabase
+        .from("bookings")
+        .update({ status: "pending_payment" })
+        .eq("talent_user_id", c.talent_id)
+        .eq("agency_id", c.agency_id)
+        .eq("status", "pending")
+        .select("id");
+
+      if (c.job_id) {
+        bookingQuery = bookingQuery.eq("job_id", c.job_id);
+      } else {
+        bookingQuery = bookingQuery.is("job_id", null);
+      }
+
+      await bookingQuery;
+    }
+
+    if (c?.agency_id) {
+      await notify(c.agency_id, "contract", "Talento enviou o contrato assinado", "/agency/contracts");
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   const { data: contract, error: fetchErr } = await supabase
     .from("contracts")
@@ -71,8 +131,8 @@ export async function PATCH(
       });
     }
 
-    await notify(contract.agency_id, "contract", "Talent signed the contract", "/agency/contracts");
-    await notify(contract.talent_id, "booking", "You were booked", "/talent/bookings");
+    await notify(contract.agency_id, "contract", "Talento assinou o contrato", "/agency/contracts");
+    await notify(contract.talent_id, "booking", "Você foi reservado!", "/talent/bookings");
 
     return NextResponse.json({ ok: true, status: "signed" });
   }
@@ -104,7 +164,7 @@ export async function PATCH(
     }
 
     await deleteQuery;
-    await notify(contract.agency_id, "contract", "Talent rejected your contract", "/agency/contracts");
+    await notify(contract.agency_id, "contract", "Talento recusou o seu contrato", "/agency/contracts");
 
     return NextResponse.json({ ok: true, status: "rejected" });
   }
@@ -122,7 +182,7 @@ export async function PATCH(
 
     if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 });
 
-    await notify(contract.talent_id, "contract", "Agency confirmed your contract and made a deposit", "/talent/contracts");
+    await notify(contract.talent_id, "contract", "Agência confirmou o contrato e realizou o depósito", "/talent/contracts");
 
     return NextResponse.json({ ok: true, status: "confirmed" });
   }
@@ -154,7 +214,27 @@ export async function PATCH(
 
     await bookingQuery;
 
-    await notify(contract.talent_id, "payment", "Agency released your payment — funds on the way!", "/talent/finances");
+    await notify(contract.talent_id, "payment", "Agência liberou seu pagamento — a caminho!", "/talent/finances");
+
+    // Notify referrer (if any) of their 2% commission
+    if (contract.talent_id && contract.payment_amount) {
+      let inviteQuery = supabase
+        .from("referral_invites")
+        .select("id, referrer_id")
+        .eq("referred_user_id", contract.talent_id)
+        .neq("status", "fraud_reported");
+      if (contract.job_id) inviteQuery = inviteQuery.eq("job_id", contract.job_id);
+      const { data: invite } = await inviteQuery.maybeSingle();
+      if (invite?.referrer_id) {
+        const commission = parseFloat((contract.payment_amount * REFERRAL_RATE).toFixed(2));
+        await supabase
+          .from("referral_invites")
+          .update({ commission_paid: commission, status: "commission_paid" })
+          .eq("id", invite.id);
+        const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(commission);
+        await notify(invite.referrer_id, "payment", `Comissão de indicação liberada: ${brl}`, "/talent/referrals");
+      }
+    }
 
     return NextResponse.json({ ok: true, status: "paid" });
   }
@@ -186,7 +266,16 @@ export async function PATCH(
 
     await bookingQuery;
 
-    await notify(contract.talent_id, "contract", "Agency cancelled the contract", "/talent/contracts");
+    // Remove the talent's submission for this job so they can re-apply
+    if (contract.job_id && contract.talent_id) {
+      await supabase
+        .from("submissions")
+        .delete()
+        .eq("job_id", contract.job_id)
+        .eq("talent_user_id", contract.talent_id);
+    }
+
+    await notify(contract.talent_id, "contract", "Agência cancelou o contrato", "/talent/contracts");
 
     return NextResponse.json({ ok: true, status: "cancelled" });
   }
@@ -207,7 +296,7 @@ export async function PATCH(
 
     if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 });
 
-    await notify(contract.talent_id, "payment", "Your withdrawal has been processed", "/talent/finances");
+    await notify(contract.talent_id, "payment", "Seu saque foi processado", "/talent/finances");
 
     return NextResponse.json({ ok: true, withdrawn_at: now });
   }

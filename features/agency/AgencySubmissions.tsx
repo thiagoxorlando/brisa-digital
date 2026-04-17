@@ -44,7 +44,7 @@ function initials(name: string) {
 
 function formatDate(s: string) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
 
 // Derive a single readable pipeline status
@@ -75,9 +75,22 @@ function pipelineStatus(s: SubmissionEntry): { label: string; cls: string } {
 
 const PHOTO_LABELS = ["Front", "Left", "Right"] as const;
 
-function SubmissionRow({ submission }: { submission: SubmissionEntry }) {
+function SubmissionRow({ submission, onRemove }: { submission: SubmissionEntry; onRemove: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const pipeline = pipelineStatus(submission);
+
+  async function handleReject(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("Rejeitar esta candidatura? O talento poderá se candidatar novamente.")) return;
+    setRejecting(true);
+    try {
+      const res = await fetch(`/api/submissions/${submission.id}`, { method: "DELETE" });
+      if (res.ok) onRemove(submission.id);
+    } finally {
+      setRejecting(false);
+    }
+  }
   const hasPhotos = !!(submission.photoFrontUrl || submission.photoLeftUrl || submission.photoRightUrl);
 
   return (
@@ -186,6 +199,15 @@ function SubmissionRow({ submission }: { submission: SubmissionEntry }) {
             >
               Job Detail
             </Link>
+            {!submission.contractStatus && submission.status === "pending" && (
+              <button
+                onClick={handleReject}
+                disabled={rejecting}
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3.5 py-2 rounded-xl border border-rose-200 hover:border-rose-300 hover:bg-rose-50 text-rose-600 transition-colors disabled:opacity-50"
+              >
+                {rejecting ? "Rejeitando…" : "Rejeitar"}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -193,7 +215,13 @@ function SubmissionRow({ submission }: { submission: SubmissionEntry }) {
   );
 }
 
-export default function AgencySubmissions({ submissions }: { submissions: SubmissionEntry[] }) {
+export default function AgencySubmissions({ submissions: initialSubmissions }: { submissions: SubmissionEntry[] }) {
+  const [submissions, setSubmissions] = useState(initialSubmissions);
+
+  function removeSubmission(id: string) {
+    setSubmissions((prev) => prev.filter((s) => s.id !== id));
+  }
+
   // Group by job
   const byJob = new Map<string, { jobId: string; jobTitle: string; items: SubmissionEntry[] }>();
   for (const s of submissions) {
@@ -225,8 +253,8 @@ export default function AgencySubmissions({ submissions }: { submissions: Submis
                 d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
             </svg>
           </div>
-          <p className="text-[14px] font-medium text-zinc-500">No submissions yet</p>
-          <p className="text-[13px] text-zinc-400 mt-1">Talent submissions will appear here once they apply.</p>
+          <p className="text-[14px] font-medium text-zinc-500">Nenhuma candidatura ainda</p>
+          <p className="text-[13px] text-zinc-400 mt-1">As candidaturas aparecerão aqui quando os talentos se inscreverem.</p>
           <Link
             href="/agency/jobs"
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors mt-4"
@@ -234,7 +262,7 @@ export default function AgencySubmissions({ submissions }: { submissions: Submis
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-            View Jobs
+            Ver Vagas
           </Link>
         </div>
       ) : (
@@ -245,7 +273,7 @@ export default function AgencySubmissions({ submissions }: { submissions: Submis
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                    {group.items.length} submission{group.items.length !== 1 ? "s" : ""}
+                    {group.items.length} candidatura{group.items.length !== 1 ? "s" : ""}
                   </p>
                   <Link
                     href={`/agency/jobs/${group.jobId}`}
@@ -258,7 +286,7 @@ export default function AgencySubmissions({ submissions }: { submissions: Submis
                   href={`/agency/jobs/${group.jobId}`}
                   className="text-[12px] font-medium text-zinc-400 hover:text-zinc-700 transition-colors flex items-center gap-1"
                 >
-                  View job
+                  Ver vaga
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>

@@ -21,14 +21,18 @@ export async function POST(req: NextRequest) {
   if (!talent_id || !agency_id) {
     return NextResponse.json({ error: "talent_id and agency_id are required" }, { status: 400 });
   }
-  if (!payment_amount || Number(payment_amount) <= 0) {
-    return NextResponse.json({ error: "payment_amount must be greater than 0" }, { status: 400 });
+  if (payment_amount === undefined || payment_amount === null || isNaN(Number(payment_amount)) || Number(payment_amount) < 0) {
+    return NextResponse.json({ error: "payment_amount must be 0 or greater" }, { status: 400 });
   }
 
   const blocked = await requireActiveSubscription(agency_id);
   if (blocked) return blocked;
 
   const supabase = createServerClient({ useServiceRole: true });
+
+  const amount            = Number(payment_amount);
+  const commission_amount = parseFloat((amount * 0.15).toFixed(2));
+  const net_amount        = parseFloat((amount * 0.85).toFixed(2));
 
   // Insert the contract
   const { data: contract, error } = await supabase
@@ -41,7 +45,9 @@ export async function POST(req: NextRequest) {
       job_time:         job_time        ?? null,
       location:         location        ?? null,
       job_description:  job_description ?? null,
-      payment_amount:   Number(payment_amount),
+      payment_amount:   amount,
+      commission_amount,
+      net_amount,
       payment_method:   payment_method  ?? null,
       additional_notes: additional_notes ?? null,
       status:           "sent",
@@ -76,7 +82,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Notify talent — contract received
-  await notify(talent_id, "contract", "You received a new contract", "/talent/contracts");
+  await notify(talent_id, "contract", "Você recebeu um novo contrato", "/talent/contracts");
 
   return NextResponse.json({ contract }, { status: 201 });
 }

@@ -41,6 +41,21 @@ const CATEGORIES = [
   "Other",
 ];
 
+const CATEGORY_LABELS: Record<string, string> = {
+  "Lifestyle & Fashion": "Lifestyle & Moda",
+  "Technology":          "Tecnologia",
+  "Food & Cooking":      "Gastronomia",
+  "Health & Fitness":    "Saúde & Fitness",
+  "Travel":              "Viagem",
+  "Beauty":              "Beleza",
+  "Gaming":              "Games",
+  "Music":               "Música",
+  "Comedy":              "Humor",
+  "Education":           "Educação",
+  "Sports":              "Esportes",
+  "Other":               "Outro",
+};
+
 const DESC_MAX = 600;
 
 const INITIAL: FormData = {
@@ -61,18 +76,18 @@ const INITIAL: FormData = {
 
 function validate(f: FormData): FormErrors {
   const e: FormErrors = {};
-  if (!f.title.trim()) e.title = "Job title is required.";
-  else if (f.title.trim().length < 5) e.title = "At least 5 characters.";
-  if (!f.description.trim()) e.description = "Description is required.";
-  else if (f.description.length > DESC_MAX) e.description = `Max ${DESC_MAX} characters.`;
-  if (!f.category) e.category = "Select a category.";
-  if (!f.budget.trim()) e.budget = "Budget is required.";
-  else if (isNaN(Number(f.budget)) || Number(f.budget) <= 0) e.budget = "Enter a valid amount.";
-  if (!f.deadline) e.deadline = "Deadline is required.";
-  else if (new Date(f.deadline) <= new Date()) e.deadline = "Must be in the future.";
-  if (f.age_min && (isNaN(Number(f.age_min)) || Number(f.age_min) < 1)) e.age_min = "Invalid age.";
-  if (f.age_max && (isNaN(Number(f.age_max)) || Number(f.age_max) < 1)) e.age_max = "Invalid age.";
-  if (f.age_min && f.age_max && Number(f.age_min) > Number(f.age_max)) e.age_max = "Must be ≥ min age.";
+  if (!f.title.trim()) e.title = "Título da vaga é obrigatório.";
+  else if (f.title.trim().length < 5) e.title = "Mínimo de 5 caracteres.";
+  if (!f.description.trim()) e.description = "Descrição é obrigatória.";
+  else if (f.description.length > DESC_MAX) e.description = `Máximo de ${DESC_MAX} caracteres.`;
+  if (!f.category) e.category = "Selecione uma categoria.";
+  if (!f.budget.trim()) e.budget = "Orçamento é obrigatório.";
+  else if (isNaN(Number(f.budget)) || Number(f.budget) < 0) e.budget = "Informe um valor válido.";
+  if (!f.deadline) e.deadline = "Prazo é obrigatório.";
+  else if (new Date(f.deadline) <= new Date()) e.deadline = "Deve ser uma data futura.";
+  if (f.age_min && (isNaN(Number(f.age_min)) || Number(f.age_min) < 1)) e.age_min = "Idade inválida.";
+  if (f.age_max && (isNaN(Number(f.age_max)) || Number(f.age_max) < 1)) e.age_max = "Idade inválida.";
+  if (f.age_min && f.age_max && Number(f.age_min) > Number(f.age_max)) e.age_max = "Deve ser ≥ idade mínima.";
   return e;
 }
 
@@ -132,16 +147,16 @@ function Field({
 function formatBudget(raw: string) {
   const n = Number(raw);
   if (!raw || isNaN(n) || n <= 0) return null;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("pt-BR", {
     style: "currency",
-    currency: "USD",
+    currency: "BRL",
     maximumFractionDigits: 0,
   }).format(n);
 }
 
 function formatDeadline(raw: string) {
   if (!raw) return null;
-  return new Date(raw + "T00:00:00").toLocaleDateString("en-US", {
+  return new Date(raw + "T00:00:00").toLocaleDateString("pt-BR", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -149,11 +164,11 @@ function formatDeadline(raw: string) {
 }
 
 const checklist = (f: FormData) => [
-  { label: "Job title",    done: f.title.trim().length >= 5 },
-  { label: "Description",  done: f.description.trim().length > 0 },
-  { label: "Category",     done: !!f.category },
-  { label: "Budget",       done: !!f.budget && Number(f.budget) > 0 },
-  { label: "Deadline",     done: !!f.deadline },
+  { label: "Título",       done: f.title.trim().length >= 5 },
+  { label: "Descrição",    done: f.description.trim().length > 0 },
+  { label: "Categoria",    done: !!f.category },
+  { label: "Orçamento",    done: f.budget.trim() !== "" && !isNaN(Number(f.budget)) },
+  { label: "Prazo",        done: !!f.deadline },
 ];
 
 function JobPreview({ form }: { form: FormData }) {
@@ -167,13 +182,13 @@ function JobPreview({ form }: { form: FormData }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-          Preview
+          Prévia
         </p>
         <span className={[
           "text-[11px] font-medium px-2 py-0.5 rounded-full",
           pct === 100 ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500",
         ].join(" ")}>
-          {pct}% complete
+          {pct}% completo
         </span>
       </div>
 
@@ -197,15 +212,15 @@ function JobPreview({ form }: { form: FormData }) {
               "font-semibold text-zinc-900 leading-snug",
               form.title ? "text-base" : "text-base text-zinc-300",
             ].join(" ")}>
-              {form.title || "Job title will appear here"}
+              {form.title || "O título da vaga aparecerá aqui"}
             </p>
             {form.category ? (
               <span className="inline-block mt-2 text-[11px] font-medium bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">
-                {form.category}
+                {CATEGORY_LABELS[form.category] ?? form.category}
               </span>
             ) : (
               <span className="inline-block mt-2 text-[11px] bg-zinc-100 text-zinc-300 px-2.5 py-1 rounded-full">
-                Category
+                Categoria
               </span>
             )}
           </div>
@@ -215,7 +230,7 @@ function JobPreview({ form }: { form: FormData }) {
             "text-[13px] leading-relaxed line-clamp-3",
             form.description ? "text-zinc-500" : "text-zinc-300 italic",
           ].join(" ")}>
-            {form.description || "Your job description will appear here…"}
+            {form.description || "A descrição da vaga aparecerá aqui…"}
           </p>
 
           {/* Budget + deadline */}
@@ -229,7 +244,7 @@ function JobPreview({ form }: { form: FormData }) {
                 "text-[13px] font-medium",
                 budget ? "text-zinc-700" : "text-zinc-300",
               ].join(" ")}>
-                {budget ?? "Budget"}
+                {budget ?? "Orçamento"}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -241,7 +256,7 @@ function JobPreview({ form }: { form: FormData }) {
                 "text-[13px] font-medium",
                 deadline ? "text-zinc-700" : "text-zinc-300",
               ].join(" ")}>
-                {deadline ?? "Deadline"}
+                {deadline ?? "Prazo"}
               </span>
             </div>
           </div>
@@ -291,17 +306,17 @@ function SuccessScreen({ title, draft }: { title: string; draft?: boolean }) {
           </svg>
         </div>
       </div>
-      <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">{draft ? "Draft saved!" : "Job posted!"}</h2>
+      <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">{draft ? "Rascunho salvo!" : "Vaga publicada!"}</h2>
       <p className="text-sm text-zinc-500 mt-2.5 leading-relaxed">
         <span className="font-medium text-zinc-700">&ldquo;{title}&rdquo;</span>{" "}
-        {draft ? "has been saved as a draft. You can publish it from your jobs list." : "is now live and visible to talent."}
+        {draft ? "foi salva como rascunho. Você pode publicá-la a partir da lista de vagas." : "está no ar e visível para os talentos."}
       </p>
       <p className="text-xs text-zinc-400 mt-6 flex items-center justify-center gap-1.5">
         <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
         </svg>
-        Redirecting to jobs…
+        Redirecionando para vagas…
       </p>
     </div>
   );
@@ -338,7 +353,7 @@ export default function PostJobForm() {
     setSubmitError(null);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setSubmitError("Not authenticated. Please log in again.");
+      setSubmitError("Não autenticado. Faça login novamente.");
       return false;
     }
     const res = await fetch("/api/jobs", {
@@ -362,7 +377,7 @@ export default function PostJobForm() {
     });
     if (!res.ok) {
       const { error } = await res.json();
-      setSubmitError(error ?? "Something went wrong. Please try again.");
+      setSubmitError(error ?? "Algo deu errado. Tente novamente.");
       return false;
     }
     return true;
@@ -389,7 +404,7 @@ export default function PostJobForm() {
 
   async function handleSaveDraft() {
     if (!form.title.trim()) {
-      setSubmitError("A job title is required to save a draft.");
+      setSubmitError("Um título é necessário para salvar o rascunho.");
       return;
     }
     setSavingDraft(true);
@@ -423,10 +438,10 @@ export default function PostJobForm() {
           Dashboard
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          Post a Job
+          Publicar Vaga
         </h1>
         <p className="text-sm text-zinc-400 mt-1">
-          Create a listing and match it to the right talent on your roster.
+          Crie uma vaga e encontre o talento certo no seu elenco.
         </p>
       </div>
 
@@ -442,24 +457,24 @@ export default function PostJobForm() {
           {/* Job details card */}
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-7 space-y-6">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-              Job Details
+              Detalhes da Vaga
             </p>
 
             {/* Title */}
-            <Field label="Job Title" error={err("title")} required>
+            <Field label="Título da Vaga" error={err("title")} required>
               <input
                 type="text"
                 value={form.title}
                 onChange={(e) => set("title", e.target.value)}
                 onBlur={() => touch("title")}
-                placeholder="e.g. Fashion Creator for Spring Campaign"
+                placeholder="ex: Criador de Moda para Campanha de Primavera"
                 className={`${base} ${ring(!!err("title"))} px-4 py-3`}
               />
             </Field>
 
             {/* Description */}
             <Field
-              label="Description"
+              label="Descrição"
               error={err("description")}
               required
               aside={
@@ -477,14 +492,14 @@ export default function PostJobForm() {
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 onBlur={() => touch("description")}
-                placeholder="What does the role involve? What kind of creator are you looking for? List deliverables and expectations…"
+                placeholder="O que a vaga envolve? Que tipo de criador você busca? Liste as entregas e expectativas…"
                 rows={6}
                 className={`${base} ${ring(!!err("description"))} px-4 py-3 resize-none leading-relaxed`}
               />
             </Field>
 
             {/* Category */}
-            <Field label="Category" error={err("category")} required>
+            <Field label="Categoria" error={err("category")} required>
               <div className="relative">
                 <select
                   value={form.category}
@@ -492,9 +507,9 @@ export default function PostJobForm() {
                   onBlur={() => touch("category")}
                   className={`${base} ${ring(!!err("category"))} px-4 py-3 appearance-none pr-10 cursor-pointer`}
                 >
-                  <option value="">Select a category…</option>
+                  <option value="">Selecione uma categoria…</option>
                   {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>{CATEGORY_LABELS[c] ?? c}</option>
                   ))}
                 </select>
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
@@ -505,13 +520,13 @@ export default function PostJobForm() {
               </div>
             </Field>
             {/* Location */}
-            <Field label="Location" error={err("location")} hint="City, state, or 'Remote'">
+            <Field label="Localização" error={err("location")} hint="Cidade, estado, ou 'Remoto'">
               <input
                 type="text"
                 value={form.location}
                 onChange={(e) => set("location", e.target.value)}
                 onBlur={() => touch("location")}
-                placeholder="e.g. Los Angeles, CA or Remote"
+                placeholder="ex: São Paulo, SP ou Remoto"
                 className={`${base} ${ring(!!err("location"))} px-4 py-3`}
               />
             </Field>
@@ -520,38 +535,38 @@ export default function PostJobForm() {
           {/* Terms card */}
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-7 space-y-6">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-              Terms
+              Termos
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {/* Budget */}
               <Field
-                label="Budget (USD)"
+                label="Orçamento (BRL)"
                 error={err("budget")}
-                hint="Total compensation for the job"
+                hint="Remuneração total pela vaga"
                 required
               >
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-zinc-400 pointer-events-none select-none">
-                    $
+                    R$
                   </span>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={form.budget}
                     onChange={(e) => set("budget", e.target.value)}
                     onBlur={() => touch("budget")}
                     placeholder="5,000"
-                    className={`${base} ${ring(!!err("budget"))} pl-8 pr-4 py-3`}
+                    className={`${base} ${ring(!!err("budget"))} pl-10 pr-4 py-3`}
                   />
                 </div>
               </Field>
 
               {/* Deadline */}
               <Field
-                label="Application Deadline"
+                label="Prazo de Candidatura"
                 error={err("deadline")}
-                hint="Last day to apply for this role"
+                hint="Último dia para se candidatar à vaga"
                 required
               >
                 <input
@@ -566,8 +581,8 @@ export default function PostJobForm() {
 
               {/* Job Date */}
               <Field
-                label="Job Date"
-                hint="When the actual job takes place"
+                label="Data da Vaga"
+                hint="Quando o trabalho de fato acontece"
               >
                 <input
                   type="date"
@@ -580,7 +595,7 @@ export default function PostJobForm() {
 
             {/* Gender + Age range */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              <Field label="Gender" error={err("gender")}>
+              <Field label="Gênero" error={err("gender")}>
                 <div className="relative">
                   <select
                     value={form.gender}
@@ -588,7 +603,7 @@ export default function PostJobForm() {
                     className={`${base} ${ring()} px-4 py-3 appearance-none pr-10 cursor-pointer capitalize`}
                   >
                     {GENDER_OPTIONS.map((g) => (
-                      <option key={g} value={g} className="capitalize">{g === "any" ? "Any gender" : g.charAt(0).toUpperCase() + g.slice(1)}</option>
+                      <option key={g} value={g} className="capitalize">{g === "any" ? "Qualquer gênero" : g === "male" ? "Masculino" : g === "female" ? "Feminino" : g.charAt(0).toUpperCase() + g.slice(1)}</option>
                     ))}
                   </select>
                   <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
@@ -598,7 +613,7 @@ export default function PostJobForm() {
                   </div>
                 </div>
               </Field>
-              <Field label="Min Age" error={err("age_min")}>
+              <Field label="Idade Mínima" error={err("age_min")}>
                 <input
                   type="number"
                   min="1"
@@ -606,11 +621,11 @@ export default function PostJobForm() {
                   value={form.age_min}
                   onChange={(e) => set("age_min", e.target.value)}
                   onBlur={() => touch("age_min")}
-                  placeholder="e.g. 18"
+                  placeholder="ex: 18"
                   className={`${base} ${ring(!!err("age_min"))} px-4 py-3`}
                 />
               </Field>
-              <Field label="Max Age" error={err("age_max")}>
+              <Field label="Idade Máxima" error={err("age_max")}>
                 <input
                   type="number"
                   min="1"
@@ -618,14 +633,14 @@ export default function PostJobForm() {
                   value={form.age_max}
                   onChange={(e) => set("age_max", e.target.value)}
                   onBlur={() => touch("age_max")}
-                  placeholder="e.g. 35"
+                  placeholder="ex: 35"
                   className={`${base} ${ring(!!err("age_max"))} px-4 py-3`}
                 />
               </Field>
             </div>
 
             {/* Talents required */}
-            <Field label="Talents Required" hint="How many talents do you need to cast for this job?">
+            <Field label="Talentos Necessários" hint="Quantos talentos você precisa para esta vaga?">
               <input
                 type="number"
                 min="1"
@@ -646,7 +661,7 @@ export default function PostJobForm() {
                     d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" />
                 </svg>
                 <p className="text-[13px] text-rose-600">
-                  Please fix the highlighted fields before posting.
+                  Corrija os campos destacados antes de publicar.
                 </p>
               </div>
             )}
@@ -669,7 +684,7 @@ export default function PostJobForm() {
                   href="/agency/finances"
                   className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-colors cursor-pointer"
                 >
-                  Reactivate Subscription
+                  Reativar Assinatura
                 </Link>
               ) : (
                 <>
@@ -684,7 +699,7 @@ export default function PostJobForm() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                         </svg>
-                        Posting…
+                        Publicando…
                       </>
                     ) : (
                       <>
@@ -692,7 +707,7 @@ export default function PostJobForm() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                             d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        Post Job
+                        Publicar Vaga
                       </>
                     )}
                   </button>
@@ -708,9 +723,9 @@ export default function PostJobForm() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                         </svg>
-                        Saving…
+                        Salvando…
                       </>
-                    ) : "Save as Draft"}
+                    ) : "Salvar Rascunho"}
                   </button>
                 </>
               )}
@@ -720,7 +735,7 @@ export default function PostJobForm() {
                 onClick={() => router.push("/agency/dashboard")}
                 className="text-[15px] font-medium text-zinc-400 hover:text-zinc-700 px-4 py-3 rounded-xl hover:bg-zinc-50 transition-all duration-150 cursor-pointer disabled:opacity-40"
               >
-                Cancel
+                Cancelar
               </button>
             </div>
           </div>
