@@ -37,7 +37,7 @@ function initials(name: string) {
 const card = "bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]";
 
 export default function TalentProfilePreview({ talent }: { talent: TalentProfile }) {
-  const name   = talent.full_name ?? "Unknown";
+  const name   = talent.full_name ?? "Sem nome";
   const photos = [talent.photo_front_url, talent.photo_left_url, talent.photo_right_url, talent.avatar_url]
     .filter((p): p is string => !!p);
 
@@ -54,7 +54,7 @@ export default function TalentProfilePreview({ talent }: { talent: TalentProfile
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Talent Roster
+            Elenco de Talentos
           </Link>
           <span className="text-[13px] font-semibold tracking-tight text-zinc-900">Brisa Digital</span>
         </div>
@@ -94,7 +94,7 @@ export default function TalentProfilePreview({ talent }: { talent: TalentProfile
                 )}
                 {(talent.gender || talent.age) && (
                   <p className="text-[13px] text-zinc-400">
-                    {[talent.gender, talent.age ? `Age ${talent.age}` : null].filter(Boolean).join(" · ")}
+                    {[talent.gender, talent.age ? `${talent.age} anos` : null].filter(Boolean).join(" · ")}
                   </p>
                 )}
               </div>
@@ -103,7 +103,7 @@ export default function TalentProfilePreview({ talent }: { talent: TalentProfile
             {/* Bio */}
             {talent.bio && (
               <div className="pt-5 border-t border-zinc-50">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">About</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Sobre</p>
                 <p className="text-[15px] text-zinc-600 leading-relaxed">{talent.bio}</p>
               </div>
             )}
@@ -113,7 +113,7 @@ export default function TalentProfilePreview({ talent }: { talent: TalentProfile
         {/* Categories */}
         {talent.categories && talent.categories.length > 0 && (
           <div className={`${card} p-6`}>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">Categories</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">Categorias</p>
             <div className="flex flex-wrap gap-2">
               {talent.categories.map((c) => (
                 <span key={c} className="text-[13px] font-medium bg-zinc-100 text-zinc-600 px-3.5 py-1.5 rounded-full">
@@ -127,7 +127,7 @@ export default function TalentProfilePreview({ talent }: { talent: TalentProfile
         {/* Social profiles */}
         {(talent.instagram || talent.tiktok || talent.youtube) && (
           <div className={`${card} p-6`}>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">Social Profiles</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">Redes Sociais</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {talent.instagram && (
                 <a href={`https://instagram.com/${talent.instagram}`} target="_blank" rel="noopener noreferrer"
@@ -179,7 +179,7 @@ export default function TalentProfilePreview({ talent }: { talent: TalentProfile
         {/* Photos */}
         {photos.length > 0 && (
           <div className={`${card} p-6`}>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">Photos</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">Fotos</p>
             <div className="grid grid-cols-3 gap-3">
               {photos.map((url, i) => (
                 <div key={i} className="aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100">

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useRole } from "@/lib/RoleProvider";
 import { useSubscription } from "@/lib/SubscriptionContext";
+import PaywallModal from "@/components/agency/PaywallModal";
+import SuggestedTalents from "@/components/agency/SuggestedTalents";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,7 +18,9 @@ type Job = {
   budget: number;
   deadline: string;
   jobDate?: string | null;
+  jobTime?: string | null;
   status: "open" | "closed" | "draft" | "inactive";
+  visibility?: "public" | "private";
   postedAt: string;
   agencyId?: string;
   numberOfTalentsRequired?: number;
@@ -45,6 +49,7 @@ export type JobBooking = {
   price: number;
   status: string;
   createdAt: string;
+  contractId: string | null;
 };
 
 type ContractTarget = {
@@ -257,9 +262,10 @@ function ContractModal({
   onClose: () => void;
   onSent: (submissionIds: string[]) => void;
 }) {
+  const { plan, commissionLabel, talentShareLabel } = useSubscription();
   const [form, setForm] = useState<ContractForm>({
     job_date:        job.jobDate ?? "",
-    job_time:        "",
+    job_time:        job.jobTime ?? "",
     location:        "",
     job_description: job.description,
     payment_amount:  String(job.budget),
@@ -561,7 +567,13 @@ function ContractModal({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Taxa da plataforma: <strong className="text-zinc-600 mx-1">15%</strong> · Talento recebe: <strong className="text-zinc-600 mx-1">85%</strong> do valor combinado
+                  <span className={[
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide",
+                    plan === "premium" ? "bg-violet-100 text-violet-700" : plan === "pro" ? "bg-indigo-100 text-indigo-700" : "bg-zinc-200 text-zinc-600",
+                  ].join(" ")}>
+                    {plan.toUpperCase()}
+                  </span>
+                  Taxa da plataforma: <strong className="text-zinc-600 mx-1">{commissionLabel}</strong> · Talento recebe: <strong className="text-zinc-600 mx-1">{talentShareLabel}</strong> do valor combinado
                 </div>
 
                 {/* Actions */}
@@ -611,7 +623,8 @@ function SubmissionCard({
   onToggleSelect?: () => void;
   onDelete?: () => void;
 }) {
-  const { isActive } = useSubscription();
+  const { isPro } = useSubscription();
+  const [paywallOpen, setPaywallOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const statusCls = SUBMISSION_STATUS[submission.status] ?? SUBMISSION_STATUS["pending"];
   const hasMedia = !!(submission.photoFrontUrl || submission.photoLeftUrl || submission.photoRightUrl || submission.videoUrl);
@@ -694,22 +707,28 @@ function SubmissionCard({
                     </svg>
                   )}
                 </button>
-                {isActive ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onSelect(); }}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white transition-all cursor-pointer"
-                  >
-                    Enviar Contrato
-                  </button>
-                ) : (
-                  <Link
-                    href="/agency/finances"
-                    onClick={(e) => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white transition-colors cursor-pointer"
-                  >
-                    Reativar
-                  </Link>
-                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isPro) { setPaywallOpen(true); return; }
+                    onSelect();
+                  }}
+                  className={[
+                    "inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer",
+                    isPro
+                      ? "bg-zinc-900 hover:bg-zinc-800 text-white"
+                      : "bg-violet-600 hover:bg-violet-700 text-white",
+                  ].join(" ")}
+                >
+                  {!isPro && (
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  )}
+                  Contratar
+                </button>
+                {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
               </div>
             ) : null
           )}
@@ -790,26 +809,28 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid }: {
     cancelled:       "Cancelado",
   };
 
+  function contractFetch(action: string) {
+    if (!booking.contractId) return Promise.resolve(null);
+    return fetch(`/api/contracts/${booking.contractId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+  }
+
   async function handleCancel() {
     if (!confirm(`Cancelar reserva de ${booking.talentName}?`)) return;
     setBusy("cancel");
-    const res = await fetch(`/api/bookings/${booking.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "cancelled" }),
-    });
-    if (res.ok) onCancel(booking.id);
+    const res = await contractFetch("cancel_job");
+    if (res?.ok) onCancel(booking.id);
     setBusy(null);
   }
 
   async function handleConfirm() {
     setBalanceError(null);
     setBusy("confirm");
-    const res = await fetch(`/api/bookings/${booking.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "confirmed" }),
-    });
+    const res = await contractFetch("agency_sign");
+    if (!res) { setBusy(null); return; }
     if (res.status === 402) {
       const d = await res.json();
       setBalanceError({ required: d.required, available: d.available });
@@ -821,12 +842,8 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid }: {
 
   async function handleMarkPaid() {
     setBusy("paid");
-    const res = await fetch(`/api/bookings/${booking.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mark_paid: true }),
-    });
-    if (res.ok) onMarkPaid(booking.id);
+    const res = await contractFetch("pay");
+    if (res?.ok) onMarkPaid(booking.id);
     setBusy(null);
   }
 
@@ -940,7 +957,8 @@ export default function JobDetail({
 }) {
   const router = useRouter();
   const { role } = useRole();
-  const { isActive } = useSubscription(); // used for bulk-send button
+  const { isPro } = useSubscription();
+  const [paywallOpen, setPaywallOpen] = useState(false);
   const [contractModal, setContractModal] = useState<ContractTarget[] | null>(null);
   const [sentContracts, setSentContracts] = useState<Set<string>>(new Set());
   const [bookings, setBookings]           = useState<JobBooking[]>(initialBookings ?? []);
@@ -1050,6 +1068,14 @@ export default function JobDetail({
               <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[job.status]}`}>
                 {{ open: "Aberta", closed: "Fechada", draft: "Rascunho", inactive: "Inativa" }[job.status] ?? job.status}
               </span>
+              {job.visibility === "private" && (
+                <span className="inline-flex items-center gap-1 text-[12px] font-medium bg-violet-50 text-violet-600 border border-violet-100 px-2.5 py-1 rounded-full">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Privada
+                </span>
+              )}
               <span className="text-[12px] font-medium bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full">
                 {job.category}
               </span>
@@ -1112,6 +1138,11 @@ export default function JobDetail({
         </div>
       </div>
 
+      {/* ── Suggested talents ── */}
+      {role === "agency" && agencyId && job.status === "open" && (
+        <SuggestedTalents jobId={job.id} agencyId={agencyId} />
+      )}
+
       {/* ── Bookings ── */}
       {bookings.length > 0 && (
         <div className="space-y-4">
@@ -1152,31 +1183,36 @@ export default function JobDetail({
               </div>
             )}
             {role === "agency" && selected.size > 0 && (
-              isActive ? (
+              <>
                 <button
-                  onClick={openBulkContractModal}
-                  disabled={selected.size < 1}
+                  onClick={() => {
+                    if (!isPro) { setPaywallOpen(true); return; }
+                    openBulkContractModal();
+                  }}
                   className={[
                     "inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer",
-                    selected.size >= numberOfTalentsRequired
-                      ? "bg-zinc-900 hover:bg-zinc-800 text-white"
-                      : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700",
+                    !isPro
+                      ? "bg-violet-600 hover:bg-violet-700 text-white"
+                      : selected.size >= numberOfTalentsRequired
+                        ? "bg-zinc-900 hover:bg-zinc-800 text-white"
+                        : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700",
                   ].join(" ")}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+                  {!isPro ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
                   Enviar Contratos ({selected.size}/{numberOfTalentsRequired})
                 </button>
-              ) : (
-                <Link
-                  href="/agency/finances"
-                  className="inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white transition-colors cursor-pointer"
-                >
-                  Reativar Assinatura
-                </Link>
-              )
+                {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
+              </>
             )}
           </div>
         </div>

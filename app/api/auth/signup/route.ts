@@ -19,5 +19,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  // Create role-specific profile row so FK constraints are satisfied
+  if (role === "agency") {
+    const { error: agencyErr } = await supabase
+      .from("agencies")
+      .upsert({ id: user_id, user_id, subscription_status: "active" }, { onConflict: "id" });
+
+    if (agencyErr) {
+      console.error("[signup/route] agency insert failed:", agencyErr.message);
+      // Non-fatal: profile was created, agency row can be created later
+    }
+  }
+
+  if (role === "talent") {
+    const { error: talentErr } = await supabase
+      .from("talent_profiles")
+      .upsert({ id: user_id }, { onConflict: "id" });
+
+    if (talentErr) {
+      console.error("[signup/route] talent_profile insert failed:", talentErr.message);
+    }
+  }
+
   return NextResponse.json({ ok: true }, { status: 201 });
 }

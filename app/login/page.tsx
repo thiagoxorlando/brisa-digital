@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
+import { getAgencyLanding } from "@/lib/getAgencyLanding";
 
 const ROLE_HOME: Record<string, string> = {
-  agency: "/agency/dashboard",
   talent: "/talent/dashboard",
   admin:  "/admin/dashboard",
 };
@@ -27,18 +27,29 @@ export default function LoginPage() {
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError || !data.user) {
-      setError(authError?.message ?? "Login failed.");
+      setError(authError?.message ?? "Falha ao entrar.");
       setLoading(false);
       return;
     }
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, onboarding_completed")
       .eq("id", data.user.id)
       .single();
 
-    const destination = profile?.role ? ROLE_HOME[profile.role] : "/onboarding/role";
+    let destination: string;
+
+    if (profile?.role === "agency") {
+      if (profile.onboarding_completed === false) {
+        destination = "/onboarding";
+      } else {
+        destination = await getAgencyLanding(data.user.id);
+      }
+    } else {
+      destination = profile?.role ? ROLE_HOME[profile.role] : "/onboarding/role";
+    }
+
     router.push(destination);
   }
 
@@ -48,7 +59,7 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="flex items-center justify-center mb-10">
-          <Logo size="xl" className="mix-blend-multiply" />
+          <Logo size="2xl" />
         </div>
 
         {/* Card */}
@@ -77,7 +88,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">
-                Password
+                Senha
               </label>
               <input
                 type="password"

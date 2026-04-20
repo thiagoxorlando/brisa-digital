@@ -79,7 +79,7 @@ export default async function SubmissionsPage() {
     return {
       id:             s.id,
       jobId:          s.job_id        ?? "",
-      jobTitle:       jobTitleMap.get(s.job_id) ?? "Unknown Job",
+      jobTitle:       jobTitleMap.get(s.job_id) ?? "Vaga sem título",
       talentId:       s.talent_user_id ?? null,
       talentName:     profile?.full_name ?? "External Referral",
       avatarUrl:      profile?.avatar_url ?? null,

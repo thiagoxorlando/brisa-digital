@@ -11,11 +11,11 @@ export type TrashItem = {
 };
 
 const TABLE_LABELS: Record<string, string> = {
-  jobs:           "Job",
-  bookings:       "Booking",
-  contracts:      "Contract",
-  talent_profiles: "Talent",
-  agencies:       "Agency",
+  jobs:           "Vaga",
+  bookings:       "Reserva",
+  contracts:      "Contrato",
+  talent_profiles: "Talento",
+  agencies:       "Agência",
 };
 
 const TABLE_COLORS: Record<string, string> = {
@@ -27,7 +27,7 @@ const TABLE_COLORS: Record<string, string> = {
 };
 
 function formatDate(s: string) {
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function ConfirmDialog({ message, confirmLabel, confirmCls, onConfirm, onCancel }: {
@@ -41,7 +41,7 @@ function ConfirmDialog({ message, confirmLabel, confirmCls, onConfirm, onCancel 
         <div className="flex gap-3">
           <button onClick={onCancel}
             className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer">
-            Cancel
+            Cancelar
           </button>
           <button onClick={onConfirm} className={`flex-1 px-4 py-2.5 rounded-xl text-white text-[13px] font-semibold transition-colors cursor-pointer ${confirmCls}`}>
             {confirmLabel}
@@ -91,8 +91,8 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
 
       {itemToRestore && (
         <ConfirmDialog
-          message={`Restore "${itemToRestore.label}"? It will reappear in its original section.`}
-          confirmLabel="Restore"
+          message={`Restaurar "${itemToRestore.label}"? O item voltará à sua seção original.`}
+          confirmLabel="Restaurar"
           confirmCls="bg-emerald-600 hover:bg-emerald-700"
           onConfirm={() => handleRestore(itemToRestore)}
           onCancel={() => setRestoring(null)}
@@ -100,8 +100,8 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
       )}
       {itemToDelete && (
         <ConfirmDialog
-          message={`Permanently delete "${itemToDelete.label}"? This cannot be undone.`}
-          confirmLabel="Delete Forever"
+          message={`Excluir permanentemente "${itemToDelete.label}"? Esta ação não pode ser desfeita.`}
+          confirmLabel="Excluir Definitivamente"
           confirmCls="bg-rose-600 hover:bg-rose-700"
           onConfirm={() => handlePermanentDelete(itemToDelete)}
           onCancel={() => setPermanentDelete(null)}
@@ -109,9 +109,9 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
       )}
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Platform Admin</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Trash</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">{items.length} item{items.length !== 1 ? "s" : ""} in trash</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Admin da Plataforma</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Lixeira</h1>
+        <p className="text-[13px] text-zinc-400 mt-1">{items.length} item{items.length !== 1 ? "s" : ""} na lixeira</p>
       </div>
 
       {items.length > 0 && (
@@ -120,7 +120,7 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 4a8 8 0 100 16A8 8 0 0012 4z" />
           </svg>
           <p className="text-[13px] text-amber-800 font-medium">
-            Items in trash can be restored or permanently deleted.
+            Itens na lixeira podem ser restaurados ou excluídos permanentemente.
           </p>
         </div>
       )}
@@ -131,7 +131,7 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
             fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input type="text" placeholder="Search trash…" value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" placeholder="Buscar na lixeira…" value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-[13px] bg-white border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors" />
         </div>
         <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start flex-shrink-0">
@@ -139,7 +139,7 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
             <button key={t} onClick={() => setTypeFilter(t)}
               className={["px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap",
                 typeFilter === t ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"].join(" ")}>
-              {t === "all" ? "All" : t === "talent_profiles" ? "Talent" : TABLE_LABELS[t]}
+              {t === "all" ? "Todos" : t === "talent_profiles" ? "Talento" : TABLE_LABELS[t]}
             </button>
           ))}
         </div>
@@ -152,8 +152,8 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </div>
-          <p className="text-[14px] font-medium text-zinc-500">Trash is empty</p>
-          <p className="text-[13px] text-zinc-400 mt-1">Deleted items will appear here.</p>
+          <p className="text-[14px] font-medium text-zinc-500">Lixeira vazia</p>
+          <p className="text-[13px] text-zinc-400 mt-1">Itens excluídos aparecerão aqui.</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
@@ -161,9 +161,9 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
             <thead>
               <tr className="border-b border-zinc-100">
                 <th className="text-left px-6 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Item</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Type</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden md:table-cell">Deleted</th>
-                <th className="px-6 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Actions</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Tipo</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden md:table-cell">Excluído</th>
+                <th className="px-6 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
@@ -190,14 +190,14 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                           </svg>
-                          Restore
+                          Restaurar
                         </button>
                         <button onClick={() => setPermanentDelete(item.id)}
                           className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
-                          Delete Forever
+                          Excluir Definitivamente
                         </button>
                       </div>
                     </td>
@@ -207,7 +207,7 @@ export default function AdminTrash({ items: initialItems }: { items: TrashItem[]
             </tbody>
           </table>
           <div className="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50">
-            <p className="text-[12px] text-zinc-400 font-medium">{filtered.length} of {items.length} items</p>
+            <p className="text-[12px] text-zinc-400 font-medium">{filtered.length} de {items.length} {items.length !== 1 ? "itens" : "item"}</p>
           </div>
         </div>
       )}

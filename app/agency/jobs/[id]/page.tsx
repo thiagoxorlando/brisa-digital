@@ -21,7 +21,7 @@ export default async function JobDetailPage({ params }: Props) {
   const [{ data: jobData }, { data: submissionsData }, { data: bookingsData }] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, title, description, category, budget, deadline, job_date, status, created_at, number_of_talents_required")
+      .select("id, title, description, category, budget, deadline, job_date, job_time, status, created_at, number_of_talents_required, visibility")
       .eq("id", id)
       .single(),
     supabase
@@ -31,7 +31,10 @@ export default async function JobDetailPage({ params }: Props) {
       .order("created_at", { ascending: false }),
     supabase
       .from("bookings")
-      .select("id, talent_user_id, job_title, price, status, created_at")
+      .select(`
+        id, talent_user_id, job_title, price, status, created_at,
+        contracts!contracts_booking_id_fkey ( id )
+      `)
       .eq("job_id", id)
       .order("created_at", { ascending: false }),
   ]);
@@ -63,7 +66,9 @@ export default async function JobDetailPage({ params }: Props) {
         category:    jobData.category    ?? "",
         budget:      jobData.budget      ?? 0,
         deadline:    jobData.deadline    ?? "",
-        jobDate:     jobData.job_date   ?? null,
+        jobDate:     jobData.job_date  ?? null,
+        jobTime:     jobData.job_time  ?? null,
+        visibility:  (jobData.visibility ?? "public") as "public" | "private",
         status:                    (jobData.status ?? "open") as "open" | "closed" | "draft" | "inactive",
         postedAt:                  jobData.created_at ?? "",
         agencyId:                  user?.id,
@@ -90,15 +95,17 @@ export default async function JobDetailPage({ params }: Props) {
   });
 
   const bookings = (bookingsData ?? []).map((b) => {
-    const profile = b.talent_user_id ? profileMap.get(b.talent_user_id) : null;
+    const profile     = b.talent_user_id ? profileMap.get(b.talent_user_id) : null;
+    const contractArr = Array.isArray((b as any).contracts) ? (b as any).contracts : [];
     return {
       id:          String(b.id),
       talentId:    b.talent_user_id ?? null,
-      talentName:  profile?.full_name ?? "Unknown Talent",
+      talentName:  profile?.full_name ?? "Talento sem nome",
       jobTitle:    b.job_title  ?? job?.title ?? "—",
       price:       b.price      ?? 0,
       status:      b.status     ?? "pending",
       createdAt:   b.created_at ?? "",
+      contractId:  contractArr[0]?.id ?? null,
     };
   });
 

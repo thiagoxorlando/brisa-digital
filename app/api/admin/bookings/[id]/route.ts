@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { enforce } from "@/lib/bookingStatus";
+import { enforce, normaliseStatus, validateBookingStatus, getUnifiedBookingStatus } from "@/lib/bookingStatus";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,6 +20,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   if (updates.status) {
+    // Reject invalid booking statuses — "signed" is contract-only
+    const statusErr = validateBookingStatus(String(updates.status));
+    if (statusErr) return NextResponse.json({ error: statusErr }, { status: 422 });
+
     // Fetch booking to get current status + contract identifiers
     const { data: booking } = await supabase
       .from("bookings")
@@ -31,18 +35,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    // Enforce valid state machine transition
-    const err = enforce(booking.status ?? "sent", String(updates.status));
+    // Enforce valid state machine transition (normalises booking→contract equivalents)
+    const err = enforce(booking.status ?? "pending", String(updates.status));
     if (err) return NextResponse.json({ error: err }, { status: 422 });
 
-    // Contracts are the master — sync the matching contract when status changes.
+    // Sync the matching contract. Map booking status → contract status equivalent.
     // Admin overrides do NOT trigger wallet operations; this is a manual correction.
     if (booking.talent_user_id && booking.agency_id) {
-      const newStatus = String(updates.status);
-      const contractUpdates: Record<string, unknown> = { status: newStatus };
-      if (newStatus === "signed")    contractUpdates.signed_at    = new Date().toISOString();
-      if (newStatus === "confirmed") contractUpdates.confirmed_at = new Date().toISOString();
-      if (newStatus === "paid")      contractUpdates.paid_at      = new Date().toISOString();
+      const newBookingStatus = String(updates.status);
+      // pending_payment→signed, confirmed→confirmed, paid→paid, cancelled→cancelled
+      const contractStatus = normaliseStatus(newBookingStatus);
+      const now = new Date().toISOString();
+      const contractUpdates: Record<string, unknown> = { status: contractStatus };
+      if (contractStatus === "signed")    contractUpdates.signed_at    = now;
+      if (contractStatus === "confirmed") contractUpdates.confirmed_at = now;
+      if (contractStatus === "paid")      contractUpdates.paid_at      = now;
 
       let q = supabase
         .from("contracts")
@@ -63,7 +70,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { error } = await supabase.from("bookings").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  const newStatus = updates.status ? String(updates.status) : undefined;
+  return NextResponse.json({
+    ok: true,
+    ...(newStatus ? { derived_status: getUnifiedBookingStatus(newStatus, newStatus) } : {}),
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {

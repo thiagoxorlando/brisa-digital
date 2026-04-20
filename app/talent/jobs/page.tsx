@@ -13,8 +13,9 @@ export default async function TalentJobsPage() {
   const [jobsResult, subsResult] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, title, category, budget, deadline, job_date, description, status, location")
+      .select("id, title, category, budget, deadline, job_date, description, status, location, visibility")
       .eq("status", "open")
+      .neq("visibility", "private")
       .order("created_at", { ascending: false }),
     user
       ? supabase

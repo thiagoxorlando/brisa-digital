@@ -296,7 +296,7 @@ export default function AgencySubmissions({ submissions: initialSubmissions }: {
               {/* Submissions list */}
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
                 {group.items.map((s) => (
-                  <SubmissionRow key={s.id} submission={s} />
+                  <SubmissionRow key={s.id} submission={s} onRemove={removeSubmission} />
                 ))}
               </div>
             </div>

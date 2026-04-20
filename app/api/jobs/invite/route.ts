@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { requireActiveSubscription } from "@/lib/requireActiveSubscription";
 
 export async function POST(req: NextRequest) {
   const { job_id, talent_ids, agency_id } = await req.json();
@@ -21,9 +20,6 @@ export async function POST(req: NextRequest) {
     const { data: job } = await supabase.from("jobs").select("agency_id").eq("id", job_id).single();
     resolvedAgencyId = job?.agency_id ?? null;
   }
-
-  const blocked = await requireActiveSubscription(resolvedAgencyId ?? "");
-  if (blocked) return blocked;
 
   for (const talent_id of talent_ids) {
     if (!talent_id) continue;

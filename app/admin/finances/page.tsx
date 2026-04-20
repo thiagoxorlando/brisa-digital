@@ -1,205 +1,342 @@
 import type { Metadata } from "next";
 import AdminFinances, {
-  type FinancesSummary,
   type FinancesBooking,
   type FinancesContract,
-  type AgencyEntry,
+  type FinancesSubscription,
+  type FinancesSummary,
 } from "@/features/admin/AdminFinances";
 import { createServerClient } from "@/lib/supabase";
+import {
+  calculateCommission,
+  calculateNetAmount,
+  getPlanDefinition,
+  parsePlan,
+  REFERRAL_RATE,
+} from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Admin — Finances — Brisa Digital" };
+export const metadata: Metadata = { title: "Admin - Finances - Brisa Digital" };
 
-const COMMISSION_RATE    = 0.15;
-const REFERRAL_RATE      = 0.02;
-const AGENCY_MONTHLY_FEE = 2500;
+type ContractRow = {
+  id: string;
+  job_id: string | null;
+  talent_id: string | null;
+  agency_id: string | null;
+  payment_amount: number | null;
+  commission_amount?: number | null;
+  net_amount?: number | null;
+  status: string | null;
+  created_at: string | null;
+  paid_at: string | null;
+  withdrawn_at?: string | null;
+};
+
+async function fetchContracts(supabase: ReturnType<typeof createServerClient>) {
+  const withAllColumns = await supabase
+    .from("contracts")
+    .select("id, job_id, talent_id, agency_id, payment_amount, commission_amount, net_amount, status, created_at, paid_at, withdrawn_at")
+    .in("status", ["confirmed", "paid"])
+    .order("created_at", { ascending: false });
+
+  if (!withAllColumns.error) {
+    return (withAllColumns.data ?? []) as ContractRow[];
+  }
+
+  const withoutWithdrawnAt = await supabase
+    .from("contracts")
+    .select("id, job_id, talent_id, agency_id, payment_amount, commission_amount, net_amount, status, created_at, paid_at")
+    .in("status", ["confirmed", "paid"])
+    .order("created_at", { ascending: false });
+
+  if (!withoutWithdrawnAt.error) {
+    return (withoutWithdrawnAt.data ?? []).map((contract) => ({
+      ...contract,
+      withdrawn_at: null,
+    })) as ContractRow[];
+  }
+
+  const legacyColumns = await supabase
+    .from("contracts")
+    .select("id, job_id, talent_id, agency_id, payment_amount, status, created_at, paid_at")
+    .in("status", ["confirmed", "paid"])
+    .order("created_at", { ascending: false });
+
+  return ((legacyColumns.data ?? []).map((contract) => ({
+    ...contract,
+    commission_amount: null,
+    net_amount: null,
+    withdrawn_at: null,
+  })) as ContractRow[]);
+}
 
 export default async function AdminFinancesPage() {
   const supabase = createServerClient({ useServiceRole: true });
 
-  const [{ data: bookingsData }, { data: agenciesData }, { data: referralSubs }] = await Promise.all([
+  const [
+    { data: bookingsData },
+    { data: referralSubs },
+    { data: agencyWallets },
+    { data: agencyPlanProfiles },
+    { data: planPaymentsData },
+    { data: allAgenciesData },
+    contractsData,
+  ] = await Promise.all([
     supabase
       .from("bookings")
       .select("id, job_id, job_title, talent_user_id, price, status, created_at")
       .order("created_at", { ascending: false }),
     supabase
-      .from("agencies")
-      .select("id, company_name, subscription_status, created_at")
-      .order("created_at", { ascending: false }),
-    // Only submissions that came via a referral (referrer_id set)
-    supabase
       .from("submissions")
       .select("job_id, talent_user_id")
       .not("referrer_id", "is", null),
+    supabase
+      .from("profiles")
+      .select("wallet_balance")
+      .eq("role", "agency"),
+    supabase
+      .from("profiles")
+      .select("id, plan")
+      .eq("role", "agency"),
+    supabase
+      .from("wallet_transactions")
+      .select("user_id, amount, created_at")
+      .eq("type", "payment")
+      .ilike("description", "%Plano%")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("agencies")
+      .select("id, company_name")
+      .is("deleted_at", null),
+    fetchContracts(supabase),
   ]);
 
-  // Fetch contracts — try with withdrawn_at first, fall back if column doesn't exist yet
-  let contractsData: any[] | null = null;
-  {
-    const { data, error } = await supabase
-      .from("contracts")
-      .select("id, job_id, talent_id, agency_id, payment_amount, status, created_at, paid_at, withdrawn_at")
-      .in("status", ["confirmed", "paid"])
-      .order("created_at", { ascending: false });
+  const rows = bookingsData ?? [];
+  const contractRows = contractsData ?? [];
 
-    if (!error) {
-      contractsData = data;
-    } else {
-      // withdrawn_at column may not exist yet — retry without it
-      const { data: fallback } = await supabase
-        .from("contracts")
-        .select("id, job_id, talent_id, agency_id, payment_amount, status, created_at, paid_at")
-        .in("status", ["confirmed", "paid"])
-        .order("created_at", { ascending: false });
-      contractsData = (fallback ?? []).map((c) => ({ ...c, withdrawn_at: null }));
-    }
+  const agencyPlanMap = new Map<string, ReturnType<typeof parsePlan>>();
+  for (const profile of agencyPlanProfiles ?? []) {
+    agencyPlanMap.set(profile.id, parsePlan(profile.plan));
   }
 
-  const rows         = bookingsData   ?? [];
-  const contractRows = contractsData  ?? [];
+  const talentIds = [...new Set(rows.map((booking) => booking.talent_user_id).filter(Boolean))] as string[];
+  const jobIds = [...new Set(rows.map((booking) => booking.job_id).filter(Boolean))] as string[];
+  const contractTalentIds = [...new Set(contractRows.map((contract) => contract.talent_id).filter(Boolean))] as string[];
+  const contractAgencyIds = [...new Set(contractRows.map((contract) => contract.agency_id).filter(Boolean))] as string[];
+  const contractJobIds = [...new Set(contractRows.map((contract) => contract.job_id).filter(Boolean))] as string[];
 
-  // ── Resolve talent names for bookings ────────────────────────────────
-  const talentIds = [...new Set(rows.map((b) => b.talent_user_id).filter(Boolean))] as string[];
   const talentMap = new Map<string, string>();
-  if (talentIds.length) {
-    const { data: profiles } = await supabase
-      .from("talent_profiles")
-      .select("id, full_name")
-      .in("id", talentIds);
-    for (const p of profiles ?? []) talentMap.set(p.id, p.full_name ?? "Unknown");
-  }
-
-  // ── Resolve job titles for bookings where job_title is missing ────────
-  const jobIds = [...new Set(rows.filter((b) => !b.job_title && b.job_id).map((b) => b.job_id))] as string[];
-  const jobTitleMap = new Map<string, string>();
-  if (jobIds.length) {
-    const { data: jobs } = await supabase.from("jobs").select("id, title").in("id", jobIds);
-    for (const j of jobs ?? []) jobTitleMap.set(j.id, j.title ?? "—");
-  }
-
-  // ── Resolve names for contracts ───────────────────────────────────────
-  const contractTalentIds = [...new Set(contractRows.map((c) => c.talent_id).filter(Boolean))] as string[];
-  const contractAgencyIds = [...new Set(contractRows.map((c) => c.agency_id).filter(Boolean))] as string[];
-  const contractJobIds    = [...new Set(contractRows.map((c) => c.job_id).filter(Boolean))]    as string[];
-
+  const bookingJobMap = new Map<string, { title: string; agencyId: string | null }>();
   const contractTalentMap = new Map<string, string>();
   const contractAgencyMap = new Map<string, string>();
-  const contractJobMap    = new Map<string, string>();
+  const contractJobMap = new Map<string, string>();
 
   await Promise.all([
+    talentIds.length
+      ? supabase
+          .from("talent_profiles")
+          .select("id, full_name")
+          .in("id", talentIds)
+          .then(({ data }) => {
+            for (const profile of data ?? []) {
+              talentMap.set(profile.id, profile.full_name ?? "Sem nome");
+            }
+          })
+      : Promise.resolve(),
+    jobIds.length
+      ? supabase
+          .from("jobs")
+          .select("id, title, agency_id")
+          .in("id", jobIds)
+          .then(({ data }) => {
+            for (const job of data ?? []) {
+              bookingJobMap.set(job.id, {
+                title: job.title ?? "-",
+                agencyId: job.agency_id ?? null,
+              });
+            }
+          })
+      : Promise.resolve(),
     contractTalentIds.length
-      ? supabase.from("talent_profiles").select("id, full_name").in("id", contractTalentIds)
-          .then(({ data }) => { for (const p of data ?? []) contractTalentMap.set(p.id, p.full_name ?? "Unknown"); })
+      ? supabase
+          .from("talent_profiles")
+          .select("id, full_name")
+          .in("id", contractTalentIds)
+          .then(({ data }) => {
+            for (const profile of data ?? []) {
+              contractTalentMap.set(profile.id, profile.full_name ?? "Sem nome");
+            }
+          })
       : Promise.resolve(),
     contractAgencyIds.length
-      ? supabase.from("agencies").select("id, company_name").in("id", contractAgencyIds)
-          .then(({ data }) => { for (const a of data ?? []) contractAgencyMap.set(a.id, a.company_name ?? "Unknown"); })
+      ? supabase
+          .from("agencies")
+          .select("id, company_name")
+          .in("id", contractAgencyIds)
+          .then(({ data }) => {
+            for (const agency of data ?? []) {
+              contractAgencyMap.set(agency.id, agency.company_name ?? "Sem nome");
+            }
+          })
       : Promise.resolve(),
     contractJobIds.length
-      ? supabase.from("jobs").select("id, title").in("id", contractJobIds)
-          .then(({ data }) => { for (const j of data ?? []) contractJobMap.set(j.id, j.title ?? "Untitled Job"); })
+      ? supabase
+          .from("jobs")
+          .select("id, title")
+          .in("id", contractJobIds)
+          .then(({ data }) => {
+            for (const job of data ?? []) {
+              contractJobMap.set(job.id, job.title ?? "Untitled Job");
+            }
+          })
       : Promise.resolve(),
   ]);
 
-  // ── Referral lookup set (must be defined before bookings map) ────────
-  const referralKeys = new Set(
-    (referralSubs ?? []).map((s) => `${s.job_id}::${s.talent_user_id}`),
-  );
+  const referralKeys = new Set((referralSubs ?? []).map((submission) => `${submission.job_id}::${submission.talent_user_id}`));
 
-  // ── Build bookings list ───────────────────────────────────────────────
-  const bookings: FinancesBooking[] = rows.map((b) => ({
-    id:         b.id,
-    jobTitle:   b.job_title ?? (b.job_id ? (jobTitleMap.get(b.job_id) ?? "—") : "—"),
-    talentName: b.talent_user_id ? (talentMap.get(b.talent_user_id) ?? "Unknown") : "Unknown",
-    price:      b.price          ?? 0,
-    status:     b.status         ?? "pending",
-    created_at: b.created_at     ?? "",
-    isReferred: referralKeys.has(`${b.job_id}::${b.talent_user_id}`),
-  }));
+  const bookings: FinancesBooking[] = rows.map((booking) => {
+    const job = booking.job_id ? bookingJobMap.get(booking.job_id) : null;
+    const agencyPlan = parsePlan(job?.agencyId ? agencyPlanMap.get(job.agencyId) : "free");
+    const price = booking.price ?? 0;
+    const isConfirmed = booking.status === "confirmed" || booking.status === "paid";
+    const isReferred = referralKeys.has(`${booking.job_id}::${booking.talent_user_id}`);
+    const commissionAmount = isConfirmed ? calculateCommission(price, agencyPlan) : 0;
+    const referralAmount = isConfirmed && isReferred ? Math.round(price * REFERRAL_RATE * 100) / 100 : 0;
 
-  // ── Build contracts list ──────────────────────────────────────────────
-  const contracts: FinancesContract[] = contractRows.map((c: any) => ({
-    id:           c.id,
-    jobTitle:     c.job_id ? (contractJobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
-    talentName:   c.talent_id ? (contractTalentMap.get(c.talent_id) ?? "Unknown") : "Unknown",
-    agencyName:   c.agency_id ? (contractAgencyMap.get(c.agency_id) ?? "Unknown") : "—",
-    amount:       c.payment_amount ?? 0,
-    status:       c.status         ?? "confirmed",
-    created_at:   c.created_at     ?? "",
-    paid_at:      c.paid_at        ?? null,
-    withdrawn_at: c.withdrawn_at   ?? null,
-  }));
+    return {
+      id: booking.id,
+      jobTitle: booking.job_title ?? job?.title ?? "-",
+      talentName: booking.talent_user_id ? (talentMap.get(booking.talent_user_id) ?? "Sem nome") : "Sem nome",
+      price,
+      status: booking.status ?? "pending",
+      created_at: booking.created_at ?? "",
+      isReferred,
+      agencyPlan,
+      commissionAmount,
+      referralAmount,
+      netPlatformAmount: commissionAmount - referralAmount,
+    };
+  });
 
-  // ── Compute subscription revenue (accumulated all-time per agency) ────
-  const now = new Date();
-  let totalSubscriptionRevenue = 0;
-  for (const a of agenciesData ?? []) {
-    if (!a.created_at) continue;
-    const joined = new Date(a.created_at);
-    // Count current month as the first charge (month joined = 1st charge)
-    const months = Math.max(
-      1,
-      (now.getFullYear() - joined.getFullYear()) * 12 + (now.getMonth() - joined.getMonth()) + 1,
-    );
-    totalSubscriptionRevenue += months * AGENCY_MONTHLY_FEE;
+  const contracts: FinancesContract[] = contractRows.map((contract) => {
+    const agencyPlan = parsePlan(contract.agency_id ? agencyPlanMap.get(contract.agency_id) : "free");
+    const amount = contract.payment_amount ?? 0;
+    const commissionAmount =
+      typeof contract.commission_amount === "number"
+        ? contract.commission_amount
+        : calculateCommission(amount, agencyPlan);
+    const netAmount =
+      typeof contract.net_amount === "number"
+        ? contract.net_amount
+        : calculateNetAmount(amount, agencyPlan);
+
+    return {
+      id: contract.id,
+      jobTitle: contract.job_id ? (contractJobMap.get(contract.job_id) ?? "Untitled Job") : "Untitled Job",
+      talentName: contract.talent_id ? (contractTalentMap.get(contract.talent_id) ?? "Sem nome") : "Sem nome",
+      agencyName: contract.agency_id ? (contractAgencyMap.get(contract.agency_id) ?? "Sem nome") : "-",
+      agencyPlan,
+      amount,
+      commissionAmount,
+      netAmount,
+      status: contract.status ?? "confirmed",
+      created_at: contract.created_at ?? "",
+      paid_at: contract.paid_at ?? null,
+      withdrawn_at: contract.withdrawn_at ?? null,
+    };
+  });
+
+  const confirmedBookings = bookings.filter((booking) => booking.status === "confirmed" || booking.status === "paid");
+  const pendingBookings = bookings.filter((booking) => booking.status === "pending" || booking.status === "pending_payment");
+  const totalGross = bookings.reduce((sum, booking) => sum + booking.price, 0);
+  const confirmedVal = confirmedBookings.reduce((sum, booking) => sum + booking.price, 0);
+  const pendingVal = pendingBookings.reduce((sum, booking) => sum + booking.price, 0);
+  const bookingCommission = confirmedBookings.reduce((sum, booking) => sum + booking.commissionAmount, 0);
+  const referralPayouts = confirmedBookings.reduce((sum, booking) => sum + booking.referralAmount, 0);
+
+  const escrowContracts = contracts.filter((contract) => contract.status === "confirmed");
+  const paidContracts = contracts.filter((contract) => contract.status === "paid");
+  const awaitingWithdrawal = paidContracts.filter((contract) => !contract.withdrawn_at);
+  const withdrawnContracts = paidContracts.filter((contract) => !!contract.withdrawn_at);
+
+  // Escrow holds the FULL payment_amount — commission hasn't been split yet.
+  // Only after the agency pays does the net_amount (talent's share) matter.
+  const contractsEscrowValue = escrowContracts.reduce((sum, contract) => sum + contract.amount, 0);
+  const contractsAwaitingValue = awaitingWithdrawal.reduce((sum, contract) => sum + contract.netAmount, 0);
+  const contractsWithdrawnValue = withdrawnContracts.reduce((sum, contract) => sum + contract.netAmount, 0);
+  const contractsGross = contracts.reduce((sum, contract) => sum + contract.amount, 0);
+  const contractsCommission = contracts.reduce((sum, contract) => sum + contract.commissionAmount, 0);
+  const contractsPaidValue = paidContracts.reduce((sum, contract) => sum + contract.netAmount, 0);
+
+  const totalAgencyWalletBalance = (agencyWallets ?? []).reduce((sum, profile) => sum + (profile.wallet_balance ?? 0), 0);
+
+  const planPaymentsMap = new Map<string, { total: number; lastPayment: string | null }>();
+  for (const payment of planPaymentsData ?? []) {
+    const current = planPaymentsMap.get(payment.user_id) ?? { total: 0, lastPayment: null };
+    planPaymentsMap.set(payment.user_id, {
+      total: current.total + Math.abs(payment.amount ?? 0),
+      lastPayment: current.lastPayment ?? payment.created_at,
+    });
   }
 
-  // ── Booking-based metrics ─────────────────────────────────────────────
-  const confirmedBookings = bookings.filter((b) => b.status === "confirmed" || b.status === "paid");
-  const pendingBookings   = bookings.filter((b) => b.status === "pending"   || b.status === "pending_payment");
-  const totalGross        = bookings.reduce((s, b) => s + b.price, 0);
-  const confirmedVal      = confirmedBookings.reduce((s, b) => s + b.price, 0);
-  const pendingVal        = pendingBookings.reduce((s, b) => s + b.price, 0);
-  const bookingCommission = Math.round(confirmedVal * COMMISSION_RATE);
+  const allAgencyNameMap = new Map<string, string>();
+  for (const agency of allAgenciesData ?? []) {
+    allAgencyNameMap.set(agency.id, agency.company_name ?? "");
+  }
 
-  // Referral payouts: only 2% of confirmed bookings that came via an actual referral
-  const referredConfirmedVal = rows
-    .filter((b) => (b.status === "confirmed" || b.status === "paid") && referralKeys.has(`${b.job_id}::${b.talent_user_id}`))
-    .reduce((s, b) => s + (b.price ?? 0), 0);
-  const referralPayouts = Math.round(referredConfirmedVal * REFERRAL_RATE);
+  const planOrder: Record<string, number> = { premium: 0, pro: 1, free: 2 };
+  const subscriptions: FinancesSubscription[] = (agencyPlanProfiles ?? [])
+    .map((profile) => ({
+      userId: profile.id,
+      agencyName: allAgencyNameMap.get(profile.id) ?? "Agencia sem nome",
+      plan: parsePlan(profile.plan),
+      planStatus: profile.plan_status ?? "inactive",
+      planExpiresAt: (profile as { plan_expires_at?: string | null }).plan_expires_at ?? null,
+      totalPaid: planPaymentsMap.get(profile.id)?.total ?? 0,
+      lastPayment: planPaymentsMap.get(profile.id)?.lastPayment ?? null,
+    }))
+    .sort((left, right) => (planOrder[left.plan] ?? 2) - (planOrder[right.plan] ?? 2));
 
-  // ── Contract-based metrics ────────────────────────────────────────────
-  const escrowContracts         = contracts.filter((c) => c.status === "confirmed");
-  const paidContracts           = contracts.filter((c) => c.status === "paid");
-  const awaitingWithdrawal      = paidContracts.filter((c) => !c.withdrawn_at);
-  const withdrawn               = paidContracts.filter((c) => !!c.withdrawn_at);
-
-  const contractsEscrowValue    = escrowContracts.reduce((s, c) => s + c.amount, 0);
-  const contractsAwaitingValue  = awaitingWithdrawal.reduce((s, c) => s + c.amount, 0);
-  const contractsWithdrawnValue = withdrawn.reduce((s, c) => s + c.amount, 0);
-  const contractsGross          = contracts.reduce((s, c) => s + c.amount, 0);
-  const contractsCommission     = Math.round(contractsGross * COMMISSION_RATE);
-  const contractsPaid           = paidContracts.reduce((s, c) => s + c.amount, 0);
-
-  // ── Agencies for subscriptions table ─────────────────────────────────
-  const activeAgencies = (agenciesData ?? []).filter((a) => a.subscription_status === "active");
-  const monthlySubTotal = activeAgencies.length * AGENCY_MONTHLY_FEE;
+  const totalSubscriptionRevenue = (planPaymentsData ?? []).reduce((sum, payment) => sum + Math.abs(payment.amount ?? 0), 0);
+  const minimumRequired = contractsEscrowValue + contractsAwaitingValue + totalAgencyWalletBalance;
 
   const summary: FinancesSummary = {
-    totalGrossValue:          totalGross,
-    confirmedGrossValue:      confirmedVal,
-    platformCommission:       bookingCommission,
+    totalGrossValue: totalGross,
+    confirmedGrossValue: confirmedVal,
+    platformCommission: bookingCommission,
     referralPayouts,
     contractsGross,
     contractsCommission,
-    contractsEscrowValue:     contractsEscrowValue,
-    contractsAwaitingValue:   contractsAwaitingValue,
-    contractsWithdrawnValue:  contractsWithdrawnValue,
-    contractsPaidValue:       contractsPaid,
-    subscriptionRevenue:      totalSubscriptionRevenue,
-    monthlySubscriptionTotal: monthlySubTotal,
-    netRevenue:               bookingCommission + contractsCommission + totalSubscriptionRevenue - referralPayouts,
-    pendingValue:             pendingVal,
-    totalBookings:            bookings.length,
-    confirmedBookings:        confirmedBookings.length,
+    contractsEscrowValue,
+    contractsAwaitingValue,
+    contractsWithdrawnValue,
+    contractsPaidValue,
+    pendingValue: pendingVal,
+    totalBookings: bookings.length,
+    confirmedBookings: confirmedBookings.length,
+    agencyWalletTotal: totalAgencyWalletBalance,
+    subscriptionRevenue: totalSubscriptionRevenue,
+    minimumRequired,
+    planBreakdown: {
+      free: {
+        commissionLabel: getPlanDefinition("free").commissionLabel,
+        priceLabel: getPlanDefinition("free").priceLabel,
+      },
+      pro: {
+        commissionLabel: getPlanDefinition("pro").commissionLabel,
+        priceLabel: `${getPlanDefinition("pro").priceLabel}/mes`,
+      },
+      premium: {
+        commissionLabel: getPlanDefinition("premium").commissionLabel,
+        priceLabel: `${getPlanDefinition("premium").priceLabel}/mes`,
+      },
+    },
   };
 
-  const agencies: AgencyEntry[] = (agenciesData ?? []).map((a) => ({
-    id:                 a.id,
-    name:               a.company_name ?? `Agency ${a.id.slice(0, 8)}`,
-    joinedAt:           a.created_at   ?? "",
-    monthlyFee:         AGENCY_MONTHLY_FEE,
-    subscriptionStatus: a.subscription_status ?? "active",
-  }));
-
-  return <AdminFinances summary={summary} bookings={bookings} contracts={contracts} agencies={agencies} />;
+  return (
+    <AdminFinances
+      summary={summary}
+      bookings={bookings}
+      contracts={contracts}
+      subscriptions={subscriptions}
+    />
+  );
 }

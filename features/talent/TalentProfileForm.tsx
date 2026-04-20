@@ -93,15 +93,15 @@ function stripeFor(categories: string[]) {
 
 function validate(form: FormData): FormErrors {
   const e: FormErrors = {};
-  if (!form.name.trim()) e.name = "Name is required.";
-  else if (form.name.trim().length < 2) e.name = "At least 2 characters.";
-  if (!form.username.trim()) e.username = "Username is required.";
-  else if (!/^[a-z0-9_]{3,30}$/.test(form.username)) e.username = "3–30 chars · lowercase letters, numbers, underscores.";
-  if (form.bio.length > BIO_MAX) e.bio = `Max ${BIO_MAX} characters.`;
+  if (!form.name.trim()) e.name = "Nome é obrigatório.";
+  else if (form.name.trim().length < 2) e.name = "Pelo menos 2 caracteres.";
+  if (!form.username.trim()) e.username = "Nome de usuário é obrigatório.";
+  else if (!/^[a-z0-9_]{3,30}$/.test(form.username)) e.username = "3–30 caracteres · letras minúsculas, números e underscore.";
+  if (form.bio.length > BIO_MAX) e.bio = `Máximo de ${BIO_MAX} caracteres.`;
   const le: Record<string, string> = {};
   form.links.forEach((l) => {
-    if (l.platform && !l.handle.trim()) le[l.id] = "Handle required.";
-    if (!l.platform && l.handle.trim()) le[l.id] = "Select a platform.";
+    if (l.platform && !l.handle.trim()) le[l.id] = "Handle obrigatório.";
+    if (!l.platform && l.handle.trim()) le[l.id] = "Selecione uma plataforma.";
   });
   if (Object.keys(le).length) e.links = le;
   return e;
@@ -177,11 +177,11 @@ function ImageUpload({ value, onChange }: { value: string; onChange: (v: string)
         <div className="space-y-2">
           <button type="button" onClick={() => ref.current?.click()}
             className="block text-[13px] font-medium text-zinc-700 hover:text-zinc-900 transition-colors cursor-pointer">
-            Change photo
+            Trocar foto
           </button>
           <button type="button" onClick={() => onChange("")}
             className="block text-[13px] text-zinc-400 hover:text-rose-500 transition-colors cursor-pointer">
-            Remove
+            Remover
           </button>
         </div>
         <input ref={ref} type="file" accept="image/*" className="hidden"
@@ -211,8 +211,8 @@ function ImageUpload({ value, onChange }: { value: string; onChange: (v: string)
               d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </div>
-        <p className="text-[14px] font-medium text-zinc-600">Click or drag to upload</p>
-        <p className="text-[12px] text-zinc-400 mt-1">PNG, JPG, WEBP · max 5 MB</p>
+        <p className="text-[14px] font-medium text-zinc-600">Clique ou arraste para enviar</p>
+        <p className="text-[12px] text-zinc-400 mt-1">PNG, JPG, WEBP · máx 5 MB</p>
       </button>
     </>
   );
@@ -265,7 +265,7 @@ function CategoriesEditor({ value, onChange }: { value: string[]; onChange: (v: 
             if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(input); }
             if (e.key === "Backspace" && !input && value.length) remove(value[value.length - 1]);
           }}
-          placeholder={value.length ? "Add another…" : "Type a category and press Enter…"}
+          placeholder={value.length ? "Adicionar outra…" : "Digite uma categoria e pressione Enter…"}
           className={`${base} ${ring()} px-4 py-3`}
         />
       )}
@@ -282,7 +282,7 @@ function CategoriesEditor({ value, onChange }: { value: string[]; onChange: (v: 
         </div>
       )}
 
-      <p className="text-[12px] text-zinc-400">{value.length}/5 categories</p>
+      <p className="text-[12px] text-zinc-400">{value.length}/5 categorias</p>
     </div>
   );
 }
@@ -321,7 +321,7 @@ function SocialLinksEditor({
                   onChange={(e) => update(link.id, "platform", e.target.value)}
                   className="w-full rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none bg-white text-[14px] text-zinc-900 px-3 py-3 appearance-none pr-8 transition-colors cursor-pointer"
                 >
-                  <option value="">Platform</option>
+                  <option value="">Plataforma</option>
                   {PLATFORMS.map((p) => (
                     <option key={p.id} value={p.id}
                       disabled={used.includes(p.id) && p.id !== link.platform}>
@@ -379,7 +379,7 @@ function SocialLinksEditor({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </span>
-          Add social link
+          Adicionar rede social
         </button>
       )}
     </div>
@@ -440,12 +440,12 @@ function ProfilePreview({ form }: { form: FormData }) {
   const hasBio  = form.bio.trim().length > 0;
 
   const checklist = [
-    { label: "Name",          done: form.name.trim().length >= 2 },
-    { label: "Username",      done: /^[a-z0-9_]{3,30}$/.test(form.username) },
-    { label: "Bio",           done: hasBio },
-    { label: "Profile photo", done: !!form.imageDataUrl },
-    { label: "Category",      done: form.categories.length > 0 },
-    { label: "Social link",   done: form.links.some((l) => l.platform && l.handle) },
+    { label: "Nome",           done: form.name.trim().length >= 2 },
+    { label: "Usuário",        done: /^[a-z0-9_]{3,30}$/.test(form.username) },
+    { label: "Bio",            done: hasBio },
+    { label: "Foto de perfil", done: !!form.imageDataUrl },
+    { label: "Categoria",      done: form.categories.length > 0 },
+    { label: "Rede social",    done: form.links.some((l) => l.platform && l.handle) },
   ];
 
   return (
@@ -454,13 +454,13 @@ function ProfilePreview({ form }: { form: FormData }) {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-          Live Preview
+          Prévia
         </p>
         <span className={[
           "text-[11px] font-medium px-2.5 py-0.5 rounded-full",
           pct === 100 ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500",
         ].join(" ")}>
-          {pct}% complete
+          {pct}% completo
         </span>
       </div>
 
@@ -494,7 +494,7 @@ function ProfilePreview({ form }: { form: FormData }) {
           {/* Identity */}
           <div className="mb-4 space-y-1">
             <p className={`text-[15px] font-semibold leading-snug ${hasName ? "text-zinc-900" : "text-zinc-300"}`}>
-              {form.name.trim() || "Your Name"}
+              {form.name.trim() || "Seu Nome"}
             </p>
             <p className={`text-[12px] font-mono ${form.username ? "text-zinc-400" : "text-zinc-200"}`}>
               @{form.username || "username"}
@@ -508,16 +508,16 @@ function ProfilePreview({ form }: { form: FormData }) {
 
           {/* Bio */}
           <div className="pt-3 border-t border-zinc-50 mb-4">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-1.5">About</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-1.5">Sobre</p>
             <p className={`text-[12px] leading-relaxed line-clamp-3 ${hasBio ? "text-zinc-500" : "text-zinc-300 italic"}`}>
-              {form.bio.trim() || "Your bio will appear here…"}
+              {form.bio.trim() || "Sua bio aparecerá aqui…"}
             </p>
           </div>
 
           {/* All categories */}
           {form.categories.length > 0 && (
             <div className="mb-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Categories</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Categorias</p>
               <div className="flex flex-wrap gap-1.5">
                 {form.categories.map((c) => (
                   <span key={c} className="text-[11px] font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-600 px-2.5 py-1 rounded-full transition-colors">
@@ -531,7 +531,7 @@ function ProfilePreview({ form }: { form: FormData }) {
           {/* Social links */}
           {filledLinks.length > 0 && (
             <div className="mb-5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Social Profiles</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Redes Sociais</p>
               <div className="space-y-1.5">
                 {filledLinks.map((l) => {
                   const meta = PLATFORM_META[l.platform as PlatformId];
@@ -560,14 +560,14 @@ function ProfilePreview({ form }: { form: FormData }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              Book Talent
+              Contratar
             </div>
             <div className="flex-1 border border-zinc-200 text-zinc-400 text-[12px] font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 opacity-50 select-none">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
               </svg>
-              Save
+              Salvar
             </div>
           </div>
         </div>
@@ -576,7 +576,7 @@ function ProfilePreview({ form }: { form: FormData }) {
       {/* Checklist */}
       <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] px-4 py-4 space-y-2.5">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
-          Checklist
+          Checklist de Perfil
         </p>
         {checklist.map(({ label, done }) => (
           <div key={label} className="flex items-center gap-2.5">
@@ -614,16 +614,16 @@ function SuccessScreen({ name }: { name: string }) {
             </svg>
           </div>
         </div>
-        <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">Profile saved!</h2>
+        <h2 className="text-xl font-semibold text-zinc-900 tracking-tight">Perfil salvo!</h2>
         <p className="text-[14px] text-zinc-500 mt-2 leading-relaxed">
-          <span className="font-medium text-zinc-700">{name}</span> is now visible to agencies.
+          <span className="font-medium text-zinc-700">{name}</span> agora está visível para agências.
         </p>
         <p className="text-[12px] text-zinc-400 mt-6 flex items-center justify-center gap-1.5">
           <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
-          Redirecting to your profile…
+          Redirecionando para o perfil…
         </p>
       </div>
     </div>
@@ -671,10 +671,10 @@ export default function TalentProfileForm() {
         {/* Page header */}
         <div className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Create your profile
+            Crie seu perfil
           </h1>
           <p className="text-[14px] text-zinc-400 mt-1">
-            Fill in your details to get discovered by agencies.
+            Preencha seus dados para ser descoberto por agências.
           </p>
         </div>
 
@@ -686,10 +686,10 @@ export default function TalentProfileForm() {
             {/* Basic info */}
             <div className={card}>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                Basic Info
+                Informações Básicas
               </p>
 
-              <Field label="Full Name" error={err("name")} required>
+              <Field label="Nome Completo" error={err("name")} required>
                 <input type="text" value={form.name}
                   onChange={(e) => set("name", e.target.value)}
                   onBlur={() => touch("name")}
@@ -699,9 +699,9 @@ export default function TalentProfileForm() {
               </Field>
 
               <Field
-                label="Username"
+                label="Nome de Usuário"
                 error={err("username")}
-                hint={`brisadigital.com/talent/profile/${form.username || "username"}`}
+                hint={`brisadigital.com/talent/profile/${form.username || "usuario"}`}
                 required
               >
                 <div className="relative">
@@ -728,7 +728,7 @@ export default function TalentProfileForm() {
                   value={form.bio}
                   onChange={(e) => set("bio", e.target.value)}
                   onBlur={() => touch("bio")}
-                  placeholder="Tell agencies about yourself and what you create…"
+                  placeholder="Conte às agências sobre você e o que você cria…"
                   rows={4}
                   className={`${base} ${ring(!!err("bio"))} px-4 py-3 resize-none leading-relaxed`}
                 />
@@ -738,10 +738,10 @@ export default function TalentProfileForm() {
             {/* Profile photo */}
             <div className={card}>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                Profile Photo
+                Foto de Perfil
               </p>
               <p className="text-[13px] text-zinc-400 leading-relaxed -mt-4">
-                Shown on your profile and talent cards. Square images work best.
+                Exibida no perfil e nos cards de talento. Imagens quadradas funcionam melhor.
               </p>
               <ImageUpload value={form.imageDataUrl} onChange={(v) => set("imageDataUrl", v)} />
             </div>
@@ -749,10 +749,10 @@ export default function TalentProfileForm() {
             {/* Categories */}
             <div className={card}>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                Categories
+                Categorias
               </p>
               <p className="text-[13px] text-zinc-400 leading-relaxed -mt-4">
-                Pick up to 5 categories. These help agencies find the right talent.
+                Escolha até 5 categorias. Isso ajuda as agências a encontrarem o talento certo.
               </p>
               <CategoriesEditor value={form.categories} onChange={(v) => set("categories", v)} />
             </div>
@@ -760,10 +760,10 @@ export default function TalentProfileForm() {
             {/* Social links */}
             <div className={card}>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                Social Links
+                Redes Sociais
               </p>
               <p className="text-[13px] text-zinc-400 leading-relaxed -mt-4">
-                Add your platforms. At least one social link is recommended.
+                Adicione suas plataformas. Pelo menos uma rede social é recomendada.
               </p>
               <SocialLinksEditor
                 links={form.links}
@@ -780,7 +780,7 @@ export default function TalentProfileForm() {
                     <path fillRule="evenodd" clipRule="evenodd"
                       d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" />
                   </svg>
-                  <p className="text-[13px] text-rose-600">Fix the highlighted fields before saving.</p>
+                  <p className="text-[13px] text-rose-600">Corrija os campos destacados antes de salvar.</p>
                 </div>
               )}
 
@@ -791,11 +791,11 @@ export default function TalentProfileForm() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M5 13l4 4L19 7" />
                   </svg>
-                  Save Profile
+                  Salvar Perfil
                 </button>
                 <button type="button" onClick={() => setForm(INITIAL)}
                   className="text-[15px] font-medium text-zinc-400 hover:text-zinc-700 px-4 py-3 rounded-xl hover:bg-zinc-50 transition-all duration-150 cursor-pointer">
-                  Reset
+                  Limpar
                 </button>
               </div>
             </div>

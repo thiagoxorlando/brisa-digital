@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,10 +31,10 @@ function stripe(cat: string) {
   return CATEGORY_STRIPES[cat] ?? "from-zinc-300 to-zinc-400";
 }
 function formatBudget(n: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
 }
 function formatDate(s: string) {
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -42,11 +43,11 @@ function NotFound() {
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-6">
       <div className="text-center max-w-sm">
-        <p className="text-[13px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Job Not Found</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 mb-2">This job doesn't exist</h1>
-        <p className="text-[15px] text-zinc-500 mb-6">It may have been removed or the link is incorrect.</p>
+        <p className="text-[13px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Vaga Não Encontrada</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 mb-2">Esta vaga não existe</h1>
+        <p className="text-[15px] text-zinc-500 mb-6">Ela pode ter sido removida ou o link está incorreto.</p>
         <Link href="/agency/jobs" className="inline-flex items-center gap-2 bg-zinc-900 text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors">
-          ← Back to Jobs
+          ← Voltar para Vagas
         </Link>
       </div>
     </div>
@@ -65,15 +66,15 @@ function SuccessScreen({ jobTitle }: { jobTitle: string }) {
             </svg>
           </span>
         </div>
-        <p className="text-[13px] font-semibold uppercase tracking-widest text-emerald-600 mb-2">Submission Received</p>
-        <h2 className="text-[1.5rem] font-semibold tracking-tight text-zinc-900 mb-2">Talent submitted!</h2>
+        <p className="text-[13px] font-semibold uppercase tracking-widest text-emerald-600 mb-2">Candidatura Recebida</p>
+        <h2 className="text-[1.5rem] font-semibold tracking-tight text-zinc-900 mb-2">Talento enviado!</h2>
         <p className="text-[15px] text-zinc-500 mb-8">
-          Your submission for <span className="font-medium text-zinc-700">"{jobTitle}"</span> is under review.
-          {" If selected, you'll earn your referral commission."}
+          Sua candidatura para <span className="font-medium text-zinc-700">"{jobTitle}"</span> está em análise.
+          {" Se selecionado, você receberá sua comissão de indicação."}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/agency/jobs" className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors">
-            ← Back to Jobs
+            ← Voltar para Vagas
           </Link>
           <Link href="/agency/dashboard" className="inline-flex items-center justify-center gap-2 bg-white border border-zinc-200 text-zinc-700 text-[13px] font-medium px-5 py-2.5 rounded-xl hover:border-zinc-300 transition-colors">
             Dashboard
@@ -94,17 +95,24 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [referrerId, setReferrerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setReferrerId(user.id);
+    });
+  }, []);
 
   if (!job) return <NotFound />;
   if (submitted) return <SuccessScreen jobTitle={job.title} />;
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!form.talentName.trim()) e.talentName = "Name is required";
-    if (!form.contactInfo.trim()) e.contactInfo = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(form.contactInfo)) e.contactInfo = "Enter a valid email address";
-    if (!form.bio.trim()) e.bio = "Bio is required";
-    if (!form.referrerName.trim()) e.referrerName = "Your name is required";
+    if (!form.talentName.trim()) e.talentName = "Nome é obrigatório";
+    if (!form.contactInfo.trim()) e.contactInfo = "E-mail é obrigatório";
+    else if (!/\S+@\S+\.\S+/.test(form.contactInfo)) e.contactInfo = "Informe um e-mail válido";
+    if (!form.bio.trim()) e.bio = "Bio é obrigatória";
+    if (!form.referrerName.trim()) e.referrerName = "Seu nome é obrigatório";
     return e;
   }
 
@@ -121,18 +129,29 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
     setLoading(true);
     setSubmitError(null);
 
-    const res = await fetch("/api/submissions", {
+    const endpoint = referrerId ? "/api/referrals/invite" : "/api/submissions";
+    const payload = referrerId
+      ? {
+          job_id:         job!.id,
+          referrer_id:    referrerId,
+          referred_email: form.contactInfo.trim(),
+          referred_name:  form.talentName.trim(),
+          bio:            form.bio.trim(),
+        }
+      : {
+          job_id:        job!.id,
+          talent_name:   form.talentName.trim(),
+          email:         form.contactInfo.trim(),
+          bio:           form.bio.trim(),
+          referrer_name: form.referrerName.trim(),
+          referrer_id:   null,
+          mode,
+        };
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        job_id:        job!.id,
-        talent_name:   form.talentName.trim(),   // external referral — no account
-        email:         form.contactInfo.trim(),
-        bio:           form.bio.trim(),
-        referrer_name: form.referrerName.trim(),
-        referrer_id:   null,                     // no platform account — not tracked
-        mode,
-      }),
+      body: JSON.stringify(payload),
     });
 
     setLoading(false);
@@ -140,7 +159,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
     if (!res.ok) {
       const { error } = await res.json();
       console.error("Submission failed:", error);
-      setSubmitError(error ?? "Something went wrong. Please try again.");
+      setSubmitError(error ?? "Algo deu errado. Tente novamente.");
       return;
     }
 
@@ -161,7 +180,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Job
+            Voltar para Vaga
           </Link>
           <span className="text-[14px] font-semibold text-zinc-900 tracking-tight">Brisa Digital</span>
         </div>
@@ -173,7 +192,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
           <div className={`h-[3px] bg-gradient-to-r ${stripe(job.category)}`} />
           <div className="p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Submitting for</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Candidatando-se para</p>
             <h1 className="text-[1.35rem] font-semibold tracking-tight text-zinc-900 mb-2 leading-snug">{job.title}</h1>
             <p className="text-[14px] text-zinc-500 leading-relaxed line-clamp-3 mb-4">{job.description}</p>
             <div className="flex flex-wrap items-center gap-3">
@@ -204,20 +223,20 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             </svg>
           </div>
           <p className="text-[14px] text-emerald-800 font-medium leading-snug">
-            Earn commission if your submission is selected
+            Ganhe comissão se sua indicação for selecionada
           </p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} noValidate>
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Submission Details</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Detalhes da Candidatura</p>
 
             <div>
-              <label className={labelClass}>Talent Name</label>
+              <label className={labelClass}>Nome do Talento</label>
               <input
                 type="text"
-                placeholder="e.g. Lucas Ferreira"
+                placeholder="ex: Lucas Ferreira"
                 value={form.talentName}
                 onChange={(e) => field("talentName", e.target.value)}
                 className={inputClass(errors.talentName)}
@@ -226,10 +245,10 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             </div>
 
             <div>
-              <label className={labelClass}>Talent's Email</label>
+              <label className={labelClass}>E-mail do Talento</label>
               <input
                 type="email"
-                placeholder="hello@example.com"
+                placeholder="contato@exemplo.com"
                 value={form.contactInfo}
                 onChange={(e) => field("contactInfo", e.target.value)}
                 className={inputClass(errors.contactInfo)}
@@ -238,10 +257,10 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             </div>
 
             <div>
-              <label className={labelClass}>Talent Bio</label>
+              <label className={labelClass}>Bio do Talento</label>
               <textarea
                 rows={4}
-                placeholder="Tell the brand about this creator — niche, style, audience, and why they're a great fit for this campaign."
+                placeholder="Conte à marca sobre este criador — nicho, estilo, audiência e por que ele é ideal para esta campanha."
                 value={form.bio}
                 onChange={(e) => field("bio", e.target.value)}
                 className={`${inputClass(errors.bio)} resize-none`}
@@ -250,10 +269,10 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             </div>
 
             <div>
-                <label className={labelClass}>Your Name (Referrer)</label>
+                <label className={labelClass}>Seu Nome (Indicador)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Carlos Rodrigues"
+                  placeholder="ex: Carlos Rodrigues"
                   value={form.referrerName}
                   onChange={(e) => field("referrerName", e.target.value)}
                   className={inputClass(errors.referrerName)}
@@ -263,7 +282,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
 
             {/* Video Upload */}
             <div>
-              <label className={labelClass}>Video or Portfolio Link (optional)</label>
+              <label className={labelClass}>Vídeo ou Link do Portfólio (opcional)</label>
               <div
                 className="rounded-xl border-2 border-dashed border-zinc-200 hover:border-zinc-300 transition-colors cursor-pointer"
                 onClick={() => document.getElementById("video-upload")?.click()}
@@ -286,7 +305,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
                       onClick={(e) => { e.stopPropagation(); setVideoFile(null); }}
                       className="text-[12px] text-zinc-400 hover:text-rose-500 transition-colors cursor-pointer"
                     >
-                      Remove
+                      Remover
                     </button>
                   </div>
                 ) : (
@@ -296,8 +315,8 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <p className="text-[14px] font-medium text-zinc-600">Upload a video sample</p>
-                    <p className="text-[12px] text-zinc-400">MP4, MOV up to 500 MB</p>
+                    <p className="text-[14px] font-medium text-zinc-600">Enviar vídeo de amostra</p>
+                    <p className="text-[12px] text-zinc-400">MP4, MOV até 500 MB</p>
                   </div>
                 )}
               </div>
@@ -332,10 +351,10 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                 </svg>
-                Submitting…
+                Enviando…
               </span>
             ) : (
-              "Submit Talent"
+              "Enviar Candidatura"
             )}
           </button>
           <p className="text-center text-[12px] text-zinc-400 mt-3">

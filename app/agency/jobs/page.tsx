@@ -13,7 +13,7 @@ export default async function JobsPage() {
 
   let query = supabase
     .from("jobs")
-    .select("id, title, category, budget, deadline, job_date, description, status, created_at, number_of_talents_required")
+    .select("id, title, category, budget, deadline, job_date, description, status, created_at, number_of_talents_required, visibility")
     .order("created_at", { ascending: false });
 
   if (user) query = query.eq("agency_id", user.id);
@@ -56,6 +56,7 @@ export default async function JobsPage() {
     jobDate:         row.job_date    ?? null,
     description:     row.description ?? "",
     status:          (row.status     ?? "open") as "open" | "closed" | "draft" | "inactive",
+    visibility:      (row.visibility ?? "public") as "public" | "private",
     applicants:      submissionsCountMap.get(row.id) ?? 0,
     talentsNeeded:   row.number_of_talents_required ?? 1,
     talentsSelected: selectedCountMap.get(row.id) ?? 0,

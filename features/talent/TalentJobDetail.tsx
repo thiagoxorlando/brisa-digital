@@ -17,17 +17,18 @@ export type TalentJobDetailProps = {
   gender: string;
   ageMin: number | null;
   ageMax: number | null;
+  applicationRequirements?: string[];
 };
 
-function usd(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
+function brl(n: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL", maximumFractionDigits: 0,
   }).format(n);
 }
 
 function formatDate(s: string) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", {
+  return new Date(s).toLocaleDateString("pt-BR", {
     month: "short", day: "numeric", year: "numeric",
   });
 }
@@ -86,7 +87,7 @@ function PhotoSlot({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <p className="text-[10px] text-zinc-400 leading-tight">Click to upload</p>
+            <p className="text-[10px] text-zinc-400 leading-tight">Clique para enviar</p>
           </div>
         )}
       </div>
@@ -111,15 +112,19 @@ function PhotoStep({
   photos,
   onChange,
   onNext,
+  stepLabel,
+  nextLabel,
 }: {
   photos: PhotoSet;
   onChange: (key: keyof PhotoSet, file: File) => void;
   onNext: () => void;
+  stepLabel: string;
+  nextLabel: string;
 }) {
   const slots: { key: keyof PhotoSet; label: string; hint: string }[] = [
-    { key: "front", label: "Front",         hint: "Face forward, neutral expression" },
-    { key: "left",  label: "Left Profile",  hint: "Turn your head to the left" },
-    { key: "right", label: "Right Profile", hint: "Turn your head to the right" },
+    { key: "front", label: "Frente",          hint: "Olhe para frente, expressão neutra" },
+    { key: "left",  label: "Perfil Esquerdo", hint: "Vire a cabeça para a esquerda" },
+    { key: "right", label: "Perfil Direito",  hint: "Vire a cabeça para a direita" },
   ];
 
   const allUploaded = slots.every(({ key }) => photos[key] !== null);
@@ -129,9 +134,9 @@ function PhotoStep({
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Step 1 of 2</p>
-          <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Upload 3 Photos</h2>
-          <p className="text-[13px] text-zinc-400 mt-0.5">Front view, left profile, and right profile.</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{stepLabel}</p>
+          <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Enviar 3 Fotos</h2>
+          <p className="text-[13px] text-zinc-400 mt-0.5">Vista frontal, perfil esquerdo e perfil direito.</p>
         </div>
         <span className={`text-[12px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${
           allUploaded ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-500"
@@ -154,7 +159,7 @@ function PhotoStep({
 
       {!allUploaded && (
         <p className="text-[12px] text-zinc-400 text-center">
-          Upload all 3 photos to continue · JPG, PNG, or WebP
+          Envie as 3 fotos para continuar · JPG, PNG ou WebP
         </p>
       )}
 
@@ -163,7 +168,7 @@ function PhotoStep({
         disabled={!allUploaded}
         className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
       >
-        Next: Upload Video →
+        {nextLabel}
       </button>
     </div>
   );
@@ -175,16 +180,20 @@ function VideoStep({
   video,
   onVideoChange,
   onBack,
-  onSubmit,
+  onNext,
   submitting,
   uploadProgress,
+  stepLabel,
+  nextLabel,
 }: {
   video: File | null;
   onVideoChange: (f: File) => void;
   onBack: () => void;
-  onSubmit: () => void;
+  onNext: () => void;
   submitting: boolean;
   uploadProgress: string;
+  stepLabel: string;
+  nextLabel: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const videoUrl = video ? URL.createObjectURL(video) : null;
@@ -192,9 +201,9 @@ function VideoStep({
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-5">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Step 2 of 2</p>
-        <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Upload Intro Video</h2>
-        <p className="text-[13px] text-zinc-400 mt-0.5">30–60 seconds. Introduce yourself and why you're a great fit.</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{stepLabel}</p>
+        <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Enviar Vídeo de Apresentação</h2>
+        <p className="text-[13px] text-zinc-400 mt-0.5">30–60 segundos. Apresente-se e diga por que seria uma ótima escolha.</p>
       </div>
 
       <div
@@ -215,8 +224,8 @@ function VideoStep({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
                 d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
             </svg>
-            <p className="text-[13px] font-medium text-zinc-500">Click to upload video</p>
-            <p className="text-[11px] text-zinc-400 mt-1">MP4, MOV · max 500 MB</p>
+            <p className="text-[13px] font-medium text-zinc-500">Clique para enviar vídeo</p>
+            <p className="text-[11px] text-zinc-400 mt-1">MP4, MOV · máx 500 MB</p>
           </div>
         )}
       </div>
@@ -241,14 +250,13 @@ function VideoStep({
         onChange={(e) => { if (e.target.files?.[0]) onVideoChange(e.target.files[0]); }}
       />
 
-      {/* Upload progress */}
       {submitting && (
         <div className="flex items-center gap-3 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-3.5">
           <svg className="w-4 h-4 text-zinc-500 flex-shrink-0 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
-          <p className="text-[13px] text-zinc-600 font-medium">{uploadProgress || "Preparing upload…"}</p>
+          <p className="text-[13px] text-zinc-600 font-medium">{uploadProgress || "Preparando envio…"}</p>
         </div>
       )}
 
@@ -258,14 +266,158 @@ function VideoStep({
           disabled={submitting}
           className="flex-1 bg-white border border-zinc-200 hover:border-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-700 text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer"
         >
-          ← Back
+          ← Voltar
         </button>
         <button
-          onClick={onSubmit}
+          onClick={onNext}
           disabled={!video || submitting}
           className="flex-2 flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
         >
-          {submitting ? "Uploading…" : "Submit Application"}
+          {submitting ? "Enviando…" : nextLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Curriculum step ───────────────────────────────────────────────────────────
+
+function CurriculumStep({
+  file, onFileChange, onBack, onNext, submitting, uploadProgress, stepLabel, nextLabel,
+}: {
+  file: File | null;
+  onFileChange: (f: File) => void;
+  onBack: () => void;
+  onNext: () => void;
+  submitting: boolean;
+  uploadProgress: string;
+  stepLabel: string;
+  nextLabel: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-5">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{stepLabel}</p>
+        <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Enviar Currículo</h2>
+        <p className="text-[13px] text-zinc-400 mt-0.5">PDF, DOC ou DOCX · máx 10 MB.</p>
+      </div>
+      <div
+        onClick={() => !submitting && ref.current?.click()}
+        className={[
+          "w-full rounded-xl border-2 border-dashed transition-colors p-8 flex flex-col items-center justify-center",
+          submitting ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+          file ? "border-emerald-300 bg-emerald-50" : "border-zinc-200 hover:border-zinc-400 bg-zinc-50",
+        ].join(" ")}
+      >
+        {file ? (
+          <div className="text-center">
+            <svg className="w-8 h-8 text-emerald-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-[13px] font-medium text-emerald-700 truncate max-w-[200px]">{file.name}</p>
+            <p className="text-[11px] text-emerald-600">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <svg className="w-8 h-8 text-zinc-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p className="text-[13px] font-medium text-zinc-500">Clique para enviar currículo</p>
+          </div>
+        )}
+        <input ref={ref} type="file" accept=".pdf,.doc,.docx" className="hidden"
+          onChange={(e) => { if (e.target.files?.[0]) onFileChange(e.target.files[0]); }} />
+      </div>
+      {submitting && uploadProgress && (
+        <div className="flex items-center gap-3 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-3.5">
+          <svg className="w-4 h-4 text-zinc-500 flex-shrink-0 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>
+          <p className="text-[13px] text-zinc-600 font-medium">{uploadProgress}</p>
+        </div>
+      )}
+      <div className="flex gap-3">
+        <button onClick={onBack} disabled={submitting}
+          className="flex-1 py-2.5 text-[13px] font-medium border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer disabled:opacity-50">
+          ← Voltar
+        </button>
+        <button onClick={onNext} disabled={!file || submitting}
+          className="flex-1 py-2.5 text-[13px] font-semibold bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white rounded-xl transition-colors cursor-pointer">
+          {submitting ? "Enviando…" : nextLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Portfolio step ────────────────────────────────────────────────────────────
+
+function PortfolioStep({
+  file, onFileChange, onBack, onNext, submitting, uploadProgress, stepLabel, nextLabel,
+}: {
+  file: File | null;
+  onFileChange: (f: File) => void;
+  onBack: () => void;
+  onNext: () => void;
+  submitting: boolean;
+  uploadProgress: string;
+  stepLabel: string;
+  nextLabel: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-5">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{stepLabel}</p>
+        <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Enviar Portfólio</h2>
+        <p className="text-[13px] text-zinc-400 mt-0.5">PDF, imagem ou documento · máx 20 MB.</p>
+      </div>
+      <div
+        onClick={() => !submitting && ref.current?.click()}
+        className={[
+          "w-full rounded-xl border-2 border-dashed transition-colors p-8 flex flex-col items-center justify-center",
+          submitting ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+          file ? "border-emerald-300 bg-emerald-50" : "border-zinc-200 hover:border-zinc-400 bg-zinc-50",
+        ].join(" ")}
+      >
+        {file ? (
+          <div className="text-center">
+            <svg className="w-8 h-8 text-emerald-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-[13px] font-medium text-emerald-700 truncate max-w-[200px]">{file.name}</p>
+            <p className="text-[11px] text-emerald-600">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+          </div>
+        ) : (
+          <div className="text-center">
+            <svg className="w-8 h-8 text-zinc-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <p className="text-[13px] font-medium text-zinc-500">Clique para enviar portfólio</p>
+          </div>
+        )}
+        <input ref={ref} type="file" accept=".pdf,.doc,.docx,image/*" className="hidden"
+          onChange={(e) => { if (e.target.files?.[0]) onFileChange(e.target.files[0]); }} />
+      </div>
+      {submitting && uploadProgress && (
+        <div className="flex items-center gap-3 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-3.5">
+          <svg className="w-4 h-4 text-zinc-500 flex-shrink-0 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>
+          <p className="text-[13px] text-zinc-600 font-medium">{uploadProgress}</p>
+        </div>
+      )}
+      <div className="flex gap-3">
+        <button onClick={onBack} disabled={submitting}
+          className="flex-1 py-2.5 text-[13px] font-medium border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer disabled:opacity-50">
+          ← Voltar
+        </button>
+        <button onClick={onNext} disabled={!file || submitting}
+          className="flex-1 py-2.5 text-[13px] font-semibold bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white rounded-xl transition-colors cursor-pointer">
+          {submitting ? "Enviando…" : nextLabel}
         </button>
       </div>
     </div>
@@ -288,13 +440,13 @@ function ReferralModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim()) {
-      setError("Name and email are required.");
+      setError("Nome e email são obrigatórios.");
       return;
     }
     setSubmitting(true);
     setError("");
     const { data: { user } } = await (await import("@/lib/supabase")).supabase.auth.getUser();
-    if (!user?.id) { setError("Not authenticated."); setSubmitting(false); return; }
+    if (!user?.id) { setError("Não autenticado."); setSubmitting(false); return; }
 
     const res = await fetch("/api/submissions", {
       method: "POST",
@@ -305,13 +457,13 @@ function ReferralModal({
         email:       form.email.trim(),
         bio:         form.bio.trim() || null,
         mode:        "referral",
-        referrer_id: user.id,   // authenticated user's UUID — matches profiles.id
+        referrer_id: user.id,
       }),
     });
 
     if (!res.ok) {
       const d = await res.json();
-      setError(d.error ?? "Referral failed. Try again.");
+      setError(d.error ?? "Falha na indicação. Tente novamente.");
       setSubmitting(false);
       return;
     }
@@ -324,9 +476,9 @@ function ReferralModal({
         <div className="p-6 border-b border-zinc-100">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-[1rem] font-semibold text-zinc-900">Refer a Talent</h2>
+              <h2 className="text-[1rem] font-semibold text-zinc-900">Indicar um Talento</h2>
               <p className="text-[13px] text-zinc-400 mt-0.5">
-                You'll earn 2% if they get booked.
+                Você ganha 2% se eles forem reservados.
               </p>
             </div>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors cursor-pointer">
@@ -339,7 +491,7 @@ function ReferralModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Full Name *</label>
+            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Nome Completo *</label>
             <input
               type="text"
               required
@@ -361,12 +513,12 @@ function ReferralModal({
             />
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Why are they a good fit? (optional)</label>
+            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Por que seriam uma boa escolha? (opcional)</label>
             <textarea
               rows={3}
               value={form.bio}
               onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
-              placeholder="Tell us a bit about this person…"
+              placeholder="Conte-nos um pouco sobre esta pessoa…"
               className="w-full px-4 py-2.5 text-[13px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors resize-none"
             />
           </div>
@@ -380,11 +532,11 @@ function ReferralModal({
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 text-[13px] font-medium py-2.5 rounded-xl transition-colors cursor-pointer">
-              Cancel
+              Cancelar
             </button>
             <button type="submit" disabled={submitting}
               className="flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white text-[13px] font-medium py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
-              {submitting ? "Sending…" : "Send Referral"}
+              {submitting ? "Enviando…" : "Enviar Indicação"}
             </button>
           </div>
         </form>
@@ -393,26 +545,90 @@ function ReferralModal({
   );
 }
 
-export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | null }) {
+type StepId = "info" | "photos" | "video" | "curriculum" | "portfolio" | "done" | "referral_done";
+
+const ALL_STEP_ORDER = ["photos", "video", "curriculum", "portfolio"] as const;
+type ActiveStep = typeof ALL_STEP_ORDER[number];
+
+const STEP_CHECKLIST: Record<ActiveStep, string[]> = {
+  photos:     ["Foto — vista frontal", "Foto — perfil esquerdo", "Foto — perfil direito"],
+  video:      ["Vídeo de apresentação (30–60 segundos)"],
+  curriculum: ["Currículo (PDF ou DOC)"],
+  portfolio:  ["Portfólio (PDF ou imagens)"],
+};
+
+const STEP_NEXT_LABELS: Record<ActiveStep, string> = {
+  photos:     "Próximo: Vídeo →",
+  video:      "Próximo: Currículo →",
+  curriculum: "Próximo: Portfólio →",
+  portfolio:  "Enviar Candidatura",
+};
+
+export default function TalentJobDetail({
+  job,
+  talentGender = null,
+  talentAge = null,
+}: {
+  job: TalentJobDetailProps | null;
+  talentGender?: string | null;
+  talentAge?: number | null;
+}) {
   const router = useRouter();
-  const [step, setStep]             = useState<"info" | "photos" | "video" | "done" | "referral_done">("info");
+  const [step, setStep]             = useState<StepId>("info");
   const [showReferral, setShowReferral] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [error, setError]           = useState("");
   const [photos, setPhotos]         = useState<PhotoSet>({ front: null, left: null, right: null });
   const [video, setVideo]           = useState<File | null>(null);
+  const [curriculum, setCurriculum] = useState<File | null>(null);
+  const [portfolio, setPortfolio]   = useState<File | null>(null);
 
   if (!job) {
     return (
       <div className="max-w-sm mx-auto pt-20 text-center">
-        <p className="text-[15px] font-medium text-zinc-700">Job not found</p>
+        <p className="text-[15px] font-medium text-zinc-700">Vaga não encontrada</p>
         <Link href="/talent/jobs" className="text-[13px] text-zinc-400 hover:text-zinc-700 transition-colors mt-3 inline-block">
-          ← Back to Jobs
+          ← Voltar para Vagas
         </Link>
       </div>
     );
   }
+
+  // Compute ordered active steps from job requirements (default to photos + video)
+  const activeReqs = job.applicationRequirements && job.applicationRequirements.length > 0
+    ? job.applicationRequirements
+    : ["photos", "video"];
+  const orderedSteps = ALL_STEP_ORDER.filter((s) => activeReqs.includes(s));
+
+  const getStepLabel = (s: ActiveStep) => {
+    const idx = orderedSteps.indexOf(s);
+    return `Etapa ${idx + 1} de ${orderedSteps.length}`;
+  };
+
+  const getNextStepId = (s: ActiveStep): StepId => {
+    const idx = orderedSteps.indexOf(s);
+    return (orderedSteps[idx + 1] ?? "done") as StepId;
+  };
+
+  const getPrevStepId = (s: ActiveStep): StepId => {
+    const idx = orderedSteps.indexOf(s);
+    return (idx <= 0 ? "info" : orderedSteps[idx - 1]) as StepId;
+  };
+
+  const isLastStep = (s: ActiveStep) => orderedSteps[orderedSteps.length - 1] === s;
+
+  const getNextLabel = (s: ActiveStep): string => {
+    if (isLastStep(s)) return "Enviar Candidatura";
+    const nextS = orderedSteps[orderedSteps.indexOf(s) + 1];
+    const labelMap: Record<ActiveStep, string> = {
+      photos:     "Próximo: Fotos →",
+      video:      "Próximo: Vídeo →",
+      curriculum: "Próximo: Currículo →",
+      portfolio:  "Próximo: Portfólio →",
+    };
+    return labelMap[nextS] ?? "Próximo →";
+  };
 
   async function uploadFile(file: File, path: string): Promise<string> {
     const form = new FormData();
@@ -428,7 +644,6 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
   }
 
   async function handleSubmit() {
-    if (!job) return;
     setSubmitting(true);
     setError("");
 
@@ -438,36 +653,58 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
     try {
       const uid = user.id;
       const ts  = Date.now();
+      const payload: Record<string, string | null> = {
+        job_id:      job.id,
+        talent_id:   uid,
+        email:       user.email ?? "",
+        bio:         "",
+        mode:        "self",
+        referrer_id: null,
+      };
 
-      setUploadProgress("Uploading photo 1 of 4…");
-      const photoFrontUrl = await uploadFile(photos.front!, `submissions/${uid}/${ts}_front.jpg`);
+      let fileNum = 0;
+      const totalFiles =
+        (orderedSteps.includes("photos") ? 3 : 0) +
+        (orderedSteps.includes("video") ? 1 : 0) +
+        (orderedSteps.includes("curriculum") ? 1 : 0) +
+        (orderedSteps.includes("portfolio") ? 1 : 0);
 
-      setUploadProgress("Uploading photo 2 of 4…");
-      const photoLeftUrl = await uploadFile(photos.left!, `submissions/${uid}/${ts}_left.jpg`);
+      if (orderedSteps.includes("photos")) {
+        setUploadProgress(`Enviando foto 1 de ${totalFiles}…`);
+        payload.photo_front_url = await uploadFile(photos.front!, `submissions/${uid}/${ts}_front.jpg`);
+        fileNum++;
+        setUploadProgress(`Enviando foto 2 de ${totalFiles}…`);
+        payload.photo_left_url = await uploadFile(photos.left!, `submissions/${uid}/${ts}_left.jpg`);
+        fileNum++;
+        setUploadProgress(`Enviando foto 3 de ${totalFiles}…`);
+        payload.photo_right_url = await uploadFile(photos.right!, `submissions/${uid}/${ts}_right.jpg`);
+        fileNum++;
+      }
 
-      setUploadProgress("Uploading photo 3 of 4…");
-      const photoRightUrl = await uploadFile(photos.right!, `submissions/${uid}/${ts}_right.jpg`);
+      if (orderedSteps.includes("video")) {
+        fileNum++;
+        setUploadProgress(`Enviando vídeo (${fileNum} de ${totalFiles})…`);
+        payload.video_url = await uploadFile(video!, `submissions/${uid}/${ts}_intro.mp4`);
+      }
 
-      setUploadProgress("Uploading video (4 of 4)…");
-      const videoUrl = await uploadFile(video!, `submissions/${uid}/${ts}_intro.mp4`);
+      if (orderedSteps.includes("curriculum")) {
+        fileNum++;
+        setUploadProgress(`Enviando currículo (${fileNum} de ${totalFiles})…`);
+        payload.curriculum_url = await uploadFile(curriculum!, `submissions/${uid}/${ts}_curriculum.pdf`);
+      }
 
-      setUploadProgress("Saving application…");
+      if (orderedSteps.includes("portfolio")) {
+        fileNum++;
+        setUploadProgress(`Enviando portfólio (${fileNum} de ${totalFiles})…`);
+        payload.portfolio_url = await uploadFile(portfolio!, `submissions/${uid}/${ts}_portfolio.pdf`);
+      }
+
+      setUploadProgress("Salvando candidatura…");
 
       const res = await fetch("/api/submissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          job_id:          job.id,
-          talent_id:       uid,
-          email:           user.email ?? "",
-          bio:             "",
-          mode:            "self",
-          referrer_id:     null,
-          photo_front_url: photoFrontUrl,
-          photo_left_url:  photoLeftUrl,
-          photo_right_url: photoRightUrl,
-          video_url:       videoUrl,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -477,7 +714,7 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
 
       setStep("done");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : "Algo deu errado. Tente novamente.");
     } finally {
       setSubmitting(false);
       setUploadProgress("");
@@ -492,16 +729,16 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-[1.25rem] font-semibold tracking-tight text-zinc-900 mb-2">Referral sent!</h2>
+        <h2 className="text-[1.25rem] font-semibold tracking-tight text-zinc-900 mb-2">Indicação enviada!</h2>
         <p className="text-[14px] text-zinc-400 mb-7">
-          You'll earn <strong className="text-zinc-700">2%</strong> if they get booked for{" "}
+          Você ganhará <strong className="text-zinc-700">2%</strong> se eles forem reservados para{" "}
           <span className="font-medium text-zinc-700">"{job!.title}"</span>.
         </p>
         <Link
           href="/talent/dashboard"
           className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors"
         >
-          Go to Dashboard
+          Ir para o Painel
         </Link>
       </div>
     );
@@ -515,22 +752,22 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-[1.25rem] font-semibold tracking-tight text-zinc-900 mb-2">Application sent!</h2>
+        <h2 className="text-[1.25rem] font-semibold tracking-tight text-zinc-900 mb-2">Candidatura enviada!</h2>
         <p className="text-[14px] text-zinc-400 mb-7">
-          Your application for <span className="font-medium text-zinc-700">"{job.title}"</span> is under review.
+          Sua candidatura para <span className="font-medium text-zinc-700">"{job.title}"</span> está em análise.
         </p>
         <div className="flex flex-col gap-3">
           <Link
             href="/talent/jobs"
             className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors"
           >
-            Browse more jobs
+            Ver mais vagas
           </Link>
           <Link
             href="/talent/dashboard"
             className="inline-flex items-center justify-center gap-2 bg-white border border-zinc-200 text-zinc-700 text-[13px] font-medium px-5 py-2.5 rounded-xl hover:border-zinc-300 transition-colors"
           >
-            Go to Dashboard
+            Ir para o Painel
           </Link>
         </div>
       </div>
@@ -555,7 +792,7 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        All Jobs
+        Todas as Vagas
       </Link>
 
       {/* Job card */}
@@ -572,42 +809,58 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
             <p className="text-[14px] text-zinc-500 leading-relaxed">{job.description}</p>
           </div>
 
+          {job.applicationRequirements && job.applicationRequirements.length > 0 && (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-700">O que você precisa enviar</p>
+              <div className="flex flex-wrap gap-2">
+                {job.applicationRequirements.map((req) => {
+                  const labels: Record<string, string> = { photos: "Fotos", video: "Vídeo", curriculum: "Currículo", portfolio: "Portfólio" };
+                  return (
+                    <span key={req} className="inline-flex items-center gap-1 text-[12px] font-semibold bg-white border border-amber-200 text-amber-700 px-2.5 py-1 rounded-lg">
+                      {labels[req] ?? req}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-50">
             {job.agencyName && (
               <div className="col-span-2">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agency</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agência</p>
                 <p className="text-[14px] font-semibold text-zinc-900">{job.agencyName}</p>
               </div>
             )}
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Budget</p>
-              <p className="text-[16px] font-semibold text-zinc-900">{usd(job.budget)}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Orçamento</p>
+              <p className="text-[16px] font-semibold text-zinc-900">{brl(job.budget)}</p>
             </div>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Deadline</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Prazo</p>
               <p className="text-[16px] font-semibold text-zinc-900">{formatDate(job.deadline)}</p>
             </div>
             {job.location && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Location</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Localização</p>
                 <p className="text-[14px] font-semibold text-zinc-900">{job.location}</p>
               </div>
             )}
             {job.gender && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Gender</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Gênero</p>
                 <p className="text-[14px] font-semibold text-zinc-900">{job.gender}</p>
               </div>
             )}
             {(job.ageMin !== null || job.ageMax !== null) && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Age</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Idade</p>
                 <p className="text-[14px] font-semibold text-zinc-900">
                   {job.ageMin !== null && job.ageMax !== null
-                    ? `${job.ageMin}–${job.ageMax} years`
+                    ? `${job.ageMin}–${job.ageMax} anos`
                     : job.ageMin !== null
-                    ? `${job.ageMin}+ years`
-                    : `Up to ${job.ageMax} years`}
+                    ? `${job.ageMin}+ anos`
+                    : `Até ${job.ageMax} anos`}
                 </p>
               </div>
             )}
@@ -625,63 +878,117 @@ export default function TalentJobDetail({ job }: { job: TalentJobDetailProps | n
         </div>
       )}
 
-      {/* Apply flow */}
-      {step === "info" && (
-        <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-4">
-          <div>
-            <h2 className="text-[1rem] font-semibold text-zinc-900 mb-1">Apply for this job</h2>
-            <p className="text-[13px] text-zinc-400">
-              You'll upload 3 photos (front, left, right profile) and a short video introduction.
-            </p>
+      {/* Apply flow — Info */}
+      {step === "info" && (() => {
+        const blockReasons: string[] = [];
+        if (job.gender && talentGender && job.gender !== talentGender) {
+          const label = job.gender === "male" ? "Masculino" : job.gender === "female" ? "Feminino" : "Outro";
+          blockReasons.push(`Esta vaga é exclusiva para o gênero ${label}.`);
+        }
+        if (job.ageMin !== null && talentAge !== null && talentAge < job.ageMin) {
+          blockReasons.push(`Idade mínima exigida: ${job.ageMin} anos.`);
+        }
+        if (job.ageMax !== null && talentAge !== null && talentAge > job.ageMax) {
+          blockReasons.push(`Idade máxima permitida: ${job.ageMax} anos.`);
+        }
+        const blocked = blockReasons.length > 0;
+        const checklist = orderedSteps.flatMap((s) => STEP_CHECKLIST[s]);
+        return (
+          <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-4">
+            <div>
+              <h2 className="text-[1rem] font-semibold text-zinc-900 mb-1">Candidatar-se a esta vaga</h2>
+              <p className="text-[13px] text-zinc-400">
+                Para se candidatar você precisará enviar os seguintes itens:
+              </p>
+            </div>
+            {blocked ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 space-y-1">
+                <p className="text-[13px] font-semibold text-amber-800">Você não atende aos requisitos desta vaga</p>
+                {blockReasons.map((r, i) => (
+                  <p key={i} className="text-[12px] text-amber-700">• {r}</p>
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {checklist.map((item, i) => (
+                  <li key={i} className="flex items-center gap-2 text-[13px] text-zinc-600">
+                    <span className="w-5 h-5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                      {i + 1}
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setStep(orderedSteps[0] as StepId)}
+                disabled={blocked}
+                className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-all duration-150 active:scale-[0.99] cursor-pointer"
+              >
+                Iniciar Candidatura
+              </button>
+              <button
+                onClick={() => setShowReferral(true)}
+                className="w-full bg-white border border-zinc-200 hover:border-violet-300 hover:bg-violet-50 text-zinc-700 hover:text-violet-700 text-[14px] font-semibold py-3.5 rounded-xl transition-all duration-150 active:scale-[0.99] cursor-pointer"
+              >
+                Indicar um Talento — ganhe 2%
+              </button>
+            </div>
           </div>
-          <ul className="space-y-2">
-            {[
-              "Photo — front view",
-              "Photo — left profile",
-              "Photo — right profile",
-              "Video intro (30–60 seconds)",
-            ].map((item, i) => (
-              <li key={i} className="flex items-center gap-2 text-[13px] text-zinc-600">
-                <span className="w-5 h-5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                  {i + 1}
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => setStep("photos")}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-[14px] font-semibold py-3.5 rounded-xl transition-all duration-150 active:scale-[0.99] cursor-pointer"
-            >
-              Start Application
-            </button>
-            <button
-              onClick={() => setShowReferral(true)}
-              className="w-full bg-white border border-zinc-200 hover:border-violet-300 hover:bg-violet-50 text-zinc-700 hover:text-violet-700 text-[14px] font-semibold py-3.5 rounded-xl transition-all duration-150 active:scale-[0.99] cursor-pointer"
-            >
-              Refer a Talent — earn 2%
-            </button>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
+      {/* Apply flow — Photos */}
       {step === "photos" && (
         <PhotoStep
           photos={photos}
           onChange={(key, file) => setPhotos((p) => ({ ...p, [key]: file }))}
-          onNext={() => setStep("video")}
+          onNext={isLastStep("photos") ? handleSubmit : () => setStep(getNextStepId("photos"))}
+          stepLabel={getStepLabel("photos")}
+          nextLabel={getNextLabel("photos")}
         />
       )}
 
+      {/* Apply flow — Video */}
       {step === "video" && (
         <VideoStep
           video={video}
           onVideoChange={setVideo}
-          onBack={() => setStep("photos")}
-          onSubmit={handleSubmit}
-          submitting={submitting}
-          uploadProgress={uploadProgress}
+          onBack={() => setStep(getPrevStepId("video"))}
+          onNext={isLastStep("video") ? handleSubmit : () => setStep(getNextStepId("video"))}
+          submitting={isLastStep("video") ? submitting : false}
+          uploadProgress={isLastStep("video") ? uploadProgress : ""}
+          stepLabel={getStepLabel("video")}
+          nextLabel={getNextLabel("video")}
+        />
+      )}
+
+      {/* Apply flow — Curriculum */}
+      {step === "curriculum" && (
+        <CurriculumStep
+          file={curriculum}
+          onFileChange={setCurriculum}
+          onBack={() => setStep(getPrevStepId("curriculum"))}
+          onNext={isLastStep("curriculum") ? handleSubmit : () => setStep(getNextStepId("curriculum"))}
+          submitting={isLastStep("curriculum") ? submitting : false}
+          uploadProgress={isLastStep("curriculum") ? uploadProgress : ""}
+          stepLabel={getStepLabel("curriculum")}
+          nextLabel={getNextLabel("curriculum")}
+        />
+      )}
+
+      {/* Apply flow — Portfolio */}
+      {step === "portfolio" && (
+        <PortfolioStep
+          file={portfolio}
+          onFileChange={setPortfolio}
+          onBack={() => setStep(getPrevStepId("portfolio"))}
+          onNext={isLastStep("portfolio") ? handleSubmit : () => setStep(getNextStepId("portfolio"))}
+          submitting={isLastStep("portfolio") ? submitting : false}
+          uploadProgress={isLastStep("portfolio") ? uploadProgress : ""}
+          stepLabel={getStepLabel("portfolio")}
+          nextLabel={getNextLabel("portfolio")}
         />
       )}
     </div>

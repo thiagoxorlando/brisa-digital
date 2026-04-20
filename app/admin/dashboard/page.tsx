@@ -66,7 +66,7 @@ export default async function AdminDashboardPage() {
     return {
       id:                 String(b.id),
       talentId:           b.talent_user_id ?? null,
-      talentName:         profile?.full_name ?? "Unknown Talent",
+      talentName:         profile?.full_name ?? "Talento sem nome",
       talentHandle:       profile?.instagram ?? null,
       jobTitle:           b.job_title    ?? "—",
       totalValue:         total,

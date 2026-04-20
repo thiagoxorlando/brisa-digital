@@ -26,7 +26,7 @@ export default async function AdminTrashPage() {
   ]);
 
   function usd(n: number) {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
   }
 
   const talentMap = new Map<string, string>((talentRes.data ?? []).map((t: any) => [t.id, t.full_name ?? ""]));
@@ -60,14 +60,14 @@ export default async function AdminTrashPage() {
     ...(talent.data ?? []).map((t) => ({
       id:        t.id,
       table:     "talent_profiles" as const,
-      label:     t.full_name ?? "Unknown Talent",
+      label:     t.full_name ?? "Talento sem nome",
       detail:    "",
       deletedAt: t.deleted_at ?? "",
     })),
     ...(agencies.data ?? []).map((a) => ({
       id:        a.id,
       table:     "agencies" as const,
-      label:     a.company_name ?? "Unknown Agency",
+      label:     a.company_name ?? "Agência sem nome",
       detail:    "",
       deletedAt: a.deleted_at ?? "",
     })),

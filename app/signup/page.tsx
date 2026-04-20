@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 
 type Role = "agency" | "talent";
-type Plan = "pro";
+type Plan = "free" | "pro" | "premium";
 
 const ROLE_HOME: Record<Role, string> = {
   agency: "/agency/dashboard",
@@ -19,27 +19,51 @@ const ROLE_LABELS: Record<Role, { title: string; sub: string }> = {
   talent: { title: "Criar conta como Talento", sub: "Candidate-se a vagas e seja contratado." },
 };
 
-const PRO_PLAN = {
-  name: "Pro Plan",
-  price: "$2,500/mo",
-  features: [
-    "Unlimited active jobs",
-    "Full casting & contract management",
-    "Talent media submissions",
-    "Advanced analytics",
-    "Priority support",
-  ],
-};
+const PLANS: { id: Plan; name: string; price: string; features: string[]; highlight?: boolean }[] = [
+  {
+    id: "free",
+    name: "Gratuito",
+    price: "R$0/mês",
+    features: [
+      "Até 1 vaga ativa",
+      "Até 3 contratações por vaga",
+      "Uso básico do sistema",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: "R$127/mês",
+    highlight: true,
+    features: [
+      "Vagas ilimitadas",
+      "Contratações ilimitadas",
+      "Controle completo da equipe",
+      "Histórico de pagamentos e contratos",
+    ],
+  },
+  {
+    id: "premium",
+    name: "Premium",
+    price: "R$297/mês",
+    features: [
+      "Tudo do Pro",
+      "Ambiente privado",
+      "Controle avançado de equipe",
+    ],
+  },
+];
 
 export default function SignupPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const role         = (searchParams.get("role") ?? "agency") as Role;
+  const refToken     = searchParams.get("ref") ?? null;
   const label        = ROLE_LABELS[role] ?? ROLE_LABELS.agency;
 
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [plan]     = useState<Plan>("pro");
+  const [plan,     setPlan]     = useState<Plan>("free");
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
 
@@ -52,12 +76,12 @@ export default function SignupPage() {
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
     if (signUpError || !data.user) {
-      setError(signUpError?.message ?? "Signup failed. Please try again.");
+      setError(signUpError?.message ?? "Falha ao criar conta. Tente novamente.");
       setLoading(false);
       return;
     }
 
-    // 2. Insert profile with role (via server route to bypass RLS)
+    // 2. Insert profile with role
     const profileRes = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -65,56 +89,91 @@ export default function SignupPage() {
     });
 
     if (!profileRes.ok) {
-      const { error: profileError } = await profileRes.json();
-      console.error("Profile insert failed:", profileError);
-      setError("Account created but profile setup failed. Please contact support.");
+      setError("Conta criada mas a configuração do perfil falhou. Entre em contato com o suporte.");
       setLoading(false);
       return;
     }
 
-    // 3. For agency: save plan selection
+    // 3. For agency: always start on free — upgrade happens post-signup
     if (role === "agency") {
       await fetch("/api/auth/agency-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: data.user.id, plan }),
+        body: JSON.stringify({ user_id: data.user.id, plan: "free" }),
       });
     }
 
-    // 4. Redirect to profile setup
+    // 4. Link referral if present
+    if (refToken) {
+      await fetch("/api/referrals/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: refToken, user_id: data.user.id }),
+      });
+    }
+
+    // 5. Redirect to profile setup
     router.push("/setup-profile");
   }
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-xl">
 
         {/* Logo */}
         <div className="flex items-center justify-center mb-10">
           <Logo size="lg" />
         </div>
 
-        {/* Agency plan — Pro only */}
+        {/* Plan selector — agency only */}
         {role === "agency" && (
           <div className="mb-6">
             <p className="text-[12px] font-semibold uppercase tracking-widest text-zinc-400 text-center mb-4">
-              Your plan
+              Escolha seu plano
             </p>
-            <div className="w-full text-left px-5 py-4 rounded-2xl border-2 border-zinc-900 bg-white shadow-sm">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[15px] font-semibold text-zinc-900">{PRO_PLAN.name}</span>
-                <span className="text-[14px] font-semibold text-zinc-700">{PRO_PLAN.price}</span>
-              </div>
-              <ul className="space-y-1">
-                {PRO_PLAN.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-500">
-                    <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {f}
-                  </li>
-                ))}
-              </ul>
+            <p className="text-[12px] text-zinc-400 text-center mb-3">
+              Comece grátis — sem cartão. Upgrade a qualquer momento.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {PLANS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setPlan(p.id)}
+                  className={[
+                    "text-left px-4 py-4 rounded-2xl border-2 transition-all duration-150 cursor-pointer",
+                    plan === p.id
+                      ? p.highlight
+                        ? "border-zinc-900 bg-zinc-900 text-white shadow-lg"
+                        : "border-zinc-900 bg-white shadow-sm"
+                      : "border-zinc-200 bg-white hover:border-zinc-300",
+                  ].join(" ")}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <span className={`text-[13px] font-semibold ${plan === p.id && p.highlight ? "text-white" : "text-zinc-900"}`}>
+                      {p.name}
+                    </span>
+                    {p.highlight && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${plan === p.id ? "bg-white/20 text-white" : "bg-zinc-900 text-white"}`}>
+                        POPULAR
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-[12px] font-semibold mb-2 ${plan === p.id && p.highlight ? "text-white/80" : "text-zinc-500"}`}>
+                    {p.price}
+                  </p>
+                  <ul className="space-y-0.5">
+                    {p.features.slice(0, 3).map((f) => (
+                      <li key={f} className={`flex items-center gap-1.5 text-[11px] ${plan === p.id && p.highlight ? "text-white/70" : "text-zinc-400"}`}>
+                        <svg className={`w-3 h-3 flex-shrink-0 ${plan === p.id && p.highlight ? "text-white/60" : "text-emerald-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -130,10 +189,10 @@ export default function SignupPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+
+
             <div>
-              <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">
-                Email
-              </label>
+              <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Email</label>
               <input
                 type="email"
                 required
@@ -145,9 +204,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">
-                Password
-              </label>
+              <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Senha</label>
               <input
                 type="password"
                 required
@@ -158,6 +215,7 @@ export default function SignupPage() {
                 className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
               />
             </div>
+
 
             {error && (
               <p className="text-[13px] text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">

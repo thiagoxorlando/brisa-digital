@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getAgencyLanding } from "@/lib/getAgencyLanding";
 import Logo from "@/components/Logo";
 
 type Role = "agency" | "talent";
@@ -17,8 +18,8 @@ const ROLES: {
 }[] = [
   {
     value: "agency",
-    label: "Agency",
-    description: "Post jobs and hire talent",
+    label: "Agência",
+    description: "Publique vagas e contrate talentos",
     accent: "group-hover:border-indigo-300 group-hover:shadow-[0_0_0_4px_rgba(99,102,241,0.08)]",
     stripe: "from-indigo-500 to-violet-500",
     icon: (
@@ -30,8 +31,8 @@ const ROLES: {
   },
   {
     value: "talent",
-    label: "Talent",
-    description: "Apply for jobs and get booked",
+    label: "Talento",
+    description: "Candidate-se a vagas e seja contratado",
     accent: "group-hover:border-emerald-300 group-hover:shadow-[0_0_0_4px_rgba(16,185,129,0.08)]",
     stripe: "from-emerald-400 to-teal-500",
     icon: (
@@ -66,7 +67,10 @@ export default function RoleSelectionPage() {
         .single();
 
       if (data?.role) {
-        router.replace(ROLE_HOME[data.role as Role] ?? "/");
+        const dest = data.role === "agency"
+          ? await getAgencyLanding(user.id)
+          : (ROLE_HOME[data.role as Role] ?? "/");
+        router.replace(dest);
       } else {
         setChecking(false);
       }
@@ -109,10 +113,10 @@ export default function RoleSelectionPage() {
       {/* Heading */}
       <div className="text-center mb-10">
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 mb-2">
-          Choose your role
+          Escolha seu perfil
         </h1>
         <p className="text-[14px] text-zinc-400">
-          This sets up your experience. You can't change it later.
+          Isso define sua experiência. Não é possível alterar depois.
         </p>
       </div>
 
@@ -148,7 +152,7 @@ export default function RoleSelectionPage() {
 
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-[12px] font-medium text-zinc-400 group-hover:text-zinc-700 transition-colors">
-                    Get started
+                    Começar
                   </span>
                   {isLoading ? (
                     <svg className="w-4 h-4 animate-spin text-zinc-400" fill="none" viewBox="0 0 24 24">

@@ -53,7 +53,7 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
         </svg>
         <input
           type="text"
-          placeholder="Search talent…"
+          placeholder="Buscar talento…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2.5 text-[13px] bg-white border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
@@ -65,16 +65,16 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
         <table className="w-full">
           <thead>
             <tr className="border-b border-zinc-100">
-              <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Talent</th>
-              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Location</th>
-              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden md:table-cell">Categories</th>
+              <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Talento</th>
+              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Localização</th>
+              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden md:table-cell">Categorias</th>
               <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Instagram</th>
               <th className="px-6 py-3.5 w-12" />
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-50">
             {filtered.map((t) => {
-              const name = t.full_name ?? "Unknown";
+              const name = t.full_name ?? "Sem nome";
               return (
                 <tr key={t.id} className="hover:bg-zinc-50/60 transition-colors group">
                   <td className="px-6 py-4">
@@ -127,8 +127,8 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-16 text-center">
-                  <p className="text-[14px] font-medium text-zinc-500">No talent found</p>
-                  <p className="text-[13px] text-zinc-400 mt-1">Try adjusting your search.</p>
+                  <p className="text-[14px] font-medium text-zinc-500">Nenhum talento encontrado</p>
+                  <p className="text-[13px] text-zinc-400 mt-1">Tente ajustar sua busca.</p>
                 </td>
               </tr>
             )}
@@ -137,7 +137,7 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
 
         <div className="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50">
           <p className="text-[12px] text-zinc-400 font-medium">
-            {filtered.length} of {talent.length} talent
+            {filtered.length} de {talent.length} talento{talent.length !== 1 ? "s" : ""}
           </p>
         </div>
       </div>

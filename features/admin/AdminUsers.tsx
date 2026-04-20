@@ -8,6 +8,7 @@ export type AdminUser = {
   email: string;
   name: string;
   role: string;
+  plan: string | null;
   isFrozen: boolean;
   created_at: string;
   totalEarned: number;
@@ -336,6 +337,7 @@ export default function AdminUsers({ users: initial }: { users: AdminUser[] }) {
                 <th className="text-left px-6 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Usuário</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Email</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Papel</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden sm:table-cell">Plano</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden md:table-cell">Entrou</th>
                 <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Ganhos</th>
                 <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 hidden lg:table-cell">Gasto</th>
@@ -393,6 +395,22 @@ export default function AdminUsers({ users: initial }: { users: AdminUser[] }) {
                       <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${roleCls}`}>
                         {u.role}
                       </span>
+                    </td>
+
+                    {/* Plan badge */}
+                    <td className="px-4 py-4 hidden sm:table-cell">
+                      {u.role === "agency" ? (
+                        <span className={[
+                          "inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize",
+                          u.plan === "pro"     ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100" :
+                          u.plan === "premium" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100"   :
+                                                 "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
+                        ].join(" ")}>
+                          {u.plan ?? "free"}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-300 text-[11px]">—</span>
+                      )}
                     </td>
 
                     {/* Joined */}
@@ -486,7 +504,7 @@ export default function AdminUsers({ users: initial }: { users: AdminUser[] }) {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-6 py-16 text-center">
+                  <td colSpan={10} className="px-6 py-16 text-center">
                     <p className="text-[14px] font-medium text-zinc-500">Nenhum usuário encontrado</p>
                     <p className="text-[13px] text-zinc-400 mt-1">Tente ajustar a busca ou o filtro.</p>
                   </td>

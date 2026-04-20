@@ -40,6 +40,7 @@ export async function proxy(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
+  // Role query — always exists, never fails
   const { data: profile } = await admin
     .from("profiles")
     .select("role")
@@ -50,6 +51,40 @@ export async function proxy(req: NextRequest) {
 
   // No role found — send to onboarding
   if (!role) return NextResponse.redirect(new URL("/onboarding/role", req.url));
+
+  // is_frozen check — separate query so schema cache issues never break login
+  let isFrozen = false;
+  try {
+    const { data: frozenRow } = await admin
+      .from("profiles")
+      .select("is_frozen")
+      .eq("id", user.id)
+      .single();
+    isFrozen = frozenRow?.is_frozen ?? false;
+  } catch {
+    // Column not ready — skip freeze check
+  }
+
+  // Frozen account — block all protected routes
+  if (isFrozen && !pathname.startsWith("/account-frozen")) {
+    return NextResponse.redirect(new URL("/account-frozen", req.url));
+  }
+
+  // Onboarding check for agency users — separate query, non-fatal
+  if (role === "agency" && !pathname.startsWith("/onboarding")) {
+    try {
+      const { data: onboardingRow } = await admin
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", user.id)
+        .single();
+      if (onboardingRow?.onboarding_completed === false) {
+        return NextResponse.redirect(new URL("/onboarding", req.url));
+      }
+    } catch {
+      // Column not ready — skip onboarding check
+    }
+  }
 
   // Wrong role for this path — redirect to their home
   const allowed = ROLE_ALLOWED[role] ?? [];

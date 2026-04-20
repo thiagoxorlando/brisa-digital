@@ -2,10 +2,13 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import PhoneInput from "@/components/ui/PhoneInput";
+import { useSubscription } from "@/lib/SubscriptionContext";
 
 type Props = {
   userId: string;
   companyName: string;
+  agentName: string;
   avatarUrl: string | null;
   email: string;
   subscriptionStatus: string;
@@ -13,11 +16,22 @@ type Props = {
   address: string;
 };
 
-export default function AgencyProfile({ userId, companyName, avatarUrl, email, subscriptionStatus, phone: initialPhone, address: initialAddress }: Props) {
+export default function AgencyProfile({
+  userId,
+  companyName,
+  agentName: initialAgentName,
+  avatarUrl,
+  email,
+  subscriptionStatus,
+  phone: initialPhone,
+  address: initialAddress,
+}: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const { plan } = useSubscription();
 
   const [name, setName]           = useState(companyName);
+  const [agentName, setAgentName] = useState(initialAgentName);
   const [avatar, setAvatar]       = useState(avatarUrl ?? "");
   const [phone, setPhone]         = useState(initialPhone);
   const [address, setAddress]     = useState(initialAddress);
@@ -49,10 +63,9 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
     if (res.ok && d.url) {
       setAvatar(d.url);
     } else {
-      showToast(d.error ?? "Upload failed.", false);
+      showToast(d.error ?? "Falha no upload.", false);
     }
     setUploading(false);
-    // reset so the same file can be re-selected
     e.target.value = "";
   }
 
@@ -64,19 +77,20 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        company_name: name.trim(),
-        avatar_url:   avatar || null,
-        phone:        phone.trim() || null,
-        address:      address.trim() || null,
+        company_name:  name.trim(),
+        contact_name:  agentName.trim() || null,
+        avatar_url:    avatar || null,
+        phone:         phone.trim() || null,
+        address:       address.trim() || null,
       }),
     });
 
     if (res.ok) {
-      showToast("Profile updated.", true);
+      showToast("Perfil atualizado.", true);
       router.refresh();
     } else {
       const d = await res.json().catch(() => ({}));
-      showToast(d.error ?? "Failed to save.", false);
+      showToast(d.error ?? "Erro ao salvar.", false);
     }
     setSaving(false);
   }
@@ -94,8 +108,8 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
       )}
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agency</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Profile</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agência</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Perfil</h1>
       </div>
 
       {/* Avatar upload */}
@@ -111,13 +125,12 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
             )}
           </div>
 
-          {/* Hover overlay */}
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-            aria-label="Change profile picture"
+            aria-label="Alterar foto de perfil"
           >
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -136,7 +149,7 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
         </div>
 
         <div>
-          <p className="text-[14px] font-semibold text-zinc-900">{name || "Your Agency"}</p>
+          <p className="text-[14px] font-semibold text-zinc-900">{name || "Sua Agência"}</p>
           <p className="text-[12px] text-zinc-400">{email}</p>
           <button
             type="button"
@@ -144,15 +157,13 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
             disabled={uploading}
             className="mt-1.5 text-[11px] font-medium text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer disabled:opacity-50"
           >
-            {uploading ? "Uploading…" : "Change photo"}
+            {uploading ? "Enviando…" : "Alterar foto"}
           </button>
           <span className={[
-            "ml-3 text-[10px] font-semibold px-2 py-0.5 rounded-full",
-            subscriptionStatus === "active"
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-zinc-100 text-zinc-500",
+            "ml-3 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide",
+            plan === "premium" ? "bg-violet-100 text-violet-700" : plan === "pro" ? "bg-indigo-100 text-indigo-700" : "bg-zinc-200 text-zinc-500",
           ].join(" ")}>
-            {subscriptionStatus === "active" ? "Pro Plan · Active" : "Pro Plan · Inactive"}
+            {plan.toUpperCase()}
           </span>
         </div>
       </div>
@@ -161,13 +172,24 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-8 space-y-6">
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Agency Name</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Nome da Agência</label>
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your company name"
+            placeholder="Nome da sua empresa"
+            className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Nome do Agente</label>
+          <input
+            type="text"
+            value={agentName}
+            onChange={(e) => setAgentName(e.target.value)}
+            placeholder="Nome do responsável pela conta"
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
           />
         </div>
@@ -180,27 +202,21 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
             disabled
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-100 bg-zinc-50 text-zinc-400 cursor-not-allowed"
           />
-          <p className="text-[11px] text-zinc-400 mt-1.5">Email cannot be changed here.</p>
+          <p className="text-[11px] text-zinc-400 mt-1.5">O email não pode ser alterado aqui.</p>
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Phone</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+1 555 000 0000"
-            className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
-          />
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Telefone</label>
+          <PhoneInput value={phone} onChange={setPhone} />
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Address</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Endereço</label>
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="123 Main St, City, Country"
+            placeholder="Rua, número, cidade, estado"
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
           />
         </div>
@@ -210,7 +226,7 @@ export default function AgencyProfile({ userId, companyName, avatarUrl, email, s
           disabled={saving || uploading}
           className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer"
         >
-          {saving ? "Saving…" : "Save Changes"}
+          {saving ? "Salvando…" : "Salvar Alterações"}
         </button>
       </form>
     </div>

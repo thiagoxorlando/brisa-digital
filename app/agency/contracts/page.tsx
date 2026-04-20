@@ -14,7 +14,7 @@ export default async function AgencyContractsPage() {
 
   const { data: rows } = await supabase
     .from("contracts")
-    .select("id, job_id, talent_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at")
+    .select("id, job_id, talent_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at")
     .eq("agency_id", user?.id ?? "")
     .order("created_at", { ascending: false });
 
@@ -30,7 +30,7 @@ export default async function AgencyContractsPage() {
   await Promise.all([
     talentIds.length
       ? supabase.from("talent_profiles").select("id, full_name").in("id", talentIds)
-          .then(({ data }) => { for (const p of data ?? []) talentMap.set(p.id, p.full_name ?? "Unknown"); })
+          .then(({ data }) => { for (const p of data ?? []) talentMap.set(p.id, p.full_name ?? "Sem nome"); })
       : Promise.resolve(),
     jobIds.length
       ? supabase.from("jobs").select("id, title").in("id", jobIds)
@@ -43,7 +43,7 @@ export default async function AgencyContractsPage() {
     jobId:           c.job_id          ?? null,
     jobTitle:        c.job_id ? (jobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
     talentId:        c.talent_id       ?? null,
-    talentName:      c.talent_id ? (talentMap.get(c.talent_id) ?? "Unknown Talent") : "Unknown",
+    talentName:      c.talent_id ? (talentMap.get(c.talent_id) ?? "Talento sem nome")  : "Sem nome",
     jobDate:         c.job_date        ?? null,
     jobTime:         c.job_time        ?? null,
     location:        c.location        ?? null,
@@ -52,11 +52,14 @@ export default async function AgencyContractsPage() {
     paymentMethod:   c.payment_method  ?? null,
     additionalNotes: c.additional_notes ?? null,
     status:          c.status          ?? "sent",
+    paymentStatus:   c.payment_status  ?? "pending",
     createdAt:       c.created_at      ?? "",
-    signedAt:        c.signed_at       ?? null,
-    agencySignedAt:  c.agency_signed_at ?? null,
-    depositPaidAt:   c.deposit_paid_at  ?? null,
-    paidAt:          c.paid_at          ?? null,
+    signedAt:        c.signed_at         ?? null,
+    agencySignedAt:  c.agency_signed_at  ?? null,
+    depositPaidAt:   c.deposit_paid_at   ?? null,
+    paidAt:          c.paid_at           ?? null,
+    contractFileUrl:       c.contract_file_url    ?? null,
+    signedContractUrl:     (c as any).signed_contract_url ?? null,
   }));
 
   return <AgencyContracts contracts={contracts} />;

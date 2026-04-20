@@ -1,6 +1,15 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  VALID_TRANSITIONS,
+  normaliseStatus,
+  statusInfo,
+  unifiedStatusInfo,
+  type UnifiedBookingStatus,
+} from "@/lib/bookingStatus";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 export type AdminBooking = {
   id: string;
@@ -8,42 +17,16 @@ export type AdminBooking = {
   talentName: string;
   agencyName: string;
   status: string;
+  contractStatus: string | null;
+  derivedStatus: string;
   price: number;
   contractAmount: number | null;
   created_at: string;
-  contractStatus: string | null;
   contractSentAt: string | null;
   contractSignedAt: string | null;
   contractConfirmedAt: string | null;
 };
 
-const STATUS_STYLES: Record<string, string> = {
-  pending:           "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
-  pending_payment:   "bg-sky-50     text-sky-700     ring-1 ring-sky-100",
-  awaiting_deposit:  "bg-sky-50     text-sky-700     ring-1 ring-sky-100",
-  confirmed:         "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  paid:              "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  cancelled:         "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
-  disputed:          "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending:           "Aguardando Assinatura",
-  pending_payment:   "Aguardando Depósito",
-  awaiting_deposit:  "Aguardando Depósito",
-  confirmed:         "Aguardando Pagamento",
-  paid:              "Pago",
-  cancelled:         "Cancelado",
-};
-
-const CONTRACT_STYLES: Record<string, string> = {
-  sent:     "bg-violet-50  text-violet-700",
-  signed:   "bg-emerald-50 text-emerald-700",
-  accepted: "bg-emerald-50 text-emerald-700",
-  rejected: "bg-rose-50    text-rose-600",
-};
-
-const BOOKING_STATUSES = ["pending", "pending_payment", "confirmed", "paid", "cancelled"];
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
@@ -74,12 +57,6 @@ function ConfirmDialog({ message, onConfirm, onCancel }: { message: string; onCo
   );
 }
 
-/** Derives the effective display status from booking + contract state. */
-function effectiveStatus(status: string, contractStatus: string | null): string {
-  // Contract signed but booking not yet promoted (both pending and pending_payment)
-  if (contractStatus === "signed" && (status === "pending" || status === "pending_payment")) return "awaiting_deposit";
-  return status;
-}
 
 function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete: (id: string) => void }) {
   const [expanded, setExpanded]     = useState(false);
@@ -90,12 +67,14 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
   const [editPrice, setEditPrice]   = useState(String(b.price));
   const [local, setLocal]           = useState(b);
 
-  const effStatus = effectiveStatus(local.status, local.contractStatus);
-  const stCls = STATUS_STYLES[effStatus] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
-  const ctCls = local.contractStatus ? (CONTRACT_STYLES[local.contractStatus] ?? "bg-zinc-100 text-zinc-500") : null;
-  const isPaid = effStatus === "paid";
+  const derivedStatus = local.derivedStatus as UnifiedBookingStatus;
+  const st = unifiedStatusInfo(derivedStatus);
+  const isPaid = derivedStatus === "pago";
   const paymentCls   = isPaid ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
   const paymentLabel = isPaid ? "Pago" : "Pendente";
+  // Edit form: valid transitions are still driven by the raw booking status
+  const validNext = VALID_TRANSITIONS[normaliseStatus(local.status)] ?? [];
+  const statusOptions: string[] = [normaliseStatus(local.status), ...validNext];
 
   async function handleSave() {
     setSaving(true);
@@ -106,7 +85,8 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
     });
     setSaving(false);
     if (res.ok) {
-      setLocal((v) => ({ ...v, status: editStatus, price: Number(editPrice) }));
+      const d = await res.json().catch(() => ({}));
+      setLocal((v) => ({ ...v, status: editStatus, price: Number(editPrice), derivedStatus: d.derived_status ?? v.derivedStatus }));
       setEditing(false);
     }
   }
@@ -138,16 +118,12 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
           <span className="text-[13px] text-zinc-500">{local.agencyName}</span>
         </td>
         <td className="px-4 py-4">
-          <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full ${stCls}`}>
-            {STATUS_LABEL[effStatus] ?? effStatus.replace("_", " ")}
+          <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full ${st.badge}`}>
+            {st.label}
           </span>
         </td>
         <td className="px-4 py-4 hidden sm:table-cell">
-          {ctCls ? (
-            <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${ctCls}`}>
-              {local.contractStatus}
-            </span>
-          ) : <span className="text-[12px] text-zinc-300">—</span>}
+          <span className="text-[12px] text-zinc-300">—</span>
         </td>
         <td className="px-4 py-4 text-right hidden sm:table-cell">
           <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">{(local.contractAmount ?? local.price) > 0 ? brl(local.contractAmount ?? local.price) : "—"}</span>
@@ -179,7 +155,7 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
                     <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Status</label>
                     <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}
                       className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none bg-white">
-                      {BOOKING_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}
+                      {statusOptions.map((s) => <option key={s} value={s}>{statusInfo(s).label}</option>)}
                     </select>
                   </div>
                   <div>
@@ -201,8 +177,8 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
               </div>
             ) : (
               <div className="space-y-5">
-                {/* Awaiting deposit explanation */}
-                {effStatus === "awaiting_deposit" && (
+                {/* Awaiting agency deposit */}
+                {derivedStatus === "aguardando_deposito" && (
                   <div className="flex items-start gap-2.5 bg-sky-50 border border-sky-100 rounded-xl px-4 py-3">
                     <svg className="w-4 h-4 text-sky-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -229,17 +205,17 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
                       },
                       {
                         label: "Contrato Assinado",
-                        done:  !!local.contractSignedAt || local.contractStatus === "signed" || local.contractStatus === "confirmed" || local.contractStatus === "paid",
+                        done:  ["aguardando_deposito","aguardando_pagamento","pago"].includes(derivedStatus),
                         date:  local.contractSignedAt,
                       },
                       {
                         label: "Depósito",
-                        done:  !!local.contractConfirmedAt || local.contractStatus === "confirmed" || local.contractStatus === "paid",
+                        done:  ["aguardando_pagamento","pago"].includes(derivedStatus),
                         date:  local.contractConfirmedAt,
                       },
                       {
                         label: "Pago",
-                        done:  local.status === "paid" || local.status === "confirmed",
+                        done:  derivedStatus === "pago",
                         date:  null,
                       },
                     ].map((step, i, arr) => (
@@ -281,8 +257,8 @@ function BookingRow({ booking: b, onDelete }: { booking: AdminBooking; onDelete:
                     <span className={`inline-flex mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${paymentCls}`}>{paymentLabel}</span>
                   </div>
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Status</p>
-                    <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${stCls}`}>
-                      {STATUS_LABEL[effStatus] ?? effStatus}
+                    <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.badge}`}>
+                      {st.label}
                     </span>
                   </div>
                   <div><p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Criado em</p><p className="text-zinc-700">{formatDate(local.created_at)}</p></div>
@@ -300,6 +276,15 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
   const [bookings, setBookings] = useState<AdminBooking[]>(initialBookings);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const router = useRouter();
+
+  // Sync when server re-renders with fresh props (after router.refresh())
+  useEffect(() => { setBookings(initialBookings); }, [initialBookings]);
+
+  const { refreshing } = useRealtimeRefresh(
+    [{ table: "bookings" }, { table: "contracts" }],
+    () => router.refresh(),
+  );
 
   function handleDelete(id: string) {
     setBookings((prev) => prev.filter((b) => b.id !== id));
@@ -308,10 +293,7 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
   const filtered = bookings
     .filter((b) => {
       if (statusFilter === "all") return true;
-      const eff = effectiveStatus(b.status, b.contractStatus);
-      // pending_payment tab catches both pending_payment and awaiting_deposit
-      if (statusFilter === "pending_payment") return eff === "pending_payment" || eff === "awaiting_deposit";
-      return eff === statusFilter;
+      return b.derivedStatus === statusFilter;
     })
     .filter((b) => {
       if (!search) return true;
@@ -320,26 +302,33 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
     });
 
   const totalValue     = filtered.reduce((s, b) => s + (b.contractAmount ?? b.price), 0);
-  const confirmedValue = filtered.filter((b) => {
-    const eff = effectiveStatus(b.status, b.contractStatus);
-    return eff === "paid" || eff === "confirmed";
-  }).reduce((s, b) => s + (b.contractAmount ?? b.price), 0);
+  const confirmedValue = filtered
+    .filter((b) => ["aguardando_pagamento", "pago"].includes(b.derivedStatus))
+    .reduce((s, b) => s + (b.contractAmount ?? b.price), 0);
 
   return (
     <div className="max-w-7xl space-y-6">
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Admin da Plataforma</p>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Reservas</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">{bookings.length} reservas no total</p>
+        <div className="flex items-center gap-3 mt-1">
+          <p className="text-[13px] text-zinc-400">{bookings.length} reservas no total</p>
+          {refreshing && (
+            <span className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Atualizando…
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[
           { label: "Total",                value: brl(totalValue),     stripe: "from-zinc-400 to-zinc-600"    },
           { label: "Pago",                 value: brl(confirmedValue), stripe: "from-emerald-400 to-teal-500" },
-          { label: "Aguardando Depósito",   value: String(filtered.filter((b) => ["pending_payment","awaiting_deposit"].includes(effectiveStatus(b.status, b.contractStatus))).length), stripe: "from-sky-400 to-blue-500"    },
-          { label: "Aguardando Pagamento", value: String(filtered.filter((b) => effectiveStatus(b.status, b.contractStatus) === "confirmed").length),         stripe: "from-amber-400 to-orange-500" },
-          { label: "Cancelado",            value: String(filtered.filter((b) => effectiveStatus(b.status, b.contractStatus) === "cancelled").length),        stripe: "from-zinc-300 to-zinc-400"    },
+          { label: "Aguardando Depósito",  value: String(filtered.filter((b) => b.derivedStatus === "aguardando_deposito").length),   stripe: "from-sky-400 to-blue-500"    },
+          { label: "Aguardando Pagamento", value: String(filtered.filter((b) => b.derivedStatus === "aguardando_pagamento").length), stripe: "from-amber-400 to-orange-500" },
+          { label: "Cancelado",            value: String(filtered.filter((b) => b.derivedStatus === "cancelado").length),             stripe: "from-zinc-300 to-zinc-400"    },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className={`h-[3px] bg-gradient-to-r ${s.stripe}`} />
@@ -360,11 +349,18 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
             className="w-full pl-10 pr-4 py-2.5 text-[13px] bg-white border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors" />
         </div>
         <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 self-start flex-wrap">
-          {(["all", "pending", "pending_payment", "confirmed", "paid", "cancelled"] as const).map((s) => (
+          {(["all", "aguardando_assinatura", "aguardando_deposito", "aguardando_pagamento", "pago", "cancelado"] as const).map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={["px-3 py-1.5 text-[12px] font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap",
                 statusFilter === s ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"].join(" ")}>
-              {{ all: "Todos", pending: "Aguard. Assinatura", pending_payment: "Aguard. Depósito", confirmed: "Aguard. Pagamento", paid: "Pago", cancelled: "Cancelado" }[s]}
+              {{
+                all:                    "Todos",
+                aguardando_assinatura:  "Aguard. Assinatura",
+                aguardando_deposito:    "Aguard. Depósito",
+                aguardando_pagamento:   "Aguard. Pagamento",
+                pago:                   "Pago",
+                cancelado:              "Cancelado",
+              }[s]}
             </button>
           ))}
         </div>

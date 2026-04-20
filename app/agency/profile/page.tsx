@@ -13,7 +13,7 @@ export default async function AgencyProfilePage() {
 
   const { data: agency } = await supabase
     .from("agencies")
-    .select("company_name, avatar_url, subscription_status, phone, address")
+    .select("company_name, contact_name, avatar_url, subscription_status, phone, address")
     .eq("id", user?.id ?? "")
     .single();
 
@@ -27,6 +27,7 @@ export default async function AgencyProfilePage() {
     <AgencyProfile
       userId={user?.id ?? ""}
       companyName={agency?.company_name ?? fallbackName}
+      agentName={agency?.contact_name ?? ""}
       avatarUrl={agency?.avatar_url ?? null}
       email={user?.email ?? ""}
       subscriptionStatus={agency?.subscription_status ?? "active"}

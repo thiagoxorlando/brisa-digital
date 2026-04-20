@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUserProfile } from "@/lib/useUserProfile";
+import { useRole } from "@/lib/RoleProvider";
+import { useSubscription } from "@/lib/SubscriptionContext";
 import NotificationBell from "@/components/layout/NotificationBell";
 import Logo from "@/components/Logo";
 
@@ -37,6 +39,8 @@ type TopbarProps = {
 export default function Topbar({ onMenuClick }: TopbarProps) {
   const pathname = usePathname();
   const { displayName, email, initials, avatarUrl, loading } = useUserProfile();
+  const { role } = useRole();
+  const { plan } = useSubscription();
 
   const meta = pageMeta[pathname] ?? { title: "", description: "" };
 
@@ -50,7 +54,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
       {/* Left — logo + hamburger (mobile) + page title */}
       <div className="flex items-center gap-4 min-w-0">
         <Link href={dashboardHref} className="flex-shrink-0 hidden lg:flex items-center">
-          <Logo size="md" src="/logo1.png" className="mix-blend-multiply" />
+          <Logo size="md" />
         </Link>
         <button
           onClick={onMenuClick}
@@ -94,9 +98,19 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
             )}
           </div>
           <div className="hidden md:block text-left">
-            <p className="text-[12px] font-semibold text-zinc-900 leading-none truncate max-w-[140px]">
-              {loading ? "…" : (displayName || email)}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[12px] font-semibold text-zinc-900 leading-none truncate max-w-[120px]">
+                {loading ? "…" : (displayName || email)}
+              </p>
+              {role === "agency" && !loading && (
+                <span className={[
+                  "text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide leading-none",
+                  plan === "premium" ? "bg-violet-100 text-violet-700" : plan === "pro" ? "bg-indigo-100 text-indigo-700" : "bg-zinc-200 text-zinc-500",
+                ].join(" ")}>
+                  {plan.toUpperCase()}
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-zinc-400 mt-0.5 leading-none truncate max-w-[140px]">
               {loading ? "" : email}
             </p>

@@ -52,7 +52,14 @@ export function useUserProfile(): UserProfile {
         setDisplayName(data?.company_name ?? user.email ?? "");
         setAvatarUrl((data as { avatar_url?: string | null })?.avatar_url ?? null);
       } else {
-        setDisplayName(user.email ?? "");
+        // admin — name stored in profiles.full_name
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name, avatar_url")
+          .eq("id", user.id)
+          .single();
+        setDisplayName((data as { full_name?: string | null; avatar_url?: string | null })?.full_name ?? user.email ?? "");
+        setAvatarUrl((data as { full_name?: string | null; avatar_url?: string | null })?.avatar_url ?? null);
       }
 
       setLoading(false);

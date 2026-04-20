@@ -14,6 +14,7 @@ export type Job = {
   jobDate: string | null;
   description: string;
   status: "open" | "closed" | "draft" | "inactive";
+  visibility: "public" | "private";
   applicants: number;
   talentsNeeded: number;
   talentsSelected: number;
@@ -24,15 +25,15 @@ export type Job = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatBudget(n: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("pt-BR", {
     style: "currency",
-    currency: "USD",
+    currency: "BRL",
     maximumFractionDigits: 0,
   }).format(n);
 }
 
 function formatDeadline(raw: string) {
-  return new Date(raw + "T00:00:00").toLocaleDateString("en-US", {
+  return new Date(raw + "T00:00:00").toLocaleDateString("pt-BR", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -72,13 +73,20 @@ function stripe(category: string) {
 
 // ─── Job Card ─────────────────────────────────────────────────────────────────
 
+const JOB_STATUS_LABEL: Record<Job["status"], string> = {
+  open:     "Aberta",
+  closed:   "Fechada",
+  draft:    "Rascunho",
+  inactive: "Inativa",
+};
+
 function JobCard({ job, onUpdate, onRemove }: {
   job: Job;
   onUpdate: (id: string, patch: Partial<Job>) => void;
   onRemove: (id: string) => void;
 }) {
   const router = useRouter();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [menuOpen, setMenuOpen]     = useState(false);
   const [deleting, setDeleting]     = useState(false);
   const [statusBusy, setStatusBusy] = useState(false);
@@ -124,11 +132,18 @@ function JobCard({ job, onUpdate, onRemove }: {
       <div className="p-6 flex flex-col gap-4 flex-1">
         {/* Title row */}
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-[15px] font-semibold text-zinc-900 leading-snug group-hover:text-zinc-700 transition-colors">
-            {job.title}
-          </h3>
-          <span className={`flex-shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_STYLES[job.status]}`}>
-            {job.status}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {job.visibility === "private" && (
+              <svg className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            )}
+            <h3 className="text-[15px] font-semibold text-zinc-900 leading-snug group-hover:text-zinc-700 transition-colors truncate">
+              {job.title}
+            </h3>
+          </div>
+          <span className={`flex-shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[job.status]}`}>
+            {lang === "en" ? job.status : (JOB_STATUS_LABEL[job.status] ?? job.status)}
           </span>
         </div>
 
@@ -171,6 +186,17 @@ function JobCard({ job, onUpdate, onRemove }: {
                   d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
               {formatDeadline(job.jobDate)}
+            </div>
+          )}
+
+          {/* Applicants count */}
+          {job.applicants > 0 && (
+            <div className="flex items-center gap-1.5 text-[12px] font-medium px-2 py-0.5 rounded-full bg-sky-50 text-sky-600">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              {job.applicants} {t("jobs_applicants")}
             </div>
           )}
 
@@ -221,18 +247,21 @@ function JobCard({ job, onUpdate, onRemove }: {
             </button>
             {menuOpen && (
               <div className="absolute bottom-full right-0 mb-1.5 w-36 bg-white rounded-xl border border-zinc-100 shadow-[0_4px_16px_rgba(0,0,0,0.1)] z-10 overflow-hidden">
-                {(["open", "inactive", "closed", "draft"] as Job["status"][]).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => handleStatusChange(s)}
-                    className={[
-                      "w-full text-left px-3.5 py-2.5 text-[12px] font-medium hover:bg-zinc-50 transition-colors cursor-pointer capitalize",
-                      job.status === s ? "text-zinc-900 bg-zinc-50" : "text-zinc-600",
-                    ].join(" ")}
-                  >
-                    {s === job.status ? `✓ ${s}` : s}
-                  </button>
-                ))}
+                {(["open", "inactive", "closed", "draft"] as Job["status"][]).map((s) => {
+                  const label = lang === "en" ? s : (JOB_STATUS_LABEL[s] ?? s);
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => handleStatusChange(s)}
+                      className={[
+                        "w-full text-left px-3.5 py-2.5 text-[12px] font-medium hover:bg-zinc-50 transition-colors cursor-pointer capitalize",
+                        job.status === s ? "text-zinc-900 bg-zinc-50" : "text-zinc-600",
+                      ].join(" ")}
+                    >
+                      {s === job.status ? `✓ ${label}` : label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -264,6 +293,9 @@ function JobCard({ job, onUpdate, onRemove }: {
 // ─── Filter bar ───────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = ["All", "Open", "Draft", "Closed", "Inactive"] as const;
+const STATUS_LABELS: Record<typeof STATUS_OPTIONS[number], string> = {
+  All: "Todas", Open: "Aberta", Draft: "Rascunho", Closed: "Fechada", Inactive: "Inativa",
+};
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -322,7 +354,7 @@ const filtered = jobs.filter((j) => {
           </svg>
           <input
             type="text"
-            placeholder="Search jobs…"
+            placeholder="Buscar vagas…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors duration-150"
@@ -342,7 +374,7 @@ const filtered = jobs.filter((j) => {
                   : "text-zinc-500 hover:text-zinc-700",
               ].join(" ")}
             >
-              {s}
+              {STATUS_LABELS[s]}
             </button>
           ))}
         </div>
@@ -363,8 +395,8 @@ const filtered = jobs.filter((j) => {
                 d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <p className="text-[14px] font-medium text-zinc-500">No jobs found</p>
-          <p className="text-[13px] text-zinc-400 mt-1">Try a different search or filter.</p>
+          <p className="text-[14px] font-medium text-zinc-500">Nenhuma vaga encontrada</p>
+          <p className="text-[13px] text-zinc-400 mt-1">Tente uma busca ou filtro diferente.</p>
         </div>
       )}
     </div>

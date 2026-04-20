@@ -7,7 +7,13 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(find /c/Users/Thiago/ucastanet/app/api -type f -name \"*.ts\" -exec sh -c 'echo \"=== {} ===\" && head -5 \"{}\"' \\\\;)",
-      "Bash(ls /c/Users/Thiago/ucastanet/app/api/*/route.ts)"
+      "Bash(ls /c/Users/Thiago/ucastanet/app/api/*/route.ts)",
+      "Bash(xargs grep:*)",
+      "Bash(xargs sed:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(npm install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs\")",
+      "Bash(where npm:*)"
     ]
   }
 }

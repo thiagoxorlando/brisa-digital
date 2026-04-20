@@ -26,6 +26,13 @@ export default async function AdminUsersPage() {
     supabase.from("profiles").select("id, is_frozen"),
   ]);
 
+  // Plan fetched separately — column may not exist in all envs
+  const planMap = new Map<string, string>();
+  try {
+    const { data: planProfiles } = await supabase.from("profiles").select("id, plan");
+    for (const p of planProfiles ?? []) planMap.set(p.id, (p as any).plan ?? "free");
+  } catch { /* ignore if column missing */ }
+
   const roleMap    = new Map<string, string>();
   const profileMap = new Map<string, string>(); // full_name for admin-role users
   const frozenMap  = new Map<string, boolean>();
@@ -81,6 +88,7 @@ export default async function AdminUsersPage() {
       totalSpent:          spentMap.get(u.id) ?? 0,
       commissionGenerated: commissionMap.get(u.id) ?? 0,
       walletBalance:       walletMap.get(u.id) ?? 0,
+      plan:                planMap.get(u.id) ?? null,
     };
   });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import { getUnifiedBookingStatus, validateBookingStatus } from "@/lib/bookingStatus";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -9,6 +10,10 @@ export async function POST(req: NextRequest) {
   if (!talent_id) {
     return NextResponse.json({ error: "talent_id is required" }, { status: 400 });
   }
+
+  const safeStatus = status ?? "pending";
+  const statusErr  = validateBookingStatus(safeStatus);
+  if (statusErr) return NextResponse.json({ error: statusErr }, { status: 422 });
 
   const supabase = createServerClient({ useServiceRole: true });
 
@@ -20,7 +25,7 @@ export async function POST(req: NextRequest) {
       talent_user_id: talent_id,
       job_title:      job_title ?? null,
       price:          price     ?? 0,
-      status:         status    ?? "pending",
+      status:         safeStatus,
     })
     .select()
     .single();
@@ -30,8 +35,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  // Notify talent: booked
-  await notify(talent_id, "booking", "You were booked", "/talent/bookings");
+  await notify(talent_id, "booking", "Você foi reservado!", "/talent/bookings");
 
-  return NextResponse.json({ booking: data }, { status: 201 });
+  // No contract exists yet at creation time — always aguardando_assinatura
+  return NextResponse.json({
+    booking: {
+      ...data,
+      derived_status: getUnifiedBookingStatus(data.status ?? "pending", null),
+    },
+  }, { status: 201 });
 }

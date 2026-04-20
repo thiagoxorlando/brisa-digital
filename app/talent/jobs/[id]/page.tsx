@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect, notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase";
+import { createSessionClient } from "@/lib/supabase.server";
 import TalentJobDetail from "@/features/talent/TalentJobDetail";
 
 type Props = { params: Promise<{ id: string }> };
@@ -14,16 +16,62 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function TalentJobDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = createServerClient({ useServiceRole: true });
+  const session = await createSessionClient();
+  const { data: { user } } = await session.auth.getUser();
 
-  const { data } = await supabase
-    .from("jobs")
-    .select("id, title, description, category, budget, deadline, agency_id, location, gender, age_min, age_max")
-    .eq("id", id)
-    .single();
+  if (!user) redirect("/login");
+
+  const [jobRes, profileRes] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select("id, title, description, category, budget, deadline, agency_id, location, gender, age_min, age_max, visibility, status, application_requirements")
+      .eq("id", id)
+      .single()
+      .then(async (res) => {
+        // Column may not be in schema cache yet — retry without it
+        if (res.error?.message?.includes("application_requirements")) {
+          return supabase
+            .from("jobs")
+            .select("id, title, description, category, budget, deadline, agency_id, location, gender, age_min, age_max, visibility, status")
+            .eq("id", id)
+            .single();
+        }
+        return res;
+      }),
+    supabase.from("talent_profiles").select("gender, age").eq("id", user.id).single(),
+  ]);
+  const data = jobRes.data;
+  const talentProfile = profileRes.data;
+
+  if (!data || data.status === "inactive") return notFound();
+
+  // Private job access control — enforce at server level
+  if (data.visibility === "private") {
+    const [{ data: invite }, { data: history }] = await Promise.all([
+      supabase
+        .from("job_invites")
+        .select("id")
+        .eq("job_id", id)
+        .eq("talent_id", user.id)
+        .maybeSingle(),
+      data.agency_id
+        ? supabase
+            .from("agency_talent_history")
+            .select("talent_id")
+            .eq("agency_id", data.agency_id)
+            .eq("talent_id", user.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    if (!invite && !history) {
+      return notFound();
+    }
+  }
 
   // Fetch agency name
   let agencyName = "";
-  if (data?.agency_id) {
+  if (data.agency_id) {
     const { data: agency } = await supabase
       .from("agencies")
       .select("company_name")
@@ -32,21 +80,26 @@ export default async function TalentJobDetailPage({ params }: Props) {
     agencyName = agency?.company_name ?? "";
   }
 
-  const job = data
-    ? {
-        id:          String(data.id),
-        title:       data.title       ?? "",
-        description: data.description ?? "",
-        category:    data.category    ?? "",
-        budget:      data.budget      ?? 0,
-        deadline:    data.deadline    ?? "",
-        agencyName,
-        location:    data.location    ?? "",
-        gender:      data.gender      ?? "",
-        ageMin:      data.age_min     ?? null,
-        ageMax:      data.age_max     ?? null,
-      }
-    : null;
+  const job = {
+    id:          String(data.id),
+    title:       data.title       ?? "",
+    description: data.description ?? "",
+    category:    data.category    ?? "",
+    budget:      data.budget      ?? 0,
+    deadline:    data.deadline    ?? "",
+    agencyName,
+    location:    data.location    ?? "",
+    gender:      data.gender      ?? "",
+    ageMin:      data.age_min     ?? null,
+    ageMax:      data.age_max     ?? null,
+    applicationRequirements: (data as { application_requirements?: string[] }).application_requirements ?? [],
+  };
 
-  return <TalentJobDetail job={job} />;
+  return (
+    <TalentJobDetail
+      job={job}
+      talentGender={talentProfile?.gender ?? null}
+      talentAge={talentProfile?.age ?? null}
+    />
+  );
 }

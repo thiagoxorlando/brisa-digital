@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { syncBooking } from "@/lib/syncBooking";
 import { notify } from "@/lib/notify";
+import { getUnifiedBookingStatus } from "@/lib/bookingStatus";
 
 const ALLOWED_ACTIONS = [
   "reject", "agency_sign", "pay",
@@ -66,7 +67,7 @@ export async function PATCH(
 
     await syncBooking(supabase, contract, "cancelled");
     await notify(contract.agency_id, "contract", "Talento recusou o seu contrato", "/agency/contracts");
-    return NextResponse.json({ ok: true, status: "rejected" });
+    return NextResponse.json({ ok: true, status: "rejected", derived_status: getUnifiedBookingStatus("cancelled", "rejected") });
   }
 
   // ── Talent: cancel before agency confirms ────────────────────────────────
@@ -90,6 +91,14 @@ export async function PATCH(
 
     await syncBooking(supabase, contract, "cancelled");
 
+    // Mark as talent-cancelled so the reliability trigger can increment jobs_cancelled
+    if (contract.booking_id) {
+      await supabase
+        .from("bookings")
+        .update({ cancelled_by: "talent" })
+        .eq("id", contract.booking_id);
+    }
+
     if (contract.job_id && contract.talent_id) {
       await supabase
         .from("submissions")
@@ -99,7 +108,7 @@ export async function PATCH(
     }
 
     await notify(contract.agency_id, "contract", "Talento cancelou a reserva", "/agency/bookings");
-    return NextResponse.json({ ok: true, status: "cancelled" });
+    return NextResponse.json({ ok: true, status: "cancelled", derived_status: getUnifiedBookingStatus("cancelled", "cancelled") });
   }
 
   // ── Agency: confirm + escrow lock (ATOMIC) ────────────────────────────────
@@ -125,7 +134,7 @@ export async function PATCH(
       return NextResponse.json({ error: rpcErr.message }, { status: 500 });
     }
 
-    const r = result as { ok: boolean; error?: string; required?: number; available?: number };
+    const r = result as { ok: boolean; already_processed?: boolean; error?: string; required?: number; available?: number };
 
     if (!r.ok) {
       if (r.error === "insufficient_balance") {
@@ -143,23 +152,37 @@ export async function PATCH(
       return NextResponse.json({ error: r.error ?? "Confirm failed" }, { status: 400 });
     }
 
-    await syncBooking(supabase, contract, "confirmed");
+    // already_processed: RPC was a no-op (idempotent retry) — skip side effects
+    if (!r.already_processed) {
+      await syncBooking(supabase, contract, "confirmed");
+    }
 
-    if (required > 0) {
+    // Notify talent about the confirmation + escrow deposit.
+    // Uses the same idempotency_key as the RPC insert so the DB deduplicates
+    // automatically — no double notification even if the RPC already sent it.
+    if (contract.talent_id) {
       await notify(
-        contract.agency_id,
-        "booking",
-        `Reserva confirmada — R$ ${required.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} retidos em custódia`,
-        "/agency/finances"
+        contract.talent_id,
+        "contract",
+        "Agência confirmou o contrato e realizou o depósito",
+        "/talent/contracts",
+        `notif_escrow_talent_${id}`,
       );
     }
-    await notify(
-      contract.talent_id,
-      "contract",
-      "Agência confirmou o contrato e realizou o depósito",
-      "/talent/contracts"
-    );
-    return NextResponse.json({ ok: true, status: "confirmed" });
+
+    // Notify agency that escrow was locked successfully
+    if (contract.agency_id) {
+      const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(required);
+      await notify(
+        contract.agency_id,
+        "payment",
+        `Escrow realizado: ${brl} movidos para garantia`,
+        "/agency/finances",
+        `notif_escrow_agency_${id}`,
+      );
+    }
+
+    return NextResponse.json({ ok: true, status: "confirmed", derived_status: getUnifiedBookingStatus("confirmed", "confirmed") });
   }
 
   // ── Agency: release payment after job (ATOMIC) ────────────────────────────
@@ -173,7 +196,15 @@ export async function PATCH(
       );
     }
 
-    const amount = Number(contract.payment_amount ?? 0);
+    const amount = Number(contract.net_amount ?? contract.payment_amount ?? 0);
+
+    console.log("[plan] payout_calculation", {
+      contractId: id,
+      agencyId: contract.agency_id,
+      grossAmount: Number(contract.payment_amount ?? 0),
+      commissionAmount: Number(contract.commission_amount ?? 0),
+      netAmount: amount,
+    });
 
     const { data: result, error: rpcErr } = await supabase.rpc("release_payment_payout", {
       p_contract_id: id,
@@ -185,7 +216,7 @@ export async function PATCH(
       return NextResponse.json({ error: rpcErr.message }, { status: 500 });
     }
 
-    const r = result as { ok: boolean; error?: string };
+    const r = result as { ok: boolean; already_processed?: boolean; error?: string };
 
     if (!r.ok) {
       if (r.error === "contract_not_confirmed") {
@@ -197,13 +228,10 @@ export async function PATCH(
       return NextResponse.json({ error: r.error ?? "Pay failed" }, { status: 400 });
     }
 
-    await syncBooking(supabase, contract, "paid");
-    await notify(
-      contract.talent_id,
-      "payment",
-      "Agência liberou seu pagamento — a caminho!",
-      "/talent/finances"
-    );
+    if (!r.already_processed) {
+      await syncBooking(supabase, contract, "paid");
+      // Talent payment notification is inserted inside the RPC atomically — do not re-send here.
+    }
 
     // Referral commission
     if (contract.talent_id && contract.payment_amount) {
@@ -232,7 +260,7 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ ok: true, status: "paid" });
+    return NextResponse.json({ ok: true, status: "paid", derived_status: getUnifiedBookingStatus("paid", "paid") });
   }
 
   // ── Agency: cancel (ATOMIC) ───────────────────────────────────────────────
@@ -265,6 +293,14 @@ export async function PATCH(
 
     await syncBooking(supabase, contract, "cancelled");
 
+    // Mark as agency-cancelled so the trigger does NOT count against talent reliability
+    if (contract.booking_id) {
+      await supabase
+        .from("bookings")
+        .update({ cancelled_by: "agency" })
+        .eq("id", contract.booking_id);
+    }
+
     if (contract.job_id && contract.talent_id) {
       await supabase
         .from("submissions")
@@ -274,7 +310,7 @@ export async function PATCH(
     }
 
     await notify(contract.talent_id, "contract", "Agência cancelou o contrato", "/talent/contracts");
-    return NextResponse.json({ ok: true, status: "cancelled" });
+    return NextResponse.json({ ok: true, status: "cancelled", derived_status: getUnifiedBookingStatus("cancelled", "cancelled") });
   }
 
   // ── Talent: withdraw funds after payment ─────────────────────────────────

@@ -15,15 +15,15 @@ export type TalentJob = {
   applied?: boolean;
 };
 
-function usd(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
+function brl(n: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL", maximumFractionDigits: 0,
   }).format(n);
 }
 
 function formatDate(s: string | null) {
   if (!s) return null;
-  return new Date(s + "T00:00:00").toLocaleDateString("en-US", {
+  return new Date(s + "T00:00:00").toLocaleDateString("pt-BR", {
     month: "short", day: "numeric", year: "numeric",
   });
 }
@@ -69,7 +69,7 @@ function JobCard({ job }: { job: TalentJob }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              Apply by {deadline}
+              Candidatar até {deadline}
             </span>
           )}
           {jobDate && (
@@ -78,7 +78,7 @@ function JobCard({ job }: { job: TalentJob }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Job date: {jobDate}
+              Data da vaga: {jobDate}
             </span>
           )}
           {job.location && (
@@ -102,12 +102,12 @@ function JobCard({ job }: { job: TalentJob }) {
         {/* Actions */}
         <div className="flex items-center justify-between pt-3 border-t border-zinc-50">
           <div className="flex items-center gap-3">
-            <span className="text-[13px] font-semibold text-emerald-600">{usd(job.budget)}</span>
+            <span className="text-[13px] font-semibold text-emerald-600">{brl(job.budget)}</span>
             <button
               onClick={() => setExpanded((v) => !v)}
               className="text-[12px] text-zinc-400 hover:text-zinc-600 transition-colors"
             >
-              {expanded ? "Less" : "Details"}
+              {expanded ? "Menos" : "Detalhes"}
             </button>
           </div>
 
@@ -116,19 +116,104 @@ function JobCard({ job }: { job: TalentJob }) {
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
-              Applied
+              Candidatado
             </span>
           ) : (
             <Link
               href={`/talent/jobs/${job.id}`}
               className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-all duration-150 active:scale-[0.97]"
             >
-              Apply Now
+              Candidatar-se
             </Link>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function AppliedJobsList({ jobs }: { jobs: TalentJob[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2">
+        <h2 className="text-[13px] font-semibold text-zinc-700">Vagas Candidatadas</h2>
+        <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{jobs.length}</span>
+      </div>
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] divide-y divide-zinc-50 overflow-hidden">
+        {jobs.map((job) => {
+          const isOpen = openId === job.id;
+          const deadline = formatDate(job.deadline);
+          const jobDate  = formatDate(job.jobDate);
+          return (
+            <div key={job.id}>
+              <button
+                onClick={() => setOpenId(isOpen ? null : job.id)}
+                className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-zinc-50/60 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-1 h-8 rounded-full bg-gradient-to-b flex-shrink-0 ${stripe(job.category)}`} />
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-zinc-800 truncate">{job.title}</p>
+                    <p className="text-[11px] text-zinc-400 truncate">{job.category}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span className="text-[12px] font-semibold text-emerald-600">{brl(job.budget)}</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Candidatado
+                  </span>
+                  <svg
+                    className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+              {isOpen && (
+                <div className="px-5 pb-5 pt-1 bg-zinc-50/50 space-y-3">
+                  <p className="text-[13px] text-zinc-600 leading-relaxed whitespace-pre-line">{job.description}</p>
+                  <div className="flex flex-wrap gap-3 text-[12px] text-zinc-400">
+                    {deadline && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Candidatar até {deadline}
+                      </span>
+                    )}
+                    {jobDate && (
+                      <span className="flex items-center gap-1 text-violet-600">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Data da vaga: {jobDate}
+                      </span>
+                    )}
+                    {job.location && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        </svg>
+                        {job.location}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -141,15 +226,15 @@ export default function TalentJobList({ jobs }: { jobs: TalentJob[] }) {
 
       {/* Header */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Opportunities</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Jobs</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">{jobs.length} open position{jobs.length !== 1 ? "s" : ""}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Oportunidades</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Vagas</h1>
+        <p className="text-[13px] text-zinc-400 mt-1">{jobs.length} vaga{jobs.length !== 1 ? "s" : ""} disponíve{jobs.length !== 1 ? "is" : "l"}</p>
       </div>
 
       {/* Jobs to Apply */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-[13px] font-semibold text-zinc-700">Jobs to Apply</h2>
+          <h2 className="text-[13px] font-semibold text-zinc-700">Vagas para se Candidatar</h2>
           <span className="text-[10px] font-semibold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">{toApply.length}</span>
         </div>
         {toApply.length > 0 ? (
@@ -158,23 +243,15 @@ export default function TalentJobList({ jobs }: { jobs: TalentJob[] }) {
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
-            <p className="text-[14px] font-medium text-zinc-500">You've applied to all available jobs</p>
-            <p className="text-[13px] text-zinc-400 mt-1">Check back soon for new opportunities.</p>
+            <p className="text-[14px] font-medium text-zinc-500">Você se candidatou a todas as vagas disponíveis</p>
+            <p className="text-[13px] text-zinc-400 mt-1">Volte em breve para novas oportunidades.</p>
           </div>
         )}
       </section>
 
-      {/* Applied Jobs */}
+      {/* Applied Jobs — expandable list */}
       {applied.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[13px] font-semibold text-zinc-700">Applied Jobs</h2>
-            <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{applied.length}</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {applied.map((job) => <JobCard key={job.id} job={job} />)}
-          </div>
-        </section>
+        <AppliedJobsList jobs={applied} />
       )}
 
       {jobs.length === 0 && (
@@ -185,8 +262,8 @@ export default function TalentJobList({ jobs }: { jobs: TalentJob[] }) {
                 d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <p className="text-[14px] font-medium text-zinc-500">No jobs available</p>
-          <p className="text-[13px] text-zinc-400 mt-1">Check back soon for new opportunities.</p>
+          <p className="text-[14px] font-medium text-zinc-500">Nenhuma vaga disponível</p>
+          <p className="text-[13px] text-zinc-400 mt-1">Volte em breve para novas oportunidades.</p>
         </div>
       )}
     </div>

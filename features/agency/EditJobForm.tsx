@@ -81,7 +81,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
       setTimeout(() => router.push(`/agency/jobs/${job.id}`), 1000);
     } else {
       const d = await res.json();
-      setError(d.error ?? "Failed to save changes.");
+      setError(d.error ?? "Falha ao salvar alterações.");
     }
   }
 
@@ -99,13 +99,13 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Job
+          Voltar para Vaga
         </Link>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Edit Job</h1>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Editar Vaga</h1>
         <p className="text-[13px] text-zinc-400 mt-1">
           {allEditable
-            ? "All fields can be edited."
-            : "This job is active — only the deadline can be changed."}
+            ? "Todos os campos podem ser editados."
+            : "Esta vaga está ativa — apenas o prazo pode ser alterado."}
         </p>
       </div>
 
@@ -116,7 +116,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
               d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <p className="text-[13px] text-amber-800">
-            To edit all fields, set the job status to <strong>Inactive</strong> from the jobs list first.
+            Para editar todos os campos, defina o status da vaga como <strong>Inativa</strong> na lista de vagas primeiro.
           </p>
         </div>
       )}
@@ -125,7 +125,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
 
         {/* Title */}
         <div>
-          <label className={labelCls}>Job Title</label>
+          <label className={labelCls}>Título da Vaga</label>
           <input
             type="text"
             value={title}
@@ -138,7 +138,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
 
         {/* Description */}
         <div>
-          <label className={labelCls}>Description</label>
+          <label className={labelCls}>Descrição</label>
           <textarea
             rows={5}
             value={description}
@@ -151,19 +151,19 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
         {/* Category + Budget */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className={labelCls}>Category</label>
+            <label className={labelCls}>Categoria</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               disabled={!allEditable}
               className={allEditable ? base : disabledBase}
             >
-              <option value="">Select category</option>
+              <option value="">Selecionar categoria</option>
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className={labelCls}>Budget (USD)</label>
+            <label className={labelCls}>Orçamento (BRL)</label>
             <input
               type="number"
               min={1}
@@ -178,8 +178,8 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
         {/* Deadline — always editable */}
         <div>
           <label className={labelCls}>
-            Deadline
-            {!allEditable && <span className="ml-2 text-emerald-600 normal-case font-medium">(editable)</span>}
+            Prazo
+            {!allEditable && <span className="ml-2 text-emerald-600 normal-case font-medium">(editável)</span>}
           </label>
           <input
             type="date"
@@ -192,10 +192,10 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
 
         {/* Location */}
         <div>
-          <label className={labelCls}>Location</label>
+          <label className={labelCls}>Localização</label>
           <input
             type="text"
-            placeholder="City, country or 'Remote'"
+            placeholder="Cidade, país ou 'Remoto'"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             disabled={!allEditable}
@@ -206,7 +206,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
         {/* Gender + Age */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className={labelCls}>Gender</label>
+            <label className={labelCls}>Gênero</label>
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value)}
@@ -214,12 +214,12 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
               className={allEditable ? base : disabledBase}
             >
               {GENDER_OPTIONS.map((g) => (
-                <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>
+                <option key={g} value={g}>{g === "any" ? "Qualquer" : g === "male" ? "Masculino" : "Feminino"}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className={labelCls}>Min Age</label>
+            <label className={labelCls}>Idade Mínima</label>
             <input
               type="number"
               min={1}
@@ -231,7 +231,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
             />
           </div>
           <div>
-            <label className={labelCls}>Max Age</label>
+            <label className={labelCls}>Idade Máxima</label>
             <input
               type="number"
               min={1}
@@ -246,7 +246,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
 
         {/* Talents required */}
         <div>
-          <label className={labelCls}>Talents Required</label>
+          <label className={labelCls}>Talentos Necessários</label>
           <input
             type="number"
             min={1}
@@ -265,7 +265,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
 
         {saved && (
           <p className="text-[13px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
-            Changes saved. Redirecting…
+            Alterações salvas. Redirecionando…
           </p>
         )}
 
@@ -275,14 +275,14 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
             href={`/agency/jobs/${job.id}`}
             className="flex-1 py-3 text-[14px] font-medium text-center border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"
           >
-            Cancel
+            Cancelar
           </Link>
           <button
             type="submit"
             disabled={saving || saved}
             className="flex-1 py-3 text-[14px] font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? "Salvando…" : "Salvar Alterações"}
           </button>
         </div>
       </form>

@@ -4,14 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUserRole } from "@/lib/getUserRole";
+import { getAgencyLanding } from "@/lib/getAgencyLanding";
+import Logo from "@/components/Logo";
 
 export default function Home() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    getUserRole().then((role) => {
-      if (role === "agency") router.replace("/agency/dashboard");
+    getUserRole().then(async (role) => {
+      if (role === "agency") router.replace(await getAgencyLanding());
       else if (role === "talent") router.replace("/talent/dashboard");
       else setChecking(false);
     });
@@ -30,12 +32,7 @@ export default function Home() {
 
       {/* ── Nav ── */}
       <nav className="px-6 lg:px-10 h-16 flex items-center justify-between border-b border-zinc-100 sticky top-0 bg-white/90 backdrop-blur-sm z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg overflow-hidden flex-shrink-0">
-            <img src="/logo.png" alt="Brisa Digital" className="w-full h-full object-contain" />
-          </div>
-          <span className="text-[15px] font-semibold text-zinc-900 tracking-tight">Brisa Digital</span>
-        </div>
+        <span className="text-[15px] font-bold text-zinc-900 tracking-tight">Brisa Digital</span>
         <Link
           href="/login"
           className="text-[13px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors px-3 py-2 rounded-lg hover:bg-zinc-50"
@@ -48,16 +45,20 @@ export default function Home() {
       <section className="flex-1 flex flex-col items-center justify-center px-6 py-28 text-center">
         <div className="inline-flex items-center gap-2 bg-zinc-50 border border-zinc-200 text-zinc-500 text-[12px] font-semibold px-3.5 py-1.5 rounded-full mb-8 tracking-wide uppercase">
           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-          Now in beta · Free to join
+          Em beta · Grátis para participar
+        </div>
+
+        <div className="mb-6">
+          <Logo size="2xl" />
         </div>
 
         <h1 className="text-[3.25rem] sm:text-[4rem] lg:text-[4.5rem] font-bold text-zinc-900 tracking-[-0.04em] max-w-2xl leading-[1.05] mb-6">
-          Connect talent with the right agencies
+          Conecte talentos às agências certas
         </h1>
 
         <p className="text-[17px] text-zinc-500 max-w-lg leading-relaxed mb-10">
-          A modern platform for agencies to discover, manage, and collaborate
-          with creators — and for talent to get found.
+          A plataforma moderna para agências descobrirem, gerenciarem e colaborarem
+          com criadores — e para talentos serem encontrados.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 items-center">
@@ -75,27 +76,24 @@ export default function Home() {
           </Link>
         </div>
 
-        <p className="mt-5 text-[12px] text-zinc-400 font-medium">
-          No credit card required · Free for talent
-        </p>
       </section>
 
       {/* ── Features ── */}
       <section className="px-6 lg:px-10 py-20 bg-zinc-50 border-t border-zinc-100">
         <div className="max-w-5xl mx-auto">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 text-center mb-3">
-            Platform
+            Plataforma
           </p>
           <h2 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 text-center mb-12">
-            Everything you need to manage talent
+            Tudo que você precisa para gerenciar talentos
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {[
               {
-                title: "For Agencies",
+                title: "Para Agências",
                 description:
-                  "Build and manage your talent roster. Create detailed profiles, track reach, and collaborate efficiently with brands.",
+                  "Monte e gerencie seu elenco de talentos. Crie perfis detalhados, acompanhe o alcance e colabore com marcas de forma eficiente.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
@@ -105,9 +103,9 @@ export default function Home() {
                 accent: "bg-indigo-50 text-indigo-500",
               },
               {
-                title: "For Talent",
+                title: "Para Talentos",
                 description:
-                  "Create your public creator profile, showcase your social presence, and get discovered by top agencies worldwide.",
+                  "Crie seu perfil público como criador, destaque sua presença nas redes sociais e seja descoberto pelas melhores agências.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
@@ -117,9 +115,9 @@ export default function Home() {
                 accent: "bg-violet-50 text-violet-500",
               },
               {
-                title: "Built for speed",
+                title: "Rápido e simples",
                 description:
-                  "Set up your profile in minutes. Our streamlined onboarding gets you in front of the right people fast.",
+                  "Configure seu perfil em minutos. Nosso onboarding ágil coloca você na frente das pessoas certas rapidamente.",
                 icon: (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
@@ -149,12 +147,7 @@ export default function Home() {
       {/* ── Footer ── */}
       <footer className="px-6 lg:px-10 py-6 border-t border-zinc-100">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded overflow-hidden">
-              <img src="/logo.png" alt="Brisa Digital" className="w-full h-full object-contain" />
-            </div>
-            <span className="text-[13px] font-semibold text-zinc-700">Brisa Digital</span>
-          </div>
+          <span className="text-[13px] font-bold text-zinc-900 tracking-tight">Brisa Digital</span>
           <p className="text-[12px] text-zinc-400">© 2026 Brisa Digital. Todos os direitos reservados.</p>
         </div>
       </footer>

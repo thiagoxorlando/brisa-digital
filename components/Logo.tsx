@@ -1,10 +1,11 @@
 import Image from "next/image";
 
 const SIZES = {
-  sm: 20,
-  md: 32,
-  lg: 75,
-  xl: 120,
+  sm:  20,
+  md:  32,
+  lg:  75,
+  xl:  120,
+  "2xl": 180,
 } as const;
 
 type LogoSize = keyof typeof SIZES;

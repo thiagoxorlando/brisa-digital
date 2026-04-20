@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import PhoneInput from "@/components/ui/PhoneInput";
 
 const TALENT_CATEGORIES = [
   "Actor", "Model", "Influencer", "Dancer", "Singer",
@@ -10,23 +11,6 @@ const TALENT_CATEGORIES = [
 
 const GENDER_OPTIONS = ["", "Male", "Female", "Non-binary", "Other", "Prefer not to say"];
 
-const COUNTRY_CODES = [
-  { code: "+1",  flag: "🇺🇸", label: "US" },
-  { code: "+1",  flag: "🇨🇦", label: "CA" },
-  { code: "+55", flag: "🇧🇷", label: "BR" },
-  { code: "+44", flag: "🇬🇧", label: "UK" },
-  { code: "+34", flag: "🇪🇸", label: "ES" },
-  { code: "+33", flag: "🇫🇷", label: "FR" },
-  { code: "+49", flag: "🇩🇪", label: "DE" },
-  { code: "+39", flag: "🇮🇹", label: "IT" },
-  { code: "+52", flag: "🇲🇽", label: "MX" },
-  { code: "+54", flag: "🇦🇷", label: "AR" },
-  { code: "+61", flag: "🇦🇺", label: "AU" },
-  { code: "+81", flag: "🇯🇵", label: "JP" },
-  { code: "+86", flag: "🇨🇳", label: "CN" },
-  { code: "+91", flag: "🇮🇳", label: "IN" },
-  { code: "+7",  flag: "🇷🇺", label: "RU" },
-];
 
 const inputBase =
   "w-full px-4 py-3 text-[14px] rounded-xl border hover:border-zinc-300 focus:outline-none transition-colors bg-white placeholder:text-zinc-400";
@@ -39,7 +23,6 @@ const labelCls = "block text-[12px] font-medium text-zinc-600 mb-1.5";
 
 type Form = {
   fullName:    string;
-  phoneCode:   string;
   phone:       string;
   country:     string;
   city:        string;
@@ -58,7 +41,7 @@ type Form = {
 type FormErrors = Partial<Record<keyof Form, string>>;
 
 const DEFAULTS: Form = {
-  fullName: "", phoneCode: "+1", phone: "", country: "", city: "",
+  fullName: "", phone: "", country: "", city: "",
   bio: "", categories: [], age: "", gender: "",
   instagram: "", tiktok: "", youtube: "", xHandle: "", website: "", imdb: "",
 };
@@ -68,19 +51,19 @@ const BIO_MAX = 300;
 function validate(form: Form): FormErrors {
   const e: FormErrors = {};
   if (!form.fullName.trim())
-    e.fullName = "Full name is required.";
+    e.fullName = "Nome completo é obrigatório.";
   else if (form.fullName.trim().length < 2)
-    e.fullName = "Name must be at least 2 characters.";
+    e.fullName = "O nome deve ter pelo menos 2 caracteres.";
   if (form.bio.length > BIO_MAX)
-    e.bio = `Bio must be ${BIO_MAX} characters or fewer (currently ${form.bio.length}).`;
+    e.bio = `A bio deve ter no máximo ${BIO_MAX} caracteres (atualmente ${form.bio.length}).`;
   if (form.instagram && /[\s@]/.test(form.instagram))
-    e.instagram = "Enter your handle without @ or spaces.";
+    e.instagram = "Digite seu @ sem o símbolo ou espaços.";
   if (form.tiktok && /[\s@]/.test(form.tiktok))
-    e.tiktok = "Enter your handle without @ or spaces.";
+    e.tiktok = "Digite seu @ sem o símbolo ou espaços.";
   if (form.xHandle && /[\s@]/.test(form.xHandle))
-    e.xHandle = "Enter your handle without @ or spaces.";
+    e.xHandle = "Digite seu @ sem o símbolo ou espaços.";
   if (form.age && (isNaN(Number(form.age)) || Number(form.age) < 1 || Number(form.age) > 120))
-    e.age = "Enter a valid age.";
+    e.age = "Digite uma idade válida.";
   return e;
 }
 
@@ -129,22 +112,9 @@ export default function TalentProfileEdit() {
         .single();
 
       if (data) {
-        // Parse stored phone into code + number
-        const storedPhone: string = data.phone ?? "";
-        let phoneCode = "+1";
-        let phone = storedPhone;
-        for (const cc of COUNTRY_CODES) {
-          if (storedPhone.startsWith(cc.code + " ")) {
-            phoneCode = cc.code;
-            phone = storedPhone.slice(cc.code.length + 1);
-            break;
-          }
-        }
-
         setForm({
           fullName:   data.full_name   ?? "",
-          phoneCode,
-          phone,
+          phone:      data.phone       ?? "",
           country:    data.country     ?? "",
           city:       data.city        ?? "",
           bio:        data.bio         ?? "",
@@ -197,7 +167,7 @@ export default function TalentProfileEdit() {
     setSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setServerError("Not authenticated."); setSaving(false); return; }
+    if (!user) { setServerError("Não autenticado."); setSaving(false); return; }
 
     let avatarUrl: string | undefined;
 
@@ -209,22 +179,18 @@ export default function TalentProfileEdit() {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const json = await res.json();
       if (!res.ok) {
-        setServerError("Photo upload failed: " + (json.error ?? "Unknown error"));
+        setServerError("Falha no envio da foto: " + (json.error ?? "Erro desconhecido"));
         setSaving(false);
         return;
       }
       avatarUrl = json.url;
     }
 
-    const fullPhone = form.phone.trim()
-      ? `${form.phoneCode} ${form.phone.trim()}`
-      : "";
-
     const payload: Record<string, unknown> = {
       id:         user.id,
       user_id:    user.id,
       full_name:  form.fullName.trim(),
-      phone:      fullPhone || null,
+      phone:      form.phone.trim() || null,
       country:    form.country.trim() || null,
       city:       form.city.trim()    || null,
       bio:        form.bio.trim()     || null,
@@ -268,16 +234,16 @@ export default function TalentProfileEdit() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Account</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">My Profile</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Conta</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Meu Perfil</h1>
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
 
         {/* Profile Photo */}
-        <Section title="Profile Photo">
+        <Section title="Foto de Perfil">
           <div>
-            <p className={labelCls}>Photo</p>
+            <p className={labelCls}>Foto</p>
             <div
               onClick={() => fileRef.current?.click()}
               className="w-24 h-24 rounded-2xl border-2 border-dashed border-zinc-200 hover:border-zinc-400 cursor-pointer transition-colors flex items-center justify-center overflow-hidden bg-zinc-50"
@@ -294,15 +260,15 @@ export default function TalentProfileEdit() {
               ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
               onChange={(e) => { if (e.target.files?.[0]) handleAvatarChange(e.target.files[0]); }}
             />
-            <p className="text-[11px] text-zinc-400 mt-1.5">Click to upload · JPG, PNG, WebP · max 5 MB</p>
+            <p className="text-[11px] text-zinc-400 mt-1.5">Clique para enviar · JPG, PNG, WebP · máx 5 MB</p>
           </div>
         </Section>
 
         {/* Personal Info */}
-        <Section title="Personal Info">
+        <Section title="Informações Pessoais">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className={labelCls}>Full Name <span className="text-rose-400">*</span></label>
+              <label className={labelCls}>Nome Completo <span className="text-rose-400">*</span></label>
               <input
                 className={inputCls(!!errors.fullName && !!touched.fullName)}
                 placeholder="Sofia Mendes"
@@ -314,48 +280,26 @@ export default function TalentProfileEdit() {
 
             {/* Phone with country code */}
             <div className="sm:col-span-2">
-              <label className={labelCls}>Phone Number</label>
-              <div className="flex gap-2">
-                <div className="relative">
-                  <select
-                    value={form.phoneCode}
-                    onChange={(e) => set("phoneCode", e.target.value)}
-                    className="pl-3 pr-8 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none bg-white appearance-none cursor-pointer transition-colors"
-                  >
-                    {COUNTRY_CODES.map((cc) => (
-                      <option key={`${cc.flag}-${cc.code}`} value={cc.code}>
-                        {cc.flag} {cc.code}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-                <input
-                  className={`${inputCls(false)} flex-1`}
-                  placeholder="(555) 000-0000"
-                  value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                />
-              </div>
+              <label className={labelCls}>Telefone</label>
+              <PhoneInput
+                value={form.phone}
+                onChange={(v) => set("phone", v)}
+              />
             </div>
 
             <div>
-              <label className={labelCls}>Country</label>
-              <input className={inputCls(false)} placeholder="Brazil" value={form.country}
+              <label className={labelCls}>País</label>
+              <input className={inputCls(false)} placeholder="Brasil" value={form.country}
                 onChange={(e) => set("country", e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>City</label>
+              <label className={labelCls}>Cidade</label>
               <input className={inputCls(false)} placeholder="São Paulo" value={form.city}
                 onChange={(e) => set("city", e.target.value)} />
             </div>
 
             <div>
-              <label className={labelCls}>Age</label>
+              <label className={labelCls}>Idade</label>
               <input
                 type="number" min="1" max="120"
                 className={inputCls(!!errors.age && !!touched.age)}
@@ -367,14 +311,14 @@ export default function TalentProfileEdit() {
             </div>
 
             <div>
-              <label className={labelCls}>Gender</label>
+              <label className={labelCls}>Gênero</label>
               <div className="relative">
                 <select
                   value={form.gender}
                   onChange={(e) => set("gender", e.target.value)}
                   className={selectCls}
                 >
-                  <option value="">Select…</option>
+                  <option value="">Selecione…</option>
                   {GENDER_OPTIONS.filter(Boolean).map((g) => (
                     <option key={g} value={g}>{g}</option>
                   ))}
@@ -397,7 +341,7 @@ export default function TalentProfileEdit() {
             </label>
             <textarea
               rows={4} className={`${inputCls(!!errors.bio && !!touched.bio)} resize-none`}
-              placeholder="Tell agencies what makes you unique."
+              placeholder="Conte às agências o que te torna único(a)."
               value={form.bio} onChange={(e) => set("bio", e.target.value)}
             />
             {touched.bio && <FieldError msg={errors.bio} />}
@@ -405,7 +349,7 @@ export default function TalentProfileEdit() {
         </Section>
 
         {/* Categories */}
-        <Section title="Categories">
+        <Section title="Categorias">
           <div className="flex flex-wrap gap-2">
             {TALENT_CATEGORIES.map((cat) => {
               const active = form.categories.includes(cat);
@@ -425,7 +369,7 @@ export default function TalentProfileEdit() {
         </Section>
 
         {/* Social Links */}
-        <Section title="Social Links">
+        <Section title="Redes Sociais">
           {/* Instagram */}
           <div>
             <label className={labelCls}>Instagram</label>
@@ -503,7 +447,7 @@ export default function TalentProfileEdit() {
             <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <p className="text-[13px] text-emerald-700 font-medium">Profile saved successfully.</p>
+            <p className="text-[13px] text-emerald-700 font-medium">Perfil salvo com sucesso.</p>
           </div>
         )}
 
@@ -511,7 +455,7 @@ export default function TalentProfileEdit() {
           type="submit" disabled={saving}
           className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
         >
-          {saving ? "Saving…" : "Save Profile"}
+          {saving ? "Salvando…" : "Salvar Perfil"}
         </button>
       </form>
     </div>

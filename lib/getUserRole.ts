@@ -3,7 +3,8 @@ import { supabase } from "./supabase";
 export type UserRole = "agency" | "talent" | "admin";
 
 export async function getUserRole(): Promise<UserRole | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) return null; // expired/invalid session — onAuthStateChange will redirect
 
   if (!user) return null;
 

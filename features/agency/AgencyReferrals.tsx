@@ -11,7 +11,7 @@ export type AgencyReferral = {
 };
 
 function formatDate(s: string) {
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function getStatus(r: AgencyReferral): { label: string; cls: string } {
@@ -64,7 +64,7 @@ export default function AgencyReferrals({ referrals }: { referrals: AgencyReferr
                 return (
                   <tr key={r.id} className="hover:bg-zinc-50/60 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="text-[13px] font-semibold text-zinc-900">{r.talentName ?? "Unknown"}</p>
+                      <p className="text-[13px] font-semibold text-zinc-900">{r.talentName ?? "Sem nome"}</p>
                     </td>
                     <td className="px-4 py-4 hidden sm:table-cell">
                       <p className="text-[13px] text-zinc-500 truncate max-w-[200px]">{r.jobTitle}</p>

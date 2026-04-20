@@ -12,11 +12,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function usd(n: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
 }
 function fmt(s: string | null) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -63,7 +63,7 @@ export default async function AdminJobDetailPage({ params }: Props) {
   const talentMap = new Map<string, string>();
   if (talentIds.length) {
     const { data: profiles } = await supabase.from("talent_profiles").select("id, full_name").in("id", talentIds);
-    for (const p of profiles ?? []) talentMap.set(p.id, p.full_name ?? "Unknown");
+    for (const p of profiles ?? []) talentMap.set(p.id, p.full_name ?? "Sem nome");
   }
 
   // Agency name
@@ -79,7 +79,7 @@ export default async function AdminJobDetailPage({ params }: Props) {
     <div className="max-w-4xl space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-[13px]">
-        <Link href="/admin/jobs" className="text-zinc-400 hover:text-zinc-700 transition-colors">Jobs</Link>
+        <Link href="/admin/jobs" className="text-zinc-400 hover:text-zinc-700 transition-colors">Vagas</Link>
         <span className="text-zinc-300">/</span>
         <span className="text-zinc-600 truncate">{job.title}</span>
       </div>
@@ -87,9 +87,9 @@ export default async function AdminJobDetailPage({ params }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Platform Admin</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Admin da Plataforma</p>
           <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{job.title}</h1>
-          <p className="text-[13px] text-zinc-400 mt-1">{agencyName} · Posted {fmt(job.created_at)}</p>
+          <p className="text-[13px] text-zinc-400 mt-1">{agencyName} · Publicado em {fmt(job.created_at)}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className={`inline-flex text-[12px] font-semibold px-3 py-1.5 rounded-full capitalize ${stCls}`}>
@@ -100,7 +100,7 @@ export default async function AdminJobDetailPage({ params }: Props) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>
-            Read-only
+            Somente leitura
           </span>
         </div>
       </div>
@@ -109,23 +109,23 @@ export default async function AdminJobDetailPage({ params }: Props) {
         {/* Left: Job info */}
         <div className="lg:col-span-2 space-y-5">
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Job Details</p>
-            <p className="text-[14px] text-zinc-700 leading-relaxed whitespace-pre-line">{job.description || "No description."}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Detalhes da Vaga</p>
+            <p className="text-[14px] text-zinc-700 leading-relaxed whitespace-pre-line">{job.description || "Sem descrição."}</p>
           </div>
 
           {/* Submissions */}
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
             <div className="px-6 py-4 border-b border-zinc-50">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                Submissions <span className="ml-1 text-zinc-600">{submissions?.length ?? 0}</span>
+                Candidaturas <span className="ml-1 text-zinc-600">{submissions?.length ?? 0}</span>
               </p>
             </div>
             {(submissions ?? []).length === 0 ? (
-              <p className="px-6 py-8 text-[13px] text-zinc-400 text-center">No submissions yet.</p>
+              <p className="px-6 py-8 text-[13px] text-zinc-400 text-center">Nenhuma candidatura ainda.</p>
             ) : (
               <div className="divide-y divide-zinc-50">
                 {(submissions ?? []).map((s) => {
-                  const name = s.talent_user_id ? (talentMap.get(s.talent_user_id) ?? "Unknown") : "External";
+                  const name = s.talent_user_id ? (talentMap.get(s.talent_user_id) ?? "Desconhecido") : "Externo";
                   return (
                     <div key={s.id} className="flex items-center justify-between px-6 py-3.5">
                       <div>
@@ -146,15 +146,15 @@ export default async function AdminJobDetailPage({ params }: Props) {
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
             <div className="px-6 py-4 border-b border-zinc-50">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-                Contracts <span className="ml-1 text-zinc-600">{contracts?.length ?? 0}</span>
+                Contratos <span className="ml-1 text-zinc-600">{contracts?.length ?? 0}</span>
               </p>
             </div>
             {(contracts ?? []).length === 0 ? (
-              <p className="px-6 py-8 text-[13px] text-zinc-400 text-center">No contracts yet.</p>
+              <p className="px-6 py-8 text-[13px] text-zinc-400 text-center">Nenhum contrato ainda.</p>
             ) : (
               <div className="divide-y divide-zinc-50">
                 {(contracts ?? []).map((c) => {
-                  const name = c.talent_id ? (talentMap.get(c.talent_id) ?? "Unknown") : "Unknown";
+                  const name = c.talent_id ? (talentMap.get(c.talent_id) ?? "Desconhecido") : "Desconhecido";
                   const stMap: Record<string, string> = {
                     sent:     "bg-amber-50 text-amber-700",
                     accepted: "bg-emerald-50 text-emerald-700",
@@ -164,7 +164,7 @@ export default async function AdminJobDetailPage({ params }: Props) {
                     <div key={c.id} className="flex items-center justify-between px-6 py-3.5">
                       <div>
                         <p className="text-[13px] font-medium text-zinc-800">{name}</p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">Sent {fmt(c.created_at)}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">Enviado em {fmt(c.created_at)}</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">
@@ -187,11 +187,11 @@ export default async function AdminJobDetailPage({ params }: Props) {
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5 space-y-4">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Info</p>
             {[
-              { label: "Agency",   value: agencyName },
-              { label: "Category", value: job.category ?? "—" },
-              { label: "Budget",   value: job.budget ? usd(job.budget) : "—" },
-              { label: "Deadline", value: fmt(job.deadline) },
-              { label: "Posted",   value: fmt(job.created_at) },
+              { label: "Agência",   value: agencyName },
+              { label: "Categoria", value: job.category ?? "—" },
+              { label: "Orçamento", value: job.budget ? usd(job.budget) : "—" },
+              { label: "Prazo",     value: fmt(job.deadline) },
+              { label: "Publicado", value: fmt(job.created_at) },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{label}</p>

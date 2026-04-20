@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useT } from "@/lib/LanguageContext";
-import { statusInfo } from "@/lib/bookingStatus";
+import { unifiedStatusInfo, type UnifiedBookingStatus } from "@/lib/bookingStatus";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
+import { useSubscription } from "@/lib/SubscriptionContext";
+import PaywallModal from "@/components/agency/PaywallModal";
 
 export type Booking = {
   id:             string;
@@ -11,17 +15,15 @@ export type Booking = {
   talentId:       string;
   talentName:     string;
   jobTitle:       string;
-  /** Always mirrors contract.status — contracts are the master. */
   status:         string;
+  contractStatus: string | null;
+  derivedStatus:  string;
   totalValue:     number;
   createdAt:      string;
   contractSigned: string | null;
   jobDate:        string | null;
   paidAt:         string | null;
 };
-
-const COMMISSION_RATE = 0.15;
-const TALENT_RATE     = 1 - COMMISSION_RATE;
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
@@ -90,27 +92,31 @@ function BookingRow({
   onStatusChange,
 }: {
   booking: Booking;
-  onStatusChange: (id: string, status: string) => void;
+  onStatusChange: (id: string, derivedStatus: string) => void;
 }) {
   const { t } = useT();
+  const { isPro, commissionLabel, talentShareLabel } = useSubscription();
   const [acting, setActing]             = useState<"confirm" | "pay" | "cancel" | null>(null);
   const [confirming, setConfirming]     = useState(false);
   const [expanded, setExpanded]         = useState(false);
   const [balanceError, setBalanceError] = useState<{ required: number; available: number } | null>(null);
   const [earlyPayWarning, setEarlyPayWarning] = useState(false);
   const [apiError, setApiError]         = useState<string | null>(null);
+  const [paywallOpen, setPaywallOpen]   = useState(false);
 
-  const st          = statusInfo(booking.status);
-  const talentEarnings = Math.round(booking.totalValue * TALENT_RATE);
-  const jobDate     = formatJobDate(booking.jobDate);
+  const unified        = booking.derivedStatus as UnifiedBookingStatus;
+  const st             = unifiedStatusInfo(unified);
+  const commissionRate = Number(commissionLabel.replace("%", "")) / 100;
+  const talentEarnings = Math.round(booking.totalValue * (1 - commissionRate));
+  const jobDate        = formatJobDate(booking.jobDate);
 
   const timelineSteps: TimelineStep[] = [
-    { label: t("contracts_sent"),   done: true,                                                       date: formatDate(booking.createdAt) },
-    { label: t("contracts_signed"), done: ["signed","confirmed","paid"].includes(st.section),         date: booking.contractSigned ? formatDate(booking.contractSigned) : null },
-    { label: t("jobs_job_date"),    done: !!booking.jobDate && new Date(booking.jobDate + "T23:59:59") < new Date(), date: jobDate ?? t("general_tbd") },
-    { label: t("status_paid"),      done: st.section === "paid",                                      date: booking.paidAt ? formatDate(booking.paidAt) : null },
+    { label: t("contracts_sent"),   done: true,                                                                                   date: formatDate(booking.createdAt) },
+    { label: t("contracts_signed"), done: ["aguardando_deposito","aguardando_pagamento","pago"].includes(unified),                date: booking.contractSigned ? formatDate(booking.contractSigned) : null },
+    { label: t("jobs_job_date"),    done: !!booking.jobDate && new Date(booking.jobDate + "T23:59:59") < new Date(),              date: jobDate ?? t("general_tbd") },
+    { label: t("status_paid"),      done: unified === "pago",                                                                    date: booking.paidAt ? formatDate(booking.paidAt) : null },
   ];
-  if (st.section === "cancelled" || st.section === "rejected") {
+  if (unified === "cancelado") {
     timelineSteps.push({ label: st.label, done: true });
   }
 
@@ -130,13 +136,14 @@ function BookingRow({
     setActing("confirm");
     const res = await callContract("agency_sign");
     if (!res) { setActing(null); return; }
+    const d = await res.json().catch(() => ({}));
     if (res.status === 402) {
-      const d = await res.json().catch(() => ({}));
       setBalanceError({ required: d.required, available: d.available });
-    } else if (res.ok || res.status === 409) {
-      onStatusChange(booking.id, "confirmed");
+    } else if (res.ok) {
+      onStatusChange(booking.id, d.derived_status ?? "aguardando_pagamento");
+    } else if (res.status === 409) {
+      onStatusChange(booking.id, "aguardando_pagamento");
     } else {
-      const d = await res.json().catch(() => ({}));
       setApiError(d.error ?? "Erro ao confirmar reserva. Tente novamente.");
     }
     setActing(null);
@@ -156,10 +163,10 @@ function BookingRow({
     setApiError(null);
     setActing("pay");
     const res = await callContract("pay");
+    const d = await res?.json().catch(() => ({})) ?? {};
     if (res?.ok) {
-      onStatusChange(booking.id, "paid");
+      onStatusChange(booking.id, d.derived_status ?? "pago");
     } else if (res) {
-      const d = await res.json().catch(() => ({}));
       setApiError(d.error ?? "Erro ao liberar pagamento. Tente novamente.");
     }
     setActing(null);
@@ -170,10 +177,10 @@ function BookingRow({
     setConfirming(false);
     setApiError(null);
     const res = await callContract("cancel_job");
+    const d = await res?.json().catch(() => ({})) ?? {};
     if (res?.ok) {
-      onStatusChange(booking.id, "cancelled");
+      onStatusChange(booking.id, d.derived_status ?? "cancelado");
     } else if (res) {
-      const d = await res.json().catch(() => ({}));
       setApiError(d.error ?? "Erro ao cancelar. Tente novamente.");
     }
     setActing(null);
@@ -206,19 +213,31 @@ function BookingRow({
         )}
 
         <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-          {st.section === "sent" && (
+          {unified === "aguardando_assinatura" && (
             <span className="text-[12px] font-medium text-violet-600 bg-violet-50 border border-violet-100 px-3 py-1.5 rounded-xl">
               Aguardando Talento
             </span>
           )}
 
-          {st.section === "signed" && (
+          {unified === "aguardando_deposito" && (
             <>
+              {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
               <button
                 onClick={handleConfirm}
                 disabled={acting !== null || !booking.contractId}
-                className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+                className={[
+                  "text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50",
+                  isPro
+                    ? "bg-violet-600 hover:bg-violet-700 text-white"
+                    : "bg-violet-600 hover:bg-violet-700 text-white",
+                ].join(" ")}
               >
+                {!isPro && (
+                  <svg className="inline w-3 h-3 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                )}
                 {acting === "confirm" ? "Verificando…" : "Confirmar Reserva"}
               </button>
               {!confirming ? (
@@ -242,7 +261,7 @@ function BookingRow({
             </>
           )}
 
-          {st.section === "confirmed" && (
+          {unified === "aguardando_pagamento" && (
             earlyPayWarning ? (
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[12px] text-amber-700 font-medium">Trabalho ainda não realizado. Pagar assim mesmo?</span>
@@ -256,20 +275,34 @@ function BookingRow({
                 </button>
               </div>
             ) : (
-              <button
-                onClick={handlePay}
-                disabled={acting !== null || !booking.contractId}
-                className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {acting === "pay" ? "…" : "Pagar Talento"}
-              </button>
+              <>
+                {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
+                <button
+                  onClick={handlePay}
+                  disabled={acting !== null || !booking.contractId}
+                  className={[
+                    "text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50",
+                    isPro
+                      ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                      : "bg-violet-600 hover:bg-violet-700 text-white",
+                  ].join(" ")}
+                >
+                  {!isPro && (
+                    <svg className="inline w-3 h-3 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  )}
+                  {acting === "pay" ? "…" : "Pagar Talento"}
+                </button>
+              </>
             )
           )}
 
-          {st.section === "paid" && (
+          {unified === "pago" && (
             <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">Pago</span>
           )}
-          {(st.section === "cancelled" || st.section === "rejected") && (
+          {unified === "cancelado" && (
             <span className="text-[12px] font-medium text-zinc-400">{st.label}</span>
           )}
         </div>
@@ -366,18 +399,28 @@ function Section({ title, count, total, children, empty }: {
 export default function BookingList({ bookings: initial }: { bookings: Booking[] }) {
   const [bookings, setBookings] = useState(initial);
   const { t } = useT();
+  const { commissionLabel, talentShareLabel } = useSubscription();
+  const router = useRouter();
 
-  function handleStatusChange(id: string, status: string) {
-    setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
+  // Sync when server re-renders with fresh props (after router.refresh())
+  useEffect(() => { setBookings(initial); }, [initial]);
+
+  const { refreshing } = useRealtimeRefresh(
+    [{ table: "bookings" }, { table: "contracts" }],
+    () => router.refresh(),
+  );
+
+  function handleStatusChange(id: string, newDerivedStatus: string) {
+    setBookings((prev) => prev.map((b) => b.id === id ? { ...b, derivedStatus: newDerivedStatus } : b));
   }
 
-  const by = (s: string) => bookings.filter((b) => statusInfo(b.status).section === s);
+  const by = (s: string) => bookings.filter((b) => b.derivedStatus === s);
 
-  const signature = by("sent");
-  const deposit   = by("signed");
-  const payment   = by("confirmed");
-  const paid      = by("paid");
-  const cancelled = [...by("cancelled"), ...by("rejected")];
+  const signature = by("aguardando_assinatura");
+  const deposit   = by("aguardando_deposito");
+  const payment   = by("aguardando_pagamento");
+  const paid      = by("pago");
+  const cancelled = by("cancelado");
 
   const paidTotal = paid.reduce((s, b) => s + b.totalValue, 0);
 
@@ -388,7 +431,15 @@ export default function BookingList({ bookings: initial }: { bookings: Booking[]
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("portal_agency")}</p>
           <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{t("page_bookings")}</h1>
         </div>
-        <p className="text-[13px] text-zinc-400 font-medium pb-1">{bookings.length} total</p>
+        <div className="flex items-center gap-3 pb-1">
+          {refreshing && (
+            <span className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Atualizando…
+            </span>
+          )}
+          <p className="text-[13px] text-zinc-400 font-medium">{bookings.length} total</p>
+        </div>
       </div>
 
       {bookings.length > 0 && (
@@ -396,9 +447,9 @@ export default function BookingList({ bookings: initial }: { bookings: Booking[]
           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          {t("finances_platform_commission")}: <strong className="text-zinc-600 ml-1">15%</strong>
+          {t("finances_platform_commission")}: <strong className="text-zinc-600 ml-1">{commissionLabel}</strong>
           <span className="mx-1">·</span>
-          {t("nav_talent")}: <strong className="text-zinc-600 ml-1">85%</strong>
+          {t("nav_talent")}: <strong className="text-zinc-600 ml-1">{talentShareLabel}</strong>
           <span className="mx-1">·</span>
           <strong className="text-violet-600">+2% {t("finances_referral_payouts")}</strong>
           <span className="text-zinc-300 ml-1">(se aplicável)</span>

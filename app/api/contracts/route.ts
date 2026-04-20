@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
-import { requireActiveSubscription } from "@/lib/requireActiveSubscription";
+import { requireHireLimit } from "@/lib/requireActiveSubscription";
+import { calculateCommission, calculateNetAmount, resolvePlanInfo } from "@/lib/plans";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -16,6 +17,7 @@ export async function POST(req: NextRequest) {
     payment_amount,
     payment_method,
     additional_notes,
+    is_rehire,
   } = body;
 
   if (!talent_id || !agency_id) {
@@ -25,19 +27,65 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "payment_amount must be 0 or greater" }, { status: 400 });
   }
 
-  const blocked = await requireActiveSubscription(agency_id);
-  if (blocked) return blocked;
+  const limited = await requireHireLimit(agency_id, job_id ?? null);
+  if (limited) return limited;
 
   const supabase = createServerClient({ useServiceRole: true });
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan")
+    .eq("id", agency_id)
+    .single();
+  const planInfo = resolvePlanInfo(profile);
 
   const amount            = Number(payment_amount);
-  const commission_amount = parseFloat((amount * 0.15).toFixed(2));
-  const net_amount        = parseFloat((amount * 0.85).toFixed(2));
+  const commission_amount = calculateCommission(amount, planInfo.plan);
+  const net_amount        = calculateNetAmount(amount, planInfo.plan);
 
-  // Insert the contract
+  console.log("[plan] create_contract", {
+    agencyId: agency_id,
+    jobId: job_id ?? null,
+    plan: planInfo.plan,
+    amount,
+    commissionAmount: commission_amount,
+    netAmount: net_amount,
+  });
+
+  // Resolve job title before creating records
+  let jobTitle = job_description?.slice(0, 100) ?? "Contract Job";
+  if (job_id) {
+    const { data: jobRow } = await supabase
+      .from("jobs")
+      .select("title")
+      .eq("id", job_id)
+      .single();
+    if (jobRow?.title) jobTitle = jobRow.title;
+  }
+
+  // Create booking first so we can link it to the contract via booking_id
+  const { data: booking, error: bookingErr } = await supabase
+    .from("bookings")
+    .insert({
+      job_id:         job_id    ?? null,
+      agency_id:      agency_id ?? null,
+      talent_user_id: talent_id,
+      job_title:      jobTitle,
+      price:          amount,
+      status:         "pending",
+    })
+    .select("id")
+    .single();
+
+  if (bookingErr) {
+    console.error("[POST /api/contracts] booking insert", bookingErr);
+    return NextResponse.json({ error: bookingErr.message }, { status: 400 });
+  }
+
+  // Insert the contract, linked to the booking
   const { data: contract, error } = await supabase
     .from("contracts")
     .insert({
+      booking_id:       booking.id,
       job_id:           job_id          ?? null,
       talent_id,
       agency_id,
@@ -57,32 +105,23 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error("[POST /api/contracts]", error);
+    // Clean up the booking we just created — no contract means no booking
+    await supabase.from("bookings").delete().eq("id", booking.id);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  // Resolve job title for the pending booking
-  let jobTitle = job_description?.slice(0, 100) ?? "Contract Job";
-  if (job_id) {
-    const { data: jobRow } = await supabase
-      .from("jobs")
-      .select("title")
-      .eq("id", job_id)
+  // Notify talent — contract received (or rehire)
+  if (is_rehire) {
+    const { data: agencyProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", agency_id)
       .single();
-    if (jobRow?.title) jobTitle = jobRow.title;
+    const agencyName = agencyProfile?.full_name ?? "a agência";
+    await notify(talent_id, "rehire", `Você foi contratado novamente por ${agencyName}`, "/talent/contracts");
+  } else {
+    await notify(talent_id, "contract", "Você recebeu um novo contrato", "/talent/contracts");
   }
-
-  // Create a pending booking immediately so agency/talent can track it
-  await supabase.from("bookings").insert({
-    job_id:         job_id    ?? null,
-    agency_id:      agency_id ?? null,
-    talent_user_id: talent_id,
-    job_title:      jobTitle,
-    price:          Number(payment_amount),
-    status:         "pending",
-  });
-
-  // Notify talent — contract received
-  await notify(talent_id, "contract", "Você recebeu um novo contrato", "/talent/contracts");
 
   return NextResponse.json({ contract }, { status: 201 });
 }

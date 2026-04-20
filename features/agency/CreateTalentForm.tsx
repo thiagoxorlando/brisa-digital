@@ -29,15 +29,15 @@ const CATEGORIES = [
 function validate(form: FormData): FormErrors {
   const e: FormErrors = {};
   if (!form.name.trim())
-    e.name = "Full name is required.";
+    e.name = "Nome completo é obrigatório.";
   else if (form.name.trim().length < 2)
-    e.name = "Name must be at least 2 characters.";
+    e.name = "Nome deve ter pelo menos 2 caracteres.";
   if (form.bio.length > 400)
-    e.bio = "Bio must be 400 characters or fewer.";
+    e.bio = "Bio deve ter no máximo 400 caracteres.";
   if (form.instagram && /[\s@]/.test(form.instagram))
-    e.instagram = "Enter your handle without @ or spaces.";
+    e.instagram = "Informe o @ sem espaços.";
   if (form.tiktok && /[\s@]/.test(form.tiktok))
-    e.tiktok = "Enter your handle without @ or spaces.";
+    e.tiktok = "Informe o @ sem espaços.";
   return e;
 }
 
@@ -77,15 +77,15 @@ function SuccessScreen() {
           </svg>
         </span>
       </div>
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 mb-2">Profile Created</p>
-      <h2 className="text-[1.5rem] font-semibold tracking-tight text-zinc-900 mb-2">Talent added to roster</h2>
-      <p className="text-[14px] text-zinc-500 mb-1">Redirecting to talent list…</p>
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 mb-2">Perfil Criado</p>
+      <h2 className="text-[1.5rem] font-semibold tracking-tight text-zinc-900 mb-2">Talento adicionado ao elenco</h2>
+      <p className="text-[14px] text-zinc-500 mb-1">Redirecionando para a lista de talentos…</p>
       <p className="text-[12px] text-zinc-400 flex items-center justify-center gap-1.5 mt-4">
         <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
         </svg>
-        Please wait
+        Aguarde
       </p>
     </div>
   );
@@ -151,8 +151,8 @@ export default function CreateTalentForm() {
 
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Roster</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Add Talent</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">Create a new profile and add it to your talent roster.</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Adicionar Talento</h1>
+        <p className="text-[13px] text-zinc-400 mt-1">Crie um novo perfil e adicione ao seu elenco de talentos.</p>
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
@@ -163,7 +163,7 @@ export default function CreateTalentForm() {
             <svg className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <p className="text-[13px] text-rose-600">Please fix the errors below before continuing.</p>
+            <p className="text-[13px] text-rose-600">Corrija os erros abaixo antes de continuar.</p>
           </div>
         )}
 
@@ -178,12 +178,12 @@ export default function CreateTalentForm() {
 
         {/* ── Basic Info ── */}
         <div className={card}>
-          <p className={sectionHeader}>Basic Info</p>
+          <p className={sectionHeader}>Informações Básicas</p>
           <div className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <label className={labelClass}>
-                  Full Name <span className="text-rose-400">*</span>
+                  Nome Completo <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -195,14 +195,14 @@ export default function CreateTalentForm() {
                 <FieldError msg={errors.name} />
               </div>
               <div>
-                <label className={labelClass}>Category</label>
+                <label className={labelClass}>Categoria</label>
                 <div className="relative">
                   <select
                     value={form.category}
                     onChange={(e) => set("category", e.target.value)}
                     className={`${inputCls(false)} appearance-none pr-10 cursor-pointer`}
                   >
-                    <option value="">Select a category…</option>
+                    <option value="">Selecione uma categoria…</option>
                     {CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
@@ -225,7 +225,7 @@ export default function CreateTalentForm() {
               </label>
               <textarea
                 rows={4}
-                placeholder="Tell us about this talent — their niche, style, and what makes them stand out…"
+                placeholder="Conte sobre este talento — nicho, estilo e o que o diferencia…"
                 value={form.bio}
                 onChange={(e) => set("bio", e.target.value)}
                 className={`${inputCls(!!errors.bio)} resize-none leading-relaxed`}
@@ -234,7 +234,7 @@ export default function CreateTalentForm() {
             </div>
 
             <div>
-              <label className={labelClass}>Location</label>
+              <label className={labelClass}>Localização</label>
               <input
                 type="text"
                 placeholder="São Paulo, BR"
@@ -242,14 +242,14 @@ export default function CreateTalentForm() {
                 onChange={(e) => set("location", e.target.value)}
                 className={inputCls(false)}
               />
-              <p className="text-[11px] text-zinc-400 mt-1">City, Country — e.g. São Paulo, Brazil</p>
+              <p className="text-[11px] text-zinc-400 mt-1">Cidade, País — ex: São Paulo, Brasil</p>
             </div>
           </div>
         </div>
 
         {/* ── Social Links ── */}
         <div className={card}>
-          <p className={sectionHeader}>Social Links</p>
+          <p className={sectionHeader}>Redes Sociais</p>
           <div className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {([
@@ -298,7 +298,7 @@ export default function CreateTalentForm() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                 </svg>
-                Saving…
+                Salvando…
               </>
             ) : (
               <>
@@ -306,7 +306,7 @@ export default function CreateTalentForm() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                Create Profile
+                Criar Perfil
               </>
             )}
           </button>
@@ -315,7 +315,7 @@ export default function CreateTalentForm() {
             onClick={() => router.push("/agency/talent")}
             className="text-[14px] font-medium text-zinc-400 hover:text-zinc-700 px-4 py-3 rounded-xl hover:bg-zinc-50 transition-all duration-150 cursor-pointer"
           >
-            Cancel
+            Cancelar
           </button>
         </div>
 

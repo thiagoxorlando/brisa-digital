@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useSubscription } from "@/lib/SubscriptionContext";
+import PaywallModal from "@/components/agency/PaywallModal";
 
 // ─── Types & constants ────────────────────────────────────────────────────────
 
@@ -15,11 +16,16 @@ type FormData = {
   budget: string;
   deadline: string;
   job_date: string;
+  job_time: string;
+  job_role: string;
   location: string;
   gender: string;
   age_min: string;
   age_max: string;
   number_of_talents_required: string;
+  auto_invite: boolean;
+  visibility: "public" | "private";
+  application_requirements: string[];
 };
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
@@ -58,6 +64,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const DESC_MAX = 600;
 
+const APPLICATION_REQUIREMENT_OPTIONS = [
+  { value: "photos",     label: "Fotos" },
+  { value: "video",      label: "Vídeo" },
+  { value: "curriculum", label: "Currículo" },
+  { value: "portfolio",  label: "Portfólio" },
+];
+
 const INITIAL: FormData = {
   title: "",
   description: "",
@@ -65,11 +78,16 @@ const INITIAL: FormData = {
   budget: "",
   deadline: "",
   job_date: "",
+  job_time: "",
+  job_role: "",
   location: "",
   gender: "any",
   age_min: "",
   age_max: "",
   number_of_talents_required: "1",
+  auto_invite: false,
+  visibility: "public",
+  application_requirements: [],
 };
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -326,7 +344,7 @@ function SuccessScreen({ title, draft }: { title: string; draft?: boolean }) {
 
 export default function PostJobForm() {
   const router = useRouter();
-  const { isActive } = useSubscription();
+  const { isActive, isPremium } = useSubscription();
   const [form, setForm]       = useState<FormData>(INITIAL);
   const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -335,12 +353,16 @@ export default function PostJobForm() {
   const [loading, setLoading]       = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [postedTitle, setPostedTitle] = useState("");
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   const errors    = validate(form);
   const hasErrors = Object.keys(errors).length > 0;
 
   function set<K extends keyof FormData>(k: K, v: string) {
     setForm((p) => ({ ...p, [k]: v }));
+  }
+  function toggle(k: keyof FormData) {
+    setForm((p) => ({ ...p, [k]: !(p[k] as boolean) }));
   }
   function touch(k: keyof FormData) {
     setTouched((p) => ({ ...p, [k]: true }));
@@ -366,18 +388,27 @@ export default function PostJobForm() {
         budget: Number(form.budget),
         deadline: form.deadline,
         job_date: form.job_date || null,
+        job_time: form.job_time.trim() || null,
+        job_role: form.job_role.trim() || null,
         agency_id: user.id,
         location: form.location.trim() || null,
         gender: form.gender !== "any" ? form.gender : null,
         age_min: form.age_min ? Number(form.age_min) : null,
         age_max: form.age_max ? Number(form.age_max) : null,
         number_of_talents_required: Number(form.number_of_talents_required) || 1,
+        auto_invite: status === "open" ? form.auto_invite : false,
+        visibility: isPremium ? form.visibility : "public",
+        application_requirements: form.application_requirements,
         status,
       }),
     });
     if (!res.ok) {
-      const { error } = await res.json();
-      setSubmitError(error ?? "Algo deu errado. Tente novamente.");
+      const body = await res.json();
+      if (body.error === "plan_limit") {
+        setPaywallOpen(true);
+        return false;
+      }
+      setSubmitError(body.error ?? "Algo deu errado. Tente novamente.");
       return false;
     }
     return true;
@@ -425,6 +456,7 @@ export default function PostJobForm() {
 
   return (
     <div className="max-w-5xl space-y-8">
+      {paywallOpen && <PaywallModal variant="limit" onClose={() => setPaywallOpen(false)} />}
 
       {/* ── Page header ── */}
       <div>
@@ -591,6 +623,27 @@ export default function PostJobForm() {
                   className={`${base} ${ring()} px-4 py-3`}
                 />
               </Field>
+
+              {/* Job Time */}
+              <Field label="Horário da Vaga">
+                <input
+                  type="time"
+                  value={form.job_time}
+                  onChange={(e) => set("job_time", e.target.value)}
+                  className={`${base} ${ring()} px-4 py-3`}
+                />
+              </Field>
+
+              {/* Job Role */}
+              <Field label="Função / Cargo">
+                <input
+                  type="text"
+                  value={form.job_role}
+                  onChange={(e) => set("job_role", e.target.value)}
+                  placeholder="ex: Modelo, Ator, Apresentador"
+                  className={`${base} ${ring()} px-4 py-3`}
+                />
+              </Field>
             </div>
 
             {/* Gender + Age range */}
@@ -650,6 +703,114 @@ export default function PostJobForm() {
                 className={`${base} ${ring()} px-4 py-3`}
               />
             </Field>
+
+            {/* Application requirements */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[13px] font-medium text-zinc-500 tracking-tight">
+                O que o talento deve enviar ao se candidatar?
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {APPLICATION_REQUIREMENT_OPTIONS.map((opt) => {
+                  const checked = form.application_requirements.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setForm((p) => ({
+                        ...p,
+                        application_requirements: checked
+                          ? p.application_requirements.filter((v) => v !== opt.value)
+                          : [...p.application_requirements, opt.value],
+                      }))}
+                      className={[
+                        "px-3.5 py-2 rounded-xl text-[13px] font-medium border transition-colors cursor-pointer",
+                        checked
+                          ? "bg-zinc-900 text-white border-zinc-900"
+                          : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400",
+                      ].join(" ")}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[12px] text-zinc-400">Opcional. Deixe em branco para aceitar qualquer candidatura.</p>
+            </div>
+
+            {/* Private job toggle — premium only */}
+            {isPremium && (
+              <button
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, visibility: p.visibility === "private" ? "public" : "private" }))}
+                className={[
+                  "w-full flex items-start gap-4 px-5 py-4 rounded-2xl border text-left transition-all cursor-pointer",
+                  form.visibility === "private"
+                    ? "bg-violet-50 border-violet-200"
+                    : "bg-zinc-50 border-zinc-100 hover:border-zinc-200",
+                ].join(" ")}
+              >
+                <div className={[
+                  "relative flex-shrink-0 w-10 h-6 rounded-full transition-colors mt-0.5",
+                  form.visibility === "private" ? "bg-violet-600" : "bg-zinc-300",
+                ].join(" ")}>
+                  <div className={[
+                    "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                    form.visibility === "private" ? "translate-x-5" : "translate-x-1",
+                  ].join(" ")} />
+                </div>
+                <div>
+                  <p className={[
+                    "text-[14px] font-semibold",
+                    form.visibility === "private" ? "text-violet-900" : "text-zinc-700",
+                  ].join(" ")}>
+                    Vaga privada (apenas convidados)
+                  </p>
+                  <p className={[
+                    "text-[12px] mt-0.5 leading-relaxed",
+                    form.visibility === "private" ? "text-violet-600" : "text-zinc-400",
+                  ].join(" ")}>
+                    A vaga não aparece no marketplace público. Somente talentos que você convidar poderão se candidatar.
+                  </p>
+                </div>
+              </button>
+            )}
+
+            {/* Auto-invite toggle */}
+            <button
+              type="button"
+              onClick={() => toggle("auto_invite")}
+              className={[
+                "w-full flex items-start gap-4 px-5 py-4 rounded-2xl border text-left transition-all cursor-pointer",
+                form.auto_invite
+                  ? "bg-violet-50 border-violet-200"
+                  : "bg-zinc-50 border-zinc-100 hover:border-zinc-200",
+              ].join(" ")}
+            >
+              {/* Toggle pill */}
+              <div className={[
+                "relative flex-shrink-0 w-10 h-6 rounded-full transition-colors mt-0.5",
+                form.auto_invite ? "bg-violet-600" : "bg-zinc-300",
+              ].join(" ")}>
+                <div className={[
+                  "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                  form.auto_invite ? "translate-x-5" : "translate-x-1",
+                ].join(" ")} />
+              </div>
+              <div>
+                <p className={[
+                  "text-[14px] font-semibold",
+                  form.auto_invite ? "text-violet-900" : "text-zinc-700",
+                ].join(" ")}>
+                  Convidar talentos compatíveis automaticamente
+                </p>
+                <p className={[
+                  "text-[12px] mt-0.5 leading-relaxed",
+                  form.auto_invite ? "text-violet-600" : "text-zinc-400",
+                ].join(" ")}>
+                  Ao publicar, enviaremos convites para até 5 talentos disponíveis na data da vaga com perfil compatível com o seu histórico.
+                </p>
+              </div>
+            </button>
           </div>
 
           {/* Submit */}

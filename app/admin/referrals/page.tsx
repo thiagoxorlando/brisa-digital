@@ -12,7 +12,7 @@ export default async function AdminReferralsPage() {
   // All submissions with a referrer
   const { data: subs } = await supabase
     .from("submissions")
-    .select("id, job_id, talent_user_id, talent_name, referrer_id, status, created_at")
+    .select("id, job_id, talent_user_id, talent_name, email, referrer_id, status, created_at")
     .not("referrer_id", "is", null)
     .order("created_at", { ascending: false });
 
@@ -22,11 +22,14 @@ export default async function AdminReferralsPage() {
   const talentIds   = [...new Set(subs.map((s) => s.talent_user_id).filter(Boolean))] as string[];
   const referrerIds = [...new Set(subs.map((s) => s.referrer_id).filter(Boolean))] as string[];
 
-  const [jobsRes, talentRes, referrerRes, bookingsRes] = await Promise.all([
+  const subIds = subs.map((s) => s.id);
+
+  const [jobsRes, talentRes, referrerRes, bookingsRes, invitesRes] = await Promise.all([
     jobIds.length      ? supabase.from("jobs").select("id, title, agency_id").in("id", jobIds)           : Promise.resolve({ data: [] }),
     talentIds.length   ? supabase.from("talent_profiles").select("id, full_name").in("id", talentIds)    : Promise.resolve({ data: [] }),
     referrerIds.length ? supabase.from("talent_profiles").select("id, full_name").in("id", referrerIds)  : Promise.resolve({ data: [] }),
     jobIds.length      ? supabase.from("bookings").select("job_id, talent_user_id, price").in("job_id", jobIds) : Promise.resolve({ data: [] }),
+    subIds.length      ? supabase.from("referral_invites").select("id, submission_id, referred_email").in("submission_id", subIds) : Promise.resolve({ data: [] }),
   ]);
 
   const agencyIds = [...new Set((jobsRes.data ?? []).map((j: any) => j.agency_id).filter(Boolean))] as string[];
@@ -39,6 +42,9 @@ export default async function AdminReferralsPage() {
   const referrerMap = new Map<string, string>((referrerRes.data ?? []).map((t: any) => [t.id, t.full_name ?? ""]));
   const agencyMap   = new Map<string, string>((agenciesRes.data ?? []).map((a: any) => [a.id, a.company_name ?? ""]));
   const bookingMap  = new Map<string, number>((bookingsRes.data ?? []).map((b: any) => [`${b.job_id}::${b.talent_user_id}`, Number(b.price ?? 0)]));
+  const inviteBySubmission = new Map<string, { id: string; email: string | null }>(
+    (invitesRes.data ?? []).map((i: any) => [i.submission_id, { id: i.id, email: i.referred_email ?? null }])
+  );
 
   const referrals = subs.map((s) => {
     const job          = s.job_id ? jobMap.get(s.job_id) : null;
@@ -56,6 +62,10 @@ export default async function AdminReferralsPage() {
       booked:           bookingValue > 0,
       bookingValue,
       referralPayout:   bookingValue > 0 ? Math.round(bookingValue * REFERRAL_RATE) : 0,
+      hasAccount:       !!s.talent_user_id,
+      submissionId:     String(s.id),
+      inviteId:         inviteBySubmission.get(s.id)?.id ?? null,
+      inviteEmail:      inviteBySubmission.get(s.id)?.email ?? s.email ?? s.talent_name ?? null,
     };
   });
 

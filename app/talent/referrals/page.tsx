@@ -3,9 +3,7 @@ import TalentReferrals from "@/features/talent/TalentReferrals";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
-export const metadata: Metadata = { title: "Referrals — Brisa Digital" };
-
-const REFERRAL_RATE = 0.02;
+export const metadata: Metadata = { title: "Indicações — Brisa Digital" };
 
 export default async function TalentReferralsPage() {
   const session = await createSessionClient();
@@ -23,6 +21,18 @@ export default async function TalentReferralsPage() {
     .order("created_at", { ascending: false });
 
   if (!subs || subs.length === 0) return <TalentReferrals referrals={[]} />;
+
+  // Referral invites created by this user
+  const { data: invites } = await supabase
+    .from("referral_invites")
+    .select("id, submission_id, status, commission_paid")
+    .eq("referrer_id", user.id);
+
+  const inviteBySubmission = new Map<string, { id: string; status: string; commission_paid: number | null }>(
+    (invites ?? [])
+      .filter((i: any) => i.submission_id)
+      .map((i: any) => [i.submission_id, { id: i.id, status: i.status, commission_paid: i.commission_paid ?? null }])
+  );
 
   const jobIds    = [...new Set(subs.map((s) => s.job_id).filter(Boolean))] as string[];
   const talentIds = [...new Set(subs.map((s) => s.talent_user_id).filter(Boolean))] as string[];
@@ -44,8 +54,9 @@ export default async function TalentReferralsPage() {
   const bookedSet  = new Set<string>((bookingsRes.data ?? []).map((b: any) => `${b.job_id}::${b.talent_user_id}`));
 
   const referrals = subs.map((s) => {
-    const job = s.job_id ? jobMap.get(s.job_id) : null;
+    const job    = s.job_id ? jobMap.get(s.job_id) : null;
     const booked = !!(s.job_id && s.talent_user_id && bookedSet.has(`${s.job_id}::${s.talent_user_id}`));
+    const invite = inviteBySubmission.get(s.id);
     return {
       id:               String(s.id),
       jobTitle:         job?.title ?? "—",
@@ -54,6 +65,10 @@ export default async function TalentReferralsPage() {
       submittedAt:      s.created_at ?? "",
       submissionStatus: s.status ?? "pending",
       booked,
+      commissionAmount: invite?.commission_paid ?? null,
+      fraudReported:    invite?.status === "fraud_reported",
+      referralInviteId: invite?.id ?? null,
+      hasAccount:       !!s.talent_user_id,
     };
   });
 

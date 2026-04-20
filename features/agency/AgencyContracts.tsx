@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
+import { useSubscription } from "@/lib/SubscriptionContext";
 
 export type AgencyContract = {
   id: string;
@@ -142,7 +143,7 @@ function ContractCard({
   const { t, lang } = useT();
   const stCls   = STATUS_CLS[c.status] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
   const stLabel = t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
-  const isPaid  = c.paymentStatus === "paid";
+  const isPaid  = c.status === "paid";
 
   const isJobPast = jobDatePassed(c.jobDate);
 
@@ -392,6 +393,7 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
   const [contracts, setContracts] = useState<AgencyContract[]>(initialContracts);
   const [filter, setFilter]       = useState<FilterStatus>("all");
   const { t } = useT();
+  const { commissionLabel, talentShareLabel } = useSubscription();
 
   function handleUpdate(id: string, updates: Partial<AgencyContract>) {
     setContracts((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
@@ -446,9 +448,9 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          {t("finances_platform_commission")}: <strong className="text-zinc-600 ml-1">15%</strong>
+          {t("finances_platform_commission")}: <strong className="text-zinc-600 ml-1">{commissionLabel}</strong>
           <span className="mx-1">·</span>
-          {t("nav_talent")}: <strong className="text-zinc-600 ml-1">85%</strong>
+          {t("nav_talent")}: <strong className="text-zinc-600 ml-1">{talentShareLabel}</strong>
           <span className="mx-1">·</span>
           <strong className="text-violet-600">+2% {t("finances_referral_payouts")}</strong>
           <span className="text-zinc-300 ml-1">(se aplicável)</span>

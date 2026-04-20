@@ -19,6 +19,8 @@ export type AdminJob = {
   ageMin: number | null;
   ageMax: number | null;
   jobDate: string | null;
+  assignedTalents?: { id: string; name: string; status: string }[];
+  invitedTalents?:  { id: string; name: string; status: string }[];
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -30,18 +32,18 @@ const STATUS_STYLES: Record<string, string> = {
 
 const JOB_STATUSES = ["open", "draft", "closed", "inactive"];
 
-function usd(n: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+function brl(n: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
 }
 
 function formatDate(s: string | null) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function formatJobDate(s: string | null) {
   if (!s) return null;
-  return new Date(s + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return new Date(s + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 function ConfirmDialog({ message, onConfirm, onCancel }: { message: string; onConfirm: () => void; onCancel: () => void }) {
@@ -52,15 +54,61 @@ function ConfirmDialog({ message, onConfirm, onCancel }: { message: string; onCo
         <div className="flex gap-3">
           <button onClick={onCancel}
             className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer">
-            Cancel
+            Cancelar
           </button>
           <button onClick={onConfirm}
             className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[13px] font-semibold transition-colors cursor-pointer">
-            Move to Trash
+            Mover para Lixeira
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+const CONTRACT_STATUS_LABEL: Record<string, string> = {
+  sent:      "Contrato Enviado",
+  signed:    "Contrato Assinado",
+  confirmed: "Confirmado",
+  paid:      "Pago",
+};
+
+const CONTRACT_STATUS_CLS: Record<string, string> = {
+  sent:      "bg-violet-50 text-violet-700 ring-1 ring-violet-100",
+  signed:    "bg-sky-50 text-sky-700 ring-1 ring-sky-100",
+  confirmed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  paid:      "bg-teal-50 text-teal-700 ring-1 ring-teal-100",
+};
+
+function ContractStatusBadge({ status }: { status: string }) {
+  const cls = CONTRACT_STATUS_CLS[status] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>
+      {CONTRACT_STATUS_LABEL[status] ?? status}
+    </span>
+  );
+}
+
+const SUB_STATUS_LABEL: Record<string, string> = {
+  pending:  "Pendente",
+  selected: "Selecionado",
+  approved: "Aprovado",
+  rejected: "Recusado",
+};
+
+const SUB_STATUS_CLS: Record<string, string> = {
+  pending:  "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
+  selected: "bg-sky-50 text-sky-700 ring-1 ring-sky-100",
+  approved: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  rejected: "bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200",
+};
+
+function SubmissionStatusBadge({ status }: { status: string }) {
+  const cls = SUB_STATUS_CLS[status] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>
+      {SUB_STATUS_LABEL[status] ?? status}
+    </span>
   );
 }
 
@@ -102,17 +150,17 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
   }
 
   const detailItems = [
-    { label: "Agency",      value: localJob.agencyName },
-    { label: "Status",      value: localJob.status },
-    { label: "Budget",      value: localJob.budget ? usd(localJob.budget) : "—" },
-    { label: "Applications",value: String(localJob.submissionCount) },
-    { label: "Category",    value: localJob.category ?? "—" },
-    { label: "Location",    value: localJob.location ?? "—" },
-    { label: "Gender",      value: localJob.gender ?? "—" },
-    { label: "Age Range",   value: localJob.ageMin || localJob.ageMax ? `${localJob.ageMin ?? "Any"} – ${localJob.ageMax ?? "Any"}` : "—" },
-    { label: "Job Date",    value: formatJobDate(localJob.jobDate) ?? "—" },
-    { label: "Deadline",    value: formatDate(localJob.deadline) },
-    { label: "Posted",      value: formatDate(localJob.created_at) },
+    { label: "Agência",      value: localJob.agencyName },
+    { label: "Status",       value: localJob.status },
+    { label: "Orçamento",    value: localJob.budget ? brl(localJob.budget) : "—" },
+    { label: "Candidaturas", value: String(localJob.submissionCount) },
+    { label: "Categoria",    value: localJob.category ?? "—" },
+    { label: "Localização",  value: localJob.location ?? "—" },
+    { label: "Gênero",       value: localJob.gender ?? "—" },
+    { label: "Faixa Etária", value: localJob.ageMin || localJob.ageMax ? `${localJob.ageMin ?? "Qualquer"} – ${localJob.ageMax ?? "Qualquer"}` : "—" },
+    { label: "Data da Vaga", value: formatJobDate(localJob.jobDate) ?? "—" },
+    { label: "Prazo",        value: formatDate(localJob.deadline) },
+    { label: "Publicado",    value: formatDate(localJob.created_at) },
   ];
 
   return (
@@ -150,11 +198,14 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
         </td>
         <td className="px-4 py-4 text-right hidden md:table-cell">
           <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">
-            {localJob.budget ? usd(localJob.budget) : "—"}
+            {localJob.budget ? brl(localJob.budget) : "—"}
           </span>
         </td>
         <td className="px-4 py-4 text-right hidden md:table-cell">
           <span className="text-[13px] text-zinc-500 tabular-nums">{localJob.submissionCount}</span>
+        </td>
+        <td className="px-4 py-4 hidden lg:table-cell">
+          <span className="text-[13px] text-zinc-500">{localJob.jobDate ? formatJobDate(localJob.jobDate) : "—"}</span>
         </td>
         <td className="px-4 py-4 hidden lg:table-cell">
           <span className="text-[13px] text-zinc-500">{localJob.deadline ? formatDate(localJob.deadline) : "—"}</span>
@@ -166,11 +217,11 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
           <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => { setEditing((v) => !v); setExpanded(true); }}
               className="text-[11px] font-medium text-zinc-400 hover:text-zinc-800 transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-zinc-100">
-              Edit
+              Editar
             </button>
             <button onClick={() => setConfirm(true)}
               className="text-[11px] font-medium text-rose-400 hover:text-rose-600 transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-rose-50">
-              Delete
+              Excluir
             </button>
           </div>
         </td>
@@ -178,14 +229,14 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
 
       {expanded && (
         <tr>
-          <td colSpan={9} className="px-0 py-0">
+          <td colSpan={10} className="px-0 py-0">
             <div className="border-t border-zinc-50 bg-zinc-50/60 px-6 py-5 space-y-4">
               {editing ? (
                 <div className="space-y-4 max-w-xl">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Edit Job</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Editar Vaga</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Title</label>
+                      <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Título</label>
                       <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
                         className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none bg-white" />
                     </div>
@@ -197,12 +248,12 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
                       </select>
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Budget (USD)</label>
+                      <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Orçamento (R$)</label>
                       <input type="number" value={editBudget} onChange={(e) => setEditBudget(e.target.value)}
                         className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none bg-white" />
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Deadline</label>
+                      <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-widest mb-1 block">Prazo</label>
                       <input type="date" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)}
                         className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 focus:border-zinc-900 focus:outline-none bg-white" />
                     </div>
@@ -210,11 +261,11 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
                   <div className="flex gap-2">
                     <button onClick={handleSave} disabled={saving}
                       className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white text-[12px] font-semibold rounded-xl transition-colors cursor-pointer">
-                      {saving ? "Saving…" : "Save Changes"}
+                      {saving ? "Salvando…" : "Salvar"}
                     </button>
                     <button onClick={() => setEditing(false)}
                       className="px-4 py-2 bg-white border border-zinc-200 text-zinc-600 text-[12px] font-medium rounded-xl hover:border-zinc-300 transition-colors cursor-pointer">
-                      Cancel
+                      Cancelar
                     </button>
                   </div>
                 </div>
@@ -230,8 +281,38 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
                   </div>
                   {localJob.description && (
                     <div>
-                      <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-1">Description</p>
+                      <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-1">Descrição</p>
                       <p className="text-[13px] text-zinc-600 leading-relaxed whitespace-pre-line max-w-2xl">{localJob.description}</p>
+                    </div>
+                  )}
+                  {localJob.assignedTalents && localJob.assignedTalents.length > 0 && (
+                    <div>
+                      <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-2">
+                        Talentos com Contrato ({localJob.assignedTalents.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {localJob.assignedTalents.map((t) => (
+                          <div key={t.id} className="flex items-center gap-1.5 bg-white border border-zinc-100 rounded-full pl-2.5 pr-1.5 py-1 shadow-sm">
+                            <span className="text-[12px] font-medium text-zinc-800">{t.name}</span>
+                            <ContractStatusBadge status={t.status} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {localJob.invitedTalents && localJob.invitedTalents.length > 0 && (
+                    <div>
+                      <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-2">
+                        Candidatos ({localJob.invitedTalents.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {localJob.invitedTalents.map((t) => (
+                          <div key={t.id} className="flex items-center gap-1.5 bg-white border border-zinc-100 rounded-full pl-2.5 pr-1.5 py-1 shadow-sm">
+                            <span className="text-[12px] font-medium text-zinc-800">{t.name}</span>
+                            <SubmissionStatusBadge status={t.status} />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </>
@@ -269,9 +350,9 @@ export default function AdminJobs({ jobs: initialJobs }: { jobs: AdminJob[] }) {
     <div className="max-w-7xl space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Platform Admin</p>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Jobs</h1>
-          <p className="text-[13px] text-zinc-400 mt-1">{jobs.length} total jobs</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Admin da Plataforma</p>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Vagas</h1>
+          <p className="text-[13px] text-zinc-400 mt-1">{jobs.length} vagas no total</p>
         </div>
       </div>
 
@@ -281,7 +362,7 @@ export default function AdminJobs({ jobs: initialJobs }: { jobs: AdminJob[] }) {
             fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input type="text" placeholder="Search jobs…" value={search}
+          <input type="text" placeholder="Buscar vagas…" value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-[13px] bg-white border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors" />
         </div>
@@ -301,14 +382,15 @@ export default function AdminJobs({ jobs: initialJobs }: { jobs: AdminJob[] }) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-100">
-                <th className="text-left px-6 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap">Title</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap">Agency</th>
+                <th className="text-left px-6 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap">Título</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap">Agência</th>
                 <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden sm:table-cell">Status</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden sm:table-cell">Category</th>
-                <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden md:table-cell">Budget</th>
-                <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden md:table-cell">Apps</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden lg:table-cell">Deadline</th>
-                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden lg:table-cell">Posted</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden sm:table-cell">Categoria</th>
+                <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden md:table-cell">Orçamento</th>
+                <th className="text-right px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden md:table-cell">Cands.</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden lg:table-cell">Data da Vaga</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden lg:table-cell">Prazo</th>
+                <th className="text-left px-4 py-3.5 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 whitespace-nowrap hidden lg:table-cell">Publicado</th>
                 <th className="px-4 py-3.5 w-24" />
               </tr>
             </thead>
@@ -318,9 +400,9 @@ export default function AdminJobs({ jobs: initialJobs }: { jobs: AdminJob[] }) {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-6 py-16 text-center">
-                    <p className="text-[14px] font-medium text-zinc-500">No jobs found</p>
-                    <p className="text-[13px] text-zinc-400 mt-1">Try adjusting your search or filter.</p>
+                  <td colSpan={10} className="px-6 py-16 text-center">
+                    <p className="text-[14px] font-medium text-zinc-500">Nenhuma vaga encontrada</p>
+                    <p className="text-[13px] text-zinc-400 mt-1">Tente ajustar a busca ou o filtro.</p>
                   </td>
                 </tr>
               )}
@@ -328,7 +410,7 @@ export default function AdminJobs({ jobs: initialJobs }: { jobs: AdminJob[] }) {
           </table>
         </div>
         <div className="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50">
-          <p className="text-[12px] text-zinc-400 font-medium">{filtered.length} of {jobs.length} jobs</p>
+          <p className="text-[12px] text-zinc-400 font-medium">{filtered.length} de {jobs.length} vagas</p>
         </div>
       </div>
     </div>

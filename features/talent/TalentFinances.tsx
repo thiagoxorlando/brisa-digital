@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 const TALENT_RATE   = 0.85; // 85% of deal value
 const REFERRAL_RATE = 0.02; // 2% referral commission
 
-function usd(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
+function brl(n: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL", maximumFractionDigits: 0,
   }).format(n);
 }
 
@@ -51,11 +52,11 @@ const STATUS_CLS: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  paid:            "Paid",
-  confirmed:       "Paid",
-  pending_payment: "Pending Payment",
-  pending:         "Pending",
-  cancelled:       "Cancelled",
+  paid:            "Pago",
+  confirmed:       "Pago",
+  pending_payment: "Aguardando Pagamento",
+  pending:         "Pendente",
+  cancelled:       "Cancelado",
 };
 
 function StatCard({ label, value, sub, stripe }: { label: string; value: string; sub?: string; stripe: string }) {
@@ -71,6 +72,184 @@ function StatCard({ label, value, sub, stripe }: { label: string; value: string;
   );
 }
 
+// ── PIX account setup ─────────────────────────────────────────────────────────
+
+type PixKeyType = "cpf" | "cnpj" | "email" | "phone" | "random";
+
+const PIX_LABELS: Record<PixKeyType, string> = {
+  cpf:    "CPF",
+  cnpj:   "CNPJ",
+  email:  "E-mail",
+  phone:  "Telefone",
+  random: "Chave Aleatória",
+};
+
+const PIX_PLACEHOLDERS: Record<PixKeyType, string> = {
+  cpf:    "000.000.000-00",
+  cnpj:   "00.000.000/0001-00",
+  email:  "voce@exemplo.com",
+  phone:  "+55 11 91234-5678",
+  random: "Chave aleatória gerada pelo banco",
+};
+
+function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => void }) {
+  const [keyType,  setKeyType]  = useState<PixKeyType>("cpf");
+  const [keyValue, setKeyValue] = useState("");
+  const [savedType,  setSavedType]  = useState<PixKeyType | null>(null);
+  const [savedValue, setSavedValue] = useState<string | null>(null);
+  const [editing,  setEditing]  = useState(false);
+  const [saving,   setSaving]   = useState(false);
+  const [loadDone, setLoadDone] = useState(false);
+
+  // Load existing Pix key from DB on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setLoadDone(true); return; }
+      const { data } = await supabase
+        .from("talent_profiles")
+        .select("pix_key_type, pix_key_value")
+        .eq("id", user.id)
+        .single();
+      if ((data as any)?.pix_key_value) {
+        const t = ((data as any).pix_key_type ?? "cpf") as PixKeyType;
+        const v = (data as any).pix_key_value as string;
+        setSavedType(t);
+        setSavedValue(v);
+        setKeyType(t);
+        setKeyValue(v);
+        onSaved(t, v);
+      }
+      setLoadDone(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!keyValue.trim()) return;
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("talent_profiles").update({
+        pix_key_type:  keyType,
+        pix_key_value: keyValue.trim(),
+      }).eq("id", user.id);
+    }
+    setSaving(false);
+    setSavedType(keyType);
+    setSavedValue(keyValue.trim());
+    setEditing(false);
+    onSaved(keyType, keyValue.trim());
+  }
+
+  if (!loadDone) return null;
+
+  const isRegistered = !!savedValue && !editing;
+
+  return (
+    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-50">
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${isRegistered ? "bg-emerald-50 border border-emerald-100" : "bg-zinc-50 border border-zinc-100"}`}>
+            <svg className={`w-4 h-4 ${isRegistered ? "text-emerald-600" : "text-zinc-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Recebimentos</p>
+            <p className="text-[15px] font-semibold text-zinc-900">Chave PIX</p>
+          </div>
+        </div>
+        {isRegistered && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-[12px] font-medium text-zinc-500 hover:text-zinc-800 border border-zinc-200 hover:border-zinc-300 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
+          >
+            Editar
+          </button>
+        )}
+      </div>
+
+      <div className="px-6 py-5">
+        {/* Registered — display mode */}
+        {isRegistered ? (
+          <div className="flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex text-[11px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 px-2.5 py-0.5 rounded-full">
+                  {PIX_LABELS[savedType!]}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Cadastrada
+                </span>
+              </div>
+              <p className="text-[14px] font-semibold text-zinc-900 truncate">{savedValue}</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">Seus saques serão enviados para esta chave.</p>
+            </div>
+          </div>
+        ) : (
+          /* Form mode */
+          <form onSubmit={handleSave} className="space-y-4">
+            {!savedValue && (
+              <p className="text-[12px] text-zinc-400 leading-relaxed">
+                Cadastre sua chave PIX para habilitar saques direto na sua conta.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1.5">Tipo de Chave</label>
+                <select
+                  value={keyType}
+                  onChange={(e) => { setKeyType(e.target.value as PixKeyType); setKeyValue(""); }}
+                  className="w-full px-3 py-2.5 text-[13px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none bg-white transition-colors"
+                >
+                  {(Object.keys(PIX_LABELS) as PixKeyType[]).map((k) => (
+                    <option key={k} value={k}>{PIX_LABELS[k]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1.5">Chave PIX</label>
+                <input
+                  type="text"
+                  value={keyValue}
+                  onChange={(e) => setKeyValue(e.target.value)}
+                  placeholder={PIX_PLACEHOLDERS[keyType]}
+                  className="w-full px-3 py-2.5 text-[13px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none bg-white transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={saving || !keyValue.trim()}
+                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+              >
+                {saving ? "Salvando…" : "Salvar Chave PIX"}
+              </button>
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => { setEditing(false); setKeyType(savedType!); setKeyValue(savedValue!); }}
+                  className="text-[13px] font-medium text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type WithdrawState = "idle" | "loading" | "success" | "error";
 
 export default function TalentFinances() {
@@ -80,116 +259,124 @@ export default function TalentFinances() {
   const [loading, setLoading]           = useState(true);
   const [withdrawState, setWithdrawState] = useState<WithdrawState>("idle");
   const [withdrawMsg, setWithdrawMsg]   = useState("");
+  const [hasPixKey, setHasPixKey]       = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { setLoading(false); return; }
+  async function load(initial = false) {
+    if (initial) setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { if (initial) setLoading(false); return; }
 
-      // My bookings
-      const { data: bookingsData } = await supabase
-        .from("bookings")
-        .select("id, job_title, price, status, created_at, job_id")
-        .eq("talent_user_id", user.id)
-        .order("created_at", { ascending: false });
+    // My bookings
+    const { data: bookingsData } = await supabase
+      .from("bookings")
+      .select("id, job_title, price, status, created_at, job_id")
+      .eq("talent_user_id", user.id)
+      .order("created_at", { ascending: false });
 
-      // Fetch job requirements (gender, age)
-      const jobIds = [...new Set((bookingsData ?? []).map((b) => b.job_id).filter(Boolean))];
-      const jobReqMap = new Map<string, { gender: string | null; age_min: number | null; age_max: number | null }>();
-      if (jobIds.length) {
-        const { data: jobsData } = await supabase
-          .from("jobs")
-          .select("id, gender, age_min, age_max")
-          .in("id", jobIds);
-        for (const j of jobsData ?? []) {
-          jobReqMap.set(j.id, { gender: j.gender ?? null, age_min: j.age_min ?? null, age_max: j.age_max ?? null });
-        }
+    // Fetch job requirements (gender, age)
+    const jobIds = [...new Set((bookingsData ?? []).map((b) => b.job_id).filter(Boolean))];
+    const jobReqMap = new Map<string, { gender: string | null; age_min: number | null; age_max: number | null }>();
+    if (jobIds.length) {
+      const { data: jobsData } = await supabase
+        .from("jobs")
+        .select("id, gender, age_min, age_max")
+        .in("id", jobIds);
+      for (const j of jobsData ?? []) {
+        jobReqMap.set(j.id, { gender: j.gender ?? null, age_min: j.age_min ?? null, age_max: j.age_max ?? null });
       }
+    }
 
-      setPayments(
-        (bookingsData ?? []).map((b) => {
-          const req = b.job_id ? jobReqMap.get(b.job_id) : null;
-          return {
-            id:       b.id,
-            job:      b.job_title ?? "Untitled job",
-            amount:   b.price ?? 0,
-            earnings: Math.round((b.price ?? 0) * TALENT_RATE),
-            status:   b.status ?? "pending",
-            date:     b.created_at,
-            gender:   req?.gender ?? null,
-            ageMin:   req?.age_min ?? null,
-            ageMax:   req?.age_max ?? null,
-          };
-        })
-      );
+    setPayments(
+      (bookingsData ?? []).map((b) => {
+        const req = b.job_id ? jobReqMap.get(b.job_id) : null;
+        return {
+          id:       b.id,
+          job:      b.job_title ?? "Untitled job",
+          amount:   b.price ?? 0,
+          earnings: Math.round((b.price ?? 0) * TALENT_RATE),
+          status:   b.status ?? "pending",
+          date:     b.created_at,
+          gender:   req?.gender ?? null,
+          ageMin:   req?.age_min ?? null,
+          ageMax:   req?.age_max ?? null,
+        };
+      })
+    );
 
-      // Paid contracts — the source of truth for withdrawals
-      const { data: contractsData } = await supabase
-        .from("contracts")
-        .select("id, job_id, payment_amount, paid_at, withdrawn_at")
-        .eq("talent_id", user.id)
-        .eq("status", "paid")
-        .order("paid_at", { ascending: false });
+    // Paid contracts — the source of truth for withdrawals
+    const { data: contractsData } = await supabase
+      .from("contracts")
+      .select("id, job_id, payment_amount, paid_at, withdrawn_at")
+      .eq("talent_id", user.id)
+      .eq("status", "paid")
+      .order("paid_at", { ascending: false });
 
-      // Resolve job titles for contracts
-      const contractJobIds = [...new Set((contractsData ?? []).map((c) => c.job_id).filter(Boolean))];
-      const contractJobMap = new Map<string, string>();
-      if (contractJobIds.length) {
-        const { data: cJobs } = await supabase
-          .from("jobs").select("id, title").in("id", contractJobIds);
-        for (const j of cJobs ?? []) contractJobMap.set(j.id, j.title ?? "Untitled Job");
-      }
+    // Resolve job titles for contracts
+    const contractJobIds = [...new Set((contractsData ?? []).map((c) => c.job_id).filter(Boolean))];
+    const contractJobMap = new Map<string, string>();
+    if (contractJobIds.length) {
+      const { data: cJobs } = await supabase
+        .from("jobs").select("id, title").in("id", contractJobIds);
+      for (const j of cJobs ?? []) contractJobMap.set(j.id, j.title ?? "Untitled Job");
+    }
 
-      setPaidContracts(
-        (contractsData ?? []).map((c) => ({
-          id:           c.id,
-          jobTitle:     c.job_id ? (contractJobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
-          amount:       c.payment_amount ?? 0,
-          earnings:     Math.round((c.payment_amount ?? 0) * TALENT_RATE),
-          paid_at:      c.paid_at      ?? null,
-          withdrawn_at: c.withdrawn_at ?? null,
+    setPaidContracts(
+      (contractsData ?? []).map((c) => ({
+        id:           c.id,
+        jobTitle:     c.job_id ? (contractJobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
+        amount:       c.payment_amount ?? 0,
+        earnings:     Math.round((c.payment_amount ?? 0) * TALENT_RATE),
+        paid_at:      c.paid_at      ?? null,
+        withdrawn_at: c.withdrawn_at ?? null,
+      }))
+    );
+
+    // Referral earnings: find submissions where I am the referrer
+    const { data: refSubs } = await supabase
+      .from("submissions")
+      .select("talent_user_id, job_id")
+      .eq("referrer_id", user.id)
+      .not("talent_user_id", "is", null);
+
+    if (refSubs && refSubs.length > 0) {
+      const refTalentIds = [...new Set(refSubs.map((s) => s.talent_user_id).filter(Boolean))];
+
+      const [{ data: refBookings }, { data: refTalentProfiles }] = await Promise.all([
+        supabase
+          .from("bookings")
+          .select("id, job_title, talent_user_id, price, created_at")
+          .in("talent_user_id", refTalentIds)
+          .in("status", ["paid", "confirmed"]),
+        supabase
+          .from("talent_profiles")
+          .select("id, full_name")
+          .in("id", refTalentIds),
+      ]);
+
+      const nameMap = new Map<string, string>();
+      for (const p of refTalentProfiles ?? []) nameMap.set(p.id, p.full_name ?? "Sem nome");
+
+      setReferrals(
+        (refBookings ?? []).map((b) => ({
+          id:         b.id,
+          talentName: b.talent_user_id ? (nameMap.get(b.talent_user_id) ?? "Sem nome") : "Sem nome",
+          job:        b.job_title ?? "Untitled job",
+          amount:     b.price ?? 0,
+          commission: Math.round((b.price ?? 0) * REFERRAL_RATE),
+          date:       b.created_at,
         }))
       );
+    }
 
-      // Referral earnings: find submissions where I am the referrer
-      const { data: refSubs } = await supabase
-        .from("submissions")
-        .select("talent_user_id, job_id")
-        .eq("referrer_id", user.id)
-        .not("talent_user_id", "is", null);
+    if (initial) setLoading(false);
+  }
 
-      if (refSubs && refSubs.length > 0) {
-        const refTalentIds = [...new Set(refSubs.map((s) => s.talent_user_id).filter(Boolean))];
+  useEffect(() => { load(true); }, []);
 
-        const [{ data: refBookings }, { data: refTalentProfiles }] = await Promise.all([
-          supabase
-            .from("bookings")
-            .select("id, job_title, talent_user_id, price, created_at")
-            .in("talent_user_id", refTalentIds)
-            .in("status", ["paid", "confirmed"]),
-          supabase
-            .from("talent_profiles")
-            .select("id, full_name")
-            .in("id", refTalentIds),
-        ]);
-
-        const nameMap = new Map<string, string>();
-        for (const p of refTalentProfiles ?? []) nameMap.set(p.id, p.full_name ?? "Unknown");
-
-        setReferrals(
-          (refBookings ?? []).map((b) => ({
-            id:         b.id,
-            talentName: b.talent_user_id ? (nameMap.get(b.talent_user_id) ?? "Unknown") : "Unknown",
-            job:        b.job_title ?? "Untitled job",
-            amount:     b.price ?? 0,
-            commission: Math.round((b.price ?? 0) * REFERRAL_RATE),
-            date:       b.created_at,
-          }))
-        );
-      }
-
-      setLoading(false);
-    });
-  }, []);
+  const { refreshing } = useRealtimeRefresh(
+    [{ table: "bookings" }, { table: "contracts" }],
+    () => load(false),
+  );
 
   const completed           = payments.filter((p) => p.status === "paid" || p.status === "confirmed");
   const pendingPayment      = payments.filter((p) => p.status === "pending_payment");
@@ -225,28 +412,36 @@ export default function TalentFinances() {
         );
         setWithdrawState("success");
         setWithdrawMsg(
-          `Withdrawal confirmed! ${usd(availableToWithdraw)} for ${withdrawableContracts.length} contract${withdrawableContracts.length > 1 ? "s" : ""} is on its way.`
+          `Saque confirmado! ${brl(availableToWithdraw)} de ${withdrawableContracts.length} contrato${withdrawableContracts.length > 1 ? "s" : ""} a caminho.`
         );
       } else {
         setWithdrawState("error");
-        setWithdrawMsg("Something went wrong. Please try again.");
+        setWithdrawMsg("Algo deu errado. Tente novamente.");
       }
     } catch {
       setWithdrawState("error");
-      setWithdrawMsg("Network error. Please try again.");
+      setWithdrawMsg("Erro de rede. Tente novamente.");
     }
   }
 
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Overview</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Finances</h1>
-        {!loading && (
-          <p className="text-[13px] text-zinc-400 mt-1">
-            {payments.length} bookings · {referrals.length} referral{referrals.length !== 1 ? "s" : ""}
-          </p>
-        )}
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Visão Geral</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Financeiro</h1>
+        <div className="flex items-center gap-3 mt-1">
+          {!loading && (
+            <p className="text-[13px] text-zinc-400">
+              {payments.length} reservas · {referrals.length} indicaç{referrals.length !== 1 ? "ões" : "ão"}
+            </p>
+          )}
+          {refreshing && (
+            <span className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Atualizando…
+            </span>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -258,27 +453,27 @@ export default function TalentFinances() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatCard
-              label="Total Earned"
-              value={usd(availableToWithdraw + alreadyWithdrawn + referralEarnings)}
-              sub="Paid contracts + referrals"
+              label="Total Ganho"
+              value={brl(availableToWithdraw + alreadyWithdrawn + referralEarnings)}
+              sub="Contratos pagos + indicações"
               stripe="from-indigo-500 to-violet-500"
             />
             <StatCard
-              label="Awaiting Payment"
-              value={usd(pendingEarnings)}
-              sub="Agency hasn't released yet"
+              label="Aguardando Pagamento"
+              value={brl(pendingEarnings)}
+              sub="Agência ainda não liberou"
               stripe="from-amber-400 to-orange-500"
             />
             <StatCard
-              label="Available to Withdraw"
-              value={usd(availableToWithdraw)}
-              sub={withdrawableContracts.length > 0 ? `${withdrawableContracts.length} contract${withdrawableContracts.length > 1 ? "s" : ""} ready` : "Nothing pending"}
+              label="Disponível para Saque"
+              value={brl(availableToWithdraw)}
+              sub={withdrawableContracts.length > 0 ? `${withdrawableContracts.length} contrato${withdrawableContracts.length > 1 ? "s" : ""} pronto${withdrawableContracts.length > 1 ? "s" : ""}` : "Nada pendente"}
               stripe="from-emerald-400 to-teal-500"
             />
             <StatCard
-              label="Referrals"
-              value={usd(referralEarnings)}
-              sub={`${referrals.length} booking${referrals.length !== 1 ? "s" : ""} (2%)`}
+              label="Indicações"
+              value={brl(referralEarnings)}
+              sub={`${referrals.length} reserva${referrals.length !== 1 ? "s" : ""} (2%)`}
               stripe="from-violet-400 to-purple-500"
             />
           </div>
@@ -287,32 +482,45 @@ export default function TalentFinances() {
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Available to Withdraw</p>
-                <p className="text-[1.75rem] font-semibold tracking-tighter text-zinc-900 leading-none">{usd(availableToWithdraw)}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Disponível para Saque</p>
+                <p className="text-[1.75rem] font-semibold tracking-tighter text-zinc-900 leading-none">{brl(availableToWithdraw)}</p>
                 {alreadyWithdrawn > 0 && (
-                  <p className="text-[12px] text-zinc-400 mt-1">{usd(alreadyWithdrawn)} already withdrawn</p>
+                  <p className="text-[12px] text-zinc-400 mt-1">{brl(alreadyWithdrawn)} já sacado</p>
                 )}
               </div>
               <button
                 onClick={handleWithdraw}
-                disabled={availableToWithdraw === 0 || withdrawState === "loading" || withdrawState === "success"}
+                disabled={availableToWithdraw === 0 || !hasPixKey || withdrawState === "loading" || withdrawState === "success"}
                 className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 {withdrawState === "loading" ? (
                   <>
                     <div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                    Processing…
+                    Processando…
                   </>
                 ) : withdrawState === "success" ? (
                   <>
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
-                    Withdrawn
+                    Sacado
                   </>
-                ) : "Withdraw"}
+                ) : "Sacar"}
               </button>
             </div>
+
+            {/* No PIX key warning */}
+            {!hasPixKey && availableToWithdraw > 0 && (
+              <div className="mx-6 mb-5 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-[13px] text-amber-800 leading-relaxed">
+                  Cadastre sua <strong>chave PIX</strong> abaixo para habilitar o saque.
+                </p>
+              </div>
+            )}
+
 
             {/* Success message */}
             {withdrawState === "success" && (
@@ -342,19 +550,19 @@ export default function TalentFinances() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-zinc-900 truncate">{c.jobTitle}</p>
                       <p className="text-[11px] text-zinc-400 mt-0.5">
-                        Paid {c.paid_at ? new Date(c.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                        Pago em {c.paid_at ? new Date(c.paid_at).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                       </p>
                     </div>
                     {c.withdrawn_at ? (
                       <span className="text-[11px] font-semibold bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full flex-shrink-0">
-                        Withdrawn
+                        Sacado
                       </span>
                     ) : (
                       <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
-                        Ready
+                        Disponível
                       </span>
                     )}
-                    <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">{usd(c.earnings)}</p>
+                    <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">{brl(c.earnings)}</p>
                   </div>
                 ))}
               </div>
@@ -369,7 +577,7 @@ export default function TalentFinances() {
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-[12px] text-amber-800 leading-relaxed">
-                <strong>{usd(pendingEarnings)}</strong> is awaiting payment from the agency — this will move to your available balance once paid.
+                <strong>{brl(pendingEarnings)}</strong> aguardando pagamento da agência — será adicionado ao seu saldo disponível quando pago.
               </p>
             </div>
           )}
@@ -380,56 +588,24 @@ export default function TalentFinances() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Platform fee: <strong className="text-zinc-600 mx-1">15%</strong>
+            Taxa da plataforma: <strong className="text-zinc-600 mx-1">15%</strong>
             <span className="mx-1">·</span>
-            Talent receives: <strong className="text-zinc-600 mx-1">85% of deal value</strong>
+            Talento recebe: <strong className="text-zinc-600 mx-1">85% do valor combinado</strong>
             <span className="mx-1">·</span>
-            <strong className="text-violet-600">+2% referral fee (if applicable)</strong>
+            <strong className="text-violet-600">+2% taxa de indicação (se aplicável)</strong>
           </div>
 
-          {/* Stripe Connect */}
-          <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Payout Method</p>
-                <p className="text-[15px] font-semibold text-zinc-900">Stripe Connect</p>
-              </div>
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>
-              </div>
-            </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 flex items-start gap-3">
-              <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <p className="text-[12px] text-amber-800 leading-relaxed">
-                Connect your Stripe account to receive payouts directly to your bank account.
-              </p>
-            </div>
-            <button
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
-              onClick={() => alert("Stripe Connect coming soon.")}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              Connect Stripe Account
-            </button>
-          </div>
+          {/* PIX account setup */}
+          <PixSetup onSaved={() => setHasPixKey(true)} />
 
           {/* My bookings */}
           <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">My Bookings</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Minhas Reservas</p>
 
             {payments.length === 0 ? (
               <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
-                <p className="text-[14px] font-medium text-zinc-500">No bookings yet</p>
-                <p className="text-[13px] text-zinc-400 mt-1">Apply for jobs to get booked.</p>
+                <p className="text-[14px] font-medium text-zinc-500">Nenhuma reserva ainda</p>
+                <p className="text-[13px] text-zinc-400 mt-1">Candidate-se a vagas para ser reservado.</p>
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
@@ -438,7 +614,7 @@ export default function TalentFinances() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-semibold text-zinc-900 truncate">{p.job}</p>
                       <p className="text-[12px] text-zinc-400 mt-0.5">
-                        {new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        {new Date(p.date).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
                       {(p.gender || (p.ageMin && p.ageMax)) && (
                         <p className="text-[11px] text-zinc-400 mt-0.5 flex items-center gap-2">
@@ -446,7 +622,7 @@ export default function TalentFinances() {
                             <span className="bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded font-medium capitalize">{p.gender}</span>
                           )}
                           {p.ageMin && p.ageMax && (
-                            <span className="bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded font-medium">Age {p.ageMin}–{p.ageMax}</span>
+                            <span className="bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded font-medium">Idade {p.ageMin}–{p.ageMax}</span>
                           )}
                         </p>
                       )}
@@ -455,8 +631,8 @@ export default function TalentFinances() {
                       {STATUS_LABEL[p.status] ?? p.status}
                     </span>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-[15px] font-semibold text-zinc-900 tabular-nums">{usd(p.earnings)}</p>
-                      <p className="text-[11px] text-zinc-400 tabular-nums">of {usd(p.amount)}</p>
+                      <p className="text-[15px] font-semibold text-zinc-900 tabular-nums">{brl(p.earnings)}</p>
+                      <p className="text-[11px] text-zinc-400 tabular-nums">de {brl(p.amount)}</p>
                     </div>
                   </div>
                 ))}
@@ -476,11 +652,11 @@ export default function TalentFinances() {
             const receipts = [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
             return (
               <div className="space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Withdrawal History</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Histórico de Saques</p>
                 <div className="space-y-3">
                   {receipts.map(([day, items], i) => {
                     const total = items.reduce((s, c) => s + c.earnings, 0);
-                    const date  = new Date(day + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
+                    const date  = new Date(day + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
                     return (
                       <div key={day} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
                         <div className="flex items-center gap-4 px-5 py-4">
@@ -490,13 +666,13 @@ export default function TalentFinances() {
                             </svg>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-semibold text-zinc-900">Withdrawal #{receipts.length - i}</p>
+                            <p className="text-[13px] font-semibold text-zinc-900">Saque #{receipts.length - i}</p>
                             <p className="text-[11px] text-zinc-400 mt-0.5">{date}</p>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-[20px] font-semibold tracking-tight text-emerald-700 tabular-nums leading-none">{usd(total)}</p>
+                            <p className="text-[20px] font-semibold tracking-tight text-emerald-700 tabular-nums leading-none">{brl(total)}</p>
                             <span className="inline-flex mt-1.5 text-[10px] font-semibold bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 px-2 py-0.5 rounded-full">
-                              Completed
+                              Concluído
                             </span>
                           </div>
                         </div>
@@ -511,14 +687,14 @@ export default function TalentFinances() {
           {/* Referral earnings */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Referral Earnings</p>
-              <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">2% per booking</span>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Ganhos de Indicação</p>
+              <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">2% por reserva</span>
             </div>
 
             {referrals.length === 0 ? (
               <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
-                <p className="text-[14px] font-medium text-zinc-500">No referral earnings yet</p>
-                <p className="text-[13px] text-zinc-400 mt-1">Refer talent to jobs and earn when they get booked.</p>
+                <p className="text-[14px] font-medium text-zinc-500">Nenhum ganho de indicação ainda</p>
+                <p className="text-[13px] text-zinc-400 mt-1">Indique talentos para vagas e ganhe quando forem reservados.</p>
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
@@ -529,11 +705,11 @@ export default function TalentFinances() {
                       <p className="text-[12px] text-zinc-400 mt-0.5 truncate">{r.job}</p>
                     </div>
                     <span className="text-[11px] font-semibold bg-violet-50 text-violet-700 ring-1 ring-violet-100 px-2.5 py-1 rounded-full flex-shrink-0">
-                      Referral
+                      Indicação
                     </span>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-[15px] font-semibold text-violet-700 tabular-nums">{usd(r.commission)}</p>
-                      <p className="text-[11px] text-zinc-400 tabular-nums">of {usd(r.amount)}</p>
+                      <p className="text-[15px] font-semibold text-violet-700 tabular-nums">{brl(r.commission)}</p>
+                      <p className="text-[11px] text-zinc-400 tabular-nums">de {brl(r.amount)}</p>
                     </div>
                   </div>
                 ))}

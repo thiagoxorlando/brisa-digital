@@ -23,10 +23,10 @@ type Notification = {
 
 function formatTime(s: string) {
   const diff = Math.floor((Date.now() - new Date(s).getTime()) / 1000);
-  if (diff < 60)    return "just now";
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (diff < 60)    return "agora mesmo";
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m atrás`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
+  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric" });
 }
 
 function TypeIcon({ type }: { type: NotifType }) {
@@ -91,8 +91,19 @@ function TypeIcon({ type }: { type: NotifType }) {
   );
 }
 
+async function fetchNotifications(userId: string): Promise<Notification[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, type, message, is_read, created_at, link")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) console.error("[notif] fetch error:", error.message);
+  return data ?? [];
+}
+
 export default function NotificationBell() {
-  const router = useRouter();
+  const router  = useRouter();
   const [open, setOpen]     = useState(false);
   const [items, setItems]   = useState<Notification[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -100,8 +111,12 @@ export default function NotificationBell() {
 
   // Resolve user ID once on mount
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (error) { console.warn("[notif] getUser error:", error.message); return; }
+      if (user) {
+        console.log("[notif] user resolved:", user.id);
+        setUserId(user.id);
+      }
     });
   }, []);
 
@@ -109,34 +124,54 @@ export default function NotificationBell() {
   useEffect(() => {
     if (!userId) return;
 
-    // Initial fetch
-    supabase
-      .from("notifications")
-      .select("id, type, message, is_read, created_at, link")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(30)
-      .then(({ data }) => setItems(data ?? []));
+    const filter = `user_id=eq.${userId}`;
+    console.log("[notif] setting up for user:", userId);
+    console.log("[notif] subscription filter:", filter);
 
-    // Realtime subscription — .on() must come before .subscribe()
+    // Initial fetch
+    fetchNotifications(userId).then((data) => {
+      setItems(data);
+      console.log("[notif] initial fetch:", data.length, "rows, unread:", data.filter((n) => !n.is_read).length);
+    });
+
+    // Realtime subscription
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(`notif-bell:${userId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `user_id=eq.${userId}`,
+          filter,
         },
         (payload) => {
-          setItems((prev) => [payload.new as Notification, ...prev]);
+          const row = payload.new as Notification;
+          console.log("[notif] realtime INSERT received — row user_id:", row.user_id, "| subscriber user_id:", userId, "| match:", row.user_id === userId);
+          setItems((prev) => {
+            const next = [row, ...prev];
+            console.log("[notif] state updated — total:", next.length, "unread:", next.filter((n) => !n.is_read).length);
+            return next;
+          });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("[notif] subscription status:", status, err ?? "");
+        // Realtime degraded or timed out — refetch as fallback
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[notif] realtime failed, falling back to poll");
+          fetchNotifications(userId).then(setItems);
+        }
+      });
+
+    // Fallback: refetch every 30 s in case realtime misses an event
+    const poll = setInterval(() => {
+      fetchNotifications(userId).then(setItems);
+    }, 30_000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(poll);
     };
   }, [userId]);
 
@@ -222,7 +257,7 @@ export default function NotificationBell() {
           {/* Header */}
           <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <p className="text-[13px] font-semibold text-zinc-900">Notifications</p>
+              <p className="text-[13px] font-semibold text-zinc-900">Notificações</p>
               {unread > 0 && (
                 <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                   {unread}
@@ -234,7 +269,7 @@ export default function NotificationBell() {
                 onClick={markAllRead}
                 className="text-[11px] font-medium text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
               >
-                Mark all read
+                Marcar tudo como lido
               </button>
             )}
           </div>
@@ -248,8 +283,8 @@ export default function NotificationBell() {
                     d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
               </div>
-              <p className="text-[13px] font-medium text-zinc-500">No notifications yet</p>
-              <p className="text-[12px] text-zinc-400 mt-0.5">You're all caught up.</p>
+              <p className="text-[13px] font-medium text-zinc-500">Nenhuma notificação</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">Você está em dia.</p>
             </div>
           ) : (
             <ul className="max-h-80 overflow-y-auto divide-y divide-zinc-50">
@@ -275,7 +310,7 @@ export default function NotificationBell() {
                           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
-                          view
+                          ver
                         </span>
                       )}
                     </div>

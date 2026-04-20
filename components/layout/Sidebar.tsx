@@ -50,6 +50,16 @@ const AGENCY_NAV: NavItem[] = [
     ),
   },
   {
+    labelKey: "nav_team",
+    href: "/agency/talent-history",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
     labelKey: "nav_bookings",
     href: "/agency/bookings",
     icon: (
@@ -86,6 +96,16 @@ const AGENCY_NAV: NavItem[] = [
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
+  {
+    labelKey: "nav_billing",
+    href: "/agency/billing",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
       </svg>
     ),
   },
@@ -185,6 +205,16 @@ const ADMIN_NAV: NavItem[] = [
       </svg>
     ),
   },
+  {
+    labelKey: "nav_profile",
+    href: "/admin/profile",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    ),
+  },
 ];
 
 const TALENT_NAV: NavItem[] = [
@@ -261,6 +291,16 @@ const TALENT_NAV: NavItem[] = [
       </svg>
     ),
   },
+  {
+    labelKey: "nav_availability",
+    href: "/talent/availability",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 ];
 
 type SidebarProps = {
@@ -312,18 +352,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-zinc-800/60 flex-shrink-0">
-          <Link href="/" className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-white">
-              <Logo size="md" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[14px] font-semibold text-white leading-none tracking-tight">
-                Brisa Digital
-              </p>
-              <p className="text-[10px] text-zinc-500 mt-0.5 leading-none tracking-wide uppercase">
-                {portalLabel}
-              </p>
-            </div>
+          <Link href="/" className="flex items-center gap-2 min-w-0">
+            <Logo size="md" src="/logo1.png" />
+            <p className="text-[10px] text-zinc-500 leading-none tracking-wide uppercase">
+              {portalLabel}
+            </p>
           </Link>
 
           <button
@@ -383,8 +416,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               {!loading && avatarUrl ? (
                 <img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-white flex items-center justify-center">
-                  <Logo size="md" />
+                <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                  <Logo size="sm" src="/logo1.png" />
                 </div>
               )}
             </div>

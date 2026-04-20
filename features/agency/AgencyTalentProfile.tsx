@@ -15,6 +15,8 @@ type TalentRow = {
   instagram: string | null;
   tiktok: string | null;
   youtube: string | null;
+  twitter: string | null;
+  website: string | null;
   phone: string | null;
   gender: string | null;
   age: number | null;
@@ -42,9 +44,11 @@ function initials(name: string) {
 export default function AgencyTalentProfile({
   talent,
   jobs,
+  appliedJobIds = [],
 }: {
   talent: TalentRow | null;
   jobs: Job[];
+  appliedJobIds?: string[];
 }) {
   const { isActive } = useSubscription();
   const [selectedJob, setSelectedJob] = useState("");
@@ -56,15 +60,15 @@ export default function AgencyTalentProfile({
   if (!talent) {
     return (
       <div className="max-w-md mx-auto pt-20 text-center">
-        <p className="text-[15px] font-medium text-zinc-700">Talent not found</p>
+        <p className="text-[15px] font-medium text-zinc-700">Talento não encontrado</p>
         <Link href="/agency/talent" className="text-[13px] text-zinc-400 hover:text-zinc-700 mt-3 inline-block transition-colors">
-          ← Back to Talent
+          ← Voltar para Talentos
         </Link>
       </div>
     );
   }
 
-  const name  = talent.full_name ?? "Unknown";
+  const name  = talent.full_name ?? "Sem nome";
   const photos = [
     talent.photo_front_url,
     talent.photo_left_url,
@@ -90,7 +94,7 @@ export default function AgencyTalentProfile({
       setShowJobDropdown(false);
     } else {
       const d = await res.json().catch(() => ({}));
-      setAttachError(d.error ?? "Failed to send invite");
+      setAttachError(d.error ?? "Falha ao enviar convite");
     }
   }
 
@@ -105,7 +109,7 @@ export default function AgencyTalentProfile({
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        All Talent
+        Todos os Talentos
       </Link>
 
       {/* Hero card */}
@@ -154,7 +158,7 @@ export default function AgencyTalentProfile({
         </div>
 
         {/* Social links */}
-        {(talent.instagram || talent.tiktok || talent.youtube) && (
+        {(talent.instagram || talent.tiktok || talent.youtube || talent.twitter || talent.website) && (
           <div className="px-6 sm:px-8 pb-6 flex flex-wrap gap-3">
             {talent.instagram && (
               <a href={`https://instagram.com/${talent.instagram}`} target="_blank" rel="noopener noreferrer"
@@ -184,6 +188,26 @@ export default function AgencyTalentProfile({
                 YouTube
               </a>
             )}
+            {talent.twitter && (
+              <a href={`https://x.com/${talent.twitter}`} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+                @{talent.twitter}
+              </a>
+            )}
+            {talent.website && (
+              <a href={talent.website.startsWith("http") ? talent.website : `https://${talent.website}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Website
+              </a>
+            )}
           </div>
         )}
       </div>
@@ -191,7 +215,7 @@ export default function AgencyTalentProfile({
       {/* Photos grid */}
       {photos.length > 0 && (
         <div className="space-y-3">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Photos</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Fotos</p>
           <div className="grid grid-cols-3 gap-3">
             {photos.map((url, i) => (
               <div key={i} className="aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100">
@@ -210,7 +234,7 @@ export default function AgencyTalentProfile({
             href="/agency/finances"
             className="flex-1 flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
           >
-            Reactivate Subscription
+            Reativar Assinatura
           </Link>
         ) : (
           /* Attach to Job */
@@ -220,7 +244,7 @@ export default function AgencyTalentProfile({
                 <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
-                <p className="text-[13px] text-emerald-700 font-medium">Job invite sent to talent</p>
+                <p className="text-[13px] text-emerald-700 font-medium">Convite enviado ao talento</p>
               </div>
             ) : showJobDropdown ? (
               <div className="space-y-2">
@@ -229,8 +253,8 @@ export default function AgencyTalentProfile({
                   onChange={(e) => setSelectedJob(e.target.value)}
                   className="w-full px-4 py-3 text-[13px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors bg-white"
                 >
-                  <option value="">Select a job…</option>
-                  {jobs.map((j) => (
+                  <option value="">Selecione uma vaga…</option>
+                  {jobs.filter((j) => !appliedJobIds.includes(j.id)).map((j) => (
                     <option key={j.id} value={j.id}>{j.title}</option>
                   ))}
                 </select>
@@ -240,13 +264,13 @@ export default function AgencyTalentProfile({
                     disabled={!selectedJob || attaching}
                     className="flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
                   >
-                    {attaching ? "Attaching…" : "Confirm"}
+                    {attaching ? "Anexando…" : "Confirmar"}
                   </button>
                   <button
                     onClick={() => { setShowJobDropdown(false); setSelectedJob(""); }}
                     className="px-4 py-2.5 bg-white border border-zinc-200 hover:border-zinc-300 text-zinc-700 text-[13px] font-medium rounded-xl transition-colors cursor-pointer"
                   >
-                    Cancel
+                    Cancelar
                   </button>
                 </div>
                 {attachError && (
@@ -256,13 +280,13 @@ export default function AgencyTalentProfile({
             ) : (
               <button
                 onClick={() => setShowJobDropdown(true)}
-                disabled={jobs.length === 0}
+                disabled={jobs.filter((j) => !appliedJobIds.includes(j.id)).length === 0}
                 className="w-full flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                 </svg>
-                {jobs.length === 0 ? "No active jobs" : "Attach to Job"}
+                {jobs.filter((j) => !appliedJobIds.includes(j.id)).length === 0 ? "Já candidatado a todas as vagas" : "Adicionar à Vaga"}
               </button>
             )}
           </div>

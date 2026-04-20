@@ -28,5 +28,11 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  // Mirror status to profiles so billing and finances stay in sync
+  await supabase
+    .from("profiles")
+    .update({ plan_status: status })
+    .eq("id", user.id);
+
   return NextResponse.json({ ok: true });
 }

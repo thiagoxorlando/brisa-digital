@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
-const PATCH_ALLOWED = ["title", "description", "category", "budget", "deadline", "status", "location", "gender", "age_min", "age_max", "number_of_talents_required"];
+const PATCH_ALLOWED = ["title", "description", "category", "budget", "deadline", "job_date", "status", "location", "gender", "age_min", "age_max", "number_of_talents_required", "visibility"];
 
 export async function PATCH(
   req: NextRequest,

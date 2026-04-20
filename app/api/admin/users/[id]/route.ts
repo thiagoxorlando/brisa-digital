@@ -94,22 +94,22 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   await supabase.from("submissions").delete().eq("talent_user_id", id);
   await supabase.from("notifications").delete().eq("user_id", id);
 
-  // 2. Hard-delete bookings (not shown in trash)
-  await supabase.from("bookings").delete().or(`talent_user_id.eq.${id},agency_id.eq.${id}`);
+  // 2. Soft-delete bookings (appear in trash)
+  await supabase.from("bookings").update({ deleted_at: now }).or(`talent_user_id.eq.${id},agency_id.eq.${id}`);
 
   // 3. Soft-delete unpaid contracts (talent side)
   await supabase
     .from("contracts")
     .update({ deleted_at: now })
     .eq("talent_id", id)
-    .neq("payment_status", "paid");
+    .neq("status", "paid");
 
   // 3b. Soft-delete unpaid contracts (agency side)
   await supabase
     .from("contracts")
     .update({ deleted_at: now })
     .eq("agency_id", id)
-    .neq("payment_status", "paid");
+    .neq("status", "paid");
 
   // 4. Jobs posted by this user (agency)
   const { data: jobs } = await supabase
@@ -125,7 +125,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       .from("contracts")
       .update({ deleted_at: now })
       .in("job_id", jobIds)
-      .neq("payment_status", "paid");
+      .neq("status", "paid");
 
     // Hard-delete submissions for these jobs
     await supabase.from("submissions").delete().in("job_id", jobIds);

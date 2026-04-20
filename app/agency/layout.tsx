@@ -3,6 +3,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { SubscriptionProvider } from "@/lib/SubscriptionContext";
 import SubscriptionBanner from "@/components/agency/SubscriptionBanner";
+import { resolvePlanInfo } from "@/lib/plans";
 
 export default async function AgencyLayout({
   children,
@@ -14,16 +15,27 @@ export default async function AgencyLayout({
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const { data: agency } = await supabase
-    .from("agencies")
-    .select("subscription_status")
-    .eq("id", user?.id ?? "")
-    .single();
+  const [{ data: agency }, { data: profile }] = await Promise.all([
+    supabase
+      .from("agencies")
+      .select("subscription_status")
+      .eq("id", user?.id ?? "")
+      .single(),
+    supabase
+      .from("profiles")
+      .select("plan")
+      .eq("id", user?.id ?? "")
+      .single(),
+  ]);
 
-  const isActive = (agency?.subscription_status ?? "active") === "active";
+  const planInfo = resolvePlanInfo(profile);
+  const agencyStatus = agency?.subscription_status ?? "active";
+  const isActive = planInfo.plan === "free"
+    ? agencyStatus !== "cancelling" && agencyStatus !== "suspended"
+    : planInfo.isPaid;
 
   return (
-    <SubscriptionProvider isActive={isActive}>
+    <SubscriptionProvider initialPlan={planInfo.plan} initialIsActive={isActive} initialIsPro={planInfo.isPaid}>
       <DashboardShell>
         {!isActive && <SubscriptionBanner />}
         {children}
