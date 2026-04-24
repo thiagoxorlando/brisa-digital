@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useUserProfile } from "@/lib/useUserProfile";
 import { useRole } from "@/lib/RoleProvider";
@@ -63,6 +64,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   const { displayName, email, initials, avatarUrl, loading } = useUserProfile();
   const { role } = useRole();
   const { plan } = useSubscription();
+  const [imgError, setImgError] = useState(false);
 
   const meta = getPageMeta(pathname);
 
@@ -111,8 +113,13 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         {/* User */}
         <div className="flex items-center gap-2 pl-1 py-1 pr-2.5">
           <div className="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden">
-            {!loading && avatarUrl ? (
-              <img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
+            {!loading && avatarUrl && !imgError ? (
+              <img
+                src={avatarUrl}
+                alt={initials}
+                className="w-full h-full object-cover"
+                onError={() => setImgError(true)}
+              />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">
                 {loading ? "…" : initials}

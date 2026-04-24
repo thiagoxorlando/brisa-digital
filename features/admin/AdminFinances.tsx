@@ -511,7 +511,7 @@ function BookingsSection({
     <Section title="Reservas" subtitle={`${bookings.length} reservas | comissao dinamica por plano da agencia`}>
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Bruto confirmado" value={brl(summary.confirmedGrossValue)} />
-        <StatCard label="Comissao da plataforma" value={brl(summary.platformCommission)} sub="Free 20% | Pro 15% | Premium 10-12%" />
+        <StatCard label="Comissao da plataforma" value={brl(summary.platformCommission)} sub="Free 20% | Pro 10% | Premium 10%" />
         <StatCard label="Indicacao" value={brl(summary.referralPayouts)} sub={`${REFERRAL_RATE * 100}% quando houver indicacao ativa`} />
         <StatCard label="Pendente" value={brl(summary.pendingValue)} />
       </div>

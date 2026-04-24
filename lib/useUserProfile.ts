@@ -52,7 +52,7 @@ export function useUserProfile(): UserProfile {
         setDisplayName(data?.company_name ?? user.email ?? "");
         setAvatarUrl((data as { avatar_url?: string | null })?.avatar_url ?? null);
       } else {
-        // admin — name stored in profiles.full_name
+        // admin
         const { data } = await supabase
           .from("profiles")
           .select("full_name, avatar_url")

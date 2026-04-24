@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
   }
 
   const selectedPlan = plan as Plan;
+
+  if (selectedPlan === "premium") {
+    return NextResponse.json({ error: "Plano Premium em breve. Selecione o plano Pro." }, { status: 403 });
+  }
+
   const supabase = createServerClient({ useServiceRole: true });
 
   const { data: profile } = await supabase

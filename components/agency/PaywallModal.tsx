@@ -48,7 +48,7 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
 
   function handleUpgrade() {
     onClose();
-    router.push("/agency/finances");
+    router.push("/agency/billing");
   }
 
   return (

@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 
 export const metadata: Metadata = { title: "Painel administrativo — BrisaHub" };
 
-const COMMISSION_RATE = 0.15;
+const COMMISSION_RATE = 0.1;
 const REFERRAL_RATE   = 0.02;
 
 export default async function AdminDashboardPage() {

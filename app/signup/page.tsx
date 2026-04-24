@@ -33,7 +33,7 @@ const PLANS: { id: Plan; name: string; price: string; features: string[]; highli
   {
     id: "pro",
     name: "Pro",
-    price: "R$127/mês",
+    price: "R$247/mês",
     highlight: true,
     features: [
       "Vagas ilimitadas",
@@ -45,7 +45,7 @@ const PLANS: { id: Plan; name: string; price: string; features: string[]; highli
   {
     id: "premium",
     name: "Premium",
-    price: "R$297/mês",
+    price: "Sob consulta",
     features: [
       "Tudo do Pro",
       "Ambiente privado",
@@ -60,10 +60,11 @@ function SignupPageContent() {
   const role         = (searchParams.get("role") ?? "agency") as Role;
   const refToken     = searchParams.get("ref") ?? null;
   const label        = ROLE_LABELS[role] ?? ROLE_LABELS.agency;
+  const initialPlan  = (["free", "pro"].includes(searchParams.get("plan") ?? "") ? searchParams.get("plan") : "free") as Plan;
 
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [plan,     setPlan]     = useState<Plan>("free");
+  const [plan,     setPlan]     = useState<Plan>(initialPlan);
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
 

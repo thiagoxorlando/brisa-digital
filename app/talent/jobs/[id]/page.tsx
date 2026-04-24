@@ -69,15 +69,16 @@ export default async function TalentJobDetailPage({ params }: Props) {
     }
   }
 
-  // Fetch agency name
+  // Fetch agency name and plan
   let agencyName = "";
+  let agencyPlan = "free";
   if (data.agency_id) {
-    const { data: agency } = await supabase
-      .from("agencies")
-      .select("company_name")
-      .eq("id", data.agency_id)
-      .single();
+    const [{ data: agency }, { data: agencyProfile }] = await Promise.all([
+      supabase.from("agencies").select("company_name").eq("id", data.agency_id).single(),
+      supabase.from("profiles").select("plan").eq("id", data.agency_id).single(),
+    ]);
     agencyName = agency?.company_name ?? "";
+    agencyPlan = agencyProfile?.plan ?? "free";
   }
 
   const job = {
@@ -88,6 +89,7 @@ export default async function TalentJobDetailPage({ params }: Props) {
     budget:      data.budget      ?? 0,
     deadline:    data.deadline    ?? "",
     agencyName,
+    agencyPlan,
     location:    data.location    ?? "",
     gender:      data.gender      ?? "",
     ageMin:      data.age_min     ?? null,

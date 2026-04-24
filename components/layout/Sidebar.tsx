@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/lib/RoleProvider";
 import { supabase } from "@/lib/supabase";
@@ -313,6 +314,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const { role } = useRole();
   const { displayName, agentName, email, initials, avatarUrl, loading } = useUserProfile();
+  const [imgError, setImgError] = useState(false);
   const { lang, setLang, t } = useT();
 
   async function handleLogout() {
@@ -413,11 +415,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="px-3 py-3 flex-shrink-0 space-y-1">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
             <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden">
-              {!loading && avatarUrl ? (
-                <img src={avatarUrl} alt={initials} className="w-full h-full object-cover" />
+              {!loading && avatarUrl && !imgError ? (
+                <img
+                  src={avatarUrl}
+                  alt={initials}
+                  className="w-full h-full object-cover"
+                  onError={() => setImgError(true)}
+                />
               ) : (
-                <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                  <Logo size="sm" src="/logo1.png" />
+                <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-[11px] font-bold text-zinc-200 flex-shrink-0">
+                  {loading ? "…" : initials}
                 </div>
               )}
             </div>

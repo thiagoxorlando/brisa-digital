@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -14,10 +15,11 @@ const ROLE_HOME: Record<string, string> = {
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [error,    setError]    = useState("");
-  const [loading,  setLoading]  = useState(false);
+  const [email,          setEmail]          = useState("");
+  const [password,       setPassword]       = useState("");
+  const [error,          setError]          = useState("");
+  const [loading,        setLoading]        = useState(false);
+  const [showRoleChoice, setShowRoleChoice] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,12 +118,42 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[13px] text-zinc-400 mt-5">
-          Não tem uma conta?{" "}
-          <a href="/" className="text-zinc-700 font-medium hover:text-zinc-900 transition-colors">
-            Criar conta
-          </a>
-        </p>
+        <div className="mt-5 text-center">
+          <p className="text-[13px] text-zinc-400">
+            Não tem uma conta?{" "}
+            <button
+              type="button"
+              onClick={() => setShowRoleChoice((v) => !v)}
+              className="text-zinc-700 font-medium hover:text-zinc-900 transition-colors cursor-pointer"
+            >
+              Criar conta
+            </button>
+          </p>
+          {showRoleChoice && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Link
+                href="/signup?role=agency"
+                className="flex flex-col items-center gap-1 px-4 py-3 rounded-xl border border-zinc-200 hover:border-zinc-900 hover:bg-zinc-50 transition-colors"
+              >
+                <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span className="text-[13px] font-semibold text-zinc-900">Agência</span>
+                <span className="text-[11px] text-zinc-400">Publique vagas</span>
+              </Link>
+              <Link
+                href="/signup?role=talent"
+                className="flex flex-col items-center gap-1 px-4 py-3 rounded-xl border border-zinc-200 hover:border-zinc-900 hover:bg-zinc-50 transition-colors"
+              >
+                <svg className="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="text-[13px] font-semibold text-zinc-900">Talento</span>
+                <span className="text-[11px] text-zinc-400">Candidate-se</span>
+              </Link>
+            </div>
+          )}
+        </div>
 
       </div>
     </div>

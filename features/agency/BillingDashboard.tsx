@@ -58,12 +58,12 @@ const PLANS = [
     key:           "pro" as const,
     name:          PLAN_DEFINITIONS.pro.label,
     price:         PLAN_DEFINITIONS.pro.price,
-    priceLabel:    "R$ 127",
+    priceLabel:    "R$ 247",
     period:        "/mês",
     badge:         "POPULAR" as const,
     gradient:      "from-indigo-500 to-violet-600",
     headline:      "Sistema completo de contratação",
-    commission:    "15% de comissão",
+    commission:    "10% de comissão",
     features: [
       "Vagas públicas ilimitadas",
       "Contratações ilimitadas",
@@ -75,9 +75,9 @@ const PLANS = [
     key:           "premium" as const,
     name:          PLAN_DEFINITIONS.premium.label,
     price:         PLAN_DEFINITIONS.premium.price,
-    priceLabel:    "R$ 297",
-    period:        "/mês",
-    badge:         null,
+    priceLabel:    "Sob consulta",
+    period:        "",
+    badge:         "EM BREVE" as const,
     gradient:      "from-violet-500 to-purple-700",
     headline:      "Sistema privado da sua agência",
     commission:    "10% de comissão",
@@ -687,7 +687,10 @@ export default function BillingDashboard({
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[15px] font-semibold text-zinc-900">{p.name}</span>
                     {p.badge && (
-                      <span className="text-[9px] font-bold bg-indigo-600 text-white px-2 py-0.5 rounded-full tracking-wider">
+                      <span className={[
+                        "text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider",
+                        p.badge === "EM BREVE" ? "bg-zinc-200 text-zinc-500" : "bg-indigo-600 text-white",
+                      ].join(" ")}>
                         {p.badge}
                       </span>
                     )}
@@ -707,10 +710,12 @@ export default function BillingDashboard({
                     <span className="text-[1.75rem] font-bold tracking-tighter text-zinc-900">{p.priceLabel}</span>
                     {p.period && <span className="text-[12px] text-zinc-400 ml-1">{p.period}</span>}
                   </div>
-                  <p className={[
-                    "text-[11px] font-semibold mb-4",
-                    p.key === "free" ? "text-zinc-400" : p.key === "pro" ? "text-indigo-600" : "text-violet-600",
-                  ].join(" ")}>{p.commission}</p>
+                  {p.key !== "premium" && (
+                    <p className={[
+                      "text-[11px] font-semibold mb-4",
+                      p.key === "free" ? "text-zinc-400" : "text-indigo-600",
+                    ].join(" ")}>{p.commission}</p>
+                  )}
                   <ul className="space-y-1.5 mb-5 flex-1">
                     {p.features.map((f) => (
                       <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-600">
@@ -721,7 +726,15 @@ export default function BillingDashboard({
                       </li>
                     ))}
                   </ul>
-                  {!isCurrent && !isPending && p.key !== "free" && (
+                  {!isCurrent && !isPending && p.key === "premium" && (
+                    <button
+                      disabled
+                      className="w-full mt-auto text-zinc-400 text-[13px] font-semibold py-2.5 rounded-xl bg-zinc-100 border border-zinc-200 cursor-not-allowed"
+                    >
+                      Em breve
+                    </button>
+                  )}
+                  {!isCurrent && !isPending && p.key !== "free" && p.key !== "premium" && (
                     <button
                       onClick={() => handlePlanClick(p)}
                       className={[

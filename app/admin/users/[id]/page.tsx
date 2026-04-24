@@ -7,7 +7,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export const metadata: Metadata = { title: "Perfil do usuário — Admin — BrisaHub" };
 
-const COMMISSION_RATE = 0.15;
+const COMMISSION_RATE = 0.1;
 
 function usd(n: number) {
   if (n === 0) return "—";

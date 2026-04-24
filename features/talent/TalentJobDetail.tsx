@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { PLAN_DEFINITIONS, REFERRAL_RATE, parsePlan } from "@/lib/plans";
 
 export type TalentJobDetailProps = {
   id: string;
@@ -13,6 +14,7 @@ export type TalentJobDetailProps = {
   budget: number;
   deadline: string;
   agencyName: string;
+  agencyPlan?: string;
   location: string;
   gender: string;
   ageMin: number | null;
@@ -32,6 +34,12 @@ function formatDate(s: string) {
     month: "short", day: "numeric", year: "numeric",
   });
 }
+
+const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
+  free:    { label: "FREE",    cls: "bg-zinc-100 text-zinc-500" },
+  pro:     { label: "PRO",     cls: "bg-indigo-100 text-indigo-700" },
+  premium: { label: "PREMIUM", cls: "bg-violet-100 text-violet-700" },
+};
 
 const CATEGORY_STRIPES: Record<string, string> = {
   "Lifestyle & Fashion": "from-rose-400 to-pink-500",
@@ -832,7 +840,17 @@ export default function TalentJobDetail({
             {job.agencyName && (
               <div className="col-span-2">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agência</p>
-                <p className="text-[14px] font-semibold text-zinc-900">{job.agencyName}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[14px] font-semibold text-zinc-900">{job.agencyName}</p>
+                  {job.agencyPlan && (() => {
+                    const badge = PLAN_BADGE[job.agencyPlan] ?? PLAN_BADGE.free;
+                    return (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-widest ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
+                </div>
               </div>
             )}
             <div>
@@ -868,6 +886,36 @@ export default function TalentJobDetail({
               </div>
             )}
           </div>
+
+          {/* Financial breakdown */}
+          {(() => {
+            const planDef = PLAN_DEFINITIONS[parsePlan(job.agencyPlan)];
+            const platformFee = Math.round(job.budget * planDef.commissionRate);
+            const talentGets  = job.budget - platformFee;
+            const referralFee = Math.round(job.budget * REFERRAL_RATE);
+            return (
+              <div className="rounded-xl bg-zinc-50 border border-zinc-100 p-4 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Seus ganhos</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-zinc-500">Valor da vaga</span>
+                    <span className="font-semibold text-zinc-900">{brl(job.budget)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-zinc-500">Taxa da plataforma ({planDef.commissionLabel})</span>
+                    <span className="font-medium text-rose-500">− {brl(platformFee)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[13px] pt-1.5 border-t border-zinc-200">
+                    <span className="font-semibold text-zinc-900">Você recebe</span>
+                    <span className="font-bold text-emerald-600 text-[15px]">{brl(talentGets)}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-400 pt-0.5">
+                  Se houver indicação, 2% ({brl(referralFee)}) é destinado ao indicador.
+                </p>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

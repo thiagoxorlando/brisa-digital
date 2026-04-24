@@ -153,11 +153,11 @@ const PLANS = [
     key: "premium",
     name: PLAN_DEFINITIONS.premium.label,
     price: PLAN_DEFINITIONS.premium.priceLabel,
-    period: "/mês",
-    audience: "Para operações privadas",
-    summary: "Para agências que precisam operar com vagas fechadas, convites e um ambiente mais reservado para seleção.",
+    period: "",
+    audience: "Plataforma privada completa",
+    summary: "Um ambiente fechado exclusivo para a sua agência — vagas, talentos, contratos e pagamentos operando dentro do seu próprio espaço, sem mistura com o marketplace público.",
     commission: PLAN_DEFINITIONS.premium.commissionLabel,
-    highlights: ["Tudo do Pro", "Vagas privadas e convites", `Comissão de ${PLAN_DEFINITIONS.premium.commissionLabel}`],
+    highlights: ["Tudo do Pro", "Ambiente 100% privado e fechado", "Vagas apenas para convidados", "Pool de talentos exclusivo da agência"],
     featured: false,
     premium: true,
   },
@@ -268,6 +268,7 @@ function ProductPreview() {
 export default function Home() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [showRoleMenu, setShowRoleMenu] = useState(false);
 
   useEffect(() => {
     getUserRole().then(async (role) => {
@@ -299,12 +300,52 @@ export default function Home() {
             >
               Entrar
             </Link>
-            <Link
-              href="/signup?role=agency"
-              className="hidden rounded-xl bg-[var(--brand-green)] px-4 py-2 text-[13px] font-black text-[var(--brand-surface)] shadow-sm transition-all hover:bg-[var(--brand-green-strong)] sm:inline-flex"
-            >
-              Criar conta
-            </Link>
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setShowRoleMenu((v) => !v)}
+                className="rounded-xl bg-[var(--brand-green)] px-4 py-2 text-[13px] font-black text-[var(--brand-surface)] shadow-sm transition-all hover:bg-[var(--brand-green-strong)] cursor-pointer"
+              >
+                Criar conta
+              </button>
+              {showRoleMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowRoleMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 z-40 w-48 rounded-2xl border border-white/10 bg-[var(--brand-surface)] shadow-[0_8px_32px_rgba(0,0,0,0.32)] overflow-hidden">
+                    <Link
+                      href="/signup?role=agency"
+                      onClick={() => setShowRoleMenu(false)}
+                      className="flex items-center gap-3 px-4 py-3.5 text-[13px] font-semibold text-white hover:bg-white/10 transition-colors"
+                    >
+                      <span className="w-7 h-7 rounded-lg bg-[var(--brand-green)]/15 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-[var(--brand-green)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </span>
+                      <div>
+                        <p>Agência</p>
+                        <p className="text-[11px] font-normal text-zinc-400">Publique vagas e contrate</p>
+                      </div>
+                    </Link>
+                    <div className="h-px bg-white/8 mx-4" />
+                    <Link
+                      href="/signup?role=talent"
+                      onClick={() => setShowRoleMenu(false)}
+                      className="flex items-center gap-3 px-4 py-3.5 text-[13px] font-semibold text-white hover:bg-white/10 transition-colors"
+                    >
+                      <span className="w-7 h-7 rounded-lg bg-[var(--brand-green)]/15 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3.5 h-3.5 text-[var(--brand-green)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </span>
+                      <div>
+                        <p>Talento</p>
+                        <p className="text-[11px] font-normal text-zinc-400">Candidate-se a vagas</p>
+                      </div>
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </nav>
@@ -548,11 +589,11 @@ export default function Home() {
                   </span>
                 )}
                 {plan.premium && (
-                  <span className="absolute right-5 top-5 rounded-full border border-[var(--brand-green)]/40 bg-[var(--brand-green)]/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[var(--brand-green)]">
-                    Privado
+                  <span className="absolute right-5 top-5 rounded-full border border-zinc-600 bg-zinc-800 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-zinc-300">
+                    Em breve
                   </span>
                 )}
-                <div className={plan.featured || plan.premium ? "flex h-full flex-col pr-28 pt-10" : "flex h-full flex-col"}>
+                <div className={plan.featured || plan.premium ? "flex h-full flex-col pt-10" : "flex h-full flex-col"}>
                 <p className={plan.premium ? "text-sm font-bold text-zinc-400" : "text-sm font-bold text-zinc-500"}>{plan.audience}</p>
                 <h3 className={plan.premium ? "mt-4 text-2xl font-black text-white" : "mt-4 text-2xl font-black text-zinc-950"}>{plan.name}</h3>
                 <p className={plan.premium ? "mt-3 text-sm leading-6 text-zinc-400" : "mt-3 text-sm leading-6 text-zinc-600"}>
@@ -562,10 +603,12 @@ export default function Home() {
                   <span className={plan.premium ? "text-4xl font-black tracking-[-0.04em] text-white" : "text-4xl font-black tracking-[-0.04em] text-zinc-950"}>{plan.price}</span>
                   {plan.period && <span className={plan.premium ? "pb-1 text-sm font-semibold text-zinc-400" : "pb-1 text-sm font-semibold text-zinc-500"}>{plan.period}</span>}
                 </div>
-                <div className={plan.premium ? "mt-5 rounded-2xl bg-white/10 p-4 ring-1 ring-white/10" : "mt-5 rounded-2xl bg-[var(--brand-green-soft)] p-4"}>
-                  <p className={plan.premium ? "text-[11px] font-black uppercase tracking-[0.18em] text-zinc-400" : "text-[11px] font-black uppercase tracking-[0.18em] text-emerald-800"}>Comissão da plataforma</p>
-                  <p className={plan.premium ? "mt-1 text-xl font-black text-[var(--brand-green)]" : "mt-1 text-xl font-black text-zinc-950"}>{plan.commission}</p>
-                </div>
+                {!plan.premium && (
+                  <div className="mt-5 rounded-2xl bg-[var(--brand-green-soft)] px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-800">Comissão da plataforma</p>
+                    <p className="text-xl font-black text-zinc-950 flex-shrink-0">{plan.commission}</p>
+                  </div>
+                )}
                 <ul className="mt-6 space-y-3 pb-7">
                   {plan.highlights.map((feature) => (
                     <li key={feature} className={plan.premium ? "flex gap-3 text-sm leading-6 text-zinc-300" : "flex gap-3 text-sm leading-6 text-zinc-600"}>
@@ -574,17 +617,23 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href="/signup?role=agency"
-                  className={[
-                    "mt-auto inline-flex w-full items-center justify-center rounded-2xl px-5 py-3.5 text-sm font-black transition-all",
-                    plan.featured || plan.premium
-                      ? "bg-[var(--brand-green)] text-[var(--brand-surface)] hover:bg-[var(--brand-green-strong)]"
-                      : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50",
-                  ].join(" ")}
-                >
-                  Começar com {plan.name}
-                </Link>
+                {plan.premium ? (
+                  <span className="mt-auto inline-flex w-full items-center justify-center rounded-2xl px-5 py-3.5 text-sm font-black bg-white/10 text-zinc-400 cursor-not-allowed">
+                    Em breve
+                  </span>
+                ) : (
+                  <Link
+                    href={`/signup?role=agency&plan=${plan.key}`}
+                    className={[
+                      "mt-auto inline-flex w-full items-center justify-center rounded-2xl px-5 py-3.5 text-sm font-black transition-all",
+                      plan.featured
+                        ? "bg-[var(--brand-green)] text-[var(--brand-surface)] hover:bg-[var(--brand-green-strong)]"
+                        : "border border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50",
+                    ].join(" ")}
+                  >
+                    Começar com {plan.name}
+                  </Link>
+                )}
                 </div>
               </Card>
             ))}
