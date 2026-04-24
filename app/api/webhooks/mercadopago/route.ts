@@ -7,8 +7,8 @@ import { notifyAdmins } from "@/lib/notify";
 // POST /api/webhooks/mercadopago
 //
 // Security layers:
-//   1. HMAC-SHA256 signature validation  — rejects forged requests
-//   2. Idempotency check                 — skips already-paid contracts
+//   1. HMAC-SHA256 signature validation with 5-min timestamp tolerance
+//   2. webhook_events INSERT unique constraint — deduplication gate
 //   3. pix_payment_id ownership          — payment must belong to this contract
 //   4. Amount integrity                  — paid amount must match contract amount
 //   5. Atomic DB guard                   — .eq("payment_status","pending") prevents race conditions
@@ -27,10 +27,12 @@ const SUBSCRIPTION_TX_DESCRIPTION = "Assinatura Pro — Brisa Digital";
 // ── Signature validation ──────────────────────────────────────────────────────
 // Header: x-signature: ts=<ts>,v1=<hmac>
 // Manifest: "id:<data.id>;request-id:<x-request-id>;ts:<ts>;"  (request-id omitted if absent)
+// Timestamp tolerance: max 5 minutes old, max 60 seconds future
 
 function verifySignature(req: NextRequest, dataId: string): boolean {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (!secret || secret === "your_webhook_secret_here") return true; // skip in dev
+  // Fail closed: no bypass — reject if secret is missing or placeholder
+  if (!secret || secret === "your_webhook_secret_here") return false;
 
   const xSignature = req.headers.get("x-signature") ?? "";
   const xRequestId = req.headers.get("x-request-id") ?? "";
@@ -39,9 +41,15 @@ function verifySignature(req: NextRequest, dataId: string): boolean {
   const v1 = xSignature.match(/v1=([^,]+)/)?.[1];
   if (!ts || !v1) return false;
 
-  const parts = [`id:${dataId}`, xRequestId ? `request-id:${xRequestId}` : null, `ts:${ts}`]
-    .filter(Boolean)
-    .join(";") + ";";
+  // Reject replayed or excessively future-dated signatures
+  const tsNum  = Number(ts);
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (isNaN(tsNum) || tsNum < nowSec - 300 || tsNum > nowSec + 60) return false;
+
+  const parts =
+    [`id:${dataId}`, xRequestId ? `request-id:${xRequestId}` : null, `ts:${ts}`]
+      .filter(Boolean)
+      .join(";") + ";";
 
   const expected = createHmac("sha256", secret).update(parts).digest("hex");
 
@@ -50,6 +58,60 @@ function verifySignature(req: NextRequest, dataId: string): boolean {
   } catch {
     return false; // buffer length mismatch → invalid signature
   }
+}
+
+// ── Normalize MP status to payments table CHECK constraint values ──────────────
+
+const MP_STATUS_MAP: Record<string, string> = {
+  in_process:   "pending",
+  in_mediation: "pending",
+  charged_back: "refunded",
+};
+const VALID_STATUSES = new Set(["pending","approved","rejected","cancelled","refunded","expired","failed"]);
+
+function normalizeStatus(mpStatus: string | null | undefined): string {
+  const s   = mpStatus ?? "failed";
+  const out = MP_STATUS_MAP[s] ?? s;
+  return VALID_STATUSES.has(out) ? out : "failed";
+}
+
+// ── DB helpers ────────────────────────────────────────────────────────────────
+
+type Supa = ReturnType<typeof createServerClient>;
+
+async function markEventProcessed(db: Supa, id: string | null, error?: string) {
+  if (!id) return;
+  await db.from("webhook_events").update({
+    processed:    !error,
+    processed_at: error ? null : new Date().toISOString(),
+    ...(error ? { error } : {}),
+  }).eq("id", id);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function upsertPaymentRow(
+  db: Supa,
+  payment: any,
+  dataId: string,
+  refs: { agency_id?: string | null; booking_id?: string | null; contract_id?: string | null } = {}
+) {
+  const { error } = await db.from("payments").upsert(
+    {
+      provider:             "mercadopago",
+      provider_payment_id:  dataId,
+      idempotency_key:      `mercadopago:${dataId}`,
+      agency_id:            refs.agency_id   ?? null,
+      booking_id:           refs.booking_id  ?? null,
+      contract_id:          refs.contract_id ?? null,
+      amount:               payment.transaction_amount ?? 0,
+      currency:             "BRL",
+      status:               normalizeStatus(payment.status),
+      raw_provider_payload: payment,
+      processed_at:         new Date().toISOString(),
+    },
+    { onConflict: "provider,provider_payment_id" }
+  );
+  if (error) log("warn", "payments upsert failed", { dataId, err: error.message });
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -64,9 +126,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // Ack test pings and non-payment events immediately
+  // Ack test pings and non-payment events immediately.
+  // Signature requires data.id which these events don't provide.
   if (body.type !== "payment") {
     return NextResponse.json({ ok: true });
+  }
+
+  // Fail closed: secret must be configured and not placeholder
+  const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+  if (!secret || secret === "your_webhook_secret_here") {
+    log("error", "MERCADO_PAGO_WEBHOOK_SECRET not configured — rejecting webhook");
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
   }
 
   const dataId = String((body.data as Record<string, unknown>)?.id ?? "");
@@ -75,16 +145,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing data.id" }, { status: 400 });
   }
 
-  // ── Validate HMAC signature ──────────────────────────────────────────────────
+  // ── Validate HMAC signature + timestamp ──────────────────────────────────────
   if (!verifySignature(req, dataId)) {
     log("warn", "Signature validation failed", { dataId });
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
+  const supabase   = createServerClient({ useServiceRole: true });
+  const xRequestId = req.headers.get("x-request-id") ?? "";
+
+  // ── Insert webhook_event — deduplication gate ─────────────────────────────────
+  // Unique constraint on (provider, provider_event_id).
+  // PostgREST returns code "23505" on conflict → event already handled → return 200.
+  const { data: webhookEvent, error: weErr } = await supabase
+    .from("webhook_events")
+    .insert({
+      provider:          "mercadopago",
+      event_id:          xRequestId || dataId,
+      provider_event_id: dataId,
+      topic:             String(body.type ?? ""),
+      raw_payload:       body,
+      processed:         false,
+    })
+    .select("id")
+    .single();
+
+  if (weErr) {
+    if (weErr.code === "23505") {
+      log("info", "Duplicate webhook event — skipping", { dataId });
+      return NextResponse.json({ ok: true });
+    }
+    // Non-fatal: log but continue so a DB hiccup doesn't lose a valid payment
+    log("warn", "Failed to insert webhook_event", { dataId, err: weErr.message });
+  }
+
+  const webhookEventId = webhookEvent?.id ?? null;
+
   // ── Fetch payment from Mercado Pago ──────────────────────────────────────────
   const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
   if (!accessToken) {
     log("error", "MERCADO_PAGO_ACCESS_TOKEN not configured");
+    await markEventProcessed(supabase, webhookEventId, "MERCADO_PAGO_ACCESS_TOKEN not configured");
     return NextResponse.json({ error: "Not configured" }, { status: 500 });
   }
 
@@ -94,58 +195,48 @@ export async function POST(req: NextRequest) {
     payment = await new Payment(client).get({ id: Number(dataId) });
   } catch (err) {
     log("error", "Failed to fetch payment from MP", { paymentId: dataId, err: String(err) });
+    await markEventProcessed(supabase, webhookEventId, `MP fetch failed: ${String(err)}`);
     return NextResponse.json({ error: "Could not fetch payment" }, { status: 502 });
   }
 
   log("info", "Payment event", { paymentId: dataId, status: payment.status });
 
-  const supabaseEarly = createServerClient({ useServiceRole: true });
-  const metaEarly     = payment.metadata as Record<string, string> | undefined;
+  const meta = payment.metadata as Record<string, string> | undefined;
 
   // ── Subscription failure branch (fires even on non-approved) ─────────────────
-  if (metaEarly?.type === "subscription" && payment.status !== "approved") {
-    const userId = metaEarly.user_id;
+  if (meta?.type === "subscription" && payment.status !== "approved") {
+    const userId = meta.user_id;
     if (userId) {
-      await supabaseEarly
+      await supabase
         .from("profiles")
         .update({ plan_status: "past_due" })
         .eq("id", userId);
       log("info", "Subscription payment failed — plan set to past_due", { paymentId: dataId, userId, status: payment.status });
     }
+    await upsertPaymentRow(supabase, payment, dataId, { agency_id: userId ?? null });
+    await markEventProcessed(supabase, webhookEventId);
     return NextResponse.json({ ok: true });
   }
 
   // Only proceed on approved payments
   if (payment.status !== "approved") {
+    await upsertPaymentRow(supabase, payment, dataId);
+    await markEventProcessed(supabase, webhookEventId);
     return NextResponse.json({ ok: true });
   }
-
-  const supabase = supabaseEarly;
-  const meta     = metaEarly;
 
   // ── Subscription approved branch ──────────────────────────────────────────────
   if (meta?.type === "subscription") {
     const userId = meta.user_id;
     if (!userId) {
       log("warn", "subscription missing user_id", { paymentId: dataId });
+      await upsertPaymentRow(supabase, payment, dataId);
+      await markEventProcessed(supabase, webhookEventId);
       return NextResponse.json({ ok: true });
     }
 
-    // Idempotency: skip if plan already active for this payment
-    const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const { data: existingTx } = await supabase
-      .from("wallet_transactions")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("type", "payment")
-      .eq("description", SUBSCRIPTION_TX_DESCRIPTION)
-      .gte("created_at", recentCutoff)
-      .maybeSingle();
-
-    if (existingTx) {
-      log("info", "Subscription already activated — skipping", { paymentId: dataId, userId });
-      return NextResponse.json({ ok: true });
-    }
+    // Idempotency is now guaranteed by the webhook_events unique INSERT above.
+    // The 10-minute wallet_transactions window check is no longer needed.
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
@@ -160,13 +251,15 @@ export async function POST(req: NextRequest) {
       .eq("id", userId);
 
     await supabase.from("wallet_transactions").insert({
-      user_id:      userId,
-      type:         "payment",
-      amount:       payment.transaction_amount ?? 0,
-      description:  SUBSCRIPTION_TX_DESCRIPTION,
+      user_id:     userId,
+      type:        "payment",
+      amount:      payment.transaction_amount ?? 0,
+      description: SUBSCRIPTION_TX_DESCRIPTION,
     });
 
     log("info", "Subscription activated", { userId, paymentId: dataId, expiresAt: expiresAt.toISOString() });
+    await upsertPaymentRow(supabase, payment, dataId, { agency_id: userId });
+    await markEventProcessed(supabase, webhookEventId);
     return NextResponse.json({ ok: true });
   }
 
@@ -175,13 +268,15 @@ export async function POST(req: NextRequest) {
     const userId = meta.user_id;
     if (!userId) {
       log("warn", "wallet_deposit missing user_id", { paymentId: dataId });
+      await upsertPaymentRow(supabase, payment, dataId);
+      await markEventProcessed(supabase, webhookEventId);
       return NextResponse.json({ ok: true });
     }
 
     const depositAmount = payment.transaction_amount ?? 0;
 
     // credit_wallet_deposit is atomic and idempotent:
-    //   - claims the pending tx row via UPDATE (WHERE description != confirmed) or INSERT
+    //   - claims the pending tx row via UPDATE or INSERT
     //   - the unique index on payment_id means only one concurrent call can claim it
     //   - credits wallet only after claiming; returns false if already processed
     const { data: credited, error: rpcErr } = await supabase.rpc("credit_wallet_deposit", {
@@ -192,14 +287,16 @@ export async function POST(req: NextRequest) {
 
     if (rpcErr) {
       log("error", "credit_wallet_deposit failed", { userId, err: rpcErr.message });
+      await upsertPaymentRow(supabase, payment, dataId, { agency_id: userId });
+      await markEventProcessed(supabase, webhookEventId, `credit_wallet_deposit failed: ${rpcErr.message}`);
       return NextResponse.json({ error: "Balance update failed" }, { status: 500 });
     }
 
     if (credited) {
       log("info", "Wallet deposit credited", { userId, amount: depositAmount, paymentId: dataId });
       const brl = new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
+        style:                 "currency",
+        currency:              "BRL",
         maximumFractionDigits: 0,
       }).format(depositAmount);
       await notifyAdmins(
@@ -212,6 +309,8 @@ export async function POST(req: NextRequest) {
       log("info", "Wallet deposit already credited — skipping", { paymentId: dataId, userId });
     }
 
+    await upsertPaymentRow(supabase, payment, dataId, { agency_id: userId });
+    await markEventProcessed(supabase, webhookEventId);
     return NextResponse.json({ ok: true });
   }
 
@@ -235,6 +334,8 @@ export async function POST(req: NextRequest) {
 
   if (!contractId) {
     log("info", "No contract matched — ignoring", { paymentId: dataId });
+    await upsertPaymentRow(supabase, payment, dataId);
+    await markEventProcessed(supabase, webhookEventId);
     return NextResponse.json({ ok: true });
   }
 
@@ -247,12 +348,16 @@ export async function POST(req: NextRequest) {
 
   if (fetchErr || !contract) {
     log("error", "Contract not found", { contractId, err: fetchErr?.message });
+    await upsertPaymentRow(supabase, payment, dataId, { contract_id: contractId });
+    await markEventProcessed(supabase, webhookEventId, `Contract not found: ${fetchErr?.message}`);
     return NextResponse.json({ error: "Contract not found" }, { status: 404 });
   }
 
   // ── Step 3: Idempotency — ignore if already paid ─────────────────────────────
   if (contract.payment_status === "paid") {
     log("info", "Already paid — skipping", { contractId, paymentId: dataId });
+    await upsertPaymentRow(supabase, payment, dataId, { agency_id: contract.agency_id, contract_id: contractId });
+    await markEventProcessed(supabase, webhookEventId);
     return NextResponse.json({ ok: true });
   }
 
@@ -263,6 +368,7 @@ export async function POST(req: NextRequest) {
       expected: contract.pix_payment_id,
       received: dataId,
     });
+    await markEventProcessed(supabase, webhookEventId, "Payment ID mismatch");
     return NextResponse.json({ error: "Payment mismatch" }, { status: 409 });
   }
 
@@ -271,6 +377,8 @@ export async function POST(req: NextRequest) {
   const contractAmount = Number(contract.payment_amount ?? 0);
   if (Math.abs(paidAmount - contractAmount) > 0.01) {
     log("warn", "Amount mismatch", { contractId, paidAmount, contractAmount });
+    await upsertPaymentRow(supabase, payment, dataId, { agency_id: contract.agency_id, contract_id: contractId });
+    await markEventProcessed(supabase, webhookEventId, `Amount mismatch: paid=${paidAmount} contract=${contractAmount}`);
     return NextResponse.json({ error: "Amount mismatch" }, { status: 409 });
   }
 
@@ -302,6 +410,8 @@ export async function POST(req: NextRequest) {
           talentsNeeded,
         });
         // Return 200 so Mercado Pago stops retrying — this is a business rule rejection
+        await upsertPaymentRow(supabase, payment, dataId, { agency_id: contract.agency_id, contract_id: contractId });
+        await markEventProcessed(supabase, webhookEventId, "Job at capacity");
         return NextResponse.json({ ok: true, reason: "job_at_capacity" });
       }
     }
@@ -325,12 +435,16 @@ export async function POST(req: NextRequest) {
 
   if (updateErr) {
     log("error", "Failed to update contract", { contractId, err: updateErr.message });
+    await upsertPaymentRow(supabase, payment, dataId, { agency_id: contract.agency_id, contract_id: contractId });
+    await markEventProcessed(supabase, webhookEventId, `Contract update failed: ${updateErr.message}`);
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
   // 0 rows returned → another concurrent webhook already processed this payment
   if (!updatedRows || updatedRows.length === 0) {
     log("info", "Concurrent update detected — skipping", { contractId });
+    await upsertPaymentRow(supabase, payment, dataId, { agency_id: contract.agency_id, contract_id: contractId });
+    await markEventProcessed(supabase, webhookEventId);
     return NextResponse.json({ ok: true });
   }
 
@@ -378,6 +492,8 @@ export async function POST(req: NextRequest) {
 
   // ── Upsert booking ────────────────────────────────────────────────────────────
   // Update an existing pending_payment booking, or create one if missing.
+  let resolvedBookingId: string | null = null;
+
   if (talent_id && agency_id) {
     const { data: existing } = await supabase
       .from("bookings")
@@ -393,6 +509,7 @@ export async function POST(req: NextRequest) {
         .update({ status: "confirmed" })
         .eq("id", existing.id);
 
+      resolvedBookingId = existing.id;
       log("info", "Booking confirmed", { bookingId: existing.id, contractId });
     } else {
       // Guard against duplicate confirmed bookings for this talent + job
@@ -424,6 +541,7 @@ export async function POST(req: NextRequest) {
         if (bookingErr) {
           log("error", "Failed to create booking", { contractId, err: bookingErr.message });
         } else {
+          resolvedBookingId = createdBooking.id;
           log("info", "Booking created", { contractId });
           await notifyAdmins(
             "booking",
@@ -444,6 +562,14 @@ export async function POST(req: NextRequest) {
     jobId:     job_id,
     talentId:  talent_id,
   });
+
+  // ── Upsert forensic payments row and mark event processed ─────────────────────
+  await upsertPaymentRow(supabase, payment, dataId, {
+    agency_id:   agency_id   ?? null,
+    booking_id:  resolvedBookingId,
+    contract_id: contractId,
+  });
+  await markEventProcessed(supabase, webhookEventId);
 
   return NextResponse.json({ ok: true });
 }
