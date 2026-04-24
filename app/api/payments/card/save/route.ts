@@ -5,10 +5,11 @@ import { createServerClient } from "@/lib/supabase";
 import { ensureMpCustomer } from "@/lib/mpCustomer";
 
 // POST /api/payments/card/save
-// Body: { token, payment_method_id, issuer_id, last_four, holder_name, expiry_month, expiry_year }
+// Body: { token, payment_method_id, holder_name, expiry_month, expiry_year,
+//         holder_document_type, holder_document_number }
 //
 // `token` is the single-use card token created by MP.js on the frontend.
-// We never see or store the raw card number.
+// We never see or store the raw card number or CVV.
 //
 // Returns: { card: SavedCard }
 
@@ -18,7 +19,16 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { token, payment_method_id, last_four, holder_name, expiry_month, expiry_year } = body;
+  const {
+    token,
+    payment_method_id,
+    last_four,
+    holder_name,
+    expiry_month,
+    expiry_year,
+    holder_document_type,
+    holder_document_number,
+  } = body;
 
   if (!token) return NextResponse.json({ error: "token is required" }, { status: 400 });
 
@@ -30,7 +40,7 @@ export async function POST(req: NextRequest) {
   const customerId = await ensureMpCustomer(user.id, email);
 
   // Associate card token with MP customer → creates a saved card
-  const client    = new MercadoPagoConfig({ accessToken });
+  const client     = new MercadoPagoConfig({ accessToken });
   const cardClient = new CustomerCard(client);
 
   let mpCard;
@@ -48,21 +58,23 @@ export async function POST(req: NextRequest) {
   const brand      = (mpCard.payment_method as { id?: string } | undefined)?.id ?? payment_method_id ?? null;
   const lastFour   = mpCard.last_four_digits ?? last_four ?? null;
   const cardHolder = (mpCard.cardholder as { name?: string } | undefined)?.name ?? holder_name ?? null;
-  const expMonth   = mpCard.expiration_month   ?? expiry_month   ?? null;
-  const expYear    = mpCard.expiration_year    ?? expiry_year    ?? null;
+  const expMonth   = mpCard.expiration_month ?? expiry_month ?? null;
+  const expYear    = mpCard.expiration_year  ?? expiry_year  ?? null;
 
-  // Persist to DB (no raw card data — only MP references + display metadata)
+  // Persist to DB (no raw card data — only MP references + display metadata + document)
   const { data: saved, error: insertErr } = await supabase
     .from("saved_cards")
     .insert({
-      user_id:        user.id,
-      mp_customer_id: customerId,
-      mp_card_id:     mpCard.id!,
+      user_id:                user.id,
+      mp_customer_id:         customerId,
+      mp_card_id:             mpCard.id!,
       brand,
-      last_four:      lastFour,
-      holder_name:    cardHolder,
-      expiry_month:   expMonth,
-      expiry_year:    expYear,
+      last_four:              lastFour,
+      holder_name:            cardHolder,
+      expiry_month:           expMonth,
+      expiry_year:            expYear,
+      holder_document_type:   holder_document_type   ?? null,
+      holder_document_number: holder_document_number ?? null,
     })
     .select("id, brand, last_four, holder_name, expiry_month, expiry_year, created_at")
     .single();

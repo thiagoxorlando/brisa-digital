@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     const { data: card } = await supabase
       .from("saved_cards")
-      .select("id, mp_card_id, mp_customer_id, brand, last_four")
+      .select("id, mp_card_id, mp_customer_id, brand, last_four, holder_document_type, holder_document_number")
       .eq("id", savedCardId)
       .eq("user_id", user.id)
       .single();
@@ -174,9 +174,15 @@ export async function POST(req: NextRequest) {
           token,
           payment_method_id: card.brand ?? "visa",
           payer: {
-            id: card.mp_customer_id,
+            id:   card.mp_customer_id,
             email,
             type: "customer",
+            ...(card.holder_document_type && card.holder_document_number ? {
+              identification: {
+                type:   card.holder_document_type,
+                number: card.holder_document_number,
+              },
+            } : {}),
           },
           metadata: { user_id: user.id, plan: selectedPlan },
         },

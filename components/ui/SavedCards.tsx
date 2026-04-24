@@ -86,7 +86,9 @@ function CardRow({ card, onDelete }: { card: SavedCard; onDelete: (id: string) =
   );
 }
 
-// ── Add card form (MP.js tokenization) ───────────────────────────────────────
+// ── Add card form ─────────────────────────────────────────────────────────────
+// React-controlled inputs for UX. MP.js SDK handles tokenization so card data
+// goes directly to Mercado Pago's servers and never reaches our backend.
 
 interface AddCardFormProps {
   publicKey: string;
@@ -97,139 +99,261 @@ interface AddCardFormProps {
 declare global {
   interface Window {
     MercadoPago: new (key: string, opts?: object) => {
-      cardForm: (opts: object) => {
-        getCardFormData: () => {
-          token: string;
-          paymentMethodId: string;
-          issuerId: string;
-          cardholderName: string;
-          expirationDate: string; // MM/YY
-        };
-        unmount: () => void;
-      };
+      createCardToken: (data: {
+        cardNumber:            string;
+        cardholderName:        string;
+        cardExpirationMonth:   string;
+        cardExpirationYear:    string;
+        securityCode:          string;
+        identificationType?:   string;
+        identificationNumber?: string;
+      }) => Promise<{
+        id:                 string;
+        payment_method_id?: string;
+        last_four_digits?:  string;
+        first_six_digits?:  string;
+        cause?:             Array<{ code: string; description: string }>;
+      }>;
     };
   }
 }
 
+const INPUT_CLS =
+  "w-full h-11 border border-zinc-200 rounded-xl px-3 bg-white text-[14px] text-zinc-900 " +
+  "placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400 transition-colors";
+
+type DocType = "CPF" | "CNPJ";
+
+function maskDocument(digits: string, type: DocType): string {
+  if (type === "CPF") {
+    const d = digits.slice(0, 11);
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+    if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  }
+  const d = digits.slice(0, 14);
+  if (d.length <= 2)  return d;
+  if (d.length <= 5)  return `${d.slice(0, 2)}.${d.slice(2)}`;
+  if (d.length <= 8)  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
 export function AddCardForm({ publicKey, onSaved, onCancel }: AddCardFormProps) {
-  const formRef   = useRef<HTMLFormElement>(null);
-  const mpRef     = useRef<ReturnType<InstanceType<typeof window.MercadoPago>["cardForm"]> | null>(null);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState("");
-  const [ready,   setReady]   = useState(false);
+  const mpRef        = useRef<InstanceType<typeof window.MercadoPago> | null>(null);
+  const [sdkReady,   setSdkReady]   = useState(false);
+  const [saving,     setSaving]     = useState(false);
+  const [error,      setError]      = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry,     setExpiry]     = useState("");
+  const [cvv,        setCvv]        = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [docType,    setDocType]    = useState<DocType>("CPF");
+  const [docNumber,  setDocNumber]  = useState("");
 
   useEffect(() => {
-    // Load MP.js SDK
+    function initMp() {
+      mpRef.current = new window.MercadoPago(publicKey, { locale: "pt-BR" });
+      setSdkReady(true);
+    }
     const existing = document.getElementById("mp-sdk");
     if (!existing) {
       const script  = document.createElement("script");
       script.id     = "mp-sdk";
       script.src    = "https://sdk.mercadopago.com/js/v2";
-      script.onload = initForm;
+      script.onload = initMp;
       document.head.appendChild(script);
     } else if (window.MercadoPago) {
-      initForm();
+      initMp();
     }
-
-    return () => {
-      mpRef.current?.unmount();
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function initForm() {
-    const mp = new window.MercadoPago(publicKey, { locale: "pt-BR" });
-    mpRef.current = mp.cardForm({
-      amount: "1.00", // placeholder; not charged at save time
-      iframe: true,
-      form: {
-        id:              "mp-card-form",
-        cardNumber:      { id: "mp-card-number",       placeholder: "Número do cartão" },
-        expirationDate:  { id: "mp-expiration-date",   placeholder: "MM/AA" },
-        securityCode:    { id: "mp-security-code",     placeholder: "CVV" },
-        cardholderName:  { id: "mp-cardholder-name",   placeholder: "Nome no cartão" },
-        issuer:          { id: "mp-issuer" },
-        installments:    { id: "mp-installments" },
-      },
-      callbacks: {
-        onFormMounted: (err: unknown) => { if (!err) setReady(true); },
-        onError:       (errs: unknown) => { console.error("[MP cardForm]", errs); },
-      },
-    });
+  function handleCardNumberChange(v: string) {
+    const digits = v.replace(/\D/g, "").slice(0, 16);
+    const groups = digits.match(/.{1,4}/g) ?? [];
+    setCardNumber(groups.join(" "));
   }
+
+  function handleExpiryChange(v: string) {
+    const digits = v.replace(/\D/g, "").slice(0, 4);
+    setExpiry(digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`);
+  }
+
+  function handleCvvChange(v: string) {
+    setCvv(v.replace(/\D/g, "").slice(0, 4));
+  }
+
+  function handleDocTypeChange(t: DocType) {
+    setDocType(t);
+    setDocNumber("");
+  }
+
+  function handleDocNumberChange(v: string) {
+    const digits = v.replace(/\D/g, "");
+    setDocNumber(maskDocument(digits, docType));
+  }
+
+  const rawNumber   = cardNumber.replace(/\s/g, "");
+  const rawDocument = docNumber.replace(/\D/g, "");
+  const [expMM, expYY] = expiry.split("/");
+  const parsedMM    = parseInt(expMM ?? "0", 10);
+  const isDocValid  = (docType === "CPF" && rawDocument.length === 11) ||
+                      (docType === "CNPJ" && rawDocument.length === 14);
+  const isValid =
+    rawNumber.length >= 13 &&
+    expiry.length === 5 &&
+    parsedMM >= 1 && parsedMM <= 12 &&
+    (expYY ?? "").length === 2 &&
+    cvv.length >= 3 &&
+    holderName.trim().length >= 2 &&
+    isDocValid;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!mpRef.current) return;
+    if (!isValid || !mpRef.current) return;
     setError("");
     setSaving(true);
 
     try {
-      const fd = mpRef.current.getCardFormData();
-      if (!fd.token) { setError("Não foi possível tokenizar o cartão. Verifique os dados."); return; }
+      const fullYear = 2000 + parseInt(expYY!, 10);
 
-      const [expMonth, expYear] = fd.expirationDate?.split("/") ?? [];
+      // Tokenize via MP.js SDK — card data goes directly to Mercado Pago
+      const tokenData = await mpRef.current.createCardToken({
+        cardNumber:            rawNumber,
+        cardholderName:        holderName.trim(),
+        cardExpirationMonth:   String(parsedMM).padStart(2, "0"),
+        cardExpirationYear:    String(fullYear),
+        securityCode:          cvv,
+        identificationType:    docType,
+        identificationNumber:  rawDocument,
+      });
 
-      const res  = await fetch("/api/payments/card/save", {
+      if (!tokenData?.id) {
+        const detail = tokenData?.cause?.[0]?.description ?? "Verifique os dados do cartão.";
+        setError(`Não foi possível tokenizar o cartão. ${detail}`);
+        return;
+      }
+
+      const res = await fetch("/api/payments/card/save", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
-          token:              fd.token,
-          payment_method_id:  fd.paymentMethodId,
-          issuer_id:          fd.issuerId,
-          holder_name:        fd.cardholderName,
-          expiry_month:       expMonth ? parseInt(expMonth) : null,
-          expiry_year:        expYear  ? 2000 + parseInt(expYear) : null,
+          token:                  tokenData.id,
+          payment_method_id:      tokenData.payment_method_id,
+          holder_name:            holderName.trim(),
+          expiry_month:           parsedMM,
+          expiry_year:            fullYear,
+          holder_document_type:   docType,
+          holder_document_number: rawDocument,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Erro ao salvar cartão."); return; }
-
       onSaved(data.card);
-    } catch {
-      setError("Erro inesperado. Tente novamente.");
+    } catch (err) {
+      console.error("[AddCardForm] tokenize error:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Erro ao processar cartão: ${msg}`);
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form
-      id="mp-card-form"
-      ref={formRef}
-      onSubmit={handleSubmit}
-      className="p-5 border-t border-zinc-100 space-y-4"
-    >
+    <form onSubmit={handleSubmit} className="p-5 border-t border-zinc-100 space-y-4">
       <p className="text-[12px] font-semibold text-zinc-500 uppercase tracking-widest mb-3">
         Adicionar cartão
       </p>
 
-      {/* MP.js iframes are injected into these divs */}
       <div>
         <label className="block text-[11px] font-medium text-zinc-500 mb-1.5">Número do cartão</label>
-        <div id="mp-card-number"     className="h-11 border border-zinc-200 rounded-xl px-3 bg-white" />
+        <input
+          type="text"
+          inputMode="numeric"
+          value={cardNumber}
+          onChange={(e) => handleCardNumberChange(e.target.value)}
+          placeholder="0000 0000 0000 0000"
+          autoComplete="cc-number"
+          className={`${INPUT_CLS} tabular-nums tracking-wider`}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-[11px] font-medium text-zinc-500 mb-1.5">Validade</label>
-          <div id="mp-expiration-date" className="h-11 border border-zinc-200 rounded-xl px-3 bg-white" />
+          <input
+            type="text"
+            inputMode="numeric"
+            value={expiry}
+            onChange={(e) => handleExpiryChange(e.target.value)}
+            placeholder="MM/AA"
+            autoComplete="cc-exp"
+            maxLength={5}
+            className={`${INPUT_CLS} tabular-nums`}
+          />
         </div>
         <div>
           <label className="block text-[11px] font-medium text-zinc-500 mb-1.5">CVV</label>
-          <div id="mp-security-code"   className="h-11 border border-zinc-200 rounded-xl px-3 bg-white" />
+          <input
+            type="text"
+            inputMode="numeric"
+            value={cvv}
+            onChange={(e) => handleCvvChange(e.target.value)}
+            placeholder="CVV"
+            autoComplete="cc-csc"
+            maxLength={4}
+            className={`${INPUT_CLS} tabular-nums`}
+          />
         </div>
       </div>
 
       <div>
         <label className="block text-[11px] font-medium text-zinc-500 mb-1.5">Nome no cartão</label>
-        <div id="mp-cardholder-name"  className="h-11 border border-zinc-200 rounded-xl px-3 bg-white" />
+        <input
+          type="text"
+          value={holderName}
+          onChange={(e) => setHolderName(e.target.value)}
+          placeholder="Nome como no cartão"
+          autoComplete="cc-name"
+          className={INPUT_CLS}
+        />
       </div>
 
-      {/* Hidden MP fields */}
-      <div id="mp-issuer"       className="hidden" />
-      <div id="mp-installments" className="hidden" />
+      {/* Document */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-medium text-zinc-500">Documento do titular</label>
+          <div className="flex bg-zinc-100 rounded-lg p-0.5 gap-0.5">
+            {(["CPF", "CNPJ"] as DocType[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => handleDocTypeChange(t)}
+                className={[
+                  "px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer",
+                  docType === t
+                    ? "bg-white text-zinc-900 shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-700",
+                ].join(" ")}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={docNumber}
+          onChange={(e) => handleDocNumberChange(e.target.value)}
+          placeholder={docType === "CPF" ? "000.000.000-00" : "00.000.000/0000-00"}
+          maxLength={docType === "CPF" ? 14 : 18}
+          className={`${INPUT_CLS} tabular-nums`}
+        />
+      </div>
 
       {error && (
         <p className="text-[13px] text-rose-500 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
@@ -240,10 +364,10 @@ export function AddCardForm({ publicKey, onSaved, onCancel }: AddCardFormProps) 
       <div className="flex gap-3 pt-1">
         <button
           type="submit"
-          disabled={saving || !ready}
+          disabled={saving || !isValid || !sdkReady}
           className="flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white text-[13px] font-medium py-2.5 rounded-xl transition-colors disabled:cursor-not-allowed"
         >
-          {saving ? "Salvando…" : "Salvar cartão"}
+          {saving ? "Salvando…" : !sdkReady ? "Carregando…" : "Salvar cartão"}
         </button>
         <button
           type="button"
@@ -264,21 +388,26 @@ export function AddCardForm({ publicKey, onSaved, onCancel }: AddCardFormProps) 
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface SavedCardsProps {
-  initialCards: SavedCard[];
-  publicKey:    string;
+  initialCards:    SavedCard[];
+  publicKey:       string;
+  onCardsChange?:  (cards: SavedCard[]) => void;
 }
 
-export default function SavedCards({ initialCards, publicKey }: SavedCardsProps) {
-  const [cards,     setCards]     = useState<SavedCard[]>(initialCards);
-  const [showForm,  setShowForm]  = useState(false);
+export default function SavedCards({ initialCards, publicKey, onCardsChange }: SavedCardsProps) {
+  const [cards,    setCards]    = useState<SavedCard[]>(initialCards);
+  const [showForm, setShowForm] = useState(false);
 
   function handleSaved(card: SavedCard) {
-    setCards((prev) => [card, ...prev]);
+    const next = [card, ...cards];
+    setCards(next);
     setShowForm(false);
+    onCardsChange?.(next);
   }
 
   function handleDeleted(id: string) {
-    setCards((prev) => prev.filter((c) => c.id !== id));
+    const next = cards.filter((c) => c.id !== id);
+    setCards(next);
+    onCardsChange?.(next);
   }
 
   return (
