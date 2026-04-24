@@ -425,7 +425,17 @@ export default function Home() {
       <section className="bg-[var(--brand-surface)] px-5 py-20 text-white lg:px-10">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
-            <div>
+            <div className="mx-auto max-w-xl">
+              <div className="mb-10 hidden justify-center lg:flex">
+                <Image
+                  src={heroBrandImage}
+                  alt="Marca BrisaHub"
+                  width={heroBrandImage.width}
+                  height={heroBrandImage.height}
+                  className="h-auto w-full max-w-[220px]"
+                  sizes="220px"
+                />
+              </div>
               <Badge variant="muted" className="uppercase tracking-[0.24em]">Recursos principais</Badge>
               <h2 className="mt-4 text-3xl font-black tracking-[-0.04em] sm:text-5xl">
                 Tudo o que a agência precisa para contratar com mais segurança
