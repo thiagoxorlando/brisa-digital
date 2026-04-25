@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
-import { notify } from "@/lib/notify"; // TEMP: remove after notification test
 
 const PIX_KEY_TYPES = ["cpf", "cnpj", "email", "phone", "random"] as const;
 
@@ -23,8 +22,6 @@ export async function GET() {
     .eq("id", user.id)
     .single();
 
-  // TEMP: notification smoke-test — remove after confirming
-  await notify(user.id, "test", "Teste de notificação funcionando", "/", `test_${Date.now()}`).catch(console.error);
 
   return NextResponse.json({ pix: data ?? null });
 }
