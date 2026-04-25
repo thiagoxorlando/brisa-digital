@@ -5,6 +5,7 @@ import AdminFinances, {
   type FinancesPlanPayment,
   type FinancesSubscription,
   type FinancesSummary,
+  type FinancesWithdrawal,
 } from "@/features/admin/AdminFinances";
 import { createServerClient } from "@/lib/supabase";
 import {
@@ -87,6 +88,7 @@ export default async function AdminFinancesPage() {
     { data: planPaymentsData },
     { data: allAgenciesData },
     contractsData,
+    { data: withdrawalTxs },
   ] = await Promise.all([
     supabase
       .from("bookings")
@@ -115,6 +117,11 @@ export default async function AdminFinancesPage() {
       .select("id, company_name")
       .is("deleted_at", null),
     fetchContracts(supabase),
+    supabase
+      .from("wallet_transactions")
+      .select("id, user_id, amount, status, processed_at, created_at")
+      .eq("type", "withdrawal")
+      .order("created_at", { ascending: false }),
   ]);
 
   const rows = bookingsData ?? [];
@@ -321,6 +328,15 @@ export default async function AdminFinancesPage() {
   const totalSubscriptionRevenue = (planPaymentsData ?? []).reduce((sum, payment) => sum + Math.abs(payment.amount ?? 0), 0);
   const minimumRequired = contractsEscrowValue + contractsAwaitingValue + totalAgencyWalletBalance;
 
+  const withdrawals: FinancesWithdrawal[] = (withdrawalTxs ?? []).map((w) => ({
+    id:          w.id,
+    agencyName:  allAgencyNameMap.get(w.user_id) ?? "Agência sem nome",
+    amount:      Math.abs(w.amount ?? 0),
+    status:      w.status ?? "paid",
+    createdAt:   w.created_at ?? "",
+    processedAt: w.processed_at ?? null,
+  }));
+
   const summary: FinancesSummary = {
     totalGrossValue: totalGross,
     confirmedGrossValue: confirmedVal,
@@ -361,6 +377,7 @@ export default async function AdminFinancesPage() {
       contracts={contracts}
       planPayments={planPayments}
       subscriptions={subscriptions}
+      withdrawals={withdrawals}
     />
   );
 }

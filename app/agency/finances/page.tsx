@@ -22,7 +22,7 @@ export default async function AgencyFinancesPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("wallet_transactions")
-      .select("id, type, amount, description, created_at, idempotency_key")
+      .select("id, type, amount, description, created_at, idempotency_key, status")
       .eq("user_id", user?.id ?? "")
       .order("created_at", { ascending: false })
       .limit(100),
@@ -110,16 +110,17 @@ export default async function AgencyFinancesPage() {
     }
 
     return {
-      id:          w.id,
-      kind:        "wallet" as const,
-      talent:      "",
-      job:         "",
-      amount:      w.amount ?? 0,
+      id:              w.id,
+      kind:            "wallet" as const,
+      talent:          "",
+      job:             "",
+      amount:          w.amount ?? 0,
       status,
-      date:        w.created_at,
+      date:            w.created_at,
       description,
       bookingId,
-      href:        bookingId ? `/agency/bookings?booking_id=${bookingId}` : undefined,
+      href:            bookingId ? `/agency/bookings?booking_id=${bookingId}` : undefined,
+      withdrawalStatus: w.type === "withdrawal" ? (w.status ?? null) : undefined,
     };
   });
 

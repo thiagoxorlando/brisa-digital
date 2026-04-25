@@ -25,6 +25,7 @@ export type AgencyTransaction = {
   status: string;
   date: string;
   description?: string;
+  withdrawalStatus?: string | null;
 };
 
 export type AgencyFinanceSummary = {
@@ -32,6 +33,18 @@ export type AgencyFinanceSummary = {
   pendingPayments: number;
   completedPayments: number;
   walletBalance?: number;
+};
+
+const WITHDRAWAL_STATUS_CLS: Record<string, string> = {
+  pending:  "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  paid:     "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  rejected: "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
+};
+
+const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
+  pending:  "Aguardando pagamento",
+  paid:     "Pago",
+  rejected: "Rejeitado",
 };
 
 const STATUS_CLS: Record<string, string> = {
@@ -478,8 +491,9 @@ export default function AgencyFinances({
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
                   {transactions.map((t) => {
-                    const isWallet = t.kind === "wallet";
-                    const label    = isWallet ? (t.description ?? STATUS_LABEL[t.status] ?? t.status) : t.talent;
+                    const isWallet     = t.kind === "wallet";
+                    const isWithdrawal = t.status === "withdrawal";
+                    const label        = isWallet ? (t.description ?? STATUS_LABEL[t.status] ?? t.status) : t.talent;
                     return (
                       <tr
                         key={t.id}
@@ -507,7 +521,12 @@ export default function AgencyFinances({
                                 </svg>
                               </span>
                             )}
-                            <p className="text-[13px] font-bold text-zinc-950 truncate max-w-[220px]">{label}</p>
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-bold text-zinc-950 truncate max-w-[220px]">{label}</p>
+                              {isWithdrawal && (
+                                <p className="text-[11px] text-zinc-400 mt-0.5">Saques são processados manualmente pela equipe.</p>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-4 hidden md:table-cell">
@@ -519,9 +538,15 @@ export default function AgencyFinances({
                           </p>
                         </td>
                         <td className="px-4 py-4">
-                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[t.status] ?? "bg-zinc-100 text-zinc-500"}`}>
-                            {STATUS_LABEL[t.status] ?? t.status}
-                          </span>
+                          {isWithdrawal && t.withdrawalStatus ? (
+                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${WITHDRAWAL_STATUS_CLS[t.withdrawalStatus] ?? "bg-zinc-100 text-zinc-500"}`}>
+                              {WITHDRAWAL_STATUS_LABEL[t.withdrawalStatus] ?? t.withdrawalStatus}
+                            </span>
+                          ) : (
+                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[t.status] ?? "bg-zinc-100 text-zinc-500"}`}>
+                              {STATUS_LABEL[t.status] ?? t.status}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right hidden sm:table-cell">
                           <p className="text-[12px] text-zinc-400">

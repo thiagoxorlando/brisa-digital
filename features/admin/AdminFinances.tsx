@@ -33,6 +33,15 @@ export type FinancesContract = {
   withdrawn_at: string | null;
 };
 
+export type FinancesWithdrawal = {
+  id: string;
+  agencyName: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+  processedAt: string | null;
+};
+
 export type FinancesPlanPayment = {
   id: string;
   userId: string;
@@ -497,6 +506,126 @@ function WithdrawalHistory({ contracts }: { contracts: FinancesContract[] }) {
   );
 }
 
+function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[] }) {
+  const [rows, setRows] = useState<FinancesWithdrawal[]>(withdrawals);
+  const [marking, setMarking] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => { setRows(withdrawals); }, [withdrawals]);
+
+  const pending = rows.filter((w) => w.status === "pending");
+  const history = rows.filter((w) => w.status !== "pending");
+  const visibleHistory = expanded ? history : history.slice(0, 5);
+
+  async function handleMarkPaid(id: string) {
+    setMarking(id);
+    setError(null);
+    const res = await fetch(`/api/admin/withdrawals/${id}/mark-paid`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({}),
+    });
+    setMarking(null);
+    if (res.ok) {
+      setRows((current) =>
+        current.map((w) =>
+          w.id === id ? { ...w, status: "paid", processedAt: new Date().toISOString() } : w,
+        ),
+      );
+    } else {
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      setError(data.error ?? "Erro ao marcar saque como pago.");
+    }
+  }
+
+  return (
+    <Section
+      title="Saques de agências"
+      subtitle={`${pending.length} pendente(s) — pagamento manual necessário`}
+    >
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+        Confirme apenas após realizar o PIX/transferência fora da plataforma. Esta ação não envia dinheiro automaticamente.
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{error}</div>
+      )}
+
+      {pending.length === 0 ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-5 text-[13px] text-zinc-500 shadow-sm">
+          Nenhum saque pendente.
+        </div>
+      ) : (
+        <TableCard>
+          <thead className="border-b border-zinc-200 bg-zinc-50">
+            <tr>
+              <Th>Agência</Th>
+              <Th right>Valor</Th>
+              <Th>Solicitado em</Th>
+              <Th>Status</Th>
+              <Th right>Ação</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {pending.map((w) => (
+              <tr key={w.id}>
+                <Td>{w.agencyName}</Td>
+                <Td right><strong>{brl(w.amount)}</strong></Td>
+                <Td>{fmt(w.createdAt)}</Td>
+                <Td><Badge value="Aguardando pagamento" tone={STATUS_BADGES.pending} /></Td>
+                <Td right>
+                  <button
+                    onClick={() => handleMarkPaid(w.id)}
+                    disabled={marking === w.id}
+                    className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:bg-zinc-300 disabled:cursor-not-allowed"
+                  >
+                    {marking === w.id ? "..." : "Marcar como pago"}
+                  </button>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </TableCard>
+      )}
+
+      {history.length > 0 && (
+        <>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico</p>
+          <TableCard>
+            <thead className="border-b border-zinc-200 bg-zinc-50">
+              <tr>
+                <Th>Agência</Th>
+                <Th right>Valor</Th>
+                <Th>Solicitado em</Th>
+                <Th>Pago em</Th>
+                <Th>Status</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {visibleHistory.map((w) => (
+                <tr key={w.id}>
+                  <Td>{w.agencyName}</Td>
+                  <Td right>{brl(w.amount)}</Td>
+                  <Td>{fmt(w.createdAt)}</Td>
+                  <Td>{fmt(w.processedAt)}</Td>
+                  <Td>
+                    <Badge
+                      value={w.status === "paid" ? "Pago" : w.status === "rejected" ? "Rejeitado" : w.status}
+                      tone={w.status === "paid" ? STATUS_BADGES.paid : w.status === "rejected" ? "bg-red-50 text-red-700" : STATUS_BADGES.pending}
+                    />
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableCard>
+          <ShowMoreButton total={history.length} expanded={expanded} onToggle={() => setExpanded((c) => !c)} />
+        </>
+      )}
+    </Section>
+  );
+}
+
 function BookingsSection({
   bookings,
   summary,
@@ -561,12 +690,14 @@ export default function AdminFinances({
   contracts = [],
   planPayments = [],
   subscriptions = [],
+  withdrawals = [],
 }: {
   summary: FinancesSummary;
   bookings: FinancesBooking[];
   contracts?: FinancesContract[];
   planPayments?: FinancesPlanPayment[];
   subscriptions?: FinancesSubscription[];
+  withdrawals?: FinancesWithdrawal[];
 }) {
   const [platformBalance, setPlatformBalance] = useState<PlatformBalanceState>({ status: "loading" });
 
@@ -665,6 +796,7 @@ export default function AdminFinances({
       </Section>
 
       <ProfitSection bookings={bookings} contracts={contracts} planPayments={planPayments} />
+      <WithdrawalsSection withdrawals={withdrawals} />
       <SubscriptionsSection subscriptions={subscriptions} summary={summary} />
       <ContractsSection contracts={contracts} summary={summary} />
       <WithdrawalHistory contracts={contracts} />
