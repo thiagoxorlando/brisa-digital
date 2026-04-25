@@ -523,17 +523,20 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedPaid, setExpandedPaid] = useState(false);
-  const [expandedRejected, setExpandedRejected] = useState(false);
+  const [expandedHistory, setExpandedHistory] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => { setRows(withdrawals); }, [withdrawals]);
 
-  const pending         = rows.filter((w) => w.status === "pending");
-  const paidHistory     = rows.filter((w) => w.status === "paid");
-  const rejectedHistory = rows.filter((w) => w.status === "rejected");
-  const visiblePaid     = expandedPaid     ? paidHistory     : paidHistory.slice(0, 5);
-  const visibleRejected = expandedRejected ? rejectedHistory : rejectedHistory.slice(0, 5);
+  const pending = rows.filter((w) => w.status === "pending");
+  const history = rows
+    .filter((w) => w.status !== "pending")
+    .sort((a, b) => {
+      const ta = new Date(a.processedAt ?? a.createdAt).getTime();
+      const tb = new Date(b.processedAt ?? b.createdAt).getTime();
+      return tb - ta;
+    });
+  const visibleHistory = expandedHistory ? history : history.slice(0, 5);
 
   async function handleMarkPaid(id: string) {
     setMarking(id);
@@ -689,9 +692,9 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
         </TableCard>
       )}
 
-      {paidHistory.length > 0 && (
+      {history.length > 0 && (
         <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico — Pagos</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico</p>
           <TableCard>
             <thead className="border-b border-zinc-200 bg-zinc-50">
               <tr>
@@ -700,11 +703,13 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                 <Th right>Taxa</Th>
                 <Th right>Líquido</Th>
                 <Th>Solicitado em</Th>
-                <Th>Pago em</Th>
+                <Th>Processado em</Th>
+                <Th>Status</Th>
+                <Th>Motivo</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {visiblePaid.map((w) => (
+              {visibleHistory.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.agencyName}</Td>
                   <Td right>{brl(w.amount)}</Td>
@@ -712,38 +717,19 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                   <Td right>{w.netAmount ? brl(w.netAmount) : "-"}</Td>
                   <Td>{fmt(w.createdAt)}</Td>
                   <Td>{fmt(w.processedAt)}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </TableCard>
-          <ShowMoreButton total={paidHistory.length} expanded={expandedPaid} onToggle={() => setExpandedPaid((c) => !c)} />
-        </>
-      )}
-
-      {rejectedHistory.length > 0 && (
-        <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico — Cancelados</p>
-          <TableCard>
-            <thead className="border-b border-zinc-200 bg-zinc-50">
-              <tr>
-                <Th>Agência</Th>
-                <Th right>Valor</Th>
-                <Th>Cancelado em</Th>
-                <Th>Motivo</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {visibleRejected.map((w) => (
-                <tr key={w.id}>
-                  <Td>{w.agencyName}</Td>
-                  <Td right>{brl(w.amount)}</Td>
-                  <Td>{fmt(w.processedAt)}</Td>
+                  <Td>
+                    {w.status === "paid" ? (
+                      <Badge value="Pago" tone="bg-emerald-50 text-emerald-700" />
+                    ) : (
+                      <Badge value="Cancelado" tone="bg-red-50 text-red-700" />
+                    )}
+                  </Td>
                   <Td><span className="text-zinc-500 text-xs">{w.adminNote ?? "-"}</span></Td>
                 </tr>
               ))}
             </tbody>
           </TableCard>
-          <ShowMoreButton total={rejectedHistory.length} expanded={expandedRejected} onToggle={() => setExpandedRejected((c) => !c)} />
+          <ShowMoreButton total={history.length} expanded={expandedHistory} onToggle={() => setExpandedHistory((c) => !c)} />
         </>
       )}
     </Section>
