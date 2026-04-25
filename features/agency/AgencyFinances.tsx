@@ -296,23 +296,36 @@ export default function AgencyFinances({
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Depositar Fundos</p>
             <div className="flex bg-zinc-100 rounded-xl p-0.5 gap-0.5">
-              {(["pix", "card"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setDepositMethod(m)}
-                  className={[
-                    "px-3.5 py-1.5 rounded-[10px] text-[12px] font-semibold transition-all cursor-pointer",
-                    depositMethod === m
-                      ? "bg-white text-zinc-900 shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-700",
-                  ].join(" ")}
-                >
-                  {m === "pix" ? "PIX" : "Cartão"}
-                </button>
-              ))}
+              {(["pix", "card"] as const).map((m) => {
+                const cardDisabled = m === "card";
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => !cardDisabled && setDepositMethod(m)}
+                    title={cardDisabled ? "Em breve" : undefined}
+                    className={[
+                      "px-3.5 py-1.5 rounded-[10px] text-[12px] font-semibold transition-all",
+                      cardDisabled
+                        ? "text-zinc-300 cursor-not-allowed"
+                        : depositMethod === m
+                          ? "bg-white text-zinc-900 shadow-sm cursor-pointer"
+                          : "text-zinc-500 hover:text-zinc-700 cursor-pointer",
+                    ].join(" ")}
+                  >
+                    {m === "pix" ? "PIX" : "Cartão"}
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {/* Card deposits temporarily disabled — PIX only */}
+          {depositMethod === "card" && (
+            <p className="text-[12px] text-zinc-500 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-3">
+              Depósito por cartão estará disponível em breve. Use PIX por enquanto.
+            </p>
+          )}
 
           {depositMethod === "pix" && (
             <form onSubmit={handleDeposit} className="space-y-3">

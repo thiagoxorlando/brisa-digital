@@ -73,7 +73,18 @@ function mapRejectedDetail(statusDetail: string | undefined): string {
   return "Pagamento recusado pela operadora.";
 }
 
+// ── Temporary launch gate — card deposits disabled until MP integration is stable ──
+// To re-enable: remove the early return below.
+const CARD_DEPOSITS_ENABLED = false;
+
 export async function POST(req: NextRequest) {
+  if (!CARD_DEPOSITS_ENABLED) {
+    return NextResponse.json(
+      { error: "Depósito por cartão temporariamente indisponível. Use PIX." },
+      { status: 503 },
+    );
+  }
+
   const session = await createSessionClient();
   const { data: { user }, error: authError } = await session.auth.getUser();
   if (authError || !user) {
