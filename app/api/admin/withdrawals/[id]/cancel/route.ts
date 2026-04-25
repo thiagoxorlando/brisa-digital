@@ -59,7 +59,7 @@ export async function POST(
 
   if (tx?.user_id) {
     const brlAmt = new Intl.NumberFormat("pt-BR", {
-      style: "currency", currency: "BRL", maximumFractionDigits: 0,
+      style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
     }).format(Math.abs(Number(tx.amount ?? 0)));
     const message = `Seu saque de ${brlAmt} foi cancelado. Motivo: ${reason}`;
     await notify(
