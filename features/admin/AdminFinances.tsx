@@ -190,7 +190,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-5">
       <div>
         <h2 className="text-xl font-semibold tracking-tight text-zinc-900">{title}</h2>
         {subtitle ? <p className="mt-1 text-sm text-zinc-500">{subtitle}</p> : null}
@@ -315,8 +315,10 @@ function SubscriptionsSection({
   subscriptions: FinancesSubscription[];
   summary: FinancesSummary;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const proCount = subscriptions.filter((subscription) => subscription.plan === "pro").length;
   const premiumCount = subscriptions.filter((subscription) => subscription.plan === "premium").length;
+  const visibleSubscriptions = expanded ? subscriptions : subscriptions.slice(0, 5);
 
   return (
     <Section title="Planos de agencias" subtitle={`${subscriptions.length} agencias cadastradas`}>
@@ -339,7 +341,7 @@ function SubscriptionsSection({
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100">
-          {subscriptions.map((subscription) => (
+          {visibleSubscriptions.map((subscription) => (
             <tr key={subscription.userId}>
               <Td>{subscription.agencyName}</Td>
               <Td><Badge value={planLabel(subscription.plan)} tone={PLAN_BADGES[subscription.plan] ?? PLAN_BADGES.free} /></Td>
@@ -351,6 +353,8 @@ function SubscriptionsSection({
           ))}
         </tbody>
       </TableCard>
+
+      <ShowMoreButton total={subscriptions.length} expanded={expanded} onToggle={() => setExpanded((c) => !c)} />
     </Section>
   );
 }
@@ -518,6 +522,7 @@ const PIX_TYPE_LABELS_ADMIN: Record<string, string> = {
 };
 
 function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawal[] }) {
+  const [expandedFees, setExpandedFees] = useState(false);
   const paid    = withdrawals.filter((w) => w.status === "paid");
   const pending = withdrawals.filter((w) => w.status === "pending");
 
@@ -534,9 +539,9 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
     .filter((w) => new Date(w.processedAt ?? "") >= monthStart)
     .reduce((s, w) => s + w.feeAmount, 0);
 
-  const recent = [...withdrawals]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 10);
+  const sorted = [...withdrawals]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const visibleFees = expandedFees ? sorted : sorted.slice(0, 5);
 
   return (
     <Section title="Taxas de saque" subtitle="Receita da plataforma por taxa de processamento (3%)">
@@ -547,9 +552,9 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
         <StatCard label="Este mês"          value={brl(feesThisMonth)} sub="Processado no mês atual" />
       </div>
 
-      {recent.length > 0 && (
+      {sorted.length > 0 && (
         <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Últimos 10 saques</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Histórico de saques</p>
           <TableCard>
             <thead className="border-b border-zinc-200 bg-zinc-50">
               <tr>
@@ -562,7 +567,7 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {recent.map((w) => (
+              {visibleFees.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.agencyName}</Td>
                   <Td right>{brl(w.amount)}</Td>
@@ -585,6 +590,7 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
               ))}
             </tbody>
           </TableCard>
+          <ShowMoreButton total={sorted.length} expanded={expandedFees} onToggle={() => setExpandedFees((c) => !c)} />
         </>
       )}
     </Section>
@@ -600,12 +606,14 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedPending, setExpandedPending] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => { setRows(withdrawals); }, [withdrawals]);
 
   const pending = rows.filter((w) => w.status === "pending");
+  const visiblePending = expandedPending ? pending : pending.slice(0, 5);
   const history = rows
     .filter((w) => w.status !== "pending")
     .sort((a, b) => {
@@ -766,7 +774,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {pending.map((w) => (
+            {visiblePending.map((w) => (
               <tr key={w.id}>
                 <Td>{w.agencyName}</Td>
                 <Td right><strong>{brl(w.amount)}</strong></Td>
@@ -809,6 +817,8 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
           </tbody>
         </TableCard>
       )}
+
+      <ShowMoreButton total={pending.length} expanded={expandedPending} onToggle={() => setExpandedPending((c) => !c)} />
 
       {history.length > 0 && (
         <>
@@ -945,7 +955,7 @@ export default function AdminFinances({
   const safe = platformBalance.status === "ok" && platformBalance.balance >= summary.minimumRequired;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-10">
+    <div className="mx-auto max-w-7xl space-y-6">
       <header className="space-y-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Admin da plataforma</p>
