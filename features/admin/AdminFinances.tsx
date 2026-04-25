@@ -518,7 +518,9 @@ const PIX_TYPE_LABELS_ADMIN: Record<string, string> = {
 
 function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[] }) {
   const [rows, setRows] = useState<FinancesWithdrawal[]>(withdrawals);
-  const [marking, setMarking] = useState<string | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
+  const [approveNote, setApproveNote] = useState("");
+  const [approveLoading, setApproveLoading] = useState(false);
   const [canceling, setCanceling] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -538,20 +540,25 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
     });
   const visibleHistory = expandedHistory ? history : history.slice(0, 5);
 
-  async function handleMarkPaid(id: string) {
-    setMarking(id);
+  async function handleApprove() {
+    if (!approving) return;
+    const id = approving;
+    const note = approveNote.trim();
+    setApproveLoading(true);
     setError(null);
-    const res = await fetch(`/api/admin/withdrawals/${id}/mark-paid`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+    const res = await fetch(`/api/admin/withdrawals/${id}/approve`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }),
     });
-    setMarking(null);
+    setApproveLoading(false);
     if (res.ok) {
       setRows((current) =>
-        current.map((w) => w.id === id ? { ...w, status: "paid", processedAt: new Date().toISOString() } : w),
+        current.map((w) => w.id === id ? { ...w, status: "paid", adminNote: note || null, processedAt: new Date().toISOString() } : w),
       );
+      setApproving(null);
+      setApproveNote("");
     } else {
       const data = await res.json().catch(() => ({})) as { error?: string };
-      setError(data.error ?? "Erro ao marcar saque como pago.");
+      setError(data.error ?? "Erro ao aprovar saque.");
     }
   }
 
@@ -621,11 +628,43 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
         </div>
       )}
 
+      {approving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full space-y-4">
+            <h3 className="text-[15px] font-bold text-zinc-900">Marcar saque como pago</h3>
+            <p className="text-[13px] text-zinc-500">Confirme que o PIX foi enviado manualmente. Esta ação não pode ser desfeita.</p>
+            <textarea
+              value={approveNote}
+              onChange={(e) => setApproveNote(e.target.value)}
+              placeholder="Observação opcional (ex: PIX enviado, comprovante nº…)"
+              rows={3}
+              className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 resize-none"
+            />
+            {error && <p className="text-[12px] text-rose-600">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleApprove}
+                disabled={approveLoading}
+                className="flex-1 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-[13px] font-bold py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+              >
+                {approveLoading ? "Processando…" : "Confirmar pagamento"}
+              </button>
+              <button
+                onClick={() => { setApproving(null); setApproveNote(""); setError(null); }}
+                className="px-4 border border-zinc-200 hover:border-zinc-300 text-zinc-600 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
         Envie manualmente o valor líquido por PIX antes de marcar como pago. Esta ação não envia dinheiro automaticamente.
       </div>
 
-      {error && !canceling && (
+      {error && !canceling && !approving && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{error}</div>
       )}
 
@@ -676,11 +715,11 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                 <Td>{fmt(w.createdAt)}</Td>
                 <Td right>
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => handleMarkPaid(w.id)} disabled={marking === w.id || canceling === w.id}
+                    <button onClick={() => { setApproving(w.id); setApproveNote(""); setError(null); }} disabled={canceling === w.id}
                       className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:bg-zinc-300 disabled:cursor-not-allowed">
-                      {marking === w.id ? "..." : "Marcar como pago"}
+                      Marcar como pago
                     </button>
-                    <button onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }} disabled={marking === w.id}
+                    <button onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }} disabled={approving === w.id}
                       className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed">
                       Cancelar
                     </button>
