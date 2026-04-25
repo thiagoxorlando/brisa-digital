@@ -119,7 +119,7 @@ export default async function AdminFinancesPage() {
     fetchContracts(supabase),
     supabase
       .from("wallet_transactions")
-      .select("id, user_id, amount, fee_amount, net_amount, status, processed_at, created_at")
+      .select("id, user_id, amount, fee_amount, net_amount, status, processed_at, admin_note, created_at")
       .eq("type", "withdrawal")
       .order("created_at", { ascending: false }),
   ]);
@@ -349,6 +349,7 @@ export default async function AdminFinancesPage() {
       pixKeyType:   pix?.pix_key_type   ?? null,
       pixKeyValue:  pix?.pix_key_value  ?? null,
       pixHolderName:pix?.pix_holder_name ?? null,
+      adminNote:    typeof raw.admin_note === "string" ? raw.admin_note : null,
     };
   });
 

@@ -1,14 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
 import { WITHDRAWAL_FEE_RATE } from "@/lib/withdrawal-fee";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user }, error: authError } = await session.auth.getUser();
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => ({})) as { amount?: unknown };
+  const requestedAmount = Number(body.amount);
+  if (!requestedAmount || requestedAmount <= 0) {
+    return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
@@ -25,6 +31,7 @@ export async function POST() {
 
   const { data: result, error: rpcError } = await supabase.rpc("request_agency_withdrawal", {
     p_user_id:  user.id,
+    p_amount:   requestedAmount,
     p_fee_rate: WITHDRAWAL_FEE_RATE,
   });
 
@@ -36,6 +43,9 @@ export async function POST() {
   if (!result?.ok) {
     if (result?.error === "pix_not_configured") {
       return NextResponse.json({ error: "Configure sua chave PIX antes de solicitar saque." }, { status: 400 });
+    }
+    if (result?.error === "invalid_amount") {
+      return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
     }
     if (result?.error === "insufficient_balance") {
       return NextResponse.json({ error: "Saldo insuficiente para saque." }, { status: 400 });
@@ -60,9 +70,10 @@ export async function POST() {
   );
 
   return NextResponse.json({
-    success:    true,
+    success:           true,
     amount,
-    fee:        Number(result.fee ?? 0),
-    net_amount: Number(result.net_amount ?? amount),
+    fee:               Number(result.fee ?? 0),
+    net_amount:        Number(result.net_amount ?? amount),
+    remaining_balance: Number(result.remaining_balance ?? 0),
   });
 }

@@ -26,6 +26,7 @@ export type AgencyTransaction = {
   date: string;
   description?: string;
   withdrawalStatus?: string | null;
+  adminNote?: string | null;
 };
 
 export type AgencyFinanceSummary = {
@@ -122,9 +123,10 @@ export default function AgencyFinances({
   const router = useRouter();
 
   // Withdraw
-  const [withdrawing,     setWithdrawing]     = useState(false);
-  const [withdrawDone,    setWithdrawDone]    = useState(false);
-  const [withdrawConfirming, setWithdrawConfirming] = useState(false);
+  const [withdrawing,        setWithdrawing]        = useState(false);
+  const [withdrawDone,       setWithdrawDone]        = useState(false);
+  const [withdrawConfirming, setWithdrawConfirming]  = useState(false);
+  const [withdrawAmount,     setWithdrawAmount]      = useState("");
 
   // Agency PIX key
   const [savedPix,      setSavedPix]      = useState(agencyPix ?? null);
@@ -188,12 +190,18 @@ export default function AgencyFinances({
   const [cardCvv,            setCardCvv]            = useState("");
 
   async function handleWithdraw() {
+    const amt = Number(withdrawAmount);
     setWithdrawConfirming(false);
     setWithdrawing(true);
-    const res = await fetch("/api/agencies/withdraw", { method: "POST" });
+    const res = await fetch("/api/agencies/withdraw", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ amount: amt }),
+    });
     setWithdrawing(false);
     if (res.ok) {
-      setLocalWalletBalance(0);
+      setLocalWalletBalance((prev) => Math.round((prev - amt) * 100) / 100);
+      setWithdrawAmount("");
       setWithdrawDone(true);
       setTimeout(() => setWithdrawDone(false), 4000);
     }
@@ -221,9 +229,11 @@ export default function AgencyFinances({
     setTimeout(() => setPixSaved(false), 3000);
   }
 
-  const hasPix = !!(savedPix?.pix_key_type && savedPix?.pix_key_value?.trim());
-  const feeAmount = Math.round(walletBalance * withdrawalFeeRate * 100) / 100;
-  const netAmount = Math.round((walletBalance - feeAmount) * 100) / 100;
+  const hasPix           = !!(savedPix?.pix_key_type && savedPix?.pix_key_value?.trim());
+  const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
+  const withdrawFeeNum    = Math.round(withdrawAmountNum * withdrawalFeeRate * 100) / 100;
+  const withdrawNetNum    = Math.round((withdrawAmountNum - withdrawFeeNum) * 100) / 100;
+  const canWithdraw       = hasPix && withdrawAmountNum > 0 && withdrawAmountNum <= walletBalance;
 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
@@ -316,16 +326,16 @@ export default function AgencyFinances({
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--brand-green)]">Confirmar Saque</p>
             <div className="space-y-2 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-zinc-400">Saldo disponível</span>
-                <span className="font-bold">{brl(walletBalance)}</span>
+                <span className="text-zinc-400">Valor solicitado</span>
+                <span className="font-bold">{brl(withdrawAmountNum)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-400">Taxa de processamento ({(withdrawalFeeRate * 100).toFixed(0)}%)</span>
-                <span className="font-bold text-rose-400">−{brl(feeAmount)}</span>
+                <span className="font-bold text-rose-400">−{brl(withdrawFeeNum)}</span>
               </div>
               <div className="flex justify-between border-t border-white/10 pt-2">
                 <span className="text-white font-semibold">Valor líquido a receber</span>
-                <span className="font-black text-[var(--brand-green)]">{brl(netAmount)}</span>
+                <span className="font-black text-[var(--brand-green)]">{brl(withdrawNetNum)}</span>
               </div>
               {savedPix && (
                 <div className="flex justify-between pt-1">
@@ -348,50 +358,79 @@ export default function AgencyFinances({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between px-6 py-6 bg-[var(--brand-surface)] text-white">
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--brand-green)]">Saldo na Plataforma</p>
-                {walletRefreshing && (
-                  <span className="flex items-center gap-1 text-[10px] text-zinc-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-green)] animate-pulse" />
-                    Atualizando…
-                  </span>
-                )}
+          <div className="px-6 py-6 bg-[var(--brand-surface)] text-white space-y-4">
+            {/* Balance display */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--brand-green)]">Saldo na Plataforma</p>
+                  {walletRefreshing && (
+                    <span className="flex items-center gap-1 text-[10px] text-zinc-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-green)] animate-pulse" />
+                      Atualizando…
+                    </span>
+                  )}
+                </div>
+                <p className="text-[3rem] font-black tracking-[-0.07em] text-white leading-none">{brl(walletBalance)}</p>
+                <p className="text-[12px] text-zinc-400 mt-1">Disponível para confirmar reservas ou sacar</p>
               </div>
-              <p className="text-[3rem] font-black tracking-[-0.07em] text-white leading-none">{brl(walletBalance)}</p>
-              <p className="text-[12px] text-zinc-400 mt-1.5">Disponível para confirmar reservas</p>
-              {!hasPix && walletBalance > 0 && (
-                <p className="text-[11px] text-amber-400 mt-1">Configure sua chave PIX para habilitar saques.</p>
-              )}
-            </div>
-            <button
-              onClick={() => { if (hasPix && walletBalance > 0) setWithdrawConfirming(true); }}
-              disabled={withdrawing || withdrawDone || walletBalance <= 0 || !hasPix}
-              className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white border border-white/10 text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
-            >
-              {withdrawing ? (
-                <>
-                  <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-400 border-t-zinc-800 animate-spin" />
-                  Processando…
-                </>
-              ) : withdrawDone ? (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {withdrawDone && (
+                <div className="flex items-center gap-1.5 text-[12px] text-[var(--brand-green)] font-semibold mt-1">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
                   Solicitado
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  Solicitar Saque
-                </>
+                </div>
               )}
-            </button>
+            </div>
+
+            {/* Amount input + quick buttons */}
+            {hasPix && walletBalance > 0 && !withdrawDone && (
+              <div className="space-y-2">
+                <div className="flex gap-1.5">
+                  {([0.25, 0.5, 1] as const).map((pct) => (
+                    <button key={pct} type="button"
+                      onClick={() => setWithdrawAmount(String(Math.floor(walletBalance * pct * 100) / 100))}
+                      className="text-[11px] font-bold px-2.5 py-1 bg-white/10 hover:bg-white/20 text-zinc-300 rounded-lg transition-colors cursor-pointer">
+                      {pct === 1 ? "100%" : pct === 0.5 ? "50%" : "25%"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
+                    <input
+                      type="number" min={1} step={1} value={withdrawAmount}
+                      onChange={(e) => setWithdrawAmount(e.target.value)}
+                      placeholder="0"
+                      className="w-full pl-8 pr-3 py-2.5 text-[13px] font-semibold bg-white/10 border border-white/10 rounded-xl text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30 transition-colors"
+                    />
+                  </div>
+                  <button
+                    onClick={() => { if (canWithdraw) setWithdrawConfirming(true); }}
+                    disabled={!canWithdraw || withdrawing}
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white border border-white/10 text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {withdrawing ? (
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-400 border-t-zinc-800 animate-spin" />
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    )}
+                    Solicitar Saque
+                  </button>
+                </div>
+                {withdrawAmountNum > walletBalance && (
+                  <p className="text-[11px] text-rose-400">Valor superior ao saldo disponível.</p>
+                )}
+              </div>
+            )}
+
+            {!hasPix && walletBalance > 0 && (
+              <p className="text-[11px] text-amber-400">Configure sua chave PIX para habilitar saques.</p>
+            )}
           </div>
         )}
 
@@ -693,8 +732,11 @@ export default function AgencyFinances({
                             )}
                             <div className="min-w-0">
                               <p className="text-[13px] font-bold text-zinc-950 truncate max-w-[220px]">{label}</p>
-                              {isWithdrawal && (
+                              {isWithdrawal && t.withdrawalStatus !== "rejected" && (
                                 <p className="text-[11px] text-zinc-400 mt-0.5">Saques são processados manualmente pela equipe.</p>
+                              )}
+                            {isWithdrawal && t.withdrawalStatus === "rejected" && t.adminNote && (
+                                <p className="text-[11px] text-rose-500 mt-0.5">Motivo: {t.adminNote}</p>
                               )}
                             </div>
                           </div>

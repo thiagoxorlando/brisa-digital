@@ -45,6 +45,7 @@ export type FinancesWithdrawal = {
   pixKeyType: string | null;
   pixKeyValue: string | null;
   pixHolderName: string | null;
+  adminNote: string | null;
 };
 
 export type FinancesPlanPayment = {
@@ -518,15 +519,21 @@ const PIX_TYPE_LABELS_ADMIN: Record<string, string> = {
 function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[] }) {
   const [rows, setRows] = useState<FinancesWithdrawal[]>(withdrawals);
   const [marking, setMarking] = useState<string | null>(null);
+  const [canceling, setCanceling] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expandedPaid, setExpandedPaid] = useState(false);
+  const [expandedRejected, setExpandedRejected] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => { setRows(withdrawals); }, [withdrawals]);
 
-  const pending = rows.filter((w) => w.status === "pending");
-  const history = rows.filter((w) => w.status !== "pending");
-  const visibleHistory = expanded ? history : history.slice(0, 5);
+  const pending         = rows.filter((w) => w.status === "pending");
+  const paidHistory     = rows.filter((w) => w.status === "paid");
+  const rejectedHistory = rows.filter((w) => w.status === "rejected");
+  const visiblePaid     = expandedPaid     ? paidHistory     : paidHistory.slice(0, 5);
+  const visibleRejected = expandedRejected ? rejectedHistory : rejectedHistory.slice(0, 5);
 
   async function handleMarkPaid(id: string) {
     setMarking(id);
@@ -545,6 +552,28 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
     }
   }
 
+  async function handleCancel() {
+    if (!canceling || !cancelReason.trim()) return;
+    const id = canceling;
+    const reason = cancelReason.trim();
+    setCancelLoading(true);
+    setError(null);
+    const res = await fetch(`/api/admin/withdrawals/${id}/cancel`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }),
+    });
+    setCancelLoading(false);
+    if (res.ok) {
+      setRows((current) =>
+        current.map((w) => w.id === id ? { ...w, status: "rejected", adminNote: reason, processedAt: new Date().toISOString() } : w),
+      );
+      setCanceling(null);
+      setCancelReason("");
+    } else {
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      setError(data.error ?? "Erro ao cancelar saque.");
+    }
+  }
+
   function copyPix(value: string, id: string) {
     navigator.clipboard.writeText(value).then(() => {
       setCopied(id);
@@ -557,11 +586,43 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
       title="Saques de agências"
       subtitle={`${pending.length} pendente(s) — pagamento manual necessário`}
     >
+      {canceling && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full space-y-4">
+            <h3 className="text-[15px] font-bold text-zinc-900">Cancelar saque</h3>
+            <p className="text-[13px] text-zinc-500">O valor integral será devolvido ao saldo da agência. Esta ação não pode ser desfeita.</p>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Motivo do cancelamento…"
+              rows={3}
+              className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 resize-none"
+            />
+            {error && <p className="text-[12px] text-rose-600">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCancel}
+                disabled={cancelLoading || !cancelReason.trim()}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-[13px] font-bold py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+              >
+                {cancelLoading ? "Cancelando…" : "Confirmar cancelamento"}
+              </button>
+              <button
+                onClick={() => { setCanceling(null); setCancelReason(""); setError(null); }}
+                className="px-4 border border-zinc-200 hover:border-zinc-300 text-zinc-600 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
         Envie manualmente o valor líquido por PIX antes de marcar como pago. Esta ação não envia dinheiro automaticamente.
       </div>
 
-      {error && (
+      {error && !canceling && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{error}</div>
       )}
 
@@ -580,7 +641,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
               <Th>Chave PIX</Th>
               <Th>Titular</Th>
               <Th>Solicitado em</Th>
-              <Th right>Ação</Th>
+              <Th right>Ações</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -611,10 +672,16 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                 <Td>{w.pixHolderName ?? "-"}</Td>
                 <Td>{fmt(w.createdAt)}</Td>
                 <Td right>
-                  <button onClick={() => handleMarkPaid(w.id)} disabled={marking === w.id}
-                    className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:bg-zinc-300 disabled:cursor-not-allowed">
-                    {marking === w.id ? "..." : "Marcar como pago"}
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => handleMarkPaid(w.id)} disabled={marking === w.id || canceling === w.id}
+                      className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:bg-zinc-300 disabled:cursor-not-allowed">
+                      {marking === w.id ? "..." : "Marcar como pago"}
+                    </button>
+                    <button onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }} disabled={marking === w.id}
+                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                      Cancelar
+                    </button>
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -622,9 +689,9 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
         </TableCard>
       )}
 
-      {history.length > 0 && (
+      {paidHistory.length > 0 && (
         <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico — Pagos</p>
           <TableCard>
             <thead className="border-b border-zinc-200 bg-zinc-50">
               <tr>
@@ -634,11 +701,10 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                 <Th right>Líquido</Th>
                 <Th>Solicitado em</Th>
                 <Th>Pago em</Th>
-                <Th>Status</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {visibleHistory.map((w) => (
+              {visiblePaid.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.agencyName}</Td>
                   <Td right>{brl(w.amount)}</Td>
@@ -646,17 +712,38 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                   <Td right>{w.netAmount ? brl(w.netAmount) : "-"}</Td>
                   <Td>{fmt(w.createdAt)}</Td>
                   <Td>{fmt(w.processedAt)}</Td>
-                  <Td>
-                    <Badge
-                      value={w.status === "paid" ? "Pago" : w.status === "rejected" ? "Rejeitado" : w.status}
-                      tone={w.status === "paid" ? STATUS_BADGES.paid : w.status === "rejected" ? "bg-red-50 text-red-700" : STATUS_BADGES.pending}
-                    />
-                  </Td>
                 </tr>
               ))}
             </tbody>
           </TableCard>
-          <ShowMoreButton total={history.length} expanded={expanded} onToggle={() => setExpanded((c) => !c)} />
+          <ShowMoreButton total={paidHistory.length} expanded={expandedPaid} onToggle={() => setExpandedPaid((c) => !c)} />
+        </>
+      )}
+
+      {rejectedHistory.length > 0 && (
+        <>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico — Cancelados</p>
+          <TableCard>
+            <thead className="border-b border-zinc-200 bg-zinc-50">
+              <tr>
+                <Th>Agência</Th>
+                <Th right>Valor</Th>
+                <Th>Cancelado em</Th>
+                <Th>Motivo</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {visibleRejected.map((w) => (
+                <tr key={w.id}>
+                  <Td>{w.agencyName}</Td>
+                  <Td right>{brl(w.amount)}</Td>
+                  <Td>{fmt(w.processedAt)}</Td>
+                  <Td><span className="text-zinc-500 text-xs">{w.adminNote ?? "-"}</span></Td>
+                </tr>
+              ))}
+            </tbody>
+          </TableCard>
+          <ShowMoreButton total={rejectedHistory.length} expanded={expandedRejected} onToggle={() => setExpandedRejected((c) => !c)} />
         </>
       )}
     </Section>
