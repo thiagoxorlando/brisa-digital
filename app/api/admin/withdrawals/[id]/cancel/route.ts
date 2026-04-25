@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createServerClient } from "@/lib/supabase";
+import { notify } from "@/lib/notify";
 
 // POST /api/admin/withdrawals/[id]/cancel
 // Atomically marks withdrawal as rejected AND restores full amount to agency wallet.
@@ -49,5 +50,28 @@ export async function POST(
   }
 
   console.log("[cancel-withdrawal] cancelled:", id, "by admin:", auth.userId, "restored:", result.amount_restored);
+
+  const { data: tx } = await supabase
+    .from("wallet_transactions")
+    .select("user_id, amount")
+    .eq("id", id)
+    .single();
+
+  if (tx?.user_id) {
+    const brlAmt = new Intl.NumberFormat("pt-BR", {
+      style: "currency", currency: "BRL", maximumFractionDigits: 0,
+    }).format(Math.abs(Number(tx.amount ?? 0)));
+    const message = `Seu saque de ${brlAmt} foi cancelado. Motivo: ${reason}`;
+    await notify(
+      tx.user_id,
+      "payment",
+      message,
+      "/agency/finances",
+      `agency-withdrawal-cancelled:${id}`,
+    ).catch((e) => console.error("[cancel-withdrawal] notify agency failed:", e));
+  } else {
+    console.error("[cancel-withdrawal] could not fetch tx to notify agency:", id);
+  }
+
   return NextResponse.json({ ok: true, id, status: "rejected", amount_restored: result.amount_restored });
 }

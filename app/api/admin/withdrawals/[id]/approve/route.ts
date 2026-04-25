@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createServerClient } from "@/lib/supabase";
+import { notify } from "@/lib/notify";
 
 // POST /api/admin/withdrawals/[id]/approve
 // Marks withdrawal as paid via RPC. Does NOT move money — admin must have
@@ -56,5 +57,27 @@ export async function POST(
   }
 
   console.log("[approve-withdrawal] paid:", id, "by admin:", auth.userId);
+
+  const { data: tx } = await supabase
+    .from("wallet_transactions")
+    .select("user_id, amount")
+    .eq("id", id)
+    .single();
+
+  if (tx?.user_id) {
+    const brlAmt = new Intl.NumberFormat("pt-BR", {
+      style: "currency", currency: "BRL", maximumFractionDigits: 0,
+    }).format(Math.abs(Number(tx.amount ?? 0)));
+    await notify(
+      tx.user_id,
+      "payment",
+      `Seu saque de ${brlAmt} foi marcado como pago.`,
+      "/agency/finances",
+      `agency-withdrawal-paid:${id}`,
+    ).catch((e) => console.error("[approve-withdrawal] notify agency failed:", e));
+  } else {
+    console.error("[approve-withdrawal] could not fetch tx to notify agency:", id);
+  }
+
   return NextResponse.json({ ok: true, id, status: "paid" });
 }

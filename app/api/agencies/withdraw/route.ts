@@ -62,9 +62,17 @@ export async function POST(req: NextRequest) {
     currency: "BRL",
     maximumFractionDigits: 0,
   }).format(amount);
+
+  const { data: agencyRow } = await supabase
+    .from("agencies")
+    .select("company_name")
+    .eq("id", user.id)
+    .single();
+  const agencyName = agencyRow?.company_name ?? "Agência";
+
   await notifyAdmins(
     "payment",
-    `Novo pedido de saque: ${brl}`,
+    `Novo saque solicitado — ${agencyName}: ${brl}`,
     "/admin/finances",
     `admin-withdrawal-request:${user.id}:${amount}`,
   );
