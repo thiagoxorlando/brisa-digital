@@ -99,20 +99,20 @@ type PlatformBalanceState =
 type ProfitRange = "today" | "month" | "total";
 
 const PLAN_BADGES: Record<string, string> = {
-  free: "bg-zinc-100 text-zinc-600",
-  pro: "bg-blue-50 text-blue-700",
-  premium: "bg-violet-50 text-violet-700",
+  free:    "bg-zinc-700/50 text-zinc-300 ring-1 ring-zinc-600/40",
+  pro:     "bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30",
+  premium: "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30",
 };
 
 const STATUS_BADGES: Record<string, string> = {
-  confirmed: "bg-indigo-50 text-indigo-700",
-  paid: "bg-emerald-50 text-emerald-700",
-  pending: "bg-amber-50 text-amber-700",
-  pending_payment: "bg-amber-50 text-amber-700",
-  cancelled: "bg-zinc-100 text-zinc-500",
-  active: "bg-emerald-50 text-emerald-700",
-  inactive: "bg-zinc-100 text-zinc-500",
-  cancelling: "bg-amber-50 text-amber-700",
+  confirmed:       "bg-indigo-500/15 text-indigo-400 ring-1 ring-indigo-500/30",
+  paid:            "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30",
+  pending:         "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30",
+  pending_payment: "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30",
+  cancelled:       "bg-zinc-700/50 text-zinc-500 ring-1 ring-zinc-600/30",
+  active:          "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30",
+  inactive:        "bg-zinc-700/50 text-zinc-500 ring-1 ring-zinc-600/30",
+  cancelling:      "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30",
 };
 
 function brl(value: number) {
@@ -172,7 +172,7 @@ function ShowMoreButton({
     <div className="flex justify-end">
       <button
         onClick={onToggle}
-        className="rounded-xl border border-zinc-200 px-3.5 py-2 text-[12px] font-medium text-zinc-600 transition-colors hover:border-zinc-300"
+        className="rounded-xl border border-zinc-700 px-3.5 py-2 text-[12px] font-medium text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200"
       >
         {expanded ? "Ver menos" : `Ver mais (${total - 5})`}
       </button>
@@ -192,7 +192,7 @@ function Section({
   return (
     <div className="px-8 py-7 space-y-5">
       <div>
-        <h3 className="text-lg font-semibold tracking-tight text-zinc-900">{title}</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-white">{title}</h3>
         {subtitle ? <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p> : null}
       </div>
       {children}
@@ -212,21 +212,46 @@ function GroupBlock({
   children: ReactNode;
 }) {
   const v = {
-    green: { border: "border-emerald-200", header: "bg-emerald-50 border-b border-emerald-100", dot: "bg-emerald-500", title: "text-emerald-900", sub: "text-emerald-800/60" },
-    amber: { border: "border-amber-200",   header: "bg-amber-50 border-b border-amber-100",     dot: "bg-amber-500",   title: "text-amber-900",   sub: "text-amber-800/60" },
-    blue:  { border: "border-blue-200",    header: "bg-blue-50 border-b border-blue-100",       dot: "bg-blue-500",    title: "text-blue-900",    sub: "text-blue-800/60" },
+    green: {
+      border: "border-emerald-900/60",
+      header: "bg-emerald-950/70 border-b border-emerald-900/50",
+      dot: "bg-emerald-400 shadow-sm shadow-emerald-400/60",
+      title: "text-emerald-300",
+      sub: "text-emerald-700",
+      shadow: "shadow-emerald-950/30",
+      stripe: "from-emerald-500/40 via-teal-500/20 to-transparent",
+    },
+    amber: {
+      border: "border-amber-900/60",
+      header: "bg-amber-950/70 border-b border-amber-900/50",
+      dot: "bg-amber-400 shadow-sm shadow-amber-400/60",
+      title: "text-amber-300",
+      sub: "text-amber-700",
+      shadow: "shadow-amber-950/30",
+      stripe: "from-amber-500/40 via-yellow-500/20 to-transparent",
+    },
+    blue: {
+      border: "border-blue-900/60",
+      header: "bg-blue-950/70 border-b border-blue-900/50",
+      dot: "bg-blue-400 shadow-sm shadow-blue-400/60",
+      title: "text-blue-300",
+      sub: "text-blue-700",
+      shadow: "shadow-blue-950/30",
+      stripe: "from-blue-500/40 via-cyan-500/20 to-transparent",
+    },
   }[accent];
 
   return (
-    <div className={`rounded-3xl border ${v.border} overflow-hidden shadow-md`}>
-      <div className={`${v.header} px-8 py-6`}>
-        <div className="flex items-center gap-3">
+    <div className={`rounded-3xl border ${v.border} overflow-hidden shadow-2xl ${v.shadow}`}>
+      <div className={`${v.header} px-8 py-6 relative overflow-hidden`}>
+        <div className={`absolute inset-y-0 left-0 w-64 bg-gradient-to-r ${v.stripe} pointer-events-none`} />
+        <div className="relative flex items-center gap-3">
           <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${v.dot}`} />
           <h2 className={`text-2xl font-bold tracking-tight ${v.title}`}>{title}</h2>
         </div>
-        <p className={`mt-1 ml-[26px] text-sm ${v.sub}`}>{subtitle}</p>
+        <p className={`relative mt-1 ml-[26px] text-sm ${v.sub}`}>{subtitle}</p>
       </div>
-      <div className="divide-y divide-zinc-100 bg-zinc-50">
+      <div className="divide-y divide-zinc-800/60 bg-[#0A0F12]">
         {children}
       </div>
     </div>
@@ -243,9 +268,10 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900">{value}</p>
+    <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/80 p-5 overflow-hidden">
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{value}</p>
       {sub ? <p className="mt-2 text-sm text-zinc-500">{sub}</p> : null}
     </div>
   );
@@ -257,7 +283,7 @@ function Badge({ value, tone }: { value: string; tone: string }) {
 
 function TableCard({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/60">
       <table className="w-full">{children}</table>
     </div>
   );
@@ -265,14 +291,14 @@ function TableCard({ children }: { children: ReactNode }) {
 
 function Th({ children, right = false }: { children: ReactNode; right?: boolean }) {
   return (
-    <th className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 ${right ? "text-right" : "text-left"}`}>
+    <th className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 ${right ? "text-right" : "text-left"}`}>
       {children}
     </th>
   );
 }
 
 function Td({ children, right = false }: { children: ReactNode; right?: boolean }) {
-  return <td className={`px-4 py-3.5 text-sm text-zinc-600 ${right ? "text-right" : "text-left"}`}>{children}</td>;
+  return <td className={`px-4 py-3.5 text-sm text-zinc-300 ${right ? "text-right" : "text-left"}`}>{children}</td>;
 }
 
 function ProfitSection({
@@ -311,8 +337,10 @@ function ProfitSection({
             key={option.key}
             onClick={() => setRange(option.key)}
             className={[
-              "rounded-xl px-3.5 py-2 text-[12px] font-medium transition-colors",
-              range === option.key ? "bg-zinc-900 text-white" : "border border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300",
+              "rounded-xl px-3.5 py-2 text-[12px] font-medium transition-all",
+              range === option.key
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20"
+                : "border border-zinc-700 bg-zinc-900/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300",
             ].join(" ")}
           >
             {option.label}
@@ -363,7 +391,7 @@ function SubscriptionsSection({
       </div>
 
       <TableCard>
-        <thead className="border-b border-zinc-200 bg-zinc-50">
+        <thead className="border-b border-zinc-800 bg-zinc-900/80">
           <tr>
             <Th>Agencia</Th>
             <Th>Plano</Th>
@@ -373,7 +401,7 @@ function SubscriptionsSection({
             <Th right>Ultimo pagamento</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/40">
           {visibleSubscriptions.map((subscription) => (
             <tr key={subscription.userId}>
               <Td>{subscription.agencyName}</Td>
@@ -441,7 +469,7 @@ function ContractsSection({
       </div>
 
       <TableCard>
-        <thead className="border-b border-zinc-200 bg-zinc-50">
+        <thead className="border-b border-zinc-800 bg-zinc-900/80">
           <tr>
             <Th>Vaga</Th>
             <Th>Talento</Th>
@@ -455,7 +483,7 @@ function ContractsSection({
             <Th right>Acoes</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/40">
           {visibleRows.map((contract) => {
             const statusLabel = contract.withdrawn_at ? "sacado" : contract.status === "paid" ? "aguardando saque" : "escrow";
             const statusTone = contract.withdrawn_at
@@ -480,12 +508,12 @@ function ContractsSection({
                     <button
                       onClick={() => handleWithdraw(contract.id)}
                       disabled={withdrawing === contract.id}
-                      className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-700 disabled:bg-zinc-300"
+                      className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {withdrawing === contract.id ? "..." : "Sacar"}
                     </button>
                   ) : (
-                    <span className="text-xs text-zinc-400">{contract.withdrawn_at ? "Concluido" : "-"}</span>
+                    <span className="text-xs text-zinc-600">{contract.withdrawn_at ? "Concluido" : "-"}</span>
                   )}
                 </Td>
               </tr>
@@ -522,23 +550,23 @@ function WithdrawalHistory({ contracts }: { contracts: FinancesContract[] }) {
 
   return (
     <Section title="Historico de saques" subtitle={`${receipts.length} saque(s) concluidos`}>
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-sm font-medium text-zinc-600">Total pago aos talentos</p>
-          <p className="text-lg font-semibold text-zinc-900">{brl(grandTotal)}</p>
+          <p className="text-sm font-medium text-zinc-400">Total pago aos talentos</p>
+          <p className="text-lg font-semibold text-white">{brl(grandTotal)}</p>
         </div>
         <div className="space-y-3">
           {visibleReceipts.map((items) => {
             const total = items.reduce((sum, contract) => sum + contract.netAmount, 0);
             const reference = items[0];
             return (
-              <div key={`${reference.talentName}-${reference.withdrawn_at}`} className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
+              <div key={`${reference.talentName}-${reference.withdrawn_at}`} className="rounded-xl border border-zinc-800/60 bg-zinc-800/30 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-medium text-zinc-900">{reference.talentName}</p>
+                    <p className="font-medium text-white">{reference.talentName}</p>
                     <p className="text-sm text-zinc-500">{fmt(reference.withdrawn_at)}</p>
                   </div>
-                  <p className="text-lg font-semibold text-emerald-700">{brl(total)}</p>
+                  <p className="text-lg font-semibold text-emerald-400">{brl(total)}</p>
                 </div>
               </div>
             );
@@ -587,9 +615,9 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
 
       {sorted.length > 0 && (
         <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Histórico de saques</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Histórico de saques</p>
           <TableCard>
-            <thead className="border-b border-zinc-200 bg-zinc-50">
+            <thead className="border-b border-zinc-800 bg-zinc-900/80">
               <tr>
                 <Th>Agência</Th>
                 <Th right>Valor sacado</Th>
@@ -599,25 +627,25 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
                 <Th>Status</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/40">
               {visibleFees.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.agencyName}</Td>
                   <Td right>{brl(w.amount)}</Td>
                   <Td right>
                     <span className={
-                      w.status === "paid"     ? "font-semibold text-emerald-700" :
-                      w.status === "rejected" ? "text-zinc-400 line-through"     : "text-amber-600"
+                      w.status === "paid"     ? "font-semibold text-emerald-400" :
+                      w.status === "rejected" ? "text-zinc-600 line-through"     : "text-amber-400"
                     }>
                       {brl(w.feeAmount)}
                     </span>
                   </Td>
-                  <Td right>{w.status === "rejected" ? <span className="text-zinc-400">—</span> : brl(w.netAmount)}</Td>
+                  <Td right>{w.status === "rejected" ? <span className="text-zinc-600">—</span> : brl(w.netAmount)}</Td>
                   <Td>{fmt(w.createdAt)}</Td>
                   <Td>
-                    {w.status === "paid"     && <Badge value="Pago"      tone="bg-emerald-50 text-emerald-700" />}
-                    {w.status === "rejected" && <Badge value="Cancelado" tone="bg-red-50 text-red-700" />}
-                    {w.status === "pending"  && <Badge value="Pendente"  tone="bg-amber-50 text-amber-700" />}
+                    {w.status === "paid"     && <Badge value="Pago"      tone="bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30" />}
+                    {w.status === "rejected" && <Badge value="Cancelado" tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/20" />}
+                    {w.status === "pending"  && <Badge value="Pendente"  tone="bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30" />}
                   </Td>
                 </tr>
               ))}
@@ -717,29 +745,29 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
       subtitle={`${pending.length} pendente(s) — pagamento manual necessário`}
     >
       {canceling && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full space-y-4">
-            <h3 className="text-[15px] font-bold text-zinc-900">Cancelar saque</h3>
-            <p className="text-[13px] text-zinc-500">O valor integral será devolvido ao saldo da agência. Esta ação não pode ser desfeita.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4">
+            <h3 className="text-[15px] font-bold text-white">Cancelar saque</h3>
+            <p className="text-[13px] text-zinc-400">O valor integral será devolvido ao saldo da agência. Esta ação não pode ser desfeita.</p>
             <textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               placeholder="Motivo do cancelamento…"
               rows={3}
-              className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 resize-none"
+              className="w-full border border-zinc-700 rounded-xl px-3 py-2.5 text-[13px] text-white bg-zinc-800/60 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
             />
-            {error && <p className="text-[12px] text-rose-600">{error}</p>}
+            {error && <p className="text-[12px] text-red-400">{error}</p>}
             <div className="flex gap-2">
               <button
                 onClick={handleCancel}
                 disabled={cancelLoading || !cancelReason.trim()}
-                className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-[13px] font-bold py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="flex-1 bg-red-700 hover:bg-red-600 disabled:opacity-40 text-white text-[13px] font-bold py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 {cancelLoading ? "Cancelando…" : "Confirmar cancelamento"}
               </button>
               <button
                 onClick={() => { setCanceling(null); setCancelReason(""); setError(null); }}
-                className="px-4 border border-zinc-200 hover:border-zinc-300 text-zinc-600 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 hover:text-zinc-300 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
               >
                 Voltar
               </button>
@@ -749,29 +777,29 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
       )}
 
       {approving && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full space-y-4">
-            <h3 className="text-[15px] font-bold text-zinc-900">Marcar saque como pago</h3>
-            <p className="text-[13px] text-zinc-500">Confirme que o PIX foi enviado manualmente. Esta ação não pode ser desfeita.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4">
+            <h3 className="text-[15px] font-bold text-white">Marcar saque como pago</h3>
+            <p className="text-[13px] text-zinc-400">Confirme que o PIX foi enviado manualmente. Esta ação não pode ser desfeita.</p>
             <textarea
               value={approveNote}
               onChange={(e) => setApproveNote(e.target.value)}
               placeholder="Observação opcional (ex: PIX enviado, comprovante nº…)"
               rows={3}
-              className="w-full border border-zinc-200 rounded-xl px-3 py-2.5 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 resize-none"
+              className="w-full border border-zinc-700 rounded-xl px-3 py-2.5 text-[13px] text-white bg-zinc-800/60 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
             />
-            {error && <p className="text-[12px] text-rose-600">{error}</p>}
+            {error && <p className="text-[12px] text-red-400">{error}</p>}
             <div className="flex gap-2">
               <button
                 onClick={handleApprove}
                 disabled={approveLoading}
-                className="flex-1 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-[13px] font-bold py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+                className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-[13px] font-bold py-2.5 rounded-xl transition-all hover:shadow-lg hover:shadow-emerald-500/20 cursor-pointer disabled:cursor-not-allowed"
               >
                 {approveLoading ? "Processando…" : "Confirmar pagamento"}
               </button>
               <button
                 onClick={() => { setApproving(null); setApproveNote(""); setError(null); }}
-                className="px-4 border border-zinc-200 hover:border-zinc-300 text-zinc-600 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 hover:text-zinc-300 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
               >
                 Voltar
               </button>
@@ -780,21 +808,21 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
         </div>
       )}
 
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+      <div className="rounded-2xl border border-amber-900/50 bg-amber-950/40 px-4 py-3 text-[13px] text-amber-400">
         Envie manualmente o valor líquido por PIX antes de marcar como pago. Esta ação não envia dinheiro automaticamente.
       </div>
 
       {error && !canceling && !approving && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{error}</div>
+        <div className="rounded-2xl border border-red-900/50 bg-red-950/40 px-4 py-3 text-[13px] text-red-400">{error}</div>
       )}
 
       {pending.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-5 text-[13px] text-zinc-500 shadow-sm">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-5 text-[13px] text-zinc-500">
           Nenhum saque pendente.
         </div>
       ) : (
         <TableCard>
-          <thead className="border-b border-zinc-200 bg-zinc-50">
+          <thead className="border-b border-zinc-800 bg-zinc-900/80">
             <tr>
               <Th>Agência</Th>
               <Th right>Total debitado</Th>
@@ -806,41 +834,41 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
               <Th right>Ações</Th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100">
+          <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/40">
             {visiblePending.map((w) => (
               <tr key={w.id}>
                 <Td>{w.agencyName}</Td>
-                <Td right><strong>{brl(w.amount)}</strong></Td>
-                <Td right><span className="text-rose-600">{brl(w.feeAmount)}</span></Td>
-                <Td right><strong className="text-emerald-700">{brl(w.netAmount)}</strong></Td>
+                <Td right><strong className="text-white">{brl(w.amount)}</strong></Td>
+                <Td right><span className="text-red-400">{brl(w.feeAmount)}</span></Td>
+                <Td right><strong className="text-emerald-400">{brl(w.netAmount)}</strong></Td>
                 <Td>
                   {w.pixKeyValue ? (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-bold uppercase bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded">
                         {PIX_TYPE_LABELS_ADMIN[w.pixKeyType ?? ""] ?? w.pixKeyType}
                       </span>
-                      <span className="font-mono text-xs">{w.pixKeyValue}</span>
+                      <span className="font-mono text-xs text-zinc-300">{w.pixKeyValue}</span>
                       <button onClick={() => copyPix(w.pixKeyValue!, w.id)}
-                        className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                        className="text-zinc-600 hover:text-zinc-300 transition-colors cursor-pointer"
                         title="Copiar chave PIX">
                         {copied === w.id
-                          ? <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                          ? <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                           : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                         }
                       </button>
                     </div>
-                  ) : <span className="text-zinc-400 text-xs">Não configurado</span>}
+                  ) : <span className="text-zinc-600 text-xs">Não configurado</span>}
                 </Td>
                 <Td>{w.pixHolderName ?? "-"}</Td>
                 <Td>{fmt(w.createdAt)}</Td>
                 <Td right>
                   <div className="flex items-center justify-end gap-2">
                     <button onClick={() => { setApproving(w.id); setApproveNote(""); setError(null); }} disabled={canceling === w.id}
-                      className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:bg-zinc-300 disabled:cursor-not-allowed">
+                      className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
                       Marcar como pago
                     </button>
                     <button onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }} disabled={approving === w.id}
-                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-all hover:border-red-800 hover:bg-red-950/40 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed">
                       Cancelar
                     </button>
                   </div>
@@ -855,9 +883,9 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
 
       {history.length > 0 && (
         <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 mt-2">Histórico</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 mt-2">Histórico</p>
           <TableCard>
-            <thead className="border-b border-zinc-200 bg-zinc-50">
+            <thead className="border-b border-zinc-800 bg-zinc-900/80">
               <tr>
                 <Th>Agência</Th>
                 <Th right>Total</Th>
@@ -869,7 +897,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                 <Th>Motivo</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/40">
               {visibleHistory.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.agencyName}</Td>
@@ -880,9 +908,9 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                   <Td>{fmt(w.processedAt)}</Td>
                   <Td>
                     {w.status === "paid" ? (
-                      <Badge value="Pago" tone="bg-emerald-50 text-emerald-700" />
+                      <Badge value="Pago" tone="bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30" />
                     ) : (
-                      <Badge value="Cancelado" tone="bg-red-50 text-red-700" />
+                      <Badge value="Cancelado" tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/20" />
                     )}
                   </Td>
                   <Td><span className="text-zinc-500 text-xs">{w.adminNote ?? "-"}</span></Td>
@@ -917,7 +945,7 @@ function BookingsSection({
       </div>
 
       <TableCard>
-        <thead className="border-b border-zinc-200 bg-zinc-50">
+        <thead className="border-b border-zinc-800 bg-zinc-900/80">
           <tr>
             <Th>Vaga</Th>
             <Th>Talento</Th>
@@ -929,13 +957,13 @@ function BookingsSection({
             <Th right>Liquido plataforma</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/40">
           {visibleBookings.map((booking) => (
             <tr key={booking.id}>
               <Td>
                 <div>
-                  <p className="font-medium text-zinc-900">{booking.jobTitle}</p>
-                  <p className="text-xs text-zinc-400">{fmt(booking.created_at)}</p>
+                  <p className="font-medium text-white">{booking.jobTitle}</p>
+                  <p className="text-xs text-zinc-500">{fmt(booking.created_at)}</p>
                 </div>
               </Td>
               <Td>{booking.talentName}</Td>
@@ -988,31 +1016,32 @@ export default function AdminFinances({
   const safe = platformBalance.status === "ok" && platformBalance.balance >= summary.minimumRequired;
 
   return (
+    <div className="bg-[#070D0F] -mx-6 -my-10 lg:-mx-10 px-6 py-10 lg:px-10 min-h-full">
     <div className="mx-auto max-w-7xl space-y-8">
       <header className="space-y-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Admin da plataforma</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">Financeiro</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Admin da plataforma</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Financeiro</h1>
           <p className="mt-1 text-sm text-zinc-500">
             {summary.confirmedBookings} reservas confirmadas | {contracts.length} contratos confirmados ou pagos
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-500">
           <span>
             Comissao por plano:{" "}
-            <strong className="text-zinc-900">
+            <strong className="text-zinc-200">
               Free {summary.planBreakdown.free.commissionLabel} | Pro {summary.planBreakdown.pro.commissionLabel} | Premium {summary.planBreakdown.premium.commissionLabel}
             </strong>
           </span>
           <span>
-            Indicacao: <strong className="text-zinc-900">{REFERRAL_RATE * 100}%</strong>
+            Indicacao: <strong className="text-zinc-200">{REFERRAL_RATE * 100}%</strong>
           </span>
           <span>
-            Plano Pro: <strong className="text-zinc-900">{summary.planBreakdown.pro.priceLabel}</strong>
+            Plano Pro: <strong className="text-zinc-200">{summary.planBreakdown.pro.priceLabel}</strong>
           </span>
           <span>
-            Plano Premium: <strong className="text-zinc-900">{summary.planBreakdown.premium.priceLabel}</strong>
+            Plano Premium: <strong className="text-zinc-200">{summary.planBreakdown.premium.priceLabel}</strong>
           </span>
         </div>
       </header>
@@ -1032,13 +1061,13 @@ export default function AdminFinances({
             <StatCard label="Passivo com talentos" value={brl(summary.contractsAwaitingValue)} sub="Liquido pago ainda nao sacado" />
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   Valor minimo necessario para honrar a plataforma
                 </p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900">{brl(summary.minimumRequired)}</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{brl(summary.minimumRequired)}</p>
               </div>
               <div className="text-sm text-zinc-500">
                 Escrow bruto ({brl(summary.contractsEscrowValue)}) + passivo talentos ({brl(summary.contractsAwaitingValue)}) + carteiras agencias ({brl(summary.agencyWalletTotal)})
@@ -1047,25 +1076,25 @@ export default function AdminFinances({
           </div>
 
           {platformBalance.status === "loading" ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm text-zinc-500">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 text-sm text-zinc-500">
               Consultando saldo no Mercado Pago...
             </div>
           ) : null}
 
           {platformBalance.status === "error" ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+            <div className="rounded-2xl border border-amber-900/50 bg-amber-950/40 p-5 text-sm text-amber-400">
               Nao foi possivel consultar o saldo da conta no Mercado Pago. Verifique manualmente se o saldo cobre pelo menos {brl(summary.minimumRequired)}.
             </div>
           ) : null}
 
           {platformBalance.status === "ok" ? (
-            <div className={`rounded-2xl border p-5 text-sm ${safe ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+            <div className={`rounded-2xl border p-5 text-sm ${safe ? "border-emerald-900/50 bg-emerald-950/40 text-emerald-400" : "border-red-900/50 bg-red-950/40 text-red-400"}`}>
               <p className="font-medium">{safe ? "Plataforma solvente" : "Plataforma abaixo do minimo necessario"}</p>
-              <p className="mt-1">
-                Saldo disponivel: <strong>{brl(platformBalance.balance)}</strong>
-                {" | "}Minimo necessario: <strong>{brl(summary.minimumRequired)}</strong>
+              <p className="mt-1 text-zinc-400">
+                Saldo disponivel: <strong className="text-white">{brl(platformBalance.balance)}</strong>
+                {" | "}Minimo necessario: <strong className="text-white">{brl(summary.minimumRequired)}</strong>
                 {" | "}
-                {safe ? "Margem" : "Deficit"}: <strong>{brl(Math.abs(platformBalance.balance - summary.minimumRequired))}</strong>
+                {safe ? "Margem" : "Deficit"}: <strong className={safe ? "text-emerald-300" : "text-red-300"}>{brl(Math.abs(platformBalance.balance - summary.minimumRequired))}</strong>
               </p>
             </div>
           ) : null}
@@ -1093,6 +1122,7 @@ export default function AdminFinances({
         <ContractsSection contracts={contracts} summary={summary} />
         <WithdrawalHistory contracts={contracts} />
       </GroupBlock>
+    </div>
     </div>
   );
 }
