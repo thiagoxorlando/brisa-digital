@@ -190,13 +190,46 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm space-y-5">
+    <div className="px-8 py-7 space-y-5">
       <div>
-        <h2 className="text-xl font-semibold tracking-tight text-zinc-900">{title}</h2>
-        {subtitle ? <p className="mt-1 text-sm text-zinc-500">{subtitle}</p> : null}
+        <h3 className="text-lg font-semibold tracking-tight text-zinc-900">{title}</h3>
+        {subtitle ? <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p> : null}
       </div>
       {children}
-    </section>
+    </div>
+  );
+}
+
+function GroupBlock({
+  title,
+  subtitle,
+  accent,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  accent: "green" | "amber" | "blue";
+  children: ReactNode;
+}) {
+  const v = {
+    green: { border: "border-emerald-200", header: "bg-emerald-50 border-b border-emerald-100", dot: "bg-emerald-500", title: "text-emerald-900", sub: "text-emerald-800/60" },
+    amber: { border: "border-amber-200",   header: "bg-amber-50 border-b border-amber-100",     dot: "bg-amber-500",   title: "text-amber-900",   sub: "text-amber-800/60" },
+    blue:  { border: "border-blue-200",    header: "bg-blue-50 border-b border-blue-100",       dot: "bg-blue-500",    title: "text-blue-900",    sub: "text-blue-800/60" },
+  }[accent];
+
+  return (
+    <div className={`rounded-3xl border ${v.border} overflow-hidden shadow-md`}>
+      <div className={`${v.header} px-8 py-6`}>
+        <div className="flex items-center gap-3">
+          <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${v.dot}`} />
+          <h2 className={`text-2xl font-bold tracking-tight ${v.title}`}>{title}</h2>
+        </div>
+        <p className={`mt-1 ml-[26px] text-sm ${v.sub}`}>{subtitle}</p>
+      </div>
+      <div className="divide-y divide-zinc-100 bg-zinc-50">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -955,7 +988,7 @@ export default function AdminFinances({
   const safe = platformBalance.status === "ok" && platformBalance.balance >= summary.minimumRequired;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-8">
       <header className="space-y-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">Admin da plataforma</p>
@@ -984,62 +1017,82 @@ export default function AdminFinances({
         </div>
       </header>
 
-      <Section
-        title="Obrigacoes financeiras da plataforma"
-        subtitle="O minimo necessario considera apenas o que ainda precisa sair da plataforma para agencias e talentos."
+      <GroupBlock
+        accent="green"
+        title="Resumo financeiro"
+        subtitle="Saúde financeira da plataforma — obrigações, lucro, assinaturas e reservas."
       >
-        <div className="grid gap-4 md:grid-cols-3">
-          <StatCard label="Escrow de contratos" value={brl(summary.contractsEscrowValue)} sub="Bruto em custodia" />
-          <StatCard label="Carteiras das agencias" value={brl(summary.agencyWalletTotal)} sub="Saldo que pertence as agencias" />
-          <StatCard label="Passivo com talentos" value={brl(summary.contractsAwaitingValue)} sub="Liquido pago ainda nao sacado" />
-        </div>
+        <Section
+          title="Obrigacoes financeiras da plataforma"
+          subtitle="O minimo necessario considera apenas o que ainda precisa sair da plataforma para agencias e talentos."
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard label="Escrow de contratos" value={brl(summary.contractsEscrowValue)} sub="Bruto em custodia" />
+            <StatCard label="Carteiras das agencias" value={brl(summary.agencyWalletTotal)} sub="Saldo que pertence as agencias" />
+            <StatCard label="Passivo com talentos" value={brl(summary.contractsAwaitingValue)} sub="Liquido pago ainda nao sacado" />
+          </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
-                Valor minimo necessario para honrar a plataforma
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                  Valor minimo necessario para honrar a plataforma
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900">{brl(summary.minimumRequired)}</p>
+              </div>
+              <div className="text-sm text-zinc-500">
+                Escrow bruto ({brl(summary.contractsEscrowValue)}) + passivo talentos ({brl(summary.contractsAwaitingValue)}) + carteiras agencias ({brl(summary.agencyWalletTotal)})
+              </div>
+            </div>
+          </div>
+
+          {platformBalance.status === "loading" ? (
+            <div className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm text-zinc-500">
+              Consultando saldo no Mercado Pago...
+            </div>
+          ) : null}
+
+          {platformBalance.status === "error" ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+              Nao foi possivel consultar o saldo da conta no Mercado Pago. Verifique manualmente se o saldo cobre pelo menos {brl(summary.minimumRequired)}.
+            </div>
+          ) : null}
+
+          {platformBalance.status === "ok" ? (
+            <div className={`rounded-2xl border p-5 text-sm ${safe ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+              <p className="font-medium">{safe ? "Plataforma solvente" : "Plataforma abaixo do minimo necessario"}</p>
+              <p className="mt-1">
+                Saldo disponivel: <strong>{brl(platformBalance.balance)}</strong>
+                {" | "}Minimo necessario: <strong>{brl(summary.minimumRequired)}</strong>
+                {" | "}
+                {safe ? "Margem" : "Deficit"}: <strong>{brl(Math.abs(platformBalance.balance - summary.minimumRequired))}</strong>
               </p>
-              <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900">{brl(summary.minimumRequired)}</p>
             </div>
-            <div className="text-sm text-zinc-500">
-              Escrow bruto ({brl(summary.contractsEscrowValue)}) + passivo talentos ({brl(summary.contractsAwaitingValue)}) + carteiras agencias ({brl(summary.agencyWalletTotal)})
-            </div>
-          </div>
-        </div>
+          ) : null}
+        </Section>
 
-        {platformBalance.status === "loading" ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm text-zinc-500 shadow-sm">
-            Consultando saldo no Mercado Pago...
-          </div>
-        ) : null}
+        <ProfitSection bookings={bookings} contracts={contracts} planPayments={planPayments} />
+        <SubscriptionsSection subscriptions={subscriptions} summary={summary} />
+        <BookingsSection bookings={bookings} summary={summary} />
+      </GroupBlock>
 
-        {platformBalance.status === "error" ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
-            Nao foi possivel consultar o saldo da conta no Mercado Pago. Verifique manualmente se o saldo cobre pelo menos {brl(summary.minimumRequired)}.
-          </div>
-        ) : null}
+      <GroupBlock
+        accent="amber"
+        title="Operações de saque"
+        subtitle="Saques pendentes de agências. Processe o PIX manualmente e confirme aqui antes de marcar como pago."
+      >
+        <WithdrawalsSection withdrawals={withdrawals} />
+      </GroupBlock>
 
-        {platformBalance.status === "ok" ? (
-          <div className={`rounded-2xl border p-5 text-sm ${safe ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
-            <p className="font-medium">{safe ? "Plataforma solvente" : "Plataforma abaixo do minimo necessario"}</p>
-            <p className="mt-1">
-              Saldo disponivel: <strong>{brl(platformBalance.balance)}</strong>
-              {" | "}Minimo necessario: <strong>{brl(summary.minimumRequired)}</strong>
-              {" | "}
-              {safe ? "Margem" : "Deficit"}: <strong>{brl(Math.abs(platformBalance.balance - summary.minimumRequired))}</strong>
-            </p>
-          </div>
-        ) : null}
-      </Section>
-
-      <ProfitSection bookings={bookings} contracts={contracts} planPayments={planPayments} />
-      <WithdrawalFeesSection withdrawals={withdrawals} />
-      <WithdrawalsSection withdrawals={withdrawals} />
-      <SubscriptionsSection subscriptions={subscriptions} summary={summary} />
-      <ContractsSection contracts={contracts} summary={summary} />
-      <WithdrawalHistory contracts={contracts} />
-      <BookingsSection bookings={bookings} summary={summary} />
+      <GroupBlock
+        accent="blue"
+        title="Histórico e auditoria"
+        subtitle="Taxas arrecadadas por saque, contratos ativos e saques de talentos processados."
+      >
+        <WithdrawalFeesSection withdrawals={withdrawals} />
+        <ContractsSection contracts={contracts} summary={summary} />
+        <WithdrawalHistory contracts={contracts} />
+      </GroupBlock>
     </div>
   );
 }
