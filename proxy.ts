@@ -1,37 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
-export async function proxy(req: NextRequest) {
-  // supabaseResponse must be reassignable inside setAll so updated cookies
-  // are forwarded to both the browser and to server components.
-  let supabaseResponse = NextResponse.next({ request: req });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          // Write to request so server components see the refreshed token.
-          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
-          // Rebuild the response with the updated request, then set browser cookies.
-          supabaseResponse = NextResponse.next({ request: req });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    },
-  );
-
-  // Refreshes the access token if expired. Must be called before any
-  // server component reads the session.
-  await supabase.auth.getUser();
-
-  return supabaseResponse;
+// Per Next.js 16 docs: proxy should only do optimistic cookie reads, not
+// network calls. Full session verification happens in each layout server
+// component via createSessionClient(). A network call here (getUser()) would
+// run on every request and can corrupt the forwarded session cookies when
+// @supabase/ssr decides to clear an unverifiable token before layouts run.
+export function proxy(req: NextRequest) {
+  return NextResponse.next({ request: req });
 }
 
 export const config = {
