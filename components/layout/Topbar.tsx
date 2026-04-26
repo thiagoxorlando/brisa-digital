@@ -67,6 +67,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
   const [imgError, setImgError] = useState(false);
 
   const meta = getPageMeta(pathname);
+  const isAdmin = pathname.startsWith("/admin");
 
   const dashboardHref =
     pathname.startsWith("/talent") ? "/talent/dashboard" :
@@ -74,7 +75,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     "/agency/dashboard";
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between h-16 px-6 lg:px-8 bg-white border-b border-zinc-100 flex-shrink-0">
+    <header className={`sticky top-0 z-20 flex items-center justify-between h-16 px-6 lg:px-8 flex-shrink-0 ${isAdmin ? "bg-zinc-950 border-b border-zinc-800" : "bg-white border-b border-zinc-100"}`}>
       {/* Left — logo + hamburger (mobile) + page title */}
       <div className="flex items-center gap-4 min-w-0">
         <Link href={dashboardHref} className="flex-shrink-0 hidden lg:flex items-center">
@@ -82,7 +83,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         </Link>
         <button
           onClick={onMenuClick}
-          className="lg:hidden w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 transition-colors flex-shrink-0"
+          className={`lg:hidden w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 transition-colors flex-shrink-0 ${isAdmin ? "hover:bg-zinc-800 hover:text-zinc-200" : "hover:bg-zinc-100 hover:text-zinc-900"}`}
           aria-label="Open menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,7 +93,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         </button>
 
         <div className="min-w-0">
-          <h1 className="text-[14px] font-semibold text-zinc-900 leading-none tracking-tight truncate">
+          <h1 className={`text-[14px] font-semibold leading-none tracking-tight truncate ${isAdmin ? "text-white" : "text-zinc-900"}`}>
             {meta.title}
           </h1>
           {meta.description && (
@@ -108,7 +109,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         <NotificationBell />
 
         {/* Divider */}
-        <div className="hidden sm:block w-px h-5 bg-zinc-100 mx-1" />
+        <div className={`hidden sm:block w-px h-5 mx-1 ${isAdmin ? "bg-zinc-800" : "bg-zinc-100"}`} />
 
         {/* User */}
         <div className="flex items-center gap-2 pl-1 py-1 pr-2.5">
@@ -128,7 +129,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
           </div>
           <div className="hidden md:block text-left">
             <div className="flex items-center gap-1.5">
-              <p className="text-[12px] font-semibold text-zinc-900 leading-none truncate max-w-[120px]">
+              <p className={`text-[12px] font-semibold leading-none truncate max-w-[120px] ${isAdmin ? "text-white" : "text-zinc-900"}`}>
                 {loading ? "…" : (displayName || email)}
               </p>
               {role === "agency" && !loading && (
