@@ -3,11 +3,23 @@
 -- Safe to run multiple times (idempotent).
 -- ============================================================
 
--- ── 1. bookings.cancelled_by (from 20260418_reliability.sql) ─────────────────
+-- ── 1. agency_talent_history missing columns ─────────────────────────────────
+ALTER TABLE agency_talent_history
+  ADD COLUMN IF NOT EXISTS jobs_completed  int  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS jobs_cancelled  int  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS last_job_status text,
+  ADD COLUMN IF NOT EXISTS updated_at      timestamptz NOT NULL DEFAULT now();
+
+-- Backfill: existing jobs_count was all paid, so jobs_completed = jobs_count
+UPDATE agency_talent_history
+SET jobs_completed = jobs_count
+WHERE jobs_completed = 0 AND jobs_count > 0;
+
+-- ── 2. bookings.cancelled_by (from 20260418_reliability.sql) ─────────────────
 ALTER TABLE bookings
   ADD COLUMN IF NOT EXISTS cancelled_by text; -- 'agency' | 'talent' | null
 
--- ── 2. Recreate sync_agency_talent_history trigger (clean version) ────────────
+-- ── 3. Recreate sync_agency_talent_history trigger (clean version) ────────────
 CREATE OR REPLACE FUNCTION sync_agency_talent_history()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -56,7 +68,7 @@ CREATE TRIGGER trg_sync_agency_talent_history
   )
   EXECUTE FUNCTION sync_agency_talent_history();
 
--- ── 3. Normalize agencies.subscription_status to match profiles.plan_status ──
+-- ── 4. Normalize agencies.subscription_status to match profiles.plan_status ──
 -- Agencies on a paid plan should show 'active', not 'cancelling'
 UPDATE agencies a
 SET subscription_status = p.plan_status
@@ -67,7 +79,7 @@ WHERE a.id = p.id
   AND p.plan_status IS NOT NULL
   AND a.subscription_status != p.plan_status;
 
--- ── 4. Ensure agency_talent_history counters are backfilled ──────────────────
+-- ── 5. Ensure agency_talent_history counters are backfilled ──────────────────
 INSERT INTO agency_talent_history (
   agency_id, talent_id, jobs_count, jobs_completed, jobs_cancelled, last_worked_at, last_job_status
 )
