@@ -274,6 +274,7 @@ export default function Home() {
     getUserRole().then(async (role) => {
       if (role === "agency") router.replace(await getAgencyLanding());
       else if (role === "talent") router.replace("/talent/dashboard");
+      else if (role === "admin") router.replace("/admin/dashboard");
       else setChecking(false);
     });
   }, [router]);
