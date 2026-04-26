@@ -104,8 +104,8 @@ export async function POST(
     const res = await fetch(`${asaasApiUrl}/transfers`, {
       method: "POST",
       headers: {
-        "Content-Type":  "application/json",
-        "Authorization": `Bearer ${asaasApiKey}`,
+        "Content-Type": "application/json",
+        "access_token": asaasApiKey,
       },
       body: JSON.stringify({
         value:              Number(tx.net_amount),
