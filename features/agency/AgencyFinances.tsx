@@ -245,7 +245,7 @@ export default function AgencyFinances({
   const withdrawFeeNum    = Math.max(Math.round(withdrawAmountNum * withdrawalFeeRate * 100) / 100, withdrawAmountNum > 0 ? withdrawalMinFee : 0);
   const withdrawNetNum    = Math.round((withdrawAmountNum - withdrawFeeNum) * 100) / 100;
   const isMinFeeApplied   = withdrawAmountNum > 0 && withdrawFeeNum === withdrawalMinFee;
-  const canWithdraw       = hasPix && withdrawAmountNum >= withdrawalMinAmount && withdrawAmountNum <= walletBalance;
+  const canWithdraw       = Boolean(hasPix && withdrawAmountNum >= withdrawalMinAmount && withdrawAmountNum <= walletBalance);
 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
@@ -422,7 +422,7 @@ export default function AgencyFinances({
                   </div>
                   <button
                     onClick={() => { if (canWithdraw) setWithdrawConfirming(true); }}
-                    disabled={!canWithdraw || withdrawing}
+                    disabled={Boolean(!canWithdraw || withdrawing)}
                     className="flex items-center gap-2 bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white border border-white/10 text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     {withdrawing ? (
@@ -493,7 +493,7 @@ export default function AgencyFinances({
                     onChange={(e) => setDepositAmount(e.target.value)}
                     className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-zinc-300 hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
                 </div>
-                <button type="submit" disabled={depositLoading || !depositAmount || Number(depositAmount) <= 0}
+                <button type="submit" disabled={Boolean(depositLoading || !depositAmount || Number(depositAmount) <= 0)}
                   className="flex items-center gap-2 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] disabled:bg-zinc-100 disabled:text-zinc-400 text-[var(--brand-surface)] text-[13px] font-black px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
                   {depositLoading ? <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> : "Gerar QR Code"}
                 </button>
@@ -570,7 +570,7 @@ export default function AgencyFinances({
                         onChange={(e) => setCardDepositAmount(e.target.value)}
                         className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-zinc-300 hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
                     </div>
-                    <button type="submit" disabled={cardDepositLoading || !cardDepositAmount || Number(cardDepositAmount) <= 0 || !selectedCard || cardCvv.length < 3}
+                    <button type="submit" disabled={Boolean(cardDepositLoading || !cardDepositAmount || Number(cardDepositAmount) <= 0 || !selectedCard || cardCvv.length < 3)}
                       className="flex items-center gap-2 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] disabled:bg-zinc-100 disabled:text-zinc-400 text-[var(--brand-surface)] text-[13px] font-black px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
                       {cardDepositLoading ? <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> : "Depositar"}
                     </button>
