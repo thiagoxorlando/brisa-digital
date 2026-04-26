@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 import { getAgencyLanding } from "@/lib/getAgencyLanding";
@@ -13,8 +12,6 @@ const ROLE_HOME: Record<string, string> = {
 };
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const [email,          setEmail]          = useState("");
   const [password,       setPassword]       = useState("");
   const [error,          setError]          = useState("");
@@ -52,7 +49,10 @@ export default function LoginPage() {
       destination = profile?.role ? ROLE_HOME[profile.role] : "/onboarding/role";
     }
 
-    router.push(destination);
+    // Hard navigation so the browser sends fresh cookies with the request.
+    // router.push (soft RSC navigation) can hit a cached redirect from
+    // layouts that ran before the session cookie was established.
+    window.location.assign(destination);
   }
 
   return (
