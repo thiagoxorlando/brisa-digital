@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/requireAdmin";
 
 const VALID_PLANS = ["free", "pro", "premium"] as const;
 const VALID_ROLES = ["talent", "agency", "admin"] as const;
@@ -16,26 +16,10 @@ function isMissingPlanStatusColumn(error: { message?: string } | null) {
 // Body: { user_id, plan?, role? }
 // Admin-only: bypasses payment, sets plan and/or role.
 export async function PATCH(req: NextRequest) {
-  const session = await createSessionClient();
-  const {
-    data: { user },
-  } = await session.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  }
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
 
   const supabase = createServerClient({ useServiceRole: true });
-
-  const { data: caller } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (caller?.role !== "admin") {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
 
   const body = (await req.json()) as { user_id: string; plan?: Plan; role?: Role };
   const { user_id, plan, role } = body;

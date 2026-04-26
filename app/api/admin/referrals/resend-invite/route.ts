@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { createSessionClient } from "@/lib/supabase.server";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { sendEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
-  // Auth — admin only
-  const session = await createSessionClient();
-  const { data: { user } } = await session.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
 
   const supabase = createServerClient({ useServiceRole: true });
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
 
   const { invite_id, submission_id } = await req.json();
   if (!invite_id && !submission_id) {

@@ -12,9 +12,22 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({})) as { amount?: unknown };
+
   const requestedAmount = Number(body.amount);
-  if (!requestedAmount || requestedAmount <= 0) {
+
+  // Reject NaN, Infinity, and non-positive values
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
     return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
+  }
+
+  // Reject more than 2 decimal places (e.g. 1.999)
+  if (parseFloat(requestedAmount.toFixed(2)) !== requestedAmount) {
+    return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
+  }
+
+  // Sanity upper cap — prevents absurdly large values reaching the DB
+  if (requestedAmount > 50_000) {
+    return NextResponse.json({ error: "Valor de saque excede o limite por solicitação." }, { status: 400 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
