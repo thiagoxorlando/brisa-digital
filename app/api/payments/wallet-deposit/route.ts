@@ -93,12 +93,13 @@ export async function POST(req: NextRequest) {
     payment = await asaas<AsaasPayment>("/payments", {
       method: "POST",
       body:   JSON.stringify({
-        customer:          asaasCustomerId,
-        billingType:       "PIX",
-        value:             numAmount,
-        dueDate:           dueDateStr,
-        description:       `BrisaHub — Depósito de Saldo (${agencyName})`,
-        externalReference: txRecord.id,
+        customer:             asaasCustomerId,
+        billingType:          "PIX",
+        value:                numAmount,
+        dueDate:              dueDateStr,
+        description:          `BrisaHub — Depósito de Saldo (${agencyName})`,
+        externalReference:    txRecord.id,
+        notificationDisabled: true,
       }),
     });
   } catch (err) {
