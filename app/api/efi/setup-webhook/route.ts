@@ -1,15 +1,18 @@
 import path from "path";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import EfiPay from "sdk-node-apis-efi";
-import { requireAdmin } from "@/lib/requireAdmin";
 
-// GET /api/efi/setup-webhook
+// GET /api/efi/setup-webhook?secret=<EFI_SETUP_SECRET>
 // Registers the platform webhook URL with Efí using the official SDK.
-// Must be called once (or after any URL change) from an admin session.
+// Must be called once (or after any URL change).
 
-export async function GET() {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
+export async function GET(req: NextRequest) {
+  const setupSecret = process.env.EFI_SETUP_SECRET;
+  const provided    = req.nextUrl.searchParams.get("secret");
+
+  if (setupSecret && provided !== setupSecret) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const pixKey = process.env.EFI_PIX_KEY;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
