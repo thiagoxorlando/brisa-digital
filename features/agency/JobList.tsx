@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -46,10 +46,10 @@ function daysUntil(raw: string) {
 }
 
 const STATUS_STYLES: Record<Job["status"], string> = {
-  open:     "bg-[var(--brand-green-soft)] text-emerald-800 ring-1 ring-emerald-200/70",
-  closed:   "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200",
-  draft:    "bg-zinc-50 text-zinc-500 ring-1 ring-zinc-200",
-  inactive: "bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200",
+  open:     "bg-[#D1F4EB] text-[#0A7A5A] ring-1 ring-[#A7E8D6]/60",
+  closed:   "bg-[#E6F0F0] text-[#647B7B] ring-1 ring-[#DDE6E6]",
+  draft:    "bg-[#F8FAFC] text-[#647B7B] ring-1 ring-[#DDE6E6]",
+  inactive: "bg-[#E6F0F0] text-[#B8D4D4] ring-1 ring-[#DDE6E6]",
 };
 
 // ─── Job Card ─────────────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ function JobCard({ job, onUpdate, onRemove }: {
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-3 border-t border-zinc-50 text-[12px]">
           {/* Budget */}
-          <div className="flex items-center gap-1.5 text-emerald-800 font-black bg-[var(--brand-green-soft)] px-2.5 py-1 rounded-full">
+          <div className="flex items-center gap-1.5 text-[#0A7A5A] font-black bg-[#D1F4EB] px-2.5 py-1 rounded-full">
             <svg className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -152,7 +152,7 @@ function JobCard({ job, onUpdate, onRemove }: {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="text-zinc-300 text-[11px] mr-0.5">{t("jobs_apply_by")}</span>
+            <span className="text-[#647B7B] text-[11px] mr-0.5">{t("jobs_apply_by")}</span>
             {urgent ? `${days}d left` : formatDeadline(job.deadline)}
           </div>
 
@@ -199,7 +199,7 @@ function JobCard({ job, onUpdate, onRemove }: {
         <div className="flex items-center gap-2 mt-1">
           <Link
             href={`/agency/jobs/${job.id}`}
-            className="flex-1 inline-flex items-center justify-center gap-2 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] active:scale-[0.98] text-[var(--brand-surface)] text-[13px] font-black px-4 py-2.5 rounded-xl transition-all duration-150 shadow-[0_10px_24px_rgba(72,242,154,0.22)]"
+            className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.98] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl transition-all duration-150 shadow-[0_6px_16px_rgba(26,188,156,0.28)]"
           >
             {t("action_view")}
           </Link>
@@ -321,7 +321,7 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
         </div>
         <Link
           href="/agency/post-job"
-          className="flex-shrink-0 inline-flex items-center gap-2 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] active:scale-[0.98] text-[var(--brand-surface)] text-[13px] font-black px-4 py-2.5 rounded-xl transition-all duration-150 shadow-[0_10px_24px_rgba(72,242,154,0.22)]"
+          className="flex-shrink-0 inline-flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.98] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl transition-all duration-150 shadow-[0_6px_16px_rgba(26,188,156,0.28)]"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -343,12 +343,12 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
             placeholder="Buscar vagas…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-zinc-200 bg-white text-[14px] text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-300 focus:border-[var(--brand-green)] focus:ring-2 focus:ring-[var(--brand-green)]/20 focus:outline-none transition-colors duration-150"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#DDE6E6] bg-white text-[14px] text-[#1F2D2E] placeholder:text-[#647B7B] hover:border-[#B8D4D4] focus:border-[#1ABC9C] focus:ring-2 focus:ring-[#1ABC9C]/20 focus:outline-none transition-colors duration-150"
           />
         </div>
 
         {/* Status tabs */}
-        <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl flex-shrink-0">
+        <div className="flex items-center gap-1 bg-[#E6F0F0] p-1 rounded-xl flex-shrink-0">
           {STATUS_OPTIONS.map((s) => (
             <button
               key={s}
@@ -356,8 +356,8 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
               className={[
                 "px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-150",
                 status === s
-                  ? "bg-[var(--brand-surface)] text-white shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700",
+                  ? "bg-[#1F2D2E] text-white shadow-sm"
+                  : "text-[#647B7B] hover:text-[#1F2D2E]",
               ].join(" ")}
             >
               {STATUS_LABELS[s]}
@@ -376,7 +376,7 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
                   <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-zinc-400">Vagas abertas</h2>
                   <p className="mt-1 text-[13px] text-zinc-500">Prioridade para acompanhar candidaturas e ações ativas.</p>
                 </div>
-                <span className="rounded-full bg-[var(--brand-green-soft)] px-3 py-1 text-[12px] font-bold text-emerald-800">
+                <span className="rounded-full bg-[#D1F4EB] px-3 py-1 text-[12px] font-bold text-[#0A7A5A]">
                   {openJobs.length}
                 </span>
               </div>
@@ -456,3 +456,4 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
     </div>
   );
 }
+

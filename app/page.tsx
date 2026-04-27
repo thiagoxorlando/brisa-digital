@@ -164,7 +164,7 @@ const PLANS = [
 ] as const;
 
 const primaryLink =
-  "inline-flex items-center justify-center rounded-2xl bg-[var(--brand-green)] px-6 py-4 text-[15px] font-black text-[var(--brand-surface)] shadow-[0_16px_36px_rgba(72,242,154,0.28)] transition-all hover:-translate-y-0.5 hover:bg-[var(--brand-green-strong)]";
+  "inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-6 py-4 text-[15px] font-black text-white shadow-[0_16px_36px_rgba(26,188,156,0.28)] transition-all hover:-translate-y-0.5 hover:brightness-105";
 
 const secondaryDarkLink =
   "inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-6 py-4 text-[15px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-white/15";
@@ -304,7 +304,7 @@ export default function Home() {
             <div className="relative hidden sm:block">
               <button
                 onClick={() => setShowRoleMenu((v) => !v)}
-                className="rounded-xl bg-[var(--brand-green)] px-4 py-2 text-[13px] font-black text-[var(--brand-surface)] shadow-sm transition-all hover:bg-[var(--brand-green-strong)] cursor-pointer"
+                className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-2 text-[13px] font-black text-white shadow-sm transition-all hover:brightness-105 cursor-pointer"
               >
                 Criar conta
               </button>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Logo from "@/components/Logo";
@@ -70,7 +70,7 @@ export default function OnboardingFlow() {
             key={s}
             className={[
               "h-1.5 rounded-full transition-all duration-300",
-              s <= step ? "w-5 bg-zinc-900" : "w-2.5 bg-zinc-200",
+              s <= step ? "w-5 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6]" : "w-2.5 bg-[#DDE6E6]",
             ].join(" ")}
           />
         ))}
@@ -109,7 +109,7 @@ export default function OnboardingFlow() {
             </p>
             <button
               onClick={() => setStep(2)}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-[14px] font-medium py-3 rounded-xl transition-colors"
+              className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white text-[14px] font-medium py-3 rounded-xl transition-colors"
             >
               Ver como funciona
             </button>
@@ -135,7 +135,7 @@ export default function OnboardingFlow() {
             {step < 4 ? (
               <button
                 onClick={() => setStep((step + 1) as Step)}
-                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white text-[14px] font-medium py-3 rounded-xl transition-colors"
+                className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white text-[14px] font-medium py-3 rounded-xl transition-colors"
               >
                 Próximo
               </button>
@@ -143,7 +143,7 @@ export default function OnboardingFlow() {
               <button
                 onClick={finish}
                 disabled={finishing}
-                className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white text-[14px] font-medium py-3 rounded-xl transition-colors disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 text-white text-[14px] font-medium py-3 rounded-xl transition-colors disabled:cursor-not-allowed"
               >
                 {finishing ? "Carregando…" : "Ir para o painel"}
               </button>
@@ -164,3 +164,4 @@ export default function OnboardingFlow() {
     </div>
   );
 }
+

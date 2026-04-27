@@ -2,6 +2,23 @@
 
 @theme inline {
   --font-sans: var(--font-geist);
+
+  /* BrisaHub brand palette */
+  --color-brisa-teal:    #1ABC9C;
+  --color-brisa-ocean:   #0E7C86;
+  --color-brisa-sky:     #27C1D6;
+  --color-brisa-amber:   #F5A623;
+  --color-brisa-yellow:  #FFD166;
+  --color-brisa-dark:    #0B3C3D;
+  --color-brisa-mid:     #2F8F8F;
+  --color-brisa-light:   #6EE7E7;
+  --color-brisa-navy:    #1B4F72;
+  --color-brisa-muted:   #7FA9A8;
+  --color-brisa-bg:      #F8FAFC;
+  --color-brisa-surface: #E6F0F0;
+  --color-brisa-border:  #DDE6E6;
+  --color-brisa-text:    #1F2D2E;
+  --color-brisa-sub:     #647B7B;
 }
 
 :root {
@@ -19,4 +36,57 @@
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* ── BrisaHub design system utilities ── */
+.btn-primary {
+  @apply bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white font-semibold rounded-xl px-4 py-2.5 shadow-sm hover:shadow-md hover:brightness-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-secondary {
+  @apply bg-white border border-[#DDE6E6] text-[#1F2D2E] font-medium rounded-xl px-4 py-2.5 hover:bg-[#F8FAFC] transition-all disabled:opacity-50;
+}
+.btn-ghost {
+  @apply bg-transparent text-[#1ABC9C] font-medium rounded-xl px-4 py-2.5 hover:bg-[#E6F0F0] transition-all;
+}
+.btn-danger {
+  @apply bg-red-50 border border-red-200 text-red-600 font-medium rounded-xl px-4 py-2.5 hover:bg-red-100 transition-all;
+}
+.btn-amber {
+  @apply bg-gradient-to-r from-[#F5A623] to-[#FFD166] text-[#1F2D2E] font-semibold rounded-xl px-4 py-2.5 shadow-sm hover:shadow-md transition-all;
+}
+.card {
+  @apply bg-white border border-[#DDE6E6] rounded-2xl shadow-sm;
+}
+.card-hover {
+  @apply bg-white border border-[#DDE6E6] rounded-2xl shadow-sm hover:shadow-md transition-shadow;
+}
+.badge-success {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1ABC9C]/10 text-[#0E7C86] border border-[#1ABC9C]/20;
+}
+.badge-pending {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FFD166]/20 text-amber-700 border border-[#F5A623]/25;
+}
+.badge-error {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600 border border-red-100;
+}
+.badge-info {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#27C1D6]/10 text-[#0E7C86] border border-[#27C1D6]/20;
+}
+.badge-pro {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1ABC9C]/10 text-[#0E7C86] border border-[#1ABC9C]/20;
+}
+.badge-premium {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FFD166]/20 text-amber-700 border border-[#F5A623]/25;
+}
+.input-base {
+  @apply w-full bg-white border border-[#DDE6E6] rounded-xl px-4 py-2.5 text-[14px] text-[#1F2D2E] placeholder-[#7FA9A8] focus:border-[#1ABC9C] focus:ring-2 focus:ring-[#1ABC9C]/20 focus:outline-none transition-colors;
+}
+.page-bg {
+  @apply min-h-screen bg-[#F8FAFC];
+}
+.section-title {
+  @apply text-lg font-semibold text-[#1F2D2E];
+}
+.section-sub {
+  @apply text-sm text-[#647B7B];
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -100,7 +100,7 @@ type PlatformBalanceState =
 type ProfitRange = "today" | "month" | "total";
 
 const PLAN_BADGES: Record<string, string> = {
-  free:    "bg-zinc-700/50 text-zinc-300 ring-1 ring-zinc-600/40",
+  free:    "bg-[#E6F0F0] text-[#647B7B] ring-1 ring-[#DDE6E6]",
   pro:     "bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30",
   premium: "bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30",
 };
@@ -112,9 +112,9 @@ const STATUS_BADGES: Record<string, string> = {
   pending_payment: "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30",
   processing:      "bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30",
   failed:          "bg-red-500/15 text-red-400 ring-1 ring-red-500/30",
-  cancelled:       "bg-zinc-700/50 text-zinc-500 ring-1 ring-zinc-600/30",
+  cancelled:       "bg-[#E6F0F0] text-[#647B7B] ring-1 ring-[#DDE6E6]",
   active:          "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30",
-  inactive:        "bg-zinc-700/50 text-zinc-500 ring-1 ring-zinc-600/30",
+  inactive:        "bg-[#E6F0F0] text-[#647B7B] ring-1 ring-[#DDE6E6]",
   cancelling:      "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30",
 };
 
@@ -175,7 +175,7 @@ function ShowMoreButton({
     <div className="flex justify-end">
       <button
         onClick={onToggle}
-        className="rounded-xl border border-zinc-700 px-3.5 py-2 text-[12px] font-medium text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200"
+        className="rounded-xl border border-zinc-700 px-3.5 py-2 text-[12px] font-medium text-zinc-400 transition-colors hover:border-zinc-500 hover:text-[#647B7B]"
       >
         {expanded ? "Ver menos" : `Ver mais (${total - 5})`}
       </button>
@@ -271,10 +271,10 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900 p-5 overflow-hidden">
+    <div className="relative rounded-2xl border border-[#DDE6E6] bg-white p-5 overflow-hidden">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{value}</p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1F2D2E]">{value}</p>
       {sub ? <p className="mt-2 text-sm text-zinc-500">{sub}</p> : null}
     </div>
   );
@@ -286,7 +286,7 @@ function Badge({ value, tone }: { value: string; tone: string }) {
 
 function TableCard({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900">
+    <div className="overflow-x-auto rounded-2xl border border-[#DDE6E6] bg-white">
       <table className="w-full">{children}</table>
     </div>
   );
@@ -301,7 +301,7 @@ function Th({ children, right = false }: { children: ReactNode; right?: boolean 
 }
 
 function Td({ children, right = false }: { children: ReactNode; right?: boolean }) {
-  return <td className={`px-4 py-3.5 text-sm text-zinc-300 ${right ? "text-right" : "text-left"}`}>{children}</td>;
+  return <td className={`px-4 py-3.5 text-sm text-[#647B7B] ${right ? "text-right" : "text-left"}`}>{children}</td>;
 }
 
 function ProfitSection({
@@ -343,7 +343,7 @@ function ProfitSection({
               "rounded-xl px-3.5 py-2 text-[12px] font-medium transition-all",
               range === option.key
                 ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/20"
-                : "border border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-300",
+                : "border border-[#DDE6E6] bg-white text-[#647B7B] hover:border-[#B8D4D4] hover:bg-[#F8FAFC] hover:text-[#1F2D2E]",
             ].join(" ")}
           >
             {option.label}
@@ -394,7 +394,7 @@ function SubscriptionsSection({
       </div>
 
       <TableCard>
-        <thead className="border-b border-zinc-800 bg-zinc-800">
+        <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
           <tr>
             <Th>Agencia</Th>
             <Th>Plano</Th>
@@ -404,7 +404,7 @@ function SubscriptionsSection({
             <Th right>Ultimo pagamento</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/60">
+        <tbody className="divide-y divide-[#EFF5F5] [&>tr]:transition-colors [&>tr:hover]:bg-[#F8FAFC]">
           {visibleSubscriptions.map((subscription) => (
             <tr key={subscription.userId}>
               <Td>{subscription.agencyName}</Td>
@@ -472,7 +472,7 @@ function ContractsSection({
       </div>
 
       <TableCard>
-        <thead className="border-b border-zinc-800 bg-zinc-800">
+        <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
           <tr>
             <Th>Vaga</Th>
             <Th>Talento</Th>
@@ -486,7 +486,7 @@ function ContractsSection({
             <Th right>Acoes</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/60">
+        <tbody className="divide-y divide-[#EFF5F5] [&>tr]:transition-colors [&>tr:hover]:bg-[#F8FAFC]">
           {visibleRows.map((contract) => {
             const statusLabel = contract.withdrawn_at ? "sacado" : contract.status === "paid" ? "aguardando saque" : "escrow";
             const statusTone = contract.withdrawn_at
@@ -553,20 +553,20 @@ function WithdrawalHistory({ contracts }: { contracts: FinancesContract[] }) {
 
   return (
     <Section title="Historico de saques" subtitle={`${receipts.length} saque(s) concluidos`}>
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+      <div className="rounded-2xl border border-[#DDE6E6] bg-white p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-zinc-400">Total pago aos talentos</p>
-          <p className="text-lg font-semibold text-white">{brl(grandTotal)}</p>
+          <p className="text-lg font-semibold text-[#1F2D2E]">{brl(grandTotal)}</p>
         </div>
         <div className="space-y-3">
           {visibleReceipts.map((items) => {
             const total = items.reduce((sum, contract) => sum + contract.netAmount, 0);
             const reference = items[0];
             return (
-              <div key={`${reference.talentName}-${reference.withdrawn_at}`} className="rounded-xl border border-zinc-800/60 bg-zinc-800/50 p-4">
+              <div key={`${reference.talentName}-${reference.withdrawn_at}`} className="rounded-xl border border-[#DDE6E6] bg-[#F8FAFC] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-medium text-white">{reference.talentName}</p>
+                    <p className="font-medium text-[#1F2D2E]">{reference.talentName}</p>
                     <p className="text-sm text-zinc-500">{fmt(reference.withdrawn_at)}</p>
                   </div>
                   <p className="text-lg font-semibold text-emerald-400">{brl(total)}</p>
@@ -620,7 +620,7 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
         <>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Histórico de saques</p>
           <TableCard>
-            <thead className="border-b border-zinc-800 bg-zinc-800">
+            <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
               <tr>
                 <Th>Agência</Th>
                 <Th right>Valor sacado</Th>
@@ -630,7 +630,7 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
                 <Th>Status</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/60">
+            <tbody className="divide-y divide-[#EFF5F5] [&>tr]:transition-colors [&>tr:hover]:bg-[#F8FAFC]">
               {visibleFees.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.agencyName}</Td>
@@ -768,15 +768,15 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
     >
       {canceling && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4">
-            <h3 className="text-[15px] font-bold text-white">Cancelar saque</h3>
+          <div className="bg-white border border-[#DDE6E6] rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4">
+            <h3 className="text-[15px] font-bold text-[#1F2D2E]">Cancelar saque</h3>
             <p className="text-[13px] text-zinc-400">O valor integral será devolvido ao saldo da agência. Esta ação não pode ser desfeita.</p>
             <textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               placeholder="Motivo do cancelamento…"
               rows={3}
-              className="w-full border border-zinc-700 rounded-xl px-3 py-2.5 text-[13px] text-white bg-zinc-800 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
+              className="w-full border border-[#DDE6E6] rounded-xl px-3 py-2.5 text-[13px] text-[#1F2D2E] bg-white placeholder:text-[#647B7B] focus:outline-none focus:border-[#1ABC9C] resize-none"
             />
             {error && <p className="text-[12px] text-red-400">{error}</p>}
             <div className="flex gap-2">
@@ -789,7 +789,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
               </button>
               <button
                 onClick={() => { setCanceling(null); setCancelReason(""); setError(null); }}
-                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 hover:text-zinc-300 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 hover:text-[#647B7B] text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
               >
                 Voltar
               </button>
@@ -800,15 +800,15 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
 
       {approving && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4">
-            <h3 className="text-[15px] font-bold text-white">Marcar saque como pago</h3>
+          <div className="bg-white border border-[#DDE6E6] rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4">
+            <h3 className="text-[15px] font-bold text-[#1F2D2E]">Marcar saque como pago</h3>
             <p className="text-[13px] text-zinc-400">Confirme que o PIX foi enviado manualmente. Esta ação não pode ser desfeita.</p>
             <textarea
               value={approveNote}
               onChange={(e) => setApproveNote(e.target.value)}
               placeholder="Observação opcional (ex: PIX enviado, comprovante nº…)"
               rows={3}
-              className="w-full border border-zinc-700 rounded-xl px-3 py-2.5 text-[13px] text-white bg-zinc-800 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
+              className="w-full border border-[#DDE6E6] rounded-xl px-3 py-2.5 text-[13px] text-[#1F2D2E] bg-white placeholder:text-[#647B7B] focus:outline-none focus:border-[#1ABC9C] resize-none"
             />
             {error && <p className="text-[12px] text-red-400">{error}</p>}
             <div className="flex gap-2">
@@ -821,7 +821,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
               </button>
               <button
                 onClick={() => { setApproving(null); setApproveNote(""); setError(null); }}
-                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 hover:text-zinc-300 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 hover:text-[#647B7B] text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
               >
                 Voltar
               </button>
@@ -839,12 +839,12 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
       )}
 
       {pending.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-5 text-[13px] text-zinc-500">
+        <div className="rounded-2xl border border-[#DDE6E6] bg-white px-4 py-5 text-[13px] text-[#647B7B]">
           Nenhum saque pendente.
         </div>
       ) : (
         <TableCard>
-          <thead className="border-b border-zinc-800 bg-zinc-800">
+          <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
             <tr>
               <Th>Agência</Th>
               <Th right>Total debitado</Th>
@@ -856,22 +856,22 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
               <Th right>Ações</Th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/60">
+          <tbody className="divide-y divide-[#EFF5F5] [&>tr]:transition-colors [&>tr:hover]:bg-[#F8FAFC]">
             {visiblePending.map((w) => (
               <tr key={w.id}>
                 <Td>{w.agencyName}</Td>
-                <Td right><strong className="text-white">{brl(w.amount)}</strong></Td>
+                <Td right><strong className="text-[#1F2D2E]">{brl(w.amount)}</strong></Td>
                 <Td right><span className="text-red-400">{brl(w.feeAmount)}</span></Td>
                 <Td right><strong className="text-emerald-400">{brl(w.netAmount)}</strong></Td>
                 <Td>
                   {w.pixKeyValue ? (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-bold uppercase bg-[#E6F0F0] text-[#647B7B] px-1.5 py-0.5 rounded">
                         {PIX_TYPE_LABELS_ADMIN[w.pixKeyType ?? ""] ?? w.pixKeyType}
                       </span>
-                      <span className="font-mono text-xs text-zinc-300">{w.pixKeyValue}</span>
+                      <span className="font-mono text-xs text-[#647B7B]">{w.pixKeyValue}</span>
                       <button onClick={() => copyPix(w.pixKeyValue!, w.id)}
-                        className="text-zinc-600 hover:text-zinc-300 transition-colors cursor-pointer"
+                        className="text-zinc-600 hover:text-[#647B7B] transition-colors cursor-pointer"
                         title="Copiar chave PIX">
                         {copied === w.id
                           ? <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
@@ -921,7 +921,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
         <>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 mt-2">Histórico</p>
           <TableCard>
-            <thead className="border-b border-zinc-800 bg-zinc-800">
+            <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
               <tr>
                 <Th>Agência</Th>
                 <Th right>Total</Th>
@@ -933,7 +933,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                 <Th>Motivo</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/60">
+            <tbody className="divide-y divide-[#EFF5F5] [&>tr]:transition-colors [&>tr:hover]:bg-[#F8FAFC]">
               {visibleHistory.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.agencyName}</Td>
@@ -948,7 +948,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                     {w.status === "failed"     && <Badge value="Falhou"         tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/30" />}
                     {w.status === "rejected"   && <Badge value="Cancelado"      tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/20" />}
                     {!["paid","processing","failed","rejected"].includes(w.status) && (
-                      <Badge value={w.status} tone="bg-zinc-700/50 text-zinc-500 ring-1 ring-zinc-600/30" />
+                      <Badge value={w.status} tone="bg-[#E6F0F0] text-[#647B7B] ring-1 ring-[#DDE6E6]" />
                     )}
                   </Td>
                   <Td><span className="text-zinc-500 text-xs">{w.adminNote ?? "-"}</span></Td>
@@ -983,7 +983,7 @@ function BookingsSection({
       </div>
 
       <TableCard>
-        <thead className="border-b border-zinc-800 bg-zinc-800">
+        <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
           <tr>
             <Th>Vaga</Th>
             <Th>Talento</Th>
@@ -995,12 +995,12 @@ function BookingsSection({
             <Th right>Liquido plataforma</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-800/60 [&>tr]:transition-colors [&>tr:hover]:bg-zinc-800/60">
+        <tbody className="divide-y divide-[#EFF5F5] [&>tr]:transition-colors [&>tr:hover]:bg-[#F8FAFC]">
           {visibleBookings.map((booking) => (
             <tr key={booking.id}>
               <Td>
                 <div>
-                  <p className="font-medium text-white">{booking.jobTitle}</p>
+                  <p className="font-medium text-[#1F2D2E]">{booking.jobTitle}</p>
                   <p className="text-xs text-zinc-500">{fmt(booking.created_at)}</p>
                 </div>
               </Td>
@@ -1065,21 +1065,21 @@ export default function AdminFinances({
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-500">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-[#DDE6E6] bg-white px-4 py-3 text-sm text-[#647B7B]">
           <span>
             Comissao por plano:{" "}
-            <strong className="text-zinc-200">
+            <strong className="text-[#647B7B]">
               Free {summary.planBreakdown.free.commissionLabel} | Pro {summary.planBreakdown.pro.commissionLabel} | Premium {summary.planBreakdown.premium.commissionLabel}
             </strong>
           </span>
           <span>
-            Indicacao: <strong className="text-zinc-200">{REFERRAL_RATE * 100}%</strong>
+            Indicacao: <strong className="text-[#647B7B]">{REFERRAL_RATE * 100}%</strong>
           </span>
           <span>
-            Plano Pro: <strong className="text-zinc-200">{summary.planBreakdown.pro.priceLabel}</strong>
+            Plano Pro: <strong className="text-[#647B7B]">{summary.planBreakdown.pro.priceLabel}</strong>
           </span>
           <span>
-            Plano Premium: <strong className="text-zinc-200">{summary.planBreakdown.premium.priceLabel}</strong>
+            Plano Premium: <strong className="text-[#647B7B]">{summary.planBreakdown.premium.priceLabel}</strong>
           </span>
         </div>
       </header>
@@ -1099,13 +1099,13 @@ export default function AdminFinances({
             <StatCard label="Passivo com talentos" value={brl(summary.contractsAwaitingValue)} sub="Liquido pago ainda nao sacado" />
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="rounded-2xl border border-[#DDE6E6] bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                   Valor minimo necessario para honrar a plataforma
                 </p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-white">{brl(summary.minimumRequired)}</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-[#1F2D2E]">{brl(summary.minimumRequired)}</p>
               </div>
               <div className="text-sm text-zinc-500">
                 Escrow bruto ({brl(summary.contractsEscrowValue)}) + passivo talentos ({brl(summary.contractsAwaitingValue)}) + carteiras agencias ({brl(summary.agencyWalletTotal)})
@@ -1114,7 +1114,7 @@ export default function AdminFinances({
           </div>
 
           {platformBalance.status === "loading" ? (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 text-sm text-zinc-500">
+            <div className="rounded-2xl border border-[#DDE6E6] bg-white p-5 text-sm text-zinc-500">
               Consultando saldo no Mercado Pago...
             </div>
           ) : null}
@@ -1164,3 +1164,5 @@ export default function AdminFinances({
     </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -112,12 +112,12 @@ function validate(f: FormData): FormErrors {
 // ─── Input primitives ─────────────────────────────────────────────────────────
 
 const base =
-  "w-full rounded-xl border bg-white text-[15px] text-zinc-900 placeholder:text-zinc-300 transition-colors duration-150 focus:outline-none";
+  "w-full rounded-xl border bg-white text-[15px] text-zinc-900 placeholder:text-[#647B7B] transition-colors duration-150 focus:outline-none";
 
 const ring = (err?: boolean) =>
   err
     ? "border-rose-300 focus:border-rose-400"
-    : "border-zinc-200 hover:border-zinc-300 focus:border-zinc-900";
+    : "border-zinc-200 hover:border-zinc-300 focus:border-[#1F2D2E]";
 
 function Field({
   label,
@@ -213,7 +213,7 @@ function JobPreview({ form }: { form: FormData }) {
       {/* Progress */}
       <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
         <div
-          className="h-full bg-zinc-900 rounded-full transition-all duration-500"
+          className="h-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] rounded-full transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -228,7 +228,7 @@ function JobPreview({ form }: { form: FormData }) {
           <div>
             <p className={[
               "font-semibold text-zinc-900 leading-snug",
-              form.title ? "text-base" : "text-base text-zinc-300",
+              form.title ? "text-base" : "text-base text-[#647B7B]",
             ].join(" ")}>
               {form.title || "O título da vaga aparecerá aqui"}
             </p>
@@ -237,7 +237,7 @@ function JobPreview({ form }: { form: FormData }) {
                 {CATEGORY_LABELS[form.category] ?? form.category}
               </span>
             ) : (
-              <span className="inline-block mt-2 text-[11px] bg-zinc-100 text-zinc-300 px-2.5 py-1 rounded-full">
+              <span className="inline-block mt-2 text-[11px] bg-zinc-100 text-[#647B7B] px-2.5 py-1 rounded-full">
                 Categoria
               </span>
             )}
@@ -246,7 +246,7 @@ function JobPreview({ form }: { form: FormData }) {
           {/* Description */}
           <p className={[
             "text-[13px] leading-relaxed line-clamp-3",
-            form.description ? "text-zinc-500" : "text-zinc-300 italic",
+            form.description ? "text-zinc-500" : "text-[#647B7B] italic",
           ].join(" ")}>
             {form.description || "A descrição da vaga aparecerá aqui…"}
           </p>
@@ -260,7 +260,7 @@ function JobPreview({ form }: { form: FormData }) {
               </svg>
               <span className={[
                 "text-[13px] font-medium",
-                budget ? "text-zinc-700" : "text-zinc-300",
+                budget ? "text-zinc-700" : "text-[#647B7B]",
               ].join(" ")}>
                 {budget ?? "Orçamento"}
               </span>
@@ -272,7 +272,7 @@ function JobPreview({ form }: { form: FormData }) {
               </svg>
               <span className={[
                 "text-[13px] font-medium",
-                deadline ? "text-zinc-700" : "text-zinc-300",
+                deadline ? "text-zinc-700" : "text-[#647B7B]",
               ].join(" ")}>
                 {deadline ?? "Prazo"}
               </span>
@@ -725,7 +725,7 @@ export default function PostJobForm() {
                       className={[
                         "px-3.5 py-2 rounded-xl text-[13px] font-medium border transition-colors cursor-pointer",
                         checked
-                          ? "bg-zinc-900 text-white border-zinc-900"
+                          ? "bg-[#1F2D2E] text-white border-[#1F2D2E]"
                           : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400",
                       ].join(" ")}
                     >
@@ -852,7 +852,7 @@ export default function PostJobForm() {
                   <button
                     type="submit"
                     disabled={loading || savingDraft}
-                    className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all duration-150 cursor-pointer"
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all duration-150 cursor-pointer"
                   >
                     {loading ? (
                       <>
@@ -913,3 +913,6 @@ export default function PostJobForm() {
     </div>
   );
 }
+
+
+

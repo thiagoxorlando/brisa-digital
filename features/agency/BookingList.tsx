@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -202,7 +202,7 @@ function BookingRow({
         onClick={() => setExpanded((v) => !v)}
         className={[
           "flex items-center gap-3 px-5 py-3.5 hover:bg-zinc-50/60 transition-colors cursor-pointer flex-wrap sm:flex-nowrap",
-          booking.id === focusBookingId ? "bg-[var(--brand-green-soft)]/70" : "",
+          booking.id === focusBookingId ? "bg-[#D1F4EB]/70" : "",
         ].join(" ")}
       >
         <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarGradient(booking.talentName)} flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white`}>
@@ -317,7 +317,7 @@ function BookingRow({
           )}
         </div>
 
-        <svg className={`w-4 h-4 text-zinc-300 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+        <svg className={`w-4 h-4 text-[#647B7B] flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -435,23 +435,23 @@ export default function BookingList({ bookings: initial, focusBookingId }: { boo
 
   return (
     <div className="max-w-5xl space-y-6">
-      <div className="rounded-[1.75rem] bg-[var(--brand-surface)] px-6 py-5 text-white shadow-[0_24px_70px_rgba(7,17,13,0.18)]">
+      <div className="rounded-[1.75rem] bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-6 py-5 text-white shadow-[0_8px_28px_rgba(26,188,156,0.28)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--brand-green)] mb-2">{t("portal_agency")}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80 mb-2">{t("portal_agency")}</p>
           <h1 className="text-[2rem] font-black tracking-[-0.04em] leading-tight">{t("page_bookings")}</h1>
-          <p className="text-[13px] text-zinc-400 mt-2">Acompanhe assinatura, custódia e liberação de pagamento por reserva.</p>
+          <p className="text-[13px] text-white/70 mt-2">Acompanhe assinatura, custódia e liberação de pagamento por reserva.</p>
         </div>
         <div className="flex items-center gap-3">
           {refreshing && (
-            <span className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-green)] animate-pulse" />
+            <span className="flex items-center gap-1.5 text-[11px] text-white/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               Atualizando…
             </span>
           )}
-          <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Total</p>
-            <p className="mt-1 text-2xl font-black text-[var(--brand-green)]">{bookings.length}</p>
+          <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Total</p>
+            <p className="mt-1 text-2xl font-black text-white">{bookings.length}</p>
           </div>
         </div>
         </div>
@@ -481,3 +481,4 @@ export default function BookingList({ bookings: initial, focusBookingId }: { boo
     </div>
   );
 }
+

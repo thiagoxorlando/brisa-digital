@@ -346,24 +346,24 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <aside
         className={[
-          "fixed left-0 top-0 z-30 h-screen w-64 bg-zinc-950 flex flex-col",
+          "fixed left-0 top-0 z-30 h-screen w-64 bg-white border-r border-[#DDE6E6] flex flex-col",
           "transition-transform duration-300 ease-in-out",
           "lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-5 h-16 border-b border-zinc-800/60 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 h-16 border-b border-[#DDE6E6] flex-shrink-0">
           <Link href="/" className="flex items-center gap-2 min-w-0">
             <Logo size="md" src="/logo1.png" />
-            <p className="text-[10px] text-zinc-500 leading-none tracking-wide uppercase">
+            <p className="text-[10px] text-[#647B7B] leading-none tracking-wide uppercase">
               {portalLabel}
             </p>
           </Link>
 
           <button
             onClick={onClose}
-            className="lg:hidden w-7 h-7 flex items-center justify-center rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors flex-shrink-0"
+            className="lg:hidden w-7 h-7 flex items-center justify-center rounded-lg text-[#647B7B] hover:text-[#1F2D2E] hover:bg-[#E6F0F0] transition-colors flex-shrink-0"
             aria-label="Close menu"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,7 +374,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-5 overflow-y-auto">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 px-3 mb-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#647B7B] px-3 mb-2.5">
             {t("nav_menu")}
           </p>
           <ul className="flex flex-col gap-0.5">
@@ -389,13 +389,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     href={item.href}
                     onClick={onClose}
                     className={[
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150",
+                      "flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
                       isActive
-                        ? "bg-white text-zinc-900 shadow-sm"
-                        : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100",
+                        ? "bg-[#E6F0F0] text-[#0E7C86] font-semibold"
+                        : "text-[#647B7B] hover:bg-[#F8FAFC] hover:text-[#1F2D2E]",
                     ].join(" ")}
                   >
-                    <span className={isActive ? "text-zinc-600" : "text-zinc-500"}>
+                    <span className={isActive ? "text-[#0E7C86]" : "text-[#7FA9A8]"}>
                       {item.icon}
                     </span>
                     {t(item.labelKey as any)}
@@ -408,7 +408,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Divider */}
         <div className="px-5 pb-1">
-          <div className="h-px bg-zinc-800/60" />
+          <div className="h-px bg-[#DDE6E6]" />
         </div>
 
         {/* User + Logout */}
@@ -423,22 +423,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   onError={() => setImgError(true)}
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-[11px] font-bold text-zinc-200 flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-[#E6F0F0] flex items-center justify-center text-[11px] font-bold text-[#0E7C86] flex-shrink-0">
                   {loading ? "…" : initials}
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-zinc-200 truncate leading-none">
+              <p className="text-[13px] font-medium text-[#1F2D2E] truncate leading-none">
                 {loading ? "…" : (displayName || email)}
               </p>
               {inferredRole === "agency" && !loading && agentName ? (
-                <p className="text-[10px] text-zinc-500 truncate mt-0.5">
-                  <span className="text-zinc-600 font-semibold uppercase tracking-wide">Agente</span>
+                <p className="text-[10px] text-[#647B7B] truncate mt-0.5">
+                  <span className="text-[#0E7C86] font-semibold uppercase tracking-wide">Agente</span>
                   {" · "}{agentName}
                 </p>
               ) : (
-                <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                <p className="text-[11px] text-[#647B7B] truncate mt-0.5">
                   {loading ? "" : email}
                 </p>
               )}
@@ -447,7 +447,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {/* Language toggle */}
           <div className="flex items-center gap-1 px-3 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-600 mr-auto">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#647B7B] mr-auto">
               {lang === "en" ? "Language" : "Idioma"}
             </span>
             <button
@@ -455,8 +455,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               className={[
                 "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150",
                 lang === "en"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300",
+                  ? "bg-[#E6F0F0] text-[#0E7C86] shadow-sm"
+                  : "text-[#647B7B] hover:text-[#1F2D2E]",
               ].join(" ")}
             >
               EN
@@ -466,8 +466,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               className={[
                 "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150",
                 lang === "pt"
-                  ? "bg-white text-zinc-900 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300",
+                  ? "bg-[#E6F0F0] text-[#0E7C86] shadow-sm"
+                  : "text-[#647B7B] hover:text-[#1F2D2E]",
               ].join(" ")}
             >
               PT
@@ -476,7 +476,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-zinc-400 hover:bg-zinc-800/60 hover:text-rose-400 transition-all duration-150 cursor-pointer"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium text-[#647B7B] hover:bg-[#F8FAFC] hover:text-red-500 transition-all duration-150 cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}

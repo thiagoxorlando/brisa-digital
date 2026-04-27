@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Fragment, useState } from "react";
 
@@ -276,7 +276,7 @@ function ContractRow({
                 Original
               </a>
             ) : (
-              <span className="text-[10px] font-medium text-zinc-300">-</span>
+              <span className="text-[10px] font-medium text-[#647B7B]">-</span>
             )}
             {local.signedContractUrl ? (
               <a
@@ -379,7 +379,7 @@ function ContractRow({
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="rounded-xl bg-zinc-900 px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:bg-zinc-300"
+                    className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50"
                   >
                     {saving ? "Salvando..." : "Salvar"}
                   </button>
@@ -696,3 +696,5 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
     </div>
   );
 }
+
+

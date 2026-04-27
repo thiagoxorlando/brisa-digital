@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -92,7 +92,7 @@ const completionItems = (f: FormData) => [
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
 const base =
-  "w-full rounded-xl border bg-white text-[15px] text-zinc-900 placeholder:text-zinc-300 transition-colors duration-150 focus:outline-none";
+  "w-full rounded-xl border bg-white text-[15px] text-zinc-900 placeholder:text-[#647B7B] transition-colors duration-150 focus:outline-none";
 
 const ring = (err?: boolean) =>
   err
@@ -147,15 +147,15 @@ function StepBar({ current, pct }: { current: number; pct: number }) {
               <div className={[
                 "w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300",
                 done   ? "bg-emerald-500 border-emerald-500"      : "",
-                active ? "bg-zinc-900 border-zinc-900"            : "",
-                future ? "bg-white border-zinc-200 text-zinc-300" : "",
+                active ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] border-[#1ABC9C]"            : "",
+                future ? "bg-white border-zinc-200 text-[#647B7B]" : "",
               ].join(" ")}>
                 {done ? (
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
-                  <svg className={["w-4 h-4", active ? "text-white" : "text-zinc-300"].join(" ")}
+                  <svg className={["w-4 h-4", active ? "text-white" : "text-[#647B7B]"].join(" ")}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d={step.icon} />
                   </svg>
@@ -165,7 +165,7 @@ function StepBar({ current, pct }: { current: number; pct: number }) {
                 "text-[11px] font-medium text-center leading-tight",
                 done   ? "text-emerald-600" : "",
                 active ? "text-zinc-900"    : "",
-                future ? "text-zinc-300"    : "",
+                future ? "text-[#647B7B]"    : "",
               ].join(" ")}>
                 {step.label}
               </span>
@@ -290,7 +290,7 @@ function SuccessScreen({ title, jobId }: { title: string; jobId: string }) {
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
           onClick={() => router.push(`/agency/jobs/${jobId}`)}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -672,7 +672,7 @@ export default function AgencyFirstJobWizard() {
               <button
                 type="submit"
                 disabled={loading || !isActive}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[15px] font-medium px-8 py-3.5 rounded-xl transition-all duration-150"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[15px] font-medium px-8 py-3.5 rounded-xl transition-all duration-150"
               >
                 {loading ? (
                   <>
@@ -714,3 +714,6 @@ export default function AgencyFirstJobWizard() {
     </>
   );
 }
+
+
+

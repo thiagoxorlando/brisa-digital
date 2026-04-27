@@ -75,7 +75,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
     "/agency/dashboard";
 
   return (
-    <header className={`sticky top-0 z-20 flex items-center justify-between h-16 px-6 lg:px-8 flex-shrink-0 ${isAdmin ? "bg-zinc-950 border-b border-zinc-800" : "bg-white border-b border-zinc-100"}`}>
+    <header className="bg-white border-b border-[#DDE6E6] px-6 py-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-20">
       {/* Left — logo + hamburger (mobile) + page title */}
       <div className="flex items-center gap-4 min-w-0">
         <Link href={dashboardHref} className="flex-shrink-0 hidden lg:flex items-center">
@@ -83,7 +83,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         </Link>
         <button
           onClick={onMenuClick}
-          className={`lg:hidden w-8 h-8 flex items-center justify-center rounded-xl text-zinc-500 transition-colors flex-shrink-0 ${isAdmin ? "hover:bg-zinc-800 hover:text-zinc-200" : "hover:bg-zinc-100 hover:text-zinc-900"}`}
+          className="lg:hidden w-8 h-8 flex items-center justify-center rounded-xl text-[#647B7B] hover:bg-[#E6F0F0] hover:text-[#1F2D2E] transition-colors flex-shrink-0"
           aria-label="Open menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,11 +93,11 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         </button>
 
         <div className="min-w-0">
-          <h1 className={`text-[14px] font-semibold leading-none tracking-tight truncate ${isAdmin ? "text-white" : "text-zinc-900"}`}>
+          <h1 className="text-[14px] font-semibold leading-none tracking-tight truncate text-[#1F2D2E]">
             {meta.title}
           </h1>
           {meta.description && (
-            <p className="text-[12px] text-zinc-400 mt-0.5 leading-none hidden sm:block truncate">
+            <p className="text-[12px] text-[#647B7B] mt-0.5 leading-none hidden sm:block truncate">
               {meta.description}
             </p>
           )}
@@ -109,7 +109,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         <NotificationBell />
 
         {/* Divider */}
-        <div className={`hidden sm:block w-px h-5 mx-1 ${isAdmin ? "bg-zinc-800" : "bg-zinc-100"}`} />
+        <div className="hidden sm:block w-px h-5 mx-1 bg-[#DDE6E6]" />
 
         {/* User */}
         <div className="flex items-center gap-2 pl-1 py-1 pr-2.5">
@@ -122,26 +122,26 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">
+              <div className="w-full h-full bg-gradient-to-br from-[#1ABC9C] to-[#27C1D6] flex items-center justify-center text-[10px] font-bold text-white">
                 {loading ? "…" : initials}
               </div>
             )}
           </div>
           <div className="hidden md:block text-left">
             <div className="flex items-center gap-1.5">
-              <p className={`text-[12px] font-semibold leading-none truncate max-w-[120px] ${isAdmin ? "text-white" : "text-zinc-900"}`}>
+              <p className="text-[12px] font-semibold leading-none truncate max-w-[120px] text-[#1F2D2E]">
                 {loading ? "…" : (displayName || email)}
               </p>
               {role === "agency" && !loading && (
                 <span className={[
                   "text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide leading-none",
-                  plan === "premium" ? "bg-violet-100 text-violet-700" : plan === "pro" ? "bg-indigo-100 text-indigo-700" : "bg-zinc-200 text-zinc-500",
+                  plan === "premium" ? "badge-premium" : plan === "pro" ? "badge-pro" : "bg-[#E6F0F0] text-[#647B7B]",
                 ].join(" ")}>
                   {plan.toUpperCase()}
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-zinc-400 mt-0.5 leading-none truncate max-w-[140px]">
+            <p className="text-[10px] text-[#647B7B] mt-0.5 leading-none truncate max-w-[140px]">
               {loading ? "" : email}
             </p>
           </div>

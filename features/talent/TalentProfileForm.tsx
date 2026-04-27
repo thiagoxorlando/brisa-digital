@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -110,7 +110,7 @@ function hasErrors(e: FormErrors) {
 
 // ─── Input primitives ─────────────────────────────────────────────────────────
 
-const base = "w-full rounded-xl border bg-white text-[15px] text-zinc-900 placeholder:text-zinc-300 transition-colors duration-150 focus:outline-none";
+const base = "w-full rounded-xl border bg-white text-[15px] text-zinc-900 placeholder:text-[#647B7B] transition-colors duration-150 focus:outline-none";
 const ring = (err?: boolean) =>
   err ? "border-rose-300 focus:border-rose-500" : "border-zinc-200 hover:border-zinc-300 focus:border-zinc-900";
 
@@ -239,7 +239,7 @@ function CategoriesEditor({ value, onChange }: { value: string[]; onChange: (v: 
       {value.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {value.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1.5 text-[12px] font-medium bg-zinc-900 text-white pl-3 pr-2 py-1.5 rounded-full">
+            <span key={tag} className="inline-flex items-center gap-1.5 text-[12px] font-medium bg-[#1F2D2E] text-white pl-3 pr-2 py-1.5 rounded-full">
               {talentCategoryLabel(tag)}
               <button type="button" onClick={() => remove(tag)}
                 className="w-4 h-4 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer">
@@ -355,7 +355,7 @@ function SocialLinksEditor({
 
               {/* Remove */}
               <button type="button" onClick={() => remove(link.id)}
-                className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl text-zinc-300 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer">
+                className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl text-[#647B7B] hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -463,7 +463,7 @@ function ProfilePreview({ form }: { form: FormData }) {
 
       {/* Progress bar */}
       <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
-        <div className="h-full bg-zinc-900 rounded-full transition-all duration-500"
+        <div className="h-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] rounded-full transition-all duration-500"
           style={{ width: `${pct}%` }} />
       </div>
 
@@ -490,10 +490,10 @@ function ProfilePreview({ form }: { form: FormData }) {
 
           {/* Identity */}
           <div className="mb-4 space-y-1">
-            <p className={`text-[15px] font-semibold leading-snug ${hasName ? "text-zinc-900" : "text-zinc-300"}`}>
+            <p className={`text-[15px] font-semibold leading-snug ${hasName ? "text-zinc-900" : "text-[#647B7B]"}`}>
               {form.name.trim() || "Seu Nome"}
             </p>
-            <p className={`text-[12px] font-mono ${form.username ? "text-zinc-400" : "text-zinc-200"}`}>
+            <p className={`text-[12px] font-mono ${form.username ? "text-zinc-400" : "text-[#647B7B]"}`}>
               @{form.username || "username"}
             </p>
             {form.categories.length > 0 && (
@@ -506,7 +506,7 @@ function ProfilePreview({ form }: { form: FormData }) {
           {/* Bio */}
           <div className="pt-3 border-t border-zinc-50 mb-4">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-1.5">Sobre</p>
-            <p className={`text-[12px] leading-relaxed line-clamp-3 ${hasBio ? "text-zinc-500" : "text-zinc-300 italic"}`}>
+            <p className={`text-[12px] leading-relaxed line-clamp-3 ${hasBio ? "text-zinc-500" : "text-[#647B7B] italic"}`}>
               {form.bio.trim() || "Sua bio aparecerá aqui…"}
             </p>
           </div>
@@ -552,7 +552,7 @@ function ProfilePreview({ form }: { form: FormData }) {
 
           {/* CTA buttons */}
           <div className="flex gap-2">
-            <div className="flex-1 bg-zinc-900 text-white text-[12px] font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 opacity-50 select-none">
+            <div className="flex-1 bg-[#1F2D2E] text-white text-[12px] font-medium py-2.5 rounded-xl flex items-center justify-center gap-1.5 opacity-50 select-none">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -783,7 +783,7 @@ export default function TalentProfileForm() {
 
               <div className="flex items-center gap-3">
                 <button type="submit"
-                  className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 active:scale-[0.98] text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all duration-150 cursor-pointer">
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.98] text-white text-[15px] font-medium px-7 py-3 rounded-xl transition-all duration-150 cursor-pointer">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M5 13l4 4L19 7" />
@@ -807,3 +807,6 @@ export default function TalentProfileForm() {
     </div>
   );
 }
+
+
+

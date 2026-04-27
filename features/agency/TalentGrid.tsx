@@ -63,8 +63,8 @@ function Pill({
       className={[
         "px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-100 cursor-pointer whitespace-nowrap",
         active
-          ? "bg-[var(--brand-green)] text-[var(--brand-surface)] font-bold shadow-[0_8px_18px_rgba(72,242,154,0.18)]"
-          : "bg-white border border-zinc-200 text-zinc-500 hover:border-zinc-400 hover:text-zinc-800",
+          ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white font-bold shadow-[0_6px_16px_rgba(26,188,156,0.28)]"
+          : "bg-white border border-[#DDE6E6] text-[#647B7B] hover:border-[#B8D4D4] hover:text-[#1F2D2E]",
       ].join(" ")}
     >
       {label}
@@ -81,7 +81,7 @@ function TalentCard({ talent, onClick }: { talent: Talent; onClick: () => void }
   return (
     <button
       onClick={onClick}
-      className="group text-left rounded-[1.45rem] overflow-hidden bg-zinc-100 relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-green)] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.08)] ring-1 ring-zinc-100 hover:-translate-y-1 hover:shadow-[0_18px_46px_rgba(7,17,13,0.13)] transition-all duration-300"
+      className="group text-left rounded-[1.45rem] overflow-hidden bg-[#E6F0F0] relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1ABC9C] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(0,0,0,0.10)] ring-1 ring-[#DDE6E6] hover:-translate-y-1 hover:shadow-[0_18px_46px_rgba(0,0,0,0.14)] transition-all duration-300"
     >
       {/* Portrait image */}
       <div className="aspect-[2/3] w-full overflow-hidden">
@@ -117,7 +117,7 @@ function TalentCard({ talent, onClick }: { talent: Talent; onClick: () => void }
       {/* Category badge (top right) */}
       {talent.categories?.[0] && (
         <div className="absolute top-2.5 right-2.5">
-          <span className="text-[10px] font-black bg-[var(--brand-green)] backdrop-blur-sm text-[var(--brand-surface)] px-2.5 py-1 rounded-full shadow-sm">
+          <span className="text-[10px] font-black bg-white/90 backdrop-blur-sm text-[#0E7C86] px-2.5 py-1 rounded-full shadow-sm">
             {talentCategoryLabel(talent.categories[0])}
           </span>
         </div>
@@ -136,14 +136,14 @@ function AgeInput({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{label}</label>
+      <label className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">{label}</label>
       <input
         type="number"
         placeholder={placeholder}
         min={0} max={100}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 bg-white hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
+        className="w-full px-3 py-2 text-[13px] rounded-xl border border-[#DDE6E6] bg-white hover:border-[#B8D4D4] focus:border-[#1ABC9C] focus:outline-none transition-colors"
       />
     </div>
   );
@@ -202,7 +202,7 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
             placeholder="Buscar por nome, localização, categoria…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 text-[13px] bg-white border border-zinc-200 rounded-2xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-[var(--brand-green)] focus:ring-2 focus:ring-[var(--brand-green)]/20 focus:outline-none transition-colors shadow-sm"
+            className="w-full pl-10 pr-4 py-3 text-[13px] bg-white border border-[#DDE6E6] rounded-2xl placeholder:text-[#647B7B] hover:border-[#B8D4D4] focus:border-[#1ABC9C] focus:ring-2 focus:ring-[#1ABC9C]/20 focus:outline-none transition-colors shadow-sm"
           />
         </div>
         <button
@@ -210,8 +210,8 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
           className={[
             "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[13px] font-medium transition-colors cursor-pointer",
             showFilters || activeFilters > 0
-              ? "bg-[var(--brand-surface)] text-white border-[var(--brand-surface)]"
-              : "bg-white text-zinc-700 border-zinc-200 hover:border-zinc-300",
+              ? "bg-[#1F2D2E] text-white border-[#1F2D2E]"
+              : "bg-white text-[#647B7B] border-[#DDE6E6] hover:border-[#B8D4D4]",
           ].join(" ")}
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,11 +223,11 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
 
       {/* ── Filter panel ── */}
       {showFilters && (
-        <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] space-y-5">
+        <div className="bg-white border border-[#DDE6E6] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] space-y-5">
 
           {/* Gender pills */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Gênero</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">Gênero</p>
             <div className="flex flex-wrap gap-2">
               <Pill label="Todos" active={!gender} onClick={() => setGender("")} />
               {GENDERS.map((g) => (
@@ -238,7 +238,7 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
 
           {/* Category pills */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Categoria</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">Categoria</p>
             <div className="flex flex-wrap gap-2">
               <Pill label="Todas" active={!category} onClick={() => setCategory("")} />
               {CATEGORIES.map((c) => (
@@ -266,10 +266,10 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
       {/* ── Active filter summary ── */}
       {activeFilters > 0 && !showFilters && (
         <div className="flex items-center gap-2 flex-wrap">
-          {gender    && <span className="text-[12px] bg-zinc-900 text-white px-3 py-1 rounded-full">{GENDERS.find((g) => g.value === gender)?.label ?? gender}</span>}
-          {category  && <span className="text-[12px] bg-zinc-900 text-white px-3 py-1 rounded-full">{CATEGORIES.find((c) => c.value === category)?.label ?? category}</span>}
+          {gender    && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{GENDERS.find((g) => g.value === gender)?.label ?? gender}</span>}
+          {category  && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{CATEGORIES.find((c) => c.value === category)?.label ?? category}</span>}
           {(ageMin || ageMax) && (
-            <span className="text-[12px] bg-zinc-900 text-white px-3 py-1 rounded-full">
+            <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">
               Idade {ageMin || "qualquer"}–{ageMax || "qualquer"}
             </span>
           )}

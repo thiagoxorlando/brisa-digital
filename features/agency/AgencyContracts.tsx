@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -453,7 +453,7 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
           {t("nav_talent")}: <strong className="text-zinc-600 ml-1">{talentShareLabel}</strong>
           <span className="mx-1">·</span>
           <strong className="text-violet-600">+2% {t("finances_referral_payouts")}</strong>
-          <span className="text-zinc-300 ml-1">(se aplicável)</span>
+          <span className="text-[#647B7B] ml-1">(se aplicável)</span>
         </div>
       )}
 
@@ -476,7 +476,7 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
       {filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center">
           <div className="w-11 h-11 rounded-2xl bg-zinc-50 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-[#647B7B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -512,3 +512,4 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
     </div>
   );
 }
+

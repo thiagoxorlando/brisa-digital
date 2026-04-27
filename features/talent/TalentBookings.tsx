@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -103,7 +103,7 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
             {unified === "aguardando_assinatura" && b.contract_id && (
               <Link
                 href="/talent/contracts"
-                className="inline-flex items-center gap-2 text-[12px] font-semibold px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-colors"
+                className="inline-flex items-center gap-2 text-[12px] font-semibold px-4 py-2 rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -247,7 +247,7 @@ export default function TalentBookings() {
       {toast && (
         <div className={[
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-[13px] font-medium text-white",
-          toast.ok ? "bg-emerald-600" : "bg-zinc-800",
+          toast.ok ? "bg-emerald-600" : "bg-[#1F2D2E]",
         ].join(" ")}>
           {toast.msg}
         </div>
@@ -288,3 +288,5 @@ export default function TalentBookings() {
     </div>
   );
 }
+
+

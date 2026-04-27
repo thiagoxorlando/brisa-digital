@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import ReliabilityBadge from "@/components/agency/ReliabilityBadge";
@@ -208,7 +208,7 @@ export default function SuggestedTalents({
                         ? "bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default"
                         : isInviting
                           ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
-                          : "bg-zinc-900 hover:bg-zinc-800 text-white cursor-pointer active:scale-[0.98]",
+                          : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white cursor-pointer active:scale-[0.98]",
                     ].join(" ")}
                   >
                     {isInviting ? "…" : isInvited ? "Convidado ✓" : "Convidar"}
@@ -222,3 +222,4 @@ export default function SuggestedTalents({
     </div>
   );
 }
+

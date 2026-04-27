@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -46,7 +46,7 @@ function FilterTabs({ value, onChange }: { value: PeriodFilter; onChange: (value
           className={[
             "rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer",
             value === option.value
-              ? "bg-zinc-950 text-white"
+              ? "bg-[#1F2D2E] text-white"
               : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800",
           ].join(" ")}
         >
@@ -823,3 +823,4 @@ export default function TalentFinances() {
     </div>
   );
 }
+

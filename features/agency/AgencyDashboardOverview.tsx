@@ -186,28 +186,28 @@ function StatCard({ statKey, label, value, isCurrency }: { statKey: string; labe
     <>
       <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3 mb-5">
-          <span className="w-10 h-10 rounded-2xl flex items-center justify-center bg-zinc-50 text-zinc-500 ring-1 ring-zinc-100">{icon}</span>
+          <span className="w-10 h-10 rounded-2xl flex items-center justify-center bg-[#E6F0F0] text-[#0E7C86] ring-1 ring-[#DDE6E6]">{icon}</span>
           {href && (
-            <span className="text-[11px] font-semibold text-zinc-300 group-hover:text-zinc-500 transition-colors">Ver</span>
+            <span className="text-[11px] font-semibold text-[#B8D4D4] group-hover:text-[#647B7B] transition-colors">Ver</span>
           )}
         </div>
-        <p className={`text-[2.35rem] font-black tracking-[-0.06em] leading-none ${isCurrency ? "text-emerald-700" : "text-zinc-950"}`}>
+        <p className={`text-[2.35rem] font-black tracking-[-0.06em] leading-none ${isCurrency ? "text-[#0E7C86]" : "text-[#1F2D2E]"}`}>
           {isCurrency ? brl(value) : value}
         </p>
-        <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-zinc-400 mt-3">{label}</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#647B7B] mt-3">{label}</p>
       </div>
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className="group block bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(7,17,13,0.10)] transition-all duration-200">
+      <Link href={href} className="group block bg-white rounded-[1.5rem] border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden hover:-translate-y-0.5 hover:border-[#B8D4D4] hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)] transition-all duration-200">
         {inner}
       </Link>
     );
   }
   return (
-    <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
+    <div className="bg-white rounded-[1.5rem] border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
       {inner}
     </div>
   );
@@ -221,11 +221,11 @@ function SectionHeader({ title, meta, href, hrefLabel }: {
   return (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{title}</h2>
-        {meta && <span className="text-[11px] text-zinc-300 font-medium">{meta}</span>}
+        <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">{title}</h2>
+        {meta && <span className="text-[11px] text-[#B8D4D4] font-medium">{meta}</span>}
       </div>
       {href && hrefLabel && (
-        <Link href={href} className="text-[12px] font-medium text-zinc-400 hover:text-zinc-900 transition-colors flex items-center gap-1">
+        <Link href={href} className="text-[12px] font-medium text-[#647B7B] hover:text-[#1F2D2E] transition-colors flex items-center gap-1">
           {hrefLabel}
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -240,8 +240,8 @@ function SectionHeader({ title, meta, href, hrefLabel }: {
 
 function Empty({ msg }: { msg: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-zinc-100 py-10 text-center">
-      <p className="text-[13px] text-zinc-400">{msg}</p>
+    <div className="bg-white rounded-2xl border border-[#DDE6E6] py-10 text-center">
+      <p className="text-[13px] text-[#647B7B]">{msg}</p>
     </div>
   );
 }
@@ -263,7 +263,7 @@ function ActivityItemRow({ item, index, total }: { item: ActivityItem; index: nu
   const inner = (
     <li className={[
       "relative flex items-start gap-4 px-5 py-4",
-      index < total - 1 ? "border-b border-zinc-50" : "",
+      index < total - 1 ? "border-b border-[#EFF5F5]" : "",
     ].join(" ")}>
       <div className="flex-shrink-0 w-[1.875rem] flex justify-center pt-[5px]">
         {item.avatarUrl ? (
@@ -275,15 +275,15 @@ function ActivityItemRow({ item, index, total }: { item: ActivityItem; index: nu
       <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            <p className="text-[13px] font-semibold text-zinc-800 leading-snug">{item.title}</p>
+            <p className="text-[13px] font-semibold text-[#1F2D2E] leading-snug">{item.title}</p>
             {badge}
           </div>
-          <p className="text-[12px] text-zinc-400 leading-relaxed">{item.sub}</p>
+          <p className="text-[12px] text-[#647B7B] leading-relaxed">{item.sub}</p>
           {jobDate && (
             <p className="text-[11px] text-violet-500 font-medium mt-0.5">{t("jobs_job_date")}: {jobDate}</p>
           )}
           {item.type === "submission" && expanded && item.avatarUrl && (
-            <div className="mt-3 flex items-center gap-3 bg-zinc-50 rounded-xl px-3 py-2.5">
+            <div className="mt-3 flex items-center gap-3 bg-[#F8FAFC] rounded-xl px-3 py-2.5">
               <img src={item.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
               <div className="min-w-0">
                 <p className="text-[12px] font-semibold text-zinc-800 truncate">{item.sub.split(" applied")[0]}</p>
@@ -297,13 +297,13 @@ function ActivityItemRow({ item, index, total }: { item: ActivityItem; index: nu
           )}
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <p className="text-[11px] text-zinc-400 tabular-nums whitespace-nowrap mt-0.5">
+          <p className="text-[11px] text-[#647B7B] tabular-nums whitespace-nowrap mt-0.5">
             {timeAgo(item.time, lang)}
           </p>
           {item.type === "submission" && (
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded((v) => !v); }}
-              className="text-[10px] text-zinc-400 hover:text-zinc-600 transition-colors"
+              className="text-[10px] text-[#647B7B] hover:text-zinc-600 transition-colors"
             >
               {expanded ? "−" : "+"}
             </button>
@@ -315,7 +315,7 @@ function ActivityItemRow({ item, index, total }: { item: ActivityItem; index: nu
 
   if (item.link && item.type !== "submission") {
     return (
-      <Link href={item.link} className="block hover:bg-zinc-50/60 transition-colors">
+      <Link href={item.link} className="block hover:bg-[#F8FAFC] transition-colors">
         {inner}
       </Link>
     );
@@ -354,26 +354,26 @@ export default function AgencyDashboardOverview({
     <div className="max-w-6xl space-y-10">
 
       {/* ── Page header ── */}
-      <div className="rounded-[1.75rem] bg-[var(--brand-surface)] px-6 py-6 text-white shadow-[0_24px_70px_rgba(7,17,13,0.18)]">
+      <div className="rounded-[1.75rem] bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-6 py-6 text-white shadow-[0_8px_28px_rgba(26,188,156,0.28)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--brand-green)] mb-2">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80 mb-2">
               {t("portal_agency")}
             </p>
             <h1 className="text-[2rem] font-black tracking-[-0.04em] leading-tight">
               {t("page_dashboard")}
             </h1>
-            <p className="text-[13px] text-zinc-400 mt-2">
+            <p className="text-[13px] text-white/70 mt-2">
               Acompanhe vagas, pagamentos e talentos com visão rápida da operação.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Link href="/agency/finances" className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 transition-colors hover:bg-white/[0.09]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Saldo na carteira</p>
-              <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-[var(--brand-green)]">{brl(stats.walletBalance)}</p>
+            <Link href="/agency/finances" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Saldo na carteira</p>
+              <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.walletBalance)}</p>
             </Link>
-            <Link href="/agency/bookings" className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 transition-colors hover:bg-white/[0.09]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Valor em andamento</p>
+            <Link href="/agency/bookings" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Valor em andamento</p>
               <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.activeEscrowTotal)}</p>
             </Link>
           </div>
@@ -396,7 +396,7 @@ export default function AgencyDashboardOverview({
         {pendingContracts.length === 0 ? (
           <Empty msg="Nenhum contrato em custódia aguardando liberação." />
         ) : (
-          <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
             {pendingContracts.map((c) => {
               const daysLeft = daysUntilJobDate(c.jobDate);
               const jobDateFmt = fmtJobDate(c.jobDate, lang);
@@ -404,11 +404,11 @@ export default function AgencyDashboardOverview({
                 <Link
                   key={c.id}
                   href="/agency/bookings"
-                  className="flex items-center gap-4 px-5 py-4 hover:bg-zinc-50/60 transition-colors"
+                  className="flex items-center gap-4 px-5 py-4 hover:bg-[#F8FAFC] transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-zinc-900 truncate leading-snug">{c.jobTitle}</p>
-                    <p className="text-[12px] text-zinc-400 mt-0.5">{c.talentName}</p>
+                    <p className="text-[13px] font-semibold text-[#1F2D2E] truncate leading-snug">{c.jobTitle}</p>
+                    <p className="text-[12px] text-[#647B7B] mt-0.5">{c.talentName}</p>
                     {c.jobDate && (
                       <div className="flex items-center gap-1.5 mt-1">
                         {daysLeft !== null && daysLeft > 0 ? (
@@ -423,8 +423,8 @@ export default function AgencyDashboardOverview({
                       </div>
                     )}
                   </div>
-                  <p className="text-[14px] font-bold text-zinc-900 tabular-nums flex-shrink-0">{brl(c.amount)}</p>
-                  <svg className="w-4 h-4 text-zinc-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <p className="text-[14px] font-bold text-[#1F2D2E] tabular-nums flex-shrink-0">{brl(c.amount)}</p>
+                  <svg className="w-4 h-4 text-[#B8D4D4] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </Link>
@@ -441,13 +441,13 @@ export default function AgencyDashboardOverview({
         <div className="xl:col-span-3">
           <SectionHeader title={t("dashboard_recent_bookings")} meta={`${recentActivity.length}`} />
           {recentActivity.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-zinc-100 py-14 text-center">
-              <p className="text-[14px] font-medium text-zinc-500">{t("dashboard_no_activity")}</p>
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] py-14 text-center">
+              <p className="text-[14px] font-medium text-[#647B7B]">{t("dashboard_no_activity")}</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] overflow-hidden">
               <ul className="relative">
-                <div className="absolute left-[2.375rem] top-6 bottom-6 w-px bg-zinc-100" />
+                <div className="absolute left-[2.375rem] top-6 bottom-6 w-px bg-[#DDE6E6]" />
                 {recentActivity.map((item, i) => (
                   <ActivityItemRow key={item.id} item={item} index={i} total={recentActivity.length} />
                 ))}
@@ -460,8 +460,8 @@ export default function AgencyDashboardOverview({
         <div className="xl:col-span-2">
           <SectionHeader title="Equipe recente" href="/agency/talent-history" hrefLabel="Minha Equipe" />
           {recentTalent.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-zinc-100 py-14 text-center">
-              <p className="text-[14px] font-medium text-zinc-500">Talentos recentes aparecerão aqui após as primeiras reservas pagas.</p>
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] py-14 text-center">
+              <p className="text-[14px] font-medium text-[#647B7B]">Talentos recentes aparecerão aqui após as primeiras reservas pagas.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -471,7 +471,7 @@ export default function AgencyDashboardOverview({
                   <Link
                     key={talent.id}
                     href={`/agency/talent/${talent.id}`}
-                    className="group block bg-white rounded-2xl border border-zinc-100 p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] hover:border-zinc-200 hover:shadow-[0_2px_8px_rgba(0,0,0,0.07)] transition-all duration-150"
+                    className="group block bg-white rounded-2xl border border-[#DDE6E6] p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] hover:border-[#B8D4D4] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] transition-all duration-150"
                   >
                     <div className="flex items-center gap-3">
                       {talent.avatar_url ? (
@@ -482,13 +482,13 @@ export default function AgencyDashboardOverview({
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-zinc-900 truncate leading-none">{name}</p>
-                        <p className="text-[12px] text-zinc-400 truncate mt-0.5">
+                        <p className="text-[13px] font-semibold text-[#1F2D2E] truncate leading-none">{name}</p>
+                        <p className="text-[12px] text-[#647B7B] truncate mt-0.5">
                           {[talent.city, talent.country].filter(Boolean).join(", ") || "Localização desconhecida"}
                         </p>
                       </div>
                       {talent.categories?.[0] && (
-                        <span className="text-[10px] font-medium bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full flex-shrink-0">
+                        <span className="text-[10px] font-medium bg-[#E6F0F0] text-[#647B7B] px-2 py-0.5 rounded-full flex-shrink-0">
                           {talentCategoryLabel(talent.categories[0])}
                         </span>
                       )}
@@ -515,21 +515,21 @@ export default function AgencyDashboardOverview({
           {activeJobsList.length === 0 ? (
             <Empty msg="Nenhuma vaga ativa no momento." />
           ) : (
-            <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
               {activeJobsList.map((job) => {
                 const date = fmtJobDate(job.jobDate, lang);
                 return (
                   <Link
                     key={job.id}
                     href={`/agency/jobs/${job.id}`}
-                    className="flex items-center gap-3 px-5 py-4 hover:bg-zinc-50/60 transition-colors"
+                    className="flex items-center gap-3 px-5 py-4 hover:bg-[#F8FAFC] transition-colors"
                   >
                     <div className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-zinc-900 truncate">{job.title}</p>
+                      <p className="text-[13px] font-semibold text-[#1F2D2E] truncate">{job.title}</p>
                       {date && <p className="text-[11px] text-violet-500 font-medium mt-0.5">{date}</p>}
                     </div>
-                    <span className="text-[11px] font-medium text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                    <span className="text-[11px] font-medium text-[#647B7B] bg-[#E6F0F0] px-2 py-0.5 rounded-full flex-shrink-0">
                       {job.talentsNeeded} {job.talentsNeeded === 1 ? "vaga" : "vagas"}
                     </span>
                   </Link>
@@ -550,18 +550,18 @@ export default function AgencyDashboardOverview({
           {confirmedContracts.length === 0 ? (
             <Empty msg="Nenhum contrato pago ainda." />
           ) : (
-            <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
               {confirmedContracts.map((c) => (
-                <Link key={c.id} href="/agency/bookings" className="flex items-center gap-3 px-5 py-4 hover:bg-zinc-50/60 transition-colors">
+                <Link key={c.id} href="/agency/bookings" className="flex items-center gap-3 px-5 py-4 hover:bg-[#F8FAFC] transition-colors">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-zinc-900 truncate">{c.jobTitle}</p>
-                    <p className="text-[12px] text-zinc-400 truncate mt-0.5">{c.talentName}</p>
+                    <p className="text-[13px] font-semibold text-[#1F2D2E] truncate">{c.jobTitle}</p>
+                    <p className="text-[12px] text-[#647B7B] truncate mt-0.5">{c.talentName}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-[13px] font-semibold text-emerald-700 tabular-nums">{brl(c.amount)}</p>
                     {c.paidAt && (
-                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                      <p className="text-[11px] text-[#647B7B] mt-0.5">
                         {new Date(c.paidAt).toLocaleDateString(lang === "pt" ? "pt-BR" : "en-US", { day: "numeric", month: "short" })}
                       </p>
                     )}

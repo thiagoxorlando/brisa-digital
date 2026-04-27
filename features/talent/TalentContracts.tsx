@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -89,7 +89,7 @@ function FilterTabs({ value, onChange }: { value: PeriodFilter; onChange: (value
           className={[
             "rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer",
             value === option.value
-              ? "bg-zinc-950 text-white"
+              ? "bg-[#1F2D2E] text-white"
               : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800",
           ].join(" ")}
         >
@@ -692,7 +692,7 @@ export default function TalentContracts({
                     <button
                       onClick={() => handleAcceptWithoutContract(sub)}
                       disabled={acceptingJob === sub.jobId}
-                      className="px-4 py-2 text-[13px] font-semibold bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      className="px-4 py-2 text-[13px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-zinc-300 text-white rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
                     >
                       {acceptingJob === sub.jobId ? "Aceitando…" : "Aceitar Vaga"}
                     </button>
@@ -812,3 +812,5 @@ export default function TalentContracts({
     </div>
   );
 }
+
+

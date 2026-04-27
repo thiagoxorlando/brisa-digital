@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -219,7 +219,7 @@ function BookingRow({
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="rounded-xl bg-zinc-900 px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:bg-zinc-300"
+                    className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50"
                   >
                     {saving ? "Salvando..." : "Salvar"}
                   </button>
@@ -281,7 +281,7 @@ function BookingRow({
                               </svg>
                             ) : null}
                           </div>
-                          <p className={`whitespace-nowrap text-center text-[10px] font-medium ${step.done ? "text-zinc-700" : "text-zinc-300"}`}>
+                          <p className={`whitespace-nowrap text-center text-[10px] font-medium ${step.done ? "text-zinc-700" : "text-[#647B7B]"}`}>
                             {step.label}
                           </p>
                           {step.date && step.done ? (
@@ -517,3 +517,5 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
     </div>
   );
 }
+
+

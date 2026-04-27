@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -159,7 +159,7 @@ export default function AdminProfilePage() {
         <button
           type="submit"
           disabled={saving}
-          className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer"
+          className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer"
         >
           {saving ? "Salvando…" : saved ? "Salvo!" : "Salvar Alterações"}
         </button>
@@ -167,3 +167,4 @@ export default function AdminProfilePage() {
     </div>
   );
 }
+

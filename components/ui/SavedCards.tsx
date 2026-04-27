@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -20,7 +20,7 @@ const BRAND_COLORS: Record<string, string> = {
   visa:   "bg-[#1A1F71]",
   master: "bg-[#EB001B]",
   amex:   "bg-[#2E77BC]",
-  elo:    "bg-zinc-800",
+  elo:    "bg-[#2D4142]",
   hiper:  "bg-orange-600",
 };
 
@@ -375,7 +375,7 @@ export function AddCardForm({ publicKey, onSaved, onCancel }: AddCardFormProps) 
         <button
           type="submit"
           disabled={saving || !isValid || !sdkReady}
-          className="flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 text-white text-[13px] font-medium py-2.5 rounded-xl transition-colors disabled:cursor-not-allowed"
+          className="flex-1 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 text-white text-[13px] font-medium py-2.5 rounded-xl transition-colors disabled:cursor-not-allowed"
         >
           {saving ? "Salvando…" : !sdkReady ? "Carregando…" : "Salvar cartão"}
         </button>
@@ -469,3 +469,4 @@ export default function SavedCards({ initialCards, publicKey, onCardsChange }: S
     </div>
   );
 }
+

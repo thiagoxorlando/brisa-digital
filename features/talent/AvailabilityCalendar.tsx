@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -103,8 +103,8 @@ function ChoiceButton({
       className={[
         "rounded-2xl border px-4 py-3 text-left transition-all",
         active
-          ? "border-[var(--brand-green)] bg-emerald-50 shadow-[0_10px_24px_rgba(72,242,154,0.14)]"
-          : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50",
+          ? "border-[#1ABC9C] bg-[#D1F4EB] shadow-[0_6px_16px_rgba(26,188,156,0.18)]"
+          : "border-[#DDE6E6] bg-white hover:border-[#B8D4D4] hover:bg-[#F8FAFC]",
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
       ].join(" ")}
     >
@@ -515,7 +515,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               }
 
               if (isSelected) {
-                cellClass = "border border-zinc-950 bg-zinc-950 text-white shadow-[0_10px_24px_rgba(24,24,27,0.18)]";
+                cellClass = "border border-[#1F2D2E] bg-[#1F2D2E] text-white shadow-[0_6px_16px_rgba(31,45,46,0.24)]";
               }
 
               if (isRangeStart && selectionMode === "range") {
@@ -523,9 +523,9 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               }
 
               if (isPast) {
-                cellClass = "cursor-not-allowed border border-zinc-100 bg-zinc-50 text-zinc-300";
+                cellClass = "cursor-not-allowed border border-zinc-100 bg-zinc-50 text-[#647B7B]";
               } else if (!isSelected && isToday) {
-                cellClass += " ring-2 ring-[var(--brand-green)] ring-offset-2";
+                cellClass += " ring-2 ring-[#1ABC9C] ring-offset-2";
               }
 
               return (
@@ -536,7 +536,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
                   aria-pressed={isSelected}
                   disabled={isPast}
                   className={[
-                    "relative min-h-[60px] rounded-2xl px-2 py-3 text-center text-[14px] font-semibold transition-all touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-green)] focus-visible:ring-offset-2",
+                    "relative min-h-[60px] rounded-2xl px-2 py-3 text-center text-[14px] font-semibold transition-all touch-manipulation select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1ABC9C] focus-visible:ring-offset-2",
                     cellClass,
                     isSaving ? "opacity-60" : "",
                   ].join(" ")}
@@ -579,7 +579,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
             Indisponível
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-zinc-950" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#1F2D2E]" />
             Selecionado
           </span>
         </div>
@@ -739,7 +739,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               type="button"
               onClick={applySelection}
               disabled={selectionCount === 0 || (availabilityType === "custom_hours" && (!startTime || !endTime))}
-              className="w-full rounded-2xl bg-[var(--brand-green)] px-4 py-3 text-[13px] font-semibold text-[var(--brand-surface)] transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+              className="w-full rounded-2xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-3 text-[13px] font-semibold text-white transition-all hover:from-[#17A58A] hover:to-[#22B5C2] disabled:cursor-not-allowed disabled:bg-none disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4]"
             >
               Aplicar
             </button>
@@ -747,7 +747,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               type="button"
               onClick={clearAvailability}
               disabled={selectionCount === 0}
-              className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-[13px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-100 disabled:text-zinc-300"
+              className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-[13px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-100 disabled:text-[#647B7B]"
             >
               Remover informação das datas selecionadas
             </button>
@@ -758,3 +758,5 @@ export default function AvailabilityCalendar({ talentId }: Props) {
     </div>
   );
 }
+
+

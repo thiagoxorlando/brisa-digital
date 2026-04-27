@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -224,7 +224,7 @@ export default function AgencyProfile({
         <button
           type="submit"
           disabled={saving || uploading}
-          className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer"
+          className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer"
         >
           {saving ? "Salvando…" : "Salvar Alterações"}
         </button>
@@ -232,3 +232,4 @@ export default function AgencyProfile({
     </div>
   );
 }
+

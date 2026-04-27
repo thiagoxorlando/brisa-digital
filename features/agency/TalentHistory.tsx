@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -223,7 +223,7 @@ export default function TalentHistory({
               className="flex-shrink-0 p-1 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-40"
             >
               <svg
-                className={`w-4 h-4 transition-colors ${entry.is_favorite ? "text-amber-400 fill-current" : "text-zinc-300"}`}
+                className={`w-4 h-4 transition-colors ${entry.is_favorite ? "text-amber-400 fill-current" : "text-[#647B7B]"}`}
                 fill={entry.is_favorite ? "currentColor" : "none"}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -253,13 +253,13 @@ export default function TalentHistory({
               </svg>
               {entry.jobs_count} {entry.jobs_count === 1 ? "contratação" : "contratações"}
             </span>
-            <span className="text-zinc-200">·</span>
+            <span className="text-[#647B7B]">·</span>
             <span className="text-[11px] text-zinc-400">
               Último: {formatDate(entry.last_worked_at)}
             </span>
             {entry.is_favorite && (
               <>
-                <span className="text-zinc-200">·</span>
+                <span className="text-[#647B7B]">·</span>
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-500">
                   <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
                     <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -288,7 +288,7 @@ export default function TalentHistory({
           <button
             onClick={() => setRehireTarget(t ? { ...t, id: entry.talent_id } : null)}
             disabled={!t}
-            className="px-4 py-2 rounded-xl bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] active:scale-[0.97] text-[var(--brand-surface)] text-[13px] font-black transition-all whitespace-nowrap disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 shadow-[0_10px_24px_rgba(72,242,154,0.20)]"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.97] text-white text-[13px] font-bold transition-all whitespace-nowrap disabled:cursor-not-allowed disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4] shadow-[0_6px_16px_rgba(26,188,156,0.24)]"
           >
             Escolher vaga e valor
           </button>
@@ -451,3 +451,4 @@ export default function TalentHistory({
     </div>
   );
 }
+

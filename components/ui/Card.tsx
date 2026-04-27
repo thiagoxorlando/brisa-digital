@@ -14,11 +14,11 @@ const paddingClasses = {
 
 const variantClasses = {
   default:
-    "bg-white border border-zinc-100 text-zinc-950 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_12px_28px_rgba(0,0,0,0.04)]",
+    "bg-white border border-[#DDE6E6] text-[#1F2D2E] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)]",
   soft:
-    "bg-[var(--brand-paper)] border border-zinc-200/80 text-zinc-950 shadow-[0_1px_4px_rgba(0,0,0,0.04)]",
+    "bg-[#F0F9F8] border border-[#DDE6E6] text-[#1F2D2E] shadow-[0_1px_4px_rgba(0,0,0,0.04)]",
   dark:
-    "bg-[var(--brand-surface)] border border-white/10 text-white shadow-[0_24px_70px_rgba(7,17,13,0.32)]",
+    "bg-[#1F2D2E] border border-white/10 text-white shadow-[0_24px_70px_rgba(0,0,0,0.18)]",
 };
 
 export default function Card({

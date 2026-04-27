@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -280,7 +280,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
           <button
             type="submit"
             disabled={saving || saved}
-            className="flex-1 py-3 text-[14px] font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="flex-1 py-3 text-[14px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? "Salvando…" : "Salvar Alterações"}
           </button>
@@ -289,3 +289,4 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
     </div>
   );
 }
+

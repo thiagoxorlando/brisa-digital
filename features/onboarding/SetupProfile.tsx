@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -117,7 +117,7 @@ function AvatarUpload({
         {preview ? (
           <img src={preview} alt="preview" className="w-full h-full object-cover" />
         ) : (
-          <svg className="w-6 h-6 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-[#647B7B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 4v16m8-8H4" />
           </svg>
         )}
@@ -145,8 +145,8 @@ function StepIndicator({ current }: { current: number }) {
             <div className="flex flex-col items-center gap-1">
               <div className={[
                 "w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold transition-all",
-                done   ? "bg-zinc-900 text-white" :
-                active ? "bg-zinc-900 text-white ring-4 ring-zinc-900/10" :
+                done   ? "bg-[#1F2D2E] text-white" :
+                active ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white ring-4 ring-[#1ABC9C]/20" :
                          "bg-zinc-100 text-zinc-400",
               ].join(" ")}>
                 {done ? (
@@ -167,7 +167,7 @@ function StepIndicator({ current }: { current: number }) {
             {!isLast && (
               <div className={[
                 "flex-1 h-[2px] mx-2 mb-4 rounded-full transition-all",
-                done ? "bg-zinc-900" : "bg-zinc-200",
+                done ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6]" : "bg-[#DDE6E6]",
               ].join(" ")} />
             )}
           </div>
@@ -339,7 +339,7 @@ function Step2({
                 key={cat}
                 type="button"
                 onClick={() => toggleCategory(talentCategoryLabel(cat))}
-                className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1.5 text-[12px] font-semibold text-white"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#1F2D2E] px-3 py-1.5 text-[12px] font-semibold text-white"
               >
                 {talentCategoryLabel(cat)}
                 <span className="text-white/60">×</span>
@@ -356,7 +356,7 @@ function Step2({
                 className={[
                   "px-3.5 py-2 rounded-xl text-[13px] font-medium transition-all cursor-pointer",
                   active
-                    ? "bg-zinc-900 text-white"
+                    ? "bg-[#1F2D2E] text-white"
                     : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
                 ].join(" ")}
               >
@@ -381,7 +381,7 @@ function Step2({
           <button
             type="button"
             onClick={addCustomCategory}
-            className="rounded-xl bg-zinc-950 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-zinc-800"
+            className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 text-[13px] font-semibold text-white transition-colors hover:from-[#17A58A] hover:to-[#22B5C2]"
           >
             Adicionar
           </button>
@@ -675,7 +675,7 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
           <button
             type="button"
             onClick={handleNext}
-            className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
+            className="flex-1 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
           >
             Próximo
           </button>
@@ -684,7 +684,7 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="flex-1 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
+            className="flex-1 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
           >
             {loading ? "Salvando…" : "Salvar Perfil"}
           </button>
@@ -853,7 +853,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
 
       <button
         type="submit" disabled={loading}
-        className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
+        className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
       >
         {loading ? "Salvando…" : "Salvar Perfil"}
       </button>
@@ -941,3 +941,6 @@ export default function SetupProfile() {
     </div>
   );
 }
+
+
+

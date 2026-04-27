@@ -7,14 +7,14 @@ type BadgeProps = {
 };
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/80",
-  success: "bg-[var(--brand-green-soft)] text-emerald-800 ring-1 ring-emerald-200/80",
+  default: "bg-[#E6F0F0] text-[#647B7B] ring-1 ring-[#DDE6E6]",
+  success: "bg-[#D1F4EB] text-[#0A7A5A] ring-1 ring-[#A7E8D6]/60",
   warning: "bg-amber-50 text-amber-700 ring-1 ring-amber-200/80",
   danger:  "bg-red-50 text-red-700 ring-1 ring-red-200/80",
-  info:    "bg-sky-50 text-sky-700 ring-1 ring-sky-200/80",
-  dark:    "bg-[var(--brand-surface)] text-white ring-1 ring-white/10",
-  muted:   "bg-white/10 text-zinc-200 ring-1 ring-white/15",
-  accent:  "bg-[var(--brand-green)] text-[var(--brand-surface)] ring-1 ring-[var(--brand-green)]",
+  info:    "bg-[#D6F2F7] text-[#0E7C86] ring-1 ring-[#A8DDED]/60",
+  dark:    "bg-[#1F2D2E] text-white ring-1 ring-white/10",
+  muted:   "bg-[#E6F0F0] text-[#647B7B] ring-1 ring-[#DDE6E6]",
+  accent:  "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white ring-0",
 };
 
 export default function Badge({

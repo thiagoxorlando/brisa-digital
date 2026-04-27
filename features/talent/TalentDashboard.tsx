@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
@@ -296,7 +296,7 @@ export default function TalentDashboard({
                       <p className="text-[13px] font-semibold text-zinc-900 truncate leading-snug">{b.title}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <p className="text-[11px] text-zinc-400 truncate">{b.agencyName}</p>
-                        {b.location && <span className="text-zinc-300">·</span>}
+                        {b.location && <span className="text-[#647B7B]">·</span>}
                         {b.location && <p className="text-[11px] text-zinc-400 truncate">{b.location}</p>}
                       </div>
                       {b.jobTime && (
@@ -382,3 +382,4 @@ export default function TalentDashboard({
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -246,7 +246,7 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
       <tr onClick={() => !editing && setExpanded((current) => !current)} className="cursor-pointer transition-colors hover:bg-zinc-50/60">
         <td className="px-6 py-4">
           <div className="flex items-center gap-2">
-            <svg className={`h-3.5 w-3.5 flex-shrink-0 text-zinc-300 transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`h-3.5 w-3.5 flex-shrink-0 text-[#647B7B] transition-transform ${expanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
             <p className="max-w-[180px] truncate text-[13px] font-semibold text-zinc-900">{localJob.title}</p>
@@ -264,7 +264,7 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
           {localJob.category ? (
             <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-500">{localJob.category}</span>
           ) : (
-            <span className="text-[13px] text-zinc-300">-</span>
+            <span className="text-[13px] text-[#647B7B]">-</span>
           )}
         </td>
         <td className="hidden px-4 py-4 text-right md:table-cell">
@@ -356,7 +356,7 @@ function JobRow({ job, onDelete }: { job: AdminJob; onDelete: (id: string) => vo
                     <button
                       onClick={handleSave}
                       disabled={saving}
-                      className="rounded-xl bg-zinc-900 px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:bg-zinc-300"
+                      className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50"
                     >
                       {saving ? "Salvando..." : "Salvar"}
                     </button>
@@ -582,3 +582,5 @@ export default function AdminJobs({ jobs: initialJobs }: { jobs: AdminJob[] }) {
     </div>
   );
 }
+
+

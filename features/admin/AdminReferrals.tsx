@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 
@@ -152,13 +152,13 @@ export default function AdminReferrals({ referrals: initial }: { referrals: Admi
                       <td className="px-4 py-4 text-right hidden md:table-cell">
                         {r.bookingValue > 0
                           ? <p className="text-[13px] font-semibold text-zinc-900 tabular-nums">{brl(r.bookingValue)}</p>
-                          : <p className="text-[13px] text-zinc-300">—</p>
+                          : <p className="text-[13px] text-[#647B7B]">—</p>
                         }
                       </td>
                       <td className="px-6 py-4 text-right hidden md:table-cell">
                         {r.referralPayout > 0
                           ? <p className="text-[13px] font-semibold text-violet-700 tabular-nums">{brl(r.referralPayout)}</p>
-                          : <p className="text-[13px] text-zinc-300">—</p>
+                          : <p className="text-[13px] text-[#647B7B]">—</p>
                         }
                       </td>
                       <td className="px-4 py-4 text-right">
@@ -190,3 +190,4 @@ export default function AdminReferrals({ referrals: initial }: { referrals: Admi
     </div>
   );
 }
+

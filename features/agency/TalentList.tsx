@@ -50,7 +50,7 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
     <div className="space-y-5">
       {/* ── Search ── */}
       <div className="relative max-w-md">
-        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none"
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#647B7B] pointer-events-none"
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
         </svg>
@@ -59,64 +59,64 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
           placeholder="Buscar talento…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 text-[13px] bg-white border border-zinc-200 rounded-2xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-[var(--brand-green)] focus:ring-2 focus:ring-[var(--brand-green)]/20 focus:outline-none transition-colors shadow-sm"
+          className="w-full pl-10 pr-4 py-3 text-[13px] bg-white border border-[#DDE6E6] rounded-2xl placeholder:text-[#647B7B] hover:border-[#B8D4D4] focus:border-[#1ABC9C] focus:ring-2 focus:ring-[#1ABC9C]/20 focus:outline-none transition-colors shadow-sm"
         />
       </div>
 
       {/* ── Table ── */}
-      <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
+      <div className="bg-white rounded-[1.5rem] border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.06)] overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-zinc-100">
-              <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Talento</th>
-              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Localização</th>
-              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden md:table-cell">Categorias</th>
-              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Instagram</th>
+            <tr className="border-b border-[#DDE6E6]">
+              <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-[#647B7B] uppercase tracking-widest">Talento</th>
+              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-[#647B7B] uppercase tracking-widest hidden sm:table-cell">Localização</th>
+              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-[#647B7B] uppercase tracking-widest hidden md:table-cell">Categorias</th>
+              <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-[#647B7B] uppercase tracking-widest hidden sm:table-cell">Instagram</th>
               <th className="px-6 py-3.5 w-12" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-50">
+          <tbody className="divide-y divide-[#EFF5F5]">
             {filtered.map((t) => {
               const name = t.full_name ?? "Sem nome";
               return (
-                <tr key={t.id} className="hover:bg-[var(--brand-green-soft)]/35 transition-colors group">
+                <tr key={t.id} className="hover:bg-[#F8FAFC] transition-colors group">
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-4">
                       {t.avatar_url ? (
-                        <img src={t.avatar_url} alt={name} className="w-12 h-12 rounded-2xl object-cover flex-shrink-0 shadow-sm ring-1 ring-zinc-100" />
+                        <img src={t.avatar_url} alt={name} className="w-12 h-12 rounded-2xl object-cover flex-shrink-0 shadow-sm ring-1 ring-[#DDE6E6]" />
                       ) : (
                         <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarGradient(name)} flex items-center justify-center text-[13px] font-black text-white flex-shrink-0 shadow-sm`}>
                           {initials(name)}
                         </div>
                       )}
-                      <p className="text-[14px] font-black text-zinc-950 truncate leading-none">
+                      <p className="text-[14px] font-black text-[#1F2D2E] truncate leading-none">
                         {name}
-                        {t.age && <span className="ml-1.5 text-[11px] font-semibold text-zinc-400">{t.age} anos</span>}
+                        {t.age && <span className="ml-1.5 text-[11px] font-semibold text-[#647B7B]">{t.age} anos</span>}
                       </p>
                     </div>
                   </td>
                   <td className="px-4 py-4 hidden sm:table-cell">
-                    <span className="text-[13px] text-zinc-500">
+                    <span className="text-[13px] text-[#647B7B]">
                       {[t.city, t.country].filter(Boolean).join(", ") || "—"}
                     </span>
                   </td>
                   <td className="px-4 py-4 hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {(t.categories ?? []).slice(0, 2).map((c: string) => (
-                        <span key={c} className="text-[10px] font-bold bg-[var(--brand-green-soft)] text-emerald-800 px-2 py-0.5 rounded-full">{talentCategoryLabel(c)}</span>
+                        <span key={c} className="text-[10px] font-bold bg-[#D1F4EB] text-[#0A7A5A] px-2 py-0.5 rounded-full">{talentCategoryLabel(c)}</span>
                       ))}
-                      {!t.categories?.length && <span className="text-[13px] text-zinc-400">—</span>}
+                      {!t.categories?.length && <span className="text-[13px] text-[#647B7B]">—</span>}
                     </div>
                   </td>
                   <td className="px-4 py-4 hidden sm:table-cell">
-                    <span className="text-[12px] text-zinc-400">
+                    <span className="text-[12px] text-[#647B7B]">
                       {t.instagram ? `@${t.instagram}` : "—"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Link
                       href={`/agency/talent/${t.id}`}
-                      className="inline-flex items-center gap-1 rounded-full bg-zinc-950 px-3 py-1.5 text-[12px] font-bold text-white transition-all opacity-0 group-hover:opacity-100 hover:bg-zinc-800"
+                      className="inline-flex items-center gap-1 rounded-full bg-[#1F2D2E] px-3 py-1.5 text-[12px] font-bold text-white transition-all opacity-0 group-hover:opacity-100 hover:bg-[#2D4142]"
                     >
                       Ver
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,16 +130,16 @@ export default function TalentList({ talent }: { talent: TalentListItem[] }) {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-16 text-center">
-                  <p className="text-[14px] font-medium text-zinc-500">Nenhum talento encontrado</p>
-                  <p className="text-[13px] text-zinc-400 mt-1">Tente ajustar sua busca.</p>
+                  <p className="text-[14px] font-medium text-[#647B7B]">Nenhum talento encontrado</p>
+                  <p className="text-[13px] text-[#B8D4D4] mt-1">Tente ajustar sua busca.</p>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
 
-        <div className="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50">
-          <p className="text-[12px] text-zinc-400 font-medium">
+        <div className="px-6 py-3.5 border-t border-[#DDE6E6] bg-[#F8FAFC]">
+          <p className="text-[12px] text-[#647B7B] font-medium">
             {filtered.length} de {talent.length} talento{talent.length !== 1 ? "s" : ""}
           </p>
         </div>

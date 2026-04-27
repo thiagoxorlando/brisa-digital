@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Suspense, useState } from "react";
@@ -145,7 +145,7 @@ function SignupPageContent() {
                     "text-left px-4 py-4 rounded-2xl border-2 transition-all duration-150 cursor-pointer",
                     plan === p.id
                       ? p.highlight
-                        ? "border-zinc-900 bg-zinc-900 text-white shadow-lg"
+                        ? "border-[#1F2D2E] bg-[#1F2D2E] text-white shadow-lg"
                         : "border-zinc-900 bg-white shadow-sm"
                       : "border-zinc-200 bg-white hover:border-zinc-300",
                   ].join(" ")}
@@ -155,7 +155,7 @@ function SignupPageContent() {
                       {p.name}
                     </span>
                     {p.highlight && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${plan === p.id ? "bg-white/20 text-white" : "bg-zinc-900 text-white"}`}>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${plan === p.id ? "bg-white/20 text-white" : "bg-[#1F2D2E] text-white"}`}>
                         POPULAR
                       </span>
                     )}
@@ -227,7 +227,7 @@ function SignupPageContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
+              className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
             >
               {loading ? "Criando conta…" : "Criar conta"}
             </button>
@@ -253,3 +253,4 @@ export default function SignupPage() {
     </Suspense>
   );
 }
+

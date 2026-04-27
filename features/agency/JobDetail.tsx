@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -178,7 +178,7 @@ const PHOTO_LABELS = ["Front", "Left", "Right"] as const;
 function VideoPlayer({ url }: { url: string }) {
   const [playing, setPlaying] = useState(false);
   return (
-    <div className="relative aspect-video bg-zinc-950 overflow-hidden">
+    <div className="relative aspect-video bg-[#1F2D2E] overflow-hidden">
       {playing ? (
         <video src={url} controls autoPlay className="w-full h-full object-contain" />
       ) : (
@@ -238,7 +238,7 @@ function ContractConfirmModal({
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 py-2.5 text-[13px] font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors cursor-pointer"
+              className="flex-1 py-2.5 text-[13px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors cursor-pointer"
             >
               Sim, enviar
             </button>
@@ -357,7 +357,7 @@ function ContractModal({
     setSubmitting(false);
   }
 
-  const inputCls = "w-full px-3.5 py-2.5 text-[13px] bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors";
+  const inputCls = "w-full px-3.5 py-2.5 text-[13px] bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-zinc-400 hover:border-zinc-300 focus:border-[#1F2D2E] focus:bg-white focus:outline-none transition-colors";
   const labelCls = "block text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-1.5";
 
   return (
@@ -409,7 +409,7 @@ function ContractModal({
                   </button>
                   <Link
                     href="/agency/contracts"
-                    className="flex-1 py-2.5 text-[13px] font-semibold bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-colors text-center"
+                    className="flex-1 py-2.5 text-[13px] font-semibold bg-[#1F2D2E] text-white rounded-xl hover:bg-[#2D4142] transition-colors text-center"
                   >
                     Ver Contratos
                   </Link>
@@ -590,7 +590,7 @@ function ContractModal({
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex-1 py-2.5 text-[13px] font-semibold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 py-2.5 text-[13px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? "Enviando…" : "Revisar e Enviar"}
                   </button>
@@ -695,7 +695,7 @@ function SubmissionCard({
           {isAgency && onDelete && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="w-6 h-6 flex items-center justify-center rounded-lg text-zinc-300 hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
+              className="w-6 h-6 flex items-center justify-center rounded-lg text-[#647B7B] hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
               title="Deletar candidatura"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -719,7 +719,7 @@ function SubmissionCard({
                   onClick={(e) => { e.stopPropagation(); onToggleSelect?.(); }}
                   className={[
                     "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer",
-                    isSelected ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 hover:border-zinc-500",
+                    isSelected ? "bg-[#1ABC9C] border-[#1ABC9C]" : "border-zinc-300 hover:border-zinc-500",
                   ].join(" ")}
                   title={isSelected ? "Desmarcar" : "Selecionar para contrato em lote"}
                 >
@@ -738,7 +738,7 @@ function SubmissionCard({
                   className={[
                     "inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer",
                     isPro
-                      ? "bg-zinc-900 hover:bg-zinc-800 text-white"
+                      ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white"
                       : "bg-violet-600 hover:bg-violet-700 text-white",
                   ].join(" ")}
                 >
@@ -757,7 +757,7 @@ function SubmissionCard({
         </div>
 
         {/* Chevron */}
-        <svg className={`w-4 h-4 text-zinc-300 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
+        <svg className={`w-4 h-4 text-[#647B7B] flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -1072,10 +1072,10 @@ export default function JobDetail({
       )}
 
       {/* ── Header ── */}
-      <div className="rounded-[1.75rem] bg-[var(--brand-surface)] px-6 py-5 text-white shadow-[0_24px_70px_rgba(7,17,13,0.18)]">
+      <div className="rounded-[1.75rem] bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-6 py-5 text-white shadow-[0_8px_28px_rgba(26,188,156,0.28)]">
         <Link
           href="/agency/jobs"
-          className="inline-flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-white transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-[13px] text-white/70 hover:text-white transition-colors mb-4"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1098,22 +1098,22 @@ export default function JobDetail({
                   Privada
                 </span>
               )}
-              <span className="text-[12px] font-medium bg-white/10 text-zinc-200 border border-white/10 px-2.5 py-1 rounded-full">
+              <span className="text-[12px] font-medium bg-white/20 text-white border border-white/20 px-2.5 py-1 rounded-full">
                 {job.category}
               </span>
-              <span className="text-[12px] text-zinc-400">Publicado em {formatDate(job.postedAt)}</span>
+              <span className="text-[12px] text-white/70">Publicado em {formatDate(job.postedAt)}</span>
             </div>
             <div className="grid gap-3 pt-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Orçamento</p>
-                <p className="mt-1 text-xl font-black text-[var(--brand-green)]">{formatBudget(job.budget)}</p>
+              <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Orçamento</p>
+                <p className="mt-1 text-xl font-black text-white">{formatBudget(job.budget)}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Candidaturas</p>
+              <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Candidaturas</p>
                 <p className="mt-1 text-xl font-black text-white">{safeSubmissions.length}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Reservas</p>
+              <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Reservas</p>
                 <p className="mt-1 text-xl font-black text-white">{bookings.length}</p>
               </div>
             </div>
@@ -1229,7 +1229,7 @@ export default function JobDetail({
                     !isPro
                       ? "bg-violet-600 hover:bg-violet-700 text-white"
                       : selected.size >= numberOfTalentsRequired
-                        ? "bg-zinc-900 hover:bg-zinc-800 text-white"
+                        ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white"
                         : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700",
                   ].join(" ")}
                 >
@@ -1271,7 +1271,7 @@ export default function JobDetail({
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] py-16 text-center">
             <div className="w-11 h-11 rounded-2xl bg-zinc-50 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-5 h-5 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-[#647B7B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
                   d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
               </svg>
@@ -1285,3 +1285,7 @@ export default function JobDetail({
     </div>
   );
 }
+
+
+
+

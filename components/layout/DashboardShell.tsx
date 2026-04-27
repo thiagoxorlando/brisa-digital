@@ -12,12 +12,12 @@ export default function DashboardShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="lg:ml-64 flex flex-col min-h-screen">
+      <div className="lg:ml-64 flex flex-col flex-1 overflow-hidden">
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 px-6 py-10 lg:px-10">
+        <main className="flex-1 overflow-y-auto p-6 bg-[#F8FAFC]">
           {children}
         </main>
       </div>

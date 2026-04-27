@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -66,7 +66,7 @@ function NotFound() {
         <p className="text-[13px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Vaga Não Encontrada</p>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 mb-2">Esta vaga não existe</h1>
         <p className="text-[15px] text-zinc-500 mb-6">Ela pode ter sido removida ou o link está incorreto.</p>
-        <Link href="/agency/jobs" className="inline-flex items-center gap-2 bg-zinc-900 text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors">
+        <Link href="/agency/jobs" className="inline-flex items-center gap-2 bg-[#1F2D2E] text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-[#2D4142] transition-colors">
           ← Voltar para Vagas
         </Link>
       </div>
@@ -93,7 +93,7 @@ function SuccessScreen({ jobTitle }: { jobTitle: string }) {
           {" Se selecionado, você receberá sua comissão de indicação."}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/agency/jobs" className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors">
+          <Link href="/agency/jobs" className="inline-flex items-center justify-center gap-2 bg-[#1F2D2E] text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-[#2D4142] transition-colors">
             ← Voltar para Vagas
           </Link>
           <Link href="/agency/dashboard" className="inline-flex items-center justify-center gap-2 bg-white border border-zinc-200 text-zinc-700 text-[13px] font-medium px-5 py-2.5 rounded-xl hover:border-zinc-300 transition-colors">
@@ -142,7 +142,7 @@ function ReferralSuccessScreen({
             : <>O convite foi enviado por email para o talento indicado para <span className="font-medium text-zinc-700">"{jobTitle}"</span>.</>}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/talent/jobs" className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors">
+          <Link href="/talent/jobs" className="inline-flex items-center justify-center gap-2 bg-[#1F2D2E] text-white text-[13px] font-medium px-5 py-2.5 rounded-xl hover:bg-[#2D4142] transition-colors">
             ← Voltar para Vagas
           </Link>
           <Link href="/talent/referrals" className="inline-flex items-center justify-center gap-2 bg-white border border-zinc-200 text-zinc-700 text-[13px] font-medium px-5 py-2.5 rounded-xl hover:border-zinc-300 transition-colors">
@@ -474,7 +474,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-5 w-full bg-zinc-900 hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white text-[15px] font-semibold py-4 rounded-xl transition-all duration-150 cursor-pointer shadow-sm"
+            className="mt-5 w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white text-[15px] font-semibold py-4 rounded-xl transition-all duration-150 cursor-pointer shadow-sm"
           >
             {loading ? (
               <span className="inline-flex items-center justify-center gap-2">
@@ -496,3 +496,5 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
     </div>
   );
 }
+
+

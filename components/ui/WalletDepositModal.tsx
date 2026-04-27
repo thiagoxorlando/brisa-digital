@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -154,7 +154,7 @@ export default function WalletDepositModal({
             <p className="text-[13px] text-zinc-400">Feche e tente novamente.</p>
             <button
               onClick={onClose}
-              className="px-5 py-2 text-[13px] font-medium bg-zinc-900 text-white rounded-xl hover:bg-zinc-700 transition-colors cursor-pointer"
+              className="px-5 py-2 text-[13px] font-medium bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors cursor-pointer"
             >
               Fechar
             </button>
@@ -205,7 +205,7 @@ export default function WalletDepositModal({
                   onClick={copy}
                   className={[
                     "flex-shrink-0 px-3.5 rounded-xl text-[12px] font-semibold transition-all cursor-pointer",
-                    copied ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white hover:bg-zinc-700",
+                    copied ? "bg-emerald-500 text-white" : "bg-[#1F2D2E] text-white hover:bg-[#2D4142]",
                   ].join(" ")}
                 >
                   {copied ? "✓ Copiado" : "Copiar"}
@@ -226,3 +226,4 @@ export default function WalletDepositModal({
     </div>
   );
 }
+

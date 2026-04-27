@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -267,7 +267,7 @@ export default function TalentProfileEdit() {
               {preview ? (
                 <img src={preview} alt="avatar" className="w-full h-full object-cover" />
               ) : (
-                <svg className="w-6 h-6 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-[#647B7B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 4v16m8-8H4" />
                 </svg>
               )}
@@ -351,7 +351,7 @@ export default function TalentProfileEdit() {
           <div>
             <label className={labelCls}>
               Bio
-              <span className={`ml-2 font-normal ${form.bio.length > BIO_MAX ? "text-rose-400" : "text-zinc-300"}`}>
+              <span className={`ml-2 font-normal ${form.bio.length > BIO_MAX ? "text-rose-400" : "text-[#647B7B]"}`}>
                 {form.bio.length}/{BIO_MAX}
               </span>
             </label>
@@ -373,7 +373,7 @@ export default function TalentProfileEdit() {
                   key={cat}
                   type="button"
                   onClick={() => toggleCategory(talentCategoryLabel(cat))}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950 px-3 py-1.5 text-[12px] font-semibold text-white"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#1F2D2E] px-3 py-1.5 text-[12px] font-semibold text-white"
                 >
                   {talentCategoryLabel(cat)}
                   <span className="text-white/60">×</span>
@@ -389,7 +389,7 @@ export default function TalentProfileEdit() {
                   key={cat} type="button" onClick={() => toggleCategory(cat)}
                   className={[
                     "px-3.5 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 cursor-pointer",
-                    active ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+                    active ? "bg-[#1F2D2E] text-white" : "bg-[#E6F0F0] text-[#647B7B] hover:bg-[#DDE6E6]",
                   ].join(" ")}
                 >
                   {cat === "Outro" ? "Outro / Personalizado" : cat}
@@ -413,7 +413,7 @@ export default function TalentProfileEdit() {
             <button
               type="button"
               onClick={addCustomCategory}
-              className="rounded-xl bg-zinc-950 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-zinc-800"
+              className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 text-[13px] font-semibold text-white transition-colors hover:from-[#17A58A] hover:to-[#22B5C2]"
             >
               Adicionar
             </button>
@@ -499,7 +499,7 @@ export default function TalentProfileEdit() {
 
         <button
           type="submit" disabled={saving}
-          className="w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
+          className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
         >
           {saving ? "Salvando…" : "Salvar Perfil"}
         </button>
@@ -507,3 +507,6 @@ export default function TalentProfileEdit() {
     </div>
   );
 }
+
+
+

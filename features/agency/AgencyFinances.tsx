@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -334,27 +334,27 @@ export default function AgencyFinances({
 
         {/* Balance row / withdrawal confirmation */}
         {withdrawConfirming ? (
-          <div className="px-6 py-6 bg-[var(--brand-surface)] text-white space-y-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--brand-green)]">Confirmar Saque</p>
+          <div className="px-6 py-6 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white space-y-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">Confirmar Saque</p>
             <div className="space-y-2 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-zinc-400">Valor solicitado</span>
+                <span className="text-white/70">Valor solicitado</span>
                 <span className="font-bold">{brl(withdrawAmountNum)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">
+                <span className="text-white/70">
                   Taxa de processamento{isMinFeeApplied ? ` (mín. ${brl(withdrawalMinFee)})` : ` (${(withdrawalFeeRate * 100).toFixed(0)}%)`}
                 </span>
-                <span className="font-bold text-rose-400">−{brl(withdrawFeeNum)}</span>
+                <span className="font-bold text-rose-200">−{brl(withdrawFeeNum)}</span>
               </div>
-              <div className="flex justify-between border-t border-white/10 pt-2">
+              <div className="flex justify-between border-t border-white/20 pt-2">
                 <span className="text-white font-semibold">Valor líquido a receber</span>
-                <span className="font-black text-[var(--brand-green)]">{brl(withdrawNetNum)}</span>
+                <span className="font-black text-white">{brl(withdrawNetNum)}</span>
               </div>
               {savedPix && (
                 <div className="flex justify-between pt-1">
-                  <span className="text-zinc-400">Chave PIX</span>
-                  <span className="text-zinc-300 font-medium text-right">
+                  <span className="text-white/70">Chave PIX</span>
+                  <span className="text-white/80 font-medium text-right">
                     {PIX_TYPE_LABELS[savedPix.pix_key_type ?? ""] ?? savedPix.pix_key_type} · {savedPix.pix_key_value}
                   </span>
                 </div>
@@ -362,34 +362,34 @@ export default function AgencyFinances({
             </div>
             <div className="flex gap-2 pt-1">
               <button onClick={handleWithdraw} disabled={withdrawing}
-                className="flex-1 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] disabled:opacity-50 text-[var(--brand-surface)] text-[13px] font-black py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
+                className="flex-1 bg-white hover:bg-white/90 disabled:opacity-50 text-[#0E7C86] text-[13px] font-black py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
                 {withdrawing ? "Processando…" : "Confirmar Saque"}
               </button>
               <button onClick={() => setWithdrawConfirming(false)}
-                className="px-5 bg-white/10 hover:bg-white/15 text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer">
+                className="px-5 bg-white/20 hover:bg-white/30 text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer">
                 Cancelar
               </button>
             </div>
           </div>
         ) : (
-          <div className="px-6 py-6 bg-[var(--brand-surface)] text-white space-y-4">
+          <div className="px-6 py-6 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white space-y-4">
             {/* Balance display */}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--brand-green)]">Saldo na Plataforma</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">Saldo na Plataforma</p>
                   {walletRefreshing && (
-                    <span className="flex items-center gap-1 text-[10px] text-zinc-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-green)] animate-pulse" />
+                    <span className="flex items-center gap-1 text-[10px] text-white/70">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                       Atualizando…
                     </span>
                   )}
                 </div>
                 <p className="text-[3rem] font-black tracking-[-0.07em] text-white leading-none">{brl(walletBalance)}</p>
-                <p className="text-[12px] text-zinc-400 mt-1">Disponível para confirmar reservas ou sacar</p>
+                <p className="text-[12px] text-white/70 mt-1">Disponível para confirmar reservas ou sacar</p>
               </div>
               {withdrawDone && (
-                <div className="flex items-center gap-1.5 text-[12px] text-[var(--brand-green)] font-semibold mt-1">
+                <div className="flex items-center gap-1.5 text-[12px] text-white font-semibold mt-1">
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
@@ -405,7 +405,7 @@ export default function AgencyFinances({
                   {([0.25, 0.5, 1] as const).map((pct) => (
                     <button key={pct} type="button"
                       onClick={() => setWithdrawAmount(String(Math.floor(walletBalance * pct * 100) / 100))}
-                      className="text-[11px] font-bold px-2.5 py-1 bg-white/10 hover:bg-white/20 text-zinc-300 rounded-lg transition-colors cursor-pointer">
+                      className="text-[11px] font-bold px-2.5 py-1 bg-white/10 hover:bg-white/20 text-[#647B7B] rounded-lg transition-colors cursor-pointer">
                       {pct === 1 ? "100%" : pct === 0.5 ? "50%" : "25%"}
                     </button>
                   ))}
@@ -491,10 +491,10 @@ export default function AgencyFinances({
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
                   <input type="number" min={1} step={1} placeholder="0" value={depositAmount}
                     onChange={(e) => setDepositAmount(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-zinc-300 hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
+                    className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-[#647B7B] hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
                 </div>
                 <button type="submit" disabled={Boolean(depositLoading || !depositAmount || Number(depositAmount) <= 0)}
-                  className="flex items-center gap-2 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] disabled:bg-zinc-100 disabled:text-zinc-400 text-[var(--brand-surface)] text-[13px] font-black px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4] disabled:bg-none text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
                   {depositLoading ? <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> : "Gerar QR Code"}
                 </button>
               </div>
@@ -513,7 +513,7 @@ export default function AgencyFinances({
             <div className="space-y-4">
               {liveCards.length === 0 ? (
                 <div className="bg-zinc-50 border border-zinc-100 rounded-2xl px-5 py-8 text-center space-y-2">
-                  <svg className="w-8 h-8 text-zinc-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 text-[#647B7B] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                       d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
@@ -533,10 +533,10 @@ export default function AgencyFinances({
                           className={["w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all cursor-pointer",
                             isSelected ? "border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900" : "border-zinc-200 bg-white hover:border-zinc-300"].join(" ")}>
                           <div className={["w-3 h-3 rounded-full border-2 flex-shrink-0 transition-colors",
-                            isSelected ? "border-zinc-900 bg-zinc-900" : "border-zinc-300"].join(" ")} />
+                            isSelected ? "border-[#1ABC9C] bg-[#1ABC9C]" : "border-[#DDE6E6]"].join(" ")} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold uppercase bg-zinc-800 text-white px-1.5 py-0.5 rounded">{card.brand ?? "card"}</span>
+                              <span className="text-[10px] font-bold uppercase bg-[#2D4142] text-white px-1.5 py-0.5 rounded">{card.brand ?? "card"}</span>
                               <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">•••• {card.last_four ?? "----"}</span>
                             </div>
                             {expiry && <p className="text-[11px] text-zinc-400 mt-0.5">Válido até {expiry}</p>}
@@ -560,7 +560,7 @@ export default function AgencyFinances({
                       value={cardCvv}
                       onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
                       autoComplete="cc-csc"
-                      className="w-28 h-10 border border-zinc-200 rounded-xl px-3 bg-white text-[14px] text-zinc-900 text-center tabular-nums placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400 transition-colors"
+                      className="w-28 h-10 border border-zinc-200 rounded-xl px-3 bg-white text-[14px] text-zinc-900 text-center tabular-nums placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 transition-colors"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -568,10 +568,10 @@ export default function AgencyFinances({
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
                       <input type="number" min={1} step={1} placeholder="0" value={cardDepositAmount}
                         onChange={(e) => setCardDepositAmount(e.target.value)}
-                        className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-zinc-300 hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
+                        className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-[#647B7B] hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
                     </div>
                     <button type="submit" disabled={Boolean(cardDepositLoading || !cardDepositAmount || Number(cardDepositAmount) <= 0 || !selectedCard || cardCvv.length < 3)}
-                      className="flex items-center gap-2 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] disabled:bg-zinc-100 disabled:text-zinc-400 text-[var(--brand-surface)] text-[13px] font-black px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
+                      className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4] disabled:bg-none text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
                       {cardDepositLoading ? <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> : "Depositar"}
                     </button>
                   </div>
@@ -651,21 +651,21 @@ export default function AgencyFinances({
                   <label className="block text-[11px] font-medium text-zinc-500">Chave PIX</label>
                   <input type="text" value={pixKeyValue} onChange={(e) => setPixKeyValue(e.target.value)}
                     placeholder="Sua chave PIX"
-                    className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors" />
+                    className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors" />
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="block text-[11px] font-medium text-zinc-500">Nome do titular</label>
                 <input type="text" value={pixHolderName} onChange={(e) => setPixHolderName(e.target.value)}
                   placeholder="Nome completo ou razão social"
-                  className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors" />
+                  className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors" />
               </div>
               {pixError && (
                 <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{pixError}</p>
               )}
               <div className="flex gap-2 pt-1">
                 <button type="submit" disabled={pixSaving}
-                  className="flex items-center gap-2 bg-[var(--brand-green)] hover:bg-[var(--brand-green-strong)] disabled:opacity-50 text-[var(--brand-surface)] text-[13px] font-black px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
                   {pixSaving ? "Salvando…" : "Salvar Chave PIX"}
                 </button>
                 {hasPix && (
@@ -814,3 +814,6 @@ export default function AgencyFinances({
     </div>
   );
 }
+
+
+

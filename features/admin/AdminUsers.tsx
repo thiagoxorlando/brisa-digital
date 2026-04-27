@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import type { MouseEvent } from "react";
@@ -266,7 +266,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                   placeholder="Ex: credito promocional, ajuste..."
                   value={creditNote}
                   onChange={(event) => setCreditNote(event.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-[13px] transition-colors placeholder:text-zinc-300 focus:border-zinc-900 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-200 px-3.5 py-2.5 text-[13px] transition-colors placeholder:text-[#647B7B] focus:border-zinc-900 focus:outline-none"
                 />
               </div>
             </div>
@@ -453,7 +453,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                           {user.plan ?? "free"}
                         </span>
                       ) : (
-                        <span className="text-[11px] text-zinc-300">—</span>
+                        <span className="text-[11px] text-[#647B7B]">—</span>
                       )}
                     </td>
 
@@ -472,11 +472,11 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                       ) : user.role === "talent" ? (
                         <FinancialCell
                           value={user.totalEarned}
-                          tone={user.totalEarned > 0 ? "text-emerald-700" : "text-zinc-300"}
+                          tone={user.totalEarned > 0 ? "text-emerald-700" : "text-[#647B7B]"}
                           note="ganhos confirmados"
                         />
                       ) : (
-                        <span className="text-[13px] text-zinc-300">—</span>
+                        <span className="text-[13px] text-[#647B7B]">—</span>
                       )}
                     </td>
 
@@ -484,21 +484,21 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                       {user.role === "agency" ? (
                         <FinancialCell
                           value={user.totalSpent}
-                          tone={user.totalSpent > 0 ? "text-zinc-900" : "text-zinc-300"}
+                          tone={user.totalSpent > 0 ? "text-zinc-900" : "text-[#647B7B]"}
                           note="gastos confirmados"
                         />
                       ) : (
-                        <span className="text-[13px] text-zinc-300">—</span>
+                        <span className="text-[13px] text-[#647B7B]">—</span>
                       )}
                     </td>
 
                     <td className="hidden px-4 py-4 text-right xl:table-cell">
                       {user.role === "admin" ? (
-                        <span className="text-[13px] text-zinc-300">—</span>
+                        <span className="text-[13px] text-[#647B7B]">—</span>
                       ) : (
                         <FinancialCell
                           value={user.commissionGenerated}
-                          tone={user.commissionGenerated > 0 ? "text-violet-700" : "text-zinc-300"}
+                          tone={user.commissionGenerated > 0 ? "text-violet-700" : "text-[#647B7B]"}
                           note="comissao da plataforma"
                         />
                       )}
@@ -581,3 +581,4 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
     </div>
   );
 }
+

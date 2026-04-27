@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
@@ -175,7 +175,7 @@ const TX_ICON: Record<string, React.ReactNode> = {
 function BrandBadge({ brand }: { brand: string | null }) {
   const BRAND_COLORS: Record<string, string> = {
     visa: "bg-[#1A1F71]", master: "bg-[#EB001B]", amex: "bg-[#2E77BC]",
-    elo: "bg-zinc-800", hiper: "bg-orange-600",
+    elo: "bg-[#2D4142]", hiper: "bg-orange-600",
   };
   const name = brand?.toLowerCase() ?? "";
   return (
@@ -458,7 +458,7 @@ function PlanChangeModal({
                     value={cvv}
                     onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
                     autoComplete="cc-csc"
-                    className="w-24 h-10 border border-zinc-200 rounded-xl px-3 bg-white text-[14px] text-zinc-900 text-center tabular-nums placeholder:text-zinc-300 focus:outline-none focus:border-zinc-400 transition-colors"
+                    className="w-24 h-10 border border-zinc-200 rounded-xl px-3 bg-white text-[14px] text-zinc-900 text-center tabular-nums placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 transition-colors"
                   />
                 </div>
               )}
@@ -513,8 +513,8 @@ function PlanChangeModal({
               className={[
                 "flex-1 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
                 isToFree || isDowngrade
-                  ? "bg-zinc-700 hover:bg-zinc-600"
-                  : "bg-zinc-900 hover:bg-zinc-800",
+                  ? "bg-[#647B7B] hover:bg-[#4A6262]"
+                  : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2]",
               ].join(" ")}
             >
               {submitting ? (
@@ -764,7 +764,7 @@ export default function BillingDashboard({
                         "w-full mt-auto text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer",
                         isDowngrade
                           ? "bg-zinc-500 hover:bg-zinc-600"
-                          : "bg-zinc-900 hover:bg-zinc-800",
+                          : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2]",
                       ].join(" ")}
                     >
                       {activePlan === "free"
@@ -884,3 +884,6 @@ export default function BillingDashboard({
     </div>
   );
 }
+
+
+

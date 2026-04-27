@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -219,7 +219,7 @@ export default function CreateTalentForm() {
             <div>
               <label className={labelClass}>
                 Bio
-                <span className={`ml-2 font-normal ${form.bio.length > 400 ? "text-rose-400" : "text-zinc-300"}`}>
+                <span className={`ml-2 font-normal ${form.bio.length > 400 ? "text-rose-400" : "text-[#647B7B]"}`}>
                   {form.bio.length}/400
                 </span>
               </label>
@@ -290,7 +290,7 @@ export default function CreateTalentForm() {
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed active:scale-[0.98] text-white text-[14px] font-semibold px-6 py-3 rounded-xl transition-all duration-150 shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-zinc-300 disabled:cursor-not-allowed active:scale-[0.98] text-white text-[14px] font-semibold px-6 py-3 rounded-xl transition-all duration-150 shadow-sm cursor-pointer"
           >
             {saving ? (
               <>
@@ -323,3 +323,5 @@ export default function CreateTalentForm() {
     </div>
   );
 }
+
+

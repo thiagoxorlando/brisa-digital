@@ -13,11 +13,11 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-[var(--brand-green)] text-[var(--brand-surface)] hover:bg-[var(--brand-green-strong)] active:scale-[0.98] border border-transparent shadow-[0_10px_24px_rgba(72,242,154,0.24)]",
+    "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.98] border border-transparent shadow-[0_8px_20px_rgba(26,188,156,0.28)]",
   secondary:
-    "bg-white text-zinc-800 border border-zinc-200 hover:bg-zinc-50 hover:border-zinc-300 active:scale-[0.98] shadow-sm",
+    "bg-white text-[#1F2D2E] border border-[#DDE6E6] hover:bg-[#E6F0F0] hover:border-[#B8D4D4] active:scale-[0.98] shadow-sm",
   ghost:
-    "bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border border-transparent",
+    "bg-transparent text-[#647B7B] hover:bg-[#E6F0F0] hover:text-[#1F2D2E] border border-transparent",
   danger:
     "bg-red-600 text-white hover:bg-red-700 active:scale-[0.98] border border-transparent shadow-sm",
 };
