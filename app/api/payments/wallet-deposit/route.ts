@@ -87,15 +87,15 @@ export async function POST(req: NextRequest) {
     solicitacaoPagador: "Deposito BrisaHub",
   };
 
-  console.log("[EFI PIX CREATE]", JSON.stringify({
-    txid,
-    value: numAmount.toFixed(2),
-  }, null, 2));
+  const cobPath = `/v2/cob/${txid}`;
 
-  // Build authenticated mTLS client
+  console.log("[EFI PIX CREATE]", JSON.stringify({ txid, value: numAmount.toFixed(2) }, null, 2));
+  console.log("[EFI PIX CREATE URL]", cobPath);
+
+  // Build authenticated mTLS client — PIX charge creation requires api.efipay.com.br
   let efi: Awaited<ReturnType<typeof getEfiClient>>;
   try {
-    efi = await getEfiClient();
+    efi = await getEfiClient("https://api.efipay.com.br");
   } catch (err) {
     await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
     console.error("[wallet-deposit] Efí client init failed:", String(err));
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
   // Create PIX charge — PUT /v2/cob/{txid}
   let cob: EfiCobResponse;
   try {
-    const res = await efi.put<EfiCobResponse>(`/v2/cob/${txid}`, cobPayload);
+    const res = await efi.put<EfiCobResponse>(cobPath, cobPayload);
     cob = res.data;
   } catch (err: unknown) {
     await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
