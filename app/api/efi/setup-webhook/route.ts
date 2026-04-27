@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "NEXT_PUBLIC_APP_URL not configured." }, { status: 500 });
   }
 
-  const webhookUrl = `${appUrl}/api/webhooks/efi`;
+  // ?ignorar= prevents Efí from appending /pix to the webhook URL.
+  const webhookUrl = `${appUrl}/api/webhooks/efi?ignorar=`;
 
   // Resolve cert — prefer file path, fall back to base64
   const certPath    = process.env.EFI_CERTIFICATE_PATH;
@@ -69,15 +70,12 @@ export async function GET(req: NextRequest) {
     validateMtls: false, // SDK sets x-skip-mtls-checking: true
   });
 
-  const webhookToken = process.env.EFI_WEBHOOK_TOKEN;
-
   try {
+    // Body must contain ONLY webhookUrl — Efí rejects any additional properties.
+    // x-skip-mtls-checking is sent as a request header by the SDK (validateMtls: false).
     const result = await efipay.pixConfigWebhook(
       { chave: pixKey },
-      {
-        webhookUrl,
-        ...(webhookToken ? { headers: { "pix-token": webhookToken } } : {}),
-      },
+      { webhookUrl },
     );
 
     console.log("[EFI WEBHOOK SETUP SUCCESS]", { webhookUrl, result });
