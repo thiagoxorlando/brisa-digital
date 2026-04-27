@@ -44,9 +44,11 @@ export async function GET() {
   }
 
   try {
-    const res = await efi.put(webhookPath, {
-      webhookUrl,
-    });
+    const res = await efi.put(
+      webhookPath,
+      { webhookUrl },
+      { headers: { "x-skip-mtls-checking": "true" } },
+    );
 
     console.log("[EFI WEBHOOK SETUP SUCCESS]", {
       pixKey,
