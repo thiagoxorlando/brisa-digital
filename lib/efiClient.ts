@@ -16,22 +16,36 @@ let _tokenCache: TokenCache | null = null;
 
 // ── HTTPS agent (mTLS) ────────────────────────────────────────────────────────
 
+function loadCertificate(): Buffer {
+  // Preferred (Vercel / production): base64-encoded cert in env var
+  if (process.env.EFI_CERT_BASE64) {
+    return Buffer.from(process.env.EFI_CERT_BASE64, "base64");
+  }
+
+  // Fallback (local dev): path to PFX file
+  const certPath = process.env.EFI_CERTIFICATE_PATH;
+  if (certPath) {
+    const resolved = path.isAbsolute(certPath)
+      ? certPath
+      : path.resolve(process.cwd(), certPath);
+
+    if (!fs.existsSync(resolved)) {
+      throw new Error(`[efiClient] Certificate not found at: ${resolved}`);
+    }
+
+    return fs.readFileSync(resolved);
+  }
+
+  throw new Error(
+    "[efiClient] No certificate configured. Set EFI_CERT_BASE64 (production) or EFI_CERTIFICATE_PATH (local dev).",
+  );
+}
+
 function getHttpsAgent(): https.Agent {
   if (_httpsAgent) return _httpsAgent;
 
-  const certPath = process.env.EFI_CERTIFICATE_PATH;
-  if (!certPath) throw new Error("[efiClient] EFI_CERTIFICATE_PATH is not set");
-
-  const resolved = path.isAbsolute(certPath)
-    ? certPath
-    : path.resolve(process.cwd(), certPath);
-
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`[efiClient] Certificate not found at: ${resolved}`);
-  }
-
   _httpsAgent = new https.Agent({
-    pfx:        fs.readFileSync(resolved),
+    pfx:        loadCertificate(),
     passphrase: "",
   });
 
