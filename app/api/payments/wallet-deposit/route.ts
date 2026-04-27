@@ -82,11 +82,11 @@ export async function POST(req: NextRequest) {
   const dueDateStr = dueDate.toISOString().split("T")[0];
 
   // Create PIX payment in Asaas
-  console.log("[ASAAS PAYMENT PAYLOAD]", {
+  console.log("[ASAAS PAYMENT PAYLOAD]", JSON.stringify({
     value:       numAmount,
     billingType: "PIX",
     customer:    asaasCustomerId,
-  });
+  }, null, 2));
 
   let payment: AsaasPayment;
   try {
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
     console.error("[ASAAS PAYMENT ERROR FULL]", {
       status: err instanceof AsaasApiError ? err.status : null,
-      body:   err instanceof AsaasApiError ? err.body   : String(err),
+      body:   JSON.stringify(err instanceof AsaasApiError ? err.body : String(err), null, 2),
     });
     return NextResponse.json({ error: "Erro ao criar pagamento PIX." }, { status: 502 });
   }
