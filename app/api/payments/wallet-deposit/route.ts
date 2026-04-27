@@ -100,6 +100,9 @@ export async function POST(req: NextRequest) {
         description:          `BrisaHub — Depósito de Saldo (${agencyName})`,
         externalReference:    txRecord.id,
         notificationDisabled: true,
+        email:                null,
+        sms:                  false,
+        postalService:        false,
       }),
     });
   } catch (err) {
