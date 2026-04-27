@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createServerClient } from "@/lib/supabase";
-
-// DB pix_key_type values → Asaas pixAddressKeyType enum
-const PIX_TYPE_MAP: Record<string, string> = {
-  cpf:    "CPF",
-  cnpj:   "CNPJ",
-  email:  "EMAIL",
-  phone:  "TELEFONE",
-  random: "EVP",
-};
+import { getEfiClient } from "@/lib/efiClient";
 
 // POST /api/admin/withdrawals/[id]/send-pix
-// Creates a PIX transfer via Asaas for a pending withdrawal.
-// Does NOT mark the withdrawal as paid — that happens via webhook on DONE status.
+// Creates a PIX transfer via Efí for a pending withdrawal.
+// Does NOT mark the withdrawal as paid — admin manually approves after confirming.
+
+interface EfiPixSendResponse {
+  identificadorPagamento?: string;
+  tipo?:                   string;
+  valor?:                  string;
+  status?:                 string;
+  [key: string]: unknown;
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -22,9 +23,11 @@ export async function POST(
   if (auth instanceof NextResponse) return auth;
 
   console.log("[send-pix env]", {
-    hasAsaasKey: Boolean(process.env.ASAAS_API_KEY),
-    asaasUrl: process.env.ASAAS_API_URL,
-    nodeEnv: process.env.NODE_ENV,
+    hasEfiClientId: Boolean(process.env.EFI_CLIENT_ID),
+    hasEfiSecret:   Boolean(process.env.EFI_CLIENT_SECRET),
+    hasCert:        Boolean(process.env.EFI_CERTIFICATE_PATH),
+    efiBaseUrl:     process.env.EFI_BASE_URL,
+    nodeEnv:        process.env.NODE_ENV,
   });
 
   const { id } = await params;
@@ -52,7 +55,6 @@ export async function POST(
     );
   }
 
-  // Idempotency guard: block if a transfer was already created for this tx
   if (tx.provider_transfer_id !== null) {
     return NextResponse.json(
       { error: "Transferência PIX já foi criada para este saque.", provider_transfer_id: tx.provider_transfer_id },
@@ -65,7 +67,7 @@ export async function POST(
     return NextResponse.json({ error: "net_amount inválido para este saque." }, { status: 422 });
   }
 
-  // ── 2. Fetch agency PIX data ──────────────────────────────────────────────────
+  // ── 2. Fetch agency PIX key ───────────────────────────────────────────────────
   const { data: agency, error: agencyError } = await supabase
     .from("agencies")
     .select("pix_key_type, pix_key_value")
@@ -83,117 +85,79 @@ export async function POST(
     return NextResponse.json({ error: "Agência não tem chave PIX configurada." }, { status: 422 });
   }
 
-  const pixAddressKeyType = PIX_TYPE_MAP[pix_key_type];
-  if (!pixAddressKeyType) {
-    console.error("[send-pix] unknown pix_key_type:", pix_key_type, { id });
-    return NextResponse.json({ error: `Tipo de chave PIX desconhecido: "${pix_key_type}".` }, { status: 422 });
-  }
+  // ── 3. Call Efí API — POST /v2/gn/pix/enviar ─────────────────────────────────
+  const pixPayload = {
+    valor:   Number(tx.net_amount).toFixed(2),
+    pagador: { chave: pix_key_value.trim() },
+  };
 
-  // ── 3. Call Asaas API ─────────────────────────────────────────────────────────
-  const asaasApiUrl = process.env.ASAAS_API_URL;
-  const asaasApiKey = process.env.ASAAS_API_KEY;
+  console.log("[PIX PAYLOAD]", JSON.stringify(pixPayload, null, 2));
 
-  if (!asaasApiUrl || !asaasApiKey) {
-    console.error("[send-pix] Asaas env vars not configured", { hasUrl: !!asaasApiUrl, hasKey: !!asaasApiKey });
-    return NextResponse.json({ error: "Integração Asaas não configurada." }, { status: 500 });
-  }
-
-  let asaasResponse: { id: string; status: string };
-
+  let efi: Awaited<ReturnType<typeof getEfiClient>>;
   try {
-    console.log("[PIX PAYLOAD]", JSON.stringify({
-      value: Number(tx.net_amount),
-      pixAddressKey: pix_key_value.trim(),
-      pixAddressKeyType,
-    }, null, 2));
-
-    const res = await fetch(`${asaasApiUrl}/transfers`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "BrisaHub/1.0",
-        "access_token": asaasApiKey,
-      },
-      body: JSON.stringify({
-        value:              Number(tx.net_amount),
-        pixAddressKey:      pix_key_value.trim(),
-        pixAddressKeyType,
-        description:        "Saque BrisaHub",
-      }),
-    });
-
-    const text = await res.text();
-    let data: any = null;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text;
-    }
-
-    if (!res.ok) {
-      console.error("[ASAAS ERROR FULL]", {
-        status: res.status,
-        body: JSON.stringify(data, null, 2),
-      });
-      return NextResponse.json(
-        { error: "Erro ao criar transferência PIX no Asaas." },
-        { status: 502 },
-      );
-    }
-
-    console.log("[ASAAS SUCCESS]", data);
-    asaasResponse = data;
+    efi = await getEfiClient();
   } catch (err) {
-    console.error("[send-pix] Asaas fetch failed:", err, { txId: id });
-    return NextResponse.json({ error: "Falha de conexão com Asaas." }, { status: 502 });
+    console.error("[send-pix] Efí client init failed:", String(err));
+    return NextResponse.json({ error: "Falha ao conectar com Efí." }, { status: 502 });
   }
 
-  if (!asaasResponse.id) {
-    console.error("[send-pix] Asaas response missing id:", asaasResponse, { txId: id });
-    return NextResponse.json({ error: "Resposta inválida do Asaas." }, { status: 502 });
+  let efiResponse: EfiPixSendResponse;
+  try {
+    const res = await efi.post<EfiPixSendResponse>("/v2/gn/pix/enviar", pixPayload);
+    efiResponse = res.data;
+    console.log("[EFI SUCCESS]", JSON.stringify(efiResponse, null, 2));
+  } catch (err: unknown) {
+    const axErr = err as { response?: { status?: number; data?: unknown } };
+    console.error("[EFI ERROR FULL]", {
+      status: axErr?.response?.status ?? null,
+      body:   JSON.stringify(axErr?.response?.data ?? String(err), null, 2),
+    });
+    return NextResponse.json({ error: "Erro ao criar transferência PIX no Efí." }, { status: 502 });
   }
 
-  // ── 4. Update wallet_transactions — only after Asaas succeeds ────────────────
+  // Use identificadorPagamento as the stable transfer reference
+  const transferId = efiResponse.identificadorPagamento ?? efiResponse.status ?? "efi-transfer";
+  const transferStatus = efiResponse.status ?? "processando";
+
+  // ── 4. Update wallet_transactions — only after Efí succeeds ──────────────────
   const { error: updateError } = await supabase
     .from("wallet_transactions")
     .update({
       status:               "processing",
-      provider:             "asaas",
-      provider_transfer_id: asaasResponse.id,
-      provider_status:      asaasResponse.status,
+      provider:             "efi",
+      provider_transfer_id: transferId,
+      provider_status:      transferStatus,
     })
     .eq("id", id);
 
   if (updateError) {
-    // Transfer was created at Asaas but we failed to persist the ID.
-    // Log with full context so this can be reconciled manually.
-    console.error("[send-pix] CRITICAL: Asaas transfer created but DB update failed:", {
-      txId:                id,
-      asaas_transfer_id:   asaasResponse.id,
-      asaas_status:        asaasResponse.status,
-      db_error:            updateError.message,
+    console.error("[send-pix] CRITICAL: Efí transfer created but DB update failed:", {
+      txId:        id,
+      transferId,
+      transferStatus,
+      db_error:    updateError.message,
     });
     return NextResponse.json(
       {
-        error:             "Transferência PIX criada no Asaas mas falhou ao salvar no banco. Verificar manualmente.",
-        asaas_transfer_id: asaasResponse.id,
+        error:       "Transferência PIX criada no Efí mas falhou ao salvar no banco. Verificar manualmente.",
+        transfer_id: transferId,
       },
       { status: 500 },
     );
   }
 
-  console.log("[send-pix] transfer created:", {
-    txId:              id,
-    asaas_transfer_id: asaasResponse.id,
-    asaas_status:      asaasResponse.status,
-    admin:             auth.userId,
+  console.log("[EFI TRANSFER]", {
+    txId:          id,
+    transferId,
+    transferStatus,
+    admin:         auth.userId,
   });
 
   return NextResponse.json({
-    ok:                true,
+    ok:             true,
     id,
-    status:            "processing",
-    asaas_transfer_id: asaasResponse.id,
-    asaas_status:      asaasResponse.status,
+    status:         "processing",
+    efi_transfer_id: transferId,
+    efi_status:      transferStatus,
   });
 }

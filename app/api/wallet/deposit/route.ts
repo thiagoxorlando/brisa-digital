@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
-import { ensureAsaasCustomer, AsaasCustomerError } from "@/lib/asaasCustomer";
-import { asaas, AsaasApiError } from "@/lib/asaasClient";
+import { getEfiClient } from "@/lib/efiClient";
 
 // POST /api/wallet/deposit
 // Body: { amount: number, email?: string }
-// Returns: { qr_code, qr_code_base64, payment_id, tx_id, creditAmount, fee, totalCharged }
 // Duplicate entry-point for wallet PIX deposit — same logic as /api/payments/wallet-deposit.
+// Returns: { qr_code, qr_code_base64, payment_id, tx_id, creditAmount, fee, totalCharged }
 
-interface AsaasPayment { id: string; status: string }
-interface AsaasPixQrCode { encodedImage: string; payload: string; expirationDate: string }
+interface EfiCobResponse {
+  txid: string;
+  loc:  { id: number; location: string; tipoCob: string };
+  status: string;
+}
+
+interface EfiQrCodeResponse {
+  qrcode:       string;
+  imagemQrcode: string;
+}
 
 export async function POST(req: NextRequest) {
   const session = await createSessionClient();
@@ -24,21 +32,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
   }
 
-  if (!process.env.ASAAS_API_KEY || !process.env.ASAAS_API_URL) {
-    console.error("[wallet/deposit] Asaas env vars not configured");
+  const pixKey = process.env.EFI_PIX_KEY;
+  if (
+    !process.env.EFI_CLIENT_ID       ||
+    !process.env.EFI_CLIENT_SECRET    ||
+    !process.env.EFI_CERTIFICATE_PATH ||
+    !pixKey
+  ) {
+    console.error("[wallet/deposit] Efí env vars not fully configured");
     return NextResponse.json({ error: "Integração de pagamento não configurada." }, { status: 500 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
-
-  const { data: agency } = await supabase
-    .from("agencies")
-    .select("company_name")
-    .eq("id", user.id)
-    .single();
-  const agencyName = agency?.company_name ?? "Agência";
-
-  const email: string = body.email ?? user.email ?? "deposito@brisahub.com.br";
 
   const { data: txRecord, error: txErr } = await supabase
     .from("wallet_transactions")
@@ -47,7 +52,7 @@ export async function POST(req: NextRequest) {
       type:        "deposit",
       amount,
       description: "Depósito via PIX (pendente)",
-      provider:    "asaas",
+      provider:    "efi",
     })
     .select("id")
     .single();
@@ -57,73 +62,66 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not create deposit record" }, { status: 500 });
   }
 
-  let asaasCustomerId: string;
+  const txid = randomUUID().replace(/-/g, "");
+
+  const cobPayload = {
+    calendario:         { expiracao: 3600 },
+    valor:              { original: amount.toFixed(2) },
+    chave:              pixKey,
+    solicitacaoPagador: "Deposito BrisaHub",
+  };
+
+  console.log("[EFI PIX CREATE]", JSON.stringify({ txid, value: amount.toFixed(2) }, null, 2));
+
+  let efi: Awaited<ReturnType<typeof getEfiClient>>;
   try {
-    asaasCustomerId = await ensureAsaasCustomer(user.id, agencyName, email);
+    efi = await getEfiClient();
   } catch (err) {
     await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
-    console.error(
-      "[wallet/deposit] Asaas customer error:",
-      err instanceof AsaasCustomerError ? err.message : String(err),
-    );
-    return NextResponse.json({ error: "Erro ao configurar cliente de pagamento." }, { status: 500 });
+    console.error("[wallet/deposit] Efí client init failed:", String(err));
+    return NextResponse.json({ error: "Erro ao conectar com provedor de pagamento." }, { status: 500 });
   }
 
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + 1);
-  const dueDateStr = dueDate.toISOString().split("T")[0];
-
-  console.log("[ASAAS PAYMENT PAYLOAD]", JSON.stringify({
-    value:       amount,
-    billingType: "PIX",
-    customer:    asaasCustomerId,
-  }, null, 2));
-
-  let payment: AsaasPayment;
+  let cob: EfiCobResponse;
   try {
-    payment = await asaas<AsaasPayment>("/payments", {
-      method: "POST",
-      body:   JSON.stringify({
-        customer:          asaasCustomerId,
-        billingType:       "PIX",
-        value:             amount,
-        dueDate:           dueDateStr,
-        description:       agencyName
-          ? `BrisaHub — Depósito de Saldo (${agencyName})`
-          : "BrisaHub — Depósito de Saldo",
-        externalReference: txRecord.id,
-      }),
-    });
-  } catch (err) {
+    const res = await efi.put<EfiCobResponse>(`/v2/cob/${txid}`, cobPayload);
+    cob = res.data;
+  } catch (err: unknown) {
     await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
-    console.error("[ASAAS PAYMENT ERROR FULL]", {
-      status: err instanceof AsaasApiError ? err.status : null,
-      body:   JSON.stringify(err instanceof AsaasApiError ? err.body : String(err), null, 2),
+    const axErr = err as { response?: { status?: number; data?: unknown } };
+    console.error("[EFI PAYMENT ERROR FULL]", {
+      status: axErr?.response?.status ?? null,
+      body:   JSON.stringify(axErr?.response?.data ?? String(err), null, 2),
     });
     return NextResponse.json({ error: "Failed to create PIX payment" }, { status: 502 });
   }
 
   await supabase
     .from("wallet_transactions")
-    .update({ payment_id: payment.id })
+    .update({ payment_id: txid })
     .eq("id", txRecord.id);
 
-  let pixQr: AsaasPixQrCode | null = null;
+  let qrData: EfiQrCodeResponse | null = null;
   try {
-    pixQr = await asaas<AsaasPixQrCode>(`/payments/${payment.id}/pixQrCode`);
-  } catch (err) {
+    const qrRes = await efi.get<EfiQrCodeResponse>(`/v2/loc/${cob.loc.id}/qrcode`);
+    qrData = qrRes.data;
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: unknown } };
     console.error(
-      "[wallet/deposit] PIX QR fetch failed (non-fatal):",
-      err instanceof AsaasApiError ? JSON.stringify(err.body) : String(err),
+      "[wallet/deposit] Efí QR fetch failed (non-fatal):",
+      JSON.stringify(axErr?.response?.data ?? String(err)),
     );
   }
 
-  console.log("[wallet/deposit] Asaas PIX created:", payment.id, "tx:", txRecord.id);
+  const rawBase64 = qrData?.imagemQrcode
+    ?.replace(/^data:image\/[^;]+;base64,/, "") ?? null;
+
+  console.log("[wallet/deposit] Efí PIX created — txid:", txid, "tx:", txRecord.id);
 
   return NextResponse.json({
-    qr_code:        pixQr?.payload      ?? null,
-    qr_code_base64: pixQr?.encodedImage ?? null,
-    payment_id:     payment.id,
+    qr_code:        qrData?.qrcode ?? null,
+    qr_code_base64: rawBase64,
+    payment_id:     txid,
     tx_id:          txRecord.id,
     creditAmount:   amount,
     fee:            0,

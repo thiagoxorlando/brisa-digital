@@ -1,18 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
-import { ensureAsaasCustomer, AsaasCustomerError } from "@/lib/asaasCustomer";
-import { asaas, AsaasApiError } from "@/lib/asaasClient";
+import { getEfiClient } from "@/lib/efiClient";
 
 // POST /api/payments/wallet-deposit
 // Body: { amount: number }
-// Creates an Asaas PIX charge to top up the agency's platform wallet balance.
-// Returns: { qr_code, qr_code_base64, payment_id, tx_id, creditAmount, fee, totalCharged }
-// qr_code        = PIX copia-e-cola text (Asaas "payload")
-// qr_code_base64 = base64 QR image      (Asaas "encodedImage")
+// Creates an Efí PIX charge to top up the agency's platform wallet balance.
+//
+// Response shape (unchanged from previous provider):
+//   qr_code        — PIX copia-e-cola text     (Efí: qrcode)
+//   qr_code_base64 — raw base64 QR image       (Efí: imagemQrcode, prefix stripped)
+//   payment_id     — txid used to track payment
+//   tx_id          — internal wallet_transactions UUID
+//   creditAmount   — amount credited to wallet
+//   fee            — 0 (platform absorbs Efí fees)
+//   totalCharged   — same as creditAmount
 
-interface AsaasPayment { id: string; status: string }
-interface AsaasPixQrCode { encodedImage: string; payload: string; expirationDate: string }
+interface EfiCobResponse {
+  txid: string;
+  loc:  { id: number; location: string; tipoCob: string };
+  status: string;
+}
+
+interface EfiQrCodeResponse {
+  qrcode:       string; // PIX copia-e-cola (copy-paste text)
+  imagemQrcode: string; // "data:image/png;base64,<base64>" or raw base64
+}
 
 export async function POST(req: NextRequest) {
   const body      = await req.json();
@@ -26,22 +40,26 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!process.env.ASAAS_API_KEY || !process.env.ASAAS_API_URL) {
-    console.error("[wallet-deposit] Asaas env vars not configured");
+  // Validate required env vars up front
+  const pixKey = process.env.EFI_PIX_KEY;
+  if (
+    !process.env.EFI_CLIENT_ID        ||
+    !process.env.EFI_CLIENT_SECRET     ||
+    !process.env.EFI_CERTIFICATE_PATH  ||
+    !pixKey
+  ) {
+    console.error("[wallet-deposit] Efí env vars not fully configured", {
+      hasClientId:    Boolean(process.env.EFI_CLIENT_ID),
+      hasSecret:      Boolean(process.env.EFI_CLIENT_SECRET),
+      hasCert:        Boolean(process.env.EFI_CERTIFICATE_PATH),
+      hasPixKey:      Boolean(pixKey),
+    });
     return NextResponse.json({ error: "Integração de pagamento não configurada." }, { status: 500 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const { data: agency } = await supabase
-    .from("agencies")
-    .select("company_name")
-    .eq("id", user.id)
-    .single();
-  const agencyName = agency?.company_name ?? "Agência";
-
-  // Pre-insert a pending transaction as the stable idempotency anchor.
-  // amount = numAmount (no fee pass-through with Asaas — platform absorbs any fees).
+  // Pre-insert pending transaction as stable idempotency anchor
   const { data: txRecord, error: txErr } = await supabase
     .from("wallet_transactions")
     .insert({
@@ -49,7 +67,7 @@ export async function POST(req: NextRequest) {
       type:        "deposit",
       amount:      numAmount,
       description: "Depósito PIX — aguardando confirmação",
-      provider:    "asaas",
+      provider:    "efi",
     })
     .select("id")
     .single();
@@ -59,79 +77,76 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not create deposit record" }, { status: 500 });
   }
 
-  // Ensure Asaas customer (search-or-create, cached in profiles.asaas_customer_id)
-  let asaasCustomerId: string;
-  try {
-    asaasCustomerId = await ensureAsaasCustomer(
-      user.id,
-      agencyName,
-      user.email ?? "deposito@brisahub.com.br",
-    );
-  } catch (err) {
-    await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
-    console.error(
-      "[wallet-deposit] Asaas customer error:",
-      err instanceof AsaasCustomerError ? err.message : String(err),
-    );
-    return NextResponse.json({ error: "Erro ao configurar cliente de pagamento." }, { status: 500 });
-  }
+  // Efí txid: alphanumeric, 26–35 chars — UUID without hyphens = 32 chars
+  const txid = randomUUID().replace(/-/g, "");
 
-  // Due date: tomorrow (Asaas PIX expires at end of due date)
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + 1);
-  const dueDateStr = dueDate.toISOString().split("T")[0];
-
-  // Create PIX payment in Asaas
-  const payload = {
-    customer:             asaasCustomerId,
-    billingType:          "PIX",
-    value:                numAmount,
-    dueDate:              dueDateStr,
-    description:          "Depósito de saldo",
-    externalReference:    txRecord.id,
-    notificationDisabled: true,
+  const cobPayload = {
+    calendario:         { expiracao: 3600 },
+    valor:              { original: numAmount.toFixed(2) },
+    chave:              pixKey,
+    solicitacaoPagador: "Deposito BrisaHub",
   };
 
-  console.log("[ASAAS PAYMENT PAYLOAD FINAL]", payload);
+  console.log("[EFI PIX CREATE]", JSON.stringify({
+    txid,
+    value: numAmount.toFixed(2),
+  }, null, 2));
 
-  let payment: AsaasPayment;
+  // Build authenticated mTLS client
+  let efi: Awaited<ReturnType<typeof getEfiClient>>;
   try {
-    payment = await asaas<AsaasPayment>("/payments", {
-      method: "POST",
-      body:   JSON.stringify(payload),
-    });
+    efi = await getEfiClient();
   } catch (err) {
     await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
-    console.error("[ASAAS PAYMENT ERROR FULL]", {
-      status: err instanceof AsaasApiError ? err.status : null,
-      body:   JSON.stringify(err instanceof AsaasApiError ? err.body : String(err), null, 2),
+    console.error("[wallet-deposit] Efí client init failed:", String(err));
+    return NextResponse.json({ error: "Erro ao conectar com provedor de pagamento." }, { status: 500 });
+  }
+
+  // Create PIX charge — PUT /v2/cob/{txid}
+  let cob: EfiCobResponse;
+  try {
+    const res = await efi.put<EfiCobResponse>(`/v2/cob/${txid}`, cobPayload);
+    cob = res.data;
+  } catch (err: unknown) {
+    await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
+    const axErr = err as { response?: { status?: number; data?: unknown } };
+    console.error("[EFI PAYMENT ERROR FULL]", {
+      status: axErr?.response?.status ?? null,
+      body:   JSON.stringify(axErr?.response?.data ?? String(err), null, 2),
     });
     return NextResponse.json({ error: "Erro ao criar pagamento PIX." }, { status: 502 });
   }
 
-  // Attach Asaas payment ID to the transaction so the webhook can find it
+  // Store txid as payment_id so the webhook can find this transaction
   await supabase
     .from("wallet_transactions")
-    .update({ payment_id: payment.id })
+    .update({ payment_id: txid })
     .eq("id", txRecord.id);
 
-  // Fetch PIX QR code (non-fatal — UI falls back to text-only if image missing)
-  let pixQr: AsaasPixQrCode | null = null;
+  // Fetch QR code — GET /v2/loc/{loc.id}/qrcode
+  let qrData: EfiQrCodeResponse | null = null;
   try {
-    pixQr = await asaas<AsaasPixQrCode>(`/payments/${payment.id}/pixQrCode`);
-  } catch (err) {
+    const qrRes = await efi.get<EfiQrCodeResponse>(`/v2/loc/${cob.loc.id}/qrcode`);
+    qrData = qrRes.data;
+  } catch (err: unknown) {
+    const axErr = err as { response?: { data?: unknown } };
     console.error(
-      "[wallet-deposit] PIX QR fetch failed (non-fatal):",
-      err instanceof AsaasApiError ? JSON.stringify(err.body) : String(err),
+      "[wallet-deposit] Efí QR fetch failed (non-fatal):",
+      JSON.stringify(axErr?.response?.data ?? String(err)),
     );
   }
 
-  console.log("[wallet-deposit] Asaas PIX created:", payment.id, "tx:", txRecord.id);
+  // imagemQrcode includes "data:image/png;base64," prefix — strip it
+  // WalletDepositModal adds the prefix back: src={`data:image/png;base64,${qrCodeBase64}`}
+  const rawBase64 = qrData?.imagemQrcode
+    ?.replace(/^data:image\/[^;]+;base64,/, "") ?? null;
+
+  console.log("[wallet-deposit] Efí PIX created — txid:", txid, "tx:", txRecord.id);
 
   return NextResponse.json({
-    qr_code:        pixQr?.payload      ?? null,
-    qr_code_base64: pixQr?.encodedImage ?? null,
-    payment_id:     payment.id,
+    qr_code:        qrData?.qrcode ?? null,
+    qr_code_base64: rawBase64,
+    payment_id:     txid,
     tx_id:          txRecord.id,
     creditAmount:   numAmount,
     fee:            0,
