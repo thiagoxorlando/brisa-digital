@@ -17,9 +17,19 @@ let _tokenCache: TokenCache | null = null;
 // ── HTTPS agent (mTLS) ────────────────────────────────────────────────────────
 
 function loadCertificate(): Buffer {
+  console.log("[EFI CLIENT INIT]", {
+    hasClientId:    Boolean(process.env.EFI_CLIENT_ID),
+    hasSecret:      Boolean(process.env.EFI_CLIENT_SECRET),
+    hasCertBase64:  Boolean(process.env.EFI_CERT_BASE64),
+    hasCertPath:    Boolean(process.env.EFI_CERTIFICATE_PATH),
+    baseUrl:        process.env.EFI_BASE_URL ?? "(not set)",
+  });
+
   // Preferred (Vercel / production): base64-encoded cert in env var
   if (process.env.EFI_CERT_BASE64) {
-    return Buffer.from(process.env.EFI_CERT_BASE64, "base64");
+    const buf = Buffer.from(process.env.EFI_CERT_BASE64, "base64");
+    console.log("[EFI CLIENT INIT] cert source: EFI_CERT_BASE64, buffer length:", buf.length);
+    return buf;
   }
 
   // Fallback (local dev): path to PFX file
@@ -33,7 +43,9 @@ function loadCertificate(): Buffer {
       throw new Error(`[efiClient] Certificate not found at: ${resolved}`);
     }
 
-    return fs.readFileSync(resolved);
+    const buf = fs.readFileSync(resolved);
+    console.log("[EFI CLIENT INIT] cert source: EFI_CERTIFICATE_PATH, buffer length:", buf.length);
+    return buf;
   }
 
   throw new Error(

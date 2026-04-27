@@ -25,8 +25,15 @@ export async function GET() {
   let efi: Awaited<ReturnType<typeof getEfiClient>>;
   try {
     efi = await getEfiClient();
-  } catch (err) {
-    console.error("[EFI WEBHOOK SETUP ERROR] client init failed:", String(err));
+  } catch (err: unknown) {
+    const error = err as { message?: string; code?: string; stack?: string; response?: { status?: number; data?: unknown } };
+    console.error("[EFI SETUP WEBHOOK ERROR FULL]", {
+      message:        error?.message,
+      code:           error?.code,
+      responseStatus: error?.response?.status,
+      responseData:   error?.response?.data,
+      stack:          error?.stack,
+    });
     return NextResponse.json({ error: "Falha ao conectar com Efí." }, { status: 500 });
   }
 
@@ -49,19 +56,20 @@ export async function GET() {
       efi_data:   res.data,
     });
   } catch (err: unknown) {
-    const axErr = err as { response?: { status?: number; data?: unknown } };
-    console.error("[EFI WEBHOOK SETUP ERROR]", {
-      pixKey,
-      webhookUrl,
-      status: axErr?.response?.status ?? null,
-      body:   JSON.stringify(axErr?.response?.data ?? String(err), null, 2),
+    const error = err as { message?: string; code?: string; stack?: string; response?: { status?: number; data?: unknown } };
+    console.error("[EFI SETUP WEBHOOK ERROR FULL]", {
+      message:        error?.message,
+      code:           error?.code,
+      responseStatus: error?.response?.status,
+      responseData:   JSON.stringify(error?.response?.data ?? null, null, 2),
+      stack:          error?.stack,
     });
 
     return NextResponse.json(
       {
         error:      "Falha ao registrar webhook no Efí.",
-        efi_status: axErr?.response?.status ?? null,
-        efi_data:   axErr?.response?.data   ?? null,
+        efi_status: error?.response?.status ?? null,
+        efi_data:   error?.response?.data   ?? null,
       },
       { status: 502 },
     );
