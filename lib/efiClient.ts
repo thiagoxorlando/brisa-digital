@@ -25,14 +25,7 @@ function loadCertificate(): Buffer {
     baseUrl:        process.env.EFI_BASE_URL ?? "(not set)",
   });
 
-  // Preferred (Vercel / production): base64-encoded cert in env var
-  if (process.env.EFI_CERT_BASE64) {
-    const buf = Buffer.from(process.env.EFI_CERT_BASE64, "base64");
-    console.log("[EFI CLIENT INIT] cert source: EFI_CERT_BASE64, buffer length:", buf.length);
-    return buf;
-  }
-
-  // Fallback (local dev): path to PFX file
+  // Preferred: path to PFX file on disk
   const certPath = process.env.EFI_CERTIFICATE_PATH;
   if (certPath) {
     const resolved = path.isAbsolute(certPath)
@@ -44,12 +37,19 @@ function loadCertificate(): Buffer {
     }
 
     const buf = fs.readFileSync(resolved);
-    console.log("[EFI CLIENT INIT] cert source: EFI_CERTIFICATE_PATH, buffer length:", buf.length);
+    console.log("[EFI CLIENT INIT] cert source: EFI_CERTIFICATE_PATH, path:", resolved, "buffer length:", buf.length);
+    return buf;
+  }
+
+  // Fallback: base64-encoded cert in env var
+  if (process.env.EFI_CERT_BASE64) {
+    const buf = Buffer.from(process.env.EFI_CERT_BASE64, "base64");
+    console.log("[EFI CLIENT INIT] cert source: EFI_CERT_BASE64, buffer length:", buf.length);
     return buf;
   }
 
   throw new Error(
-    "[efiClient] No certificate configured. Set EFI_CERT_BASE64 (production) or EFI_CERTIFICATE_PATH (local dev).",
+    "[efiClient] No certificate configured. Set EFI_CERTIFICATE_PATH (preferred) or EFI_CERT_BASE64 (fallback).",
   );
 }
 
