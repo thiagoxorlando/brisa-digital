@@ -101,6 +101,12 @@ export async function POST(
   let asaasResponse: { id: string; status: string };
 
   try {
+    console.log("[PIX PAYLOAD]", JSON.stringify({
+      value: Number(tx.net_amount),
+      pixAddressKey: pix_key_value.trim(),
+      pixAddressKeyType,
+    }, null, 2));
+
     const res = await fetch(`${asaasApiUrl}/transfers`, {
       method: "POST",
       headers: {
@@ -116,12 +122,21 @@ export async function POST(
       }),
     });
 
-    const data = await res.json().catch(() => null);
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
 
     if (!res.ok) {
-      console.error("[ASAAS ERROR]", { status: res.status, data, txId: id });
+      console.error("[ASAAS ERROR FULL]", {
+        status: res.status,
+        body: JSON.stringify(data, null, 2),
+      });
       return NextResponse.json(
-        { error: "Erro ao criar transferência PIX no Asaas.", asaas_status: res.status },
+        { error: "Erro ao criar transferência PIX no Asaas." },
         { status: 502 },
       );
     }
