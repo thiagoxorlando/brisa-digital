@@ -1,36 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MercadoPagoConfig, Payment } from "mercadopago";
-import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
-import { calcFeeBreakdown, PIX_FEE_RATE } from "@/lib/mp-fees";
+import { createSessionClient } from "@/lib/supabase.server";
+import { ensureAsaasCustomer, AsaasCustomerError } from "@/lib/asaasCustomer";
+import { asaas, AsaasApiError } from "@/lib/asaasClient";
 
 // POST /api/wallet/deposit
 // Body: { amount: number, email?: string }
 // Returns: { qr_code, qr_code_base64, payment_id, tx_id, creditAmount, fee, totalCharged }
+// Duplicate entry-point for wallet PIX deposit — same logic as /api/payments/wallet-deposit.
+
+interface AsaasPayment { id: string; status: string }
+interface AsaasPixQrCode { encodedImage: string; payload: string; expirationDate: string }
 
 export async function POST(req: NextRequest) {
-  // ── Auth ──────────────────────────────────────────────────────────────────
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = await req.json();
+  const body   = await req.json();
   const amount = Number(body.amount);
 
   if (!amount || amount <= 0) {
     return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
   }
 
-  const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-  if (!accessToken) {
-    return NextResponse.json({ error: "MERCADO_PAGO_ACCESS_TOKEN is not configured" }, { status: 500 });
+  if (!process.env.ASAAS_API_KEY || !process.env.ASAAS_API_URL) {
+    console.error("[wallet/deposit] Asaas env vars not configured");
+    return NextResponse.json({ error: "Integração de pagamento não configurada." }, { status: 500 });
   }
-
-  // ── Resolve payer email and agency name ───────────────────────────────────
-  const email: string = body.email ?? user.email ?? "deposito@brisahub.com.br";
 
   const supabase = createServerClient({ useServiceRole: true });
 
@@ -39,22 +36,18 @@ export async function POST(req: NextRequest) {
     .select("company_name")
     .eq("id", user.id)
     .single();
-  const agencyName = agency?.company_name ?? null;
+  const agencyName = agency?.company_name ?? "Agência";
 
-  // ── Fee breakdown ─────────────────────────────────────────────────────────
-  // When PIX_FEE_RATE = 0 (default), totalCharged = creditAmount = amount.
-  // Set MERCADO_PAGO_PIX_FEE_RATE in .env.local to pass the fee to the payer.
-  const { creditAmount, fee, totalCharged } = calcFeeBreakdown(amount, PIX_FEE_RATE);
+  const email: string = body.email ?? user.email ?? "deposito@brisahub.com.br";
 
-  // Pre-insert a pending transaction to get a stable idempotency key.
-  // amount = creditAmount — what will be credited to the wallet on approval.
   const { data: txRecord, error: txErr } = await supabase
     .from("wallet_transactions")
     .insert({
       user_id:     user.id,
       type:        "deposit",
-      amount:      creditAmount,
+      amount,
       description: "Depósito via PIX (pendente)",
+      provider:    "asaas",
     })
     .select("id")
     .single();
@@ -64,59 +57,68 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not create deposit record" }, { status: 500 });
   }
 
-  // ── Create PIX payment ────────────────────────────────────────────────────
-  const client        = new MercadoPagoConfig({ accessToken });
-  const paymentClient = new Payment(client);
-  const appUrl        = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
-  let result;
+  let asaasCustomerId: string;
   try {
-    result = await paymentClient.create({
-      body: {
-        transaction_amount: totalCharged,
-        description:        agencyName
+    asaasCustomerId = await ensureAsaasCustomer(user.id, agencyName, email);
+  } catch (err) {
+    await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
+    console.error(
+      "[wallet/deposit] Asaas customer error:",
+      err instanceof AsaasCustomerError ? err.message : String(err),
+    );
+    return NextResponse.json({ error: "Erro ao configurar cliente de pagamento." }, { status: 500 });
+  }
+
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + 1);
+  const dueDateStr = dueDate.toISOString().split("T")[0];
+
+  let payment: AsaasPayment;
+  try {
+    payment = await asaas<AsaasPayment>("/payments", {
+      method: "POST",
+      body:   JSON.stringify({
+        customer:          asaasCustomerId,
+        billingType:       "PIX",
+        value:             amount,
+        dueDate:           dueDateStr,
+        description:       agencyName
           ? `BrisaHub — Depósito de Saldo (${agencyName})`
           : "BrisaHub — Depósito de Saldo",
-        payment_method_id:  "pix",
-        payer: {
-          email,
-          first_name: agencyName ?? undefined,
-        },
-        metadata: {
-          type:                   "wallet_deposit",
-          user_id:                user.id,
-          agency_id:              user.id,
-          tx_id:                  txRecord.id,
-          intended_credit_amount: String(creditAmount),
-        },
-        notification_url: `${appUrl}/api/webhooks/mercadopago`,
-      },
-      requestOptions: { idempotencyKey: `wallet-deposit:${txRecord.id}` },
+        externalReference: txRecord.id,
+      }),
     });
   } catch (err) {
-    console.error("[wallet/deposit] Mercado Pago error:", err);
     await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
+    const errBody = err instanceof AsaasApiError ? err.body : String(err);
+    console.error("[wallet/deposit] Asaas create payment failed:", JSON.stringify(errBody, null, 2));
     return NextResponse.json({ error: "Failed to create PIX payment" }, { status: 502 });
   }
 
-  const txData       = result.point_of_interaction?.transaction_data ?? {};
-  const qrCode       = txData.qr_code        ?? null;
-  const qrCodeBase64 = txData.qr_code_base64 ?? null;
-  const paymentId    = result.id!;
-
-  // Attach the MP payment_id so the webhook can match this transaction later
   await supabase
     .from("wallet_transactions")
-    .update({ payment_id: String(paymentId) })
+    .update({ payment_id: payment.id })
     .eq("id", txRecord.id);
 
+  let pixQr: AsaasPixQrCode | null = null;
+  try {
+    pixQr = await asaas<AsaasPixQrCode>(`/payments/${payment.id}/pixQrCode`);
+  } catch (err) {
+    console.error(
+      "[wallet/deposit] PIX QR fetch failed (non-fatal):",
+      err instanceof AsaasApiError ? JSON.stringify(err.body) : String(err),
+    );
+  }
+
+  console.log("[wallet/deposit] Asaas PIX created:", payment.id, "tx:", txRecord.id);
+
   return NextResponse.json({
-    qr_code:        qrCode,
-    qr_code_base64: qrCodeBase64,
-    payment_id:     paymentId,
+    qr_code:        pixQr?.payload      ?? null,
+    qr_code_base64: pixQr?.encodedImage ?? null,
+    payment_id:     payment.id,
     tx_id:          txRecord.id,
-    creditAmount,
-    fee,
-    totalCharged,
+    creditAmount:   amount,
+    fee:            0,
+    totalCharged:   amount,
   });
 }
