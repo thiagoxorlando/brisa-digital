@@ -112,12 +112,12 @@ async function getToken(agent: https.Agent): Promise<string> {
  * Returns an axios instance pre-configured with:
  *   - mTLS HTTPS agent (PFX certificate)
  *   - Bearer access_token (auto-refreshed before expiry)
- *   - baseURL set to EFI_BASE_URL
+ *   - baseURL defaults to EFI_BASE_URL; pass baseUrlOverride to target a different host
  */
-export async function getEfiClient(): Promise<AxiosInstance> {
+export async function getEfiClient(baseUrlOverride?: string): Promise<AxiosInstance> {
   const agent   = getHttpsAgent();
   const token   = await getToken(agent);
-  const baseUrl = process.env.EFI_BASE_URL ?? "https://api.efipay.com.br";
+  const baseUrl = baseUrlOverride ?? process.env.EFI_BASE_URL ?? "https://api.efipay.com.br";
 
   return axios.create({
     baseURL:    baseUrl,

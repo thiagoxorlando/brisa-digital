@@ -22,9 +22,15 @@ export async function GET() {
 
   const webhookUrl = `${appUrl}/api/webhooks/efi`;
 
+  // Webhook registration requires the main API host, not the PIX-specific host.
+  const webhookBaseUrl = "https://api.efipay.com.br";
+  const webhookPath    = `/v2/webhook/${pixKey}`;
+
+  console.log("[EFI SETUP WEBHOOK] calling", `${webhookBaseUrl}${webhookPath}`, { webhookUrl });
+
   let efi: Awaited<ReturnType<typeof getEfiClient>>;
   try {
-    efi = await getEfiClient();
+    efi = await getEfiClient(webhookBaseUrl);
   } catch (err: unknown) {
     const error = err as { message?: string; code?: string; stack?: string; response?: { status?: number; data?: unknown } };
     console.error("[EFI SETUP WEBHOOK ERROR FULL]", {
@@ -38,7 +44,7 @@ export async function GET() {
   }
 
   try {
-    const res = await efi.put(`/v2/webhook/${pixKey}`, {
+    const res = await efi.put(webhookPath, {
       webhookUrl,
     });
 
