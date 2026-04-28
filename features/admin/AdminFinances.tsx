@@ -697,15 +697,23 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
     setSendingPix(id);
     setError(null);
     const res = await fetch(`/api/admin/withdrawals/${id}/send-pix`, { method: "POST" });
-    const data = await res.json().catch(() => ({})) as { error?: string };
+    const data = await res.json().catch(() => ({})) as { error?: string; status?: string };
     setSendingPix(null);
     if (!res.ok) {
       setError(data.error ?? "Erro ao enviar PIX.");
       return;
     }
+    const savedStatus = data.status ?? "processing";
     setRows((current) =>
       current.map((w) => w.id === id
-        ? { ...w, status: "paid", processedAt: new Date().toISOString(), adminNote: "PIX enviado automaticamente via Efí" }
+        ? {
+            ...w,
+            status:      savedStatus,
+            adminNote:   savedStatus === "paid"
+              ? "PIX confirmado via Efí"
+              : "PIX enviado via Efí, aguardando confirmação",
+            processedAt: savedStatus === "paid" ? new Date().toISOString() : w.processedAt,
+          }
         : w),
     );
     router.refresh();
@@ -904,7 +912,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                         PIX em andamento
                       </span>
                     )}
-                    {w.status === "pending" && (
+                    {(w.status === "pending" || w.status === "processing") && (
                       <button onClick={() => { setApproving(w.id); setApproveNote(""); setError(null); }} disabled={canceling === w.id || sendingPix === w.id}
                         className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
                         Marcar como pago
