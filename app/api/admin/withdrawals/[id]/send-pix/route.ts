@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createServerClient } from "@/lib/supabase";
-import { getEfiPixClient } from "@/lib/efiClient";
+import { getEfiSdk } from "@/lib/efiSdk";
 
 // POST /api/admin/withdrawals/[id]/send-pix
-// Sends PIX via Efí and saves "processing" or "paid" depending on Efí response.
-// "processando" from Efí → status "processing" (money in flight, not yet confirmed).
-// Confirmed terminal statuses → status "paid".
+// Sends PIX via Efí SDK (PUT /v3/gn/pix/:idEnvio on pix.api.efipay.com.br).
+// Uses the withdrawal's own UUID as idEnvio for built-in idempotency.
+// Saves "processing" when Efí returns "processando"; "paid" only on terminal success.
 
 interface EfiPixSendResponse {
-  idEnvio?:               string; // Efí's unique reference for the outbound transfer
-  identificadorPagamento?: string;
-  tipo?:                   string;
-  valor?:                  string;
-  status?:                 string;
-  [key: string]: unknown;
+  idEnvio?: string;
+  e2eId?:   string;
+  valor?:   string;
+  horario?: { solicitacao?: string };
+  status?:  string;
 }
 
-// Efí statuses that mean the transfer is definitively completed.
+// Efí statuses that mean the transfer is definitively complete.
 const EFI_COMPLETED_STATUSES = ["liquidado", "concluido", "realizado", "completed", "paid"];
 
 export async function POST(
@@ -26,14 +25,6 @@ export async function POST(
 ) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
-
-  console.log("[send-pix env]", {
-    hasEfiClientId: Boolean(process.env.EFI_CLIENT_ID),
-    hasEfiSecret:   Boolean(process.env.EFI_CLIENT_SECRET),
-    hasCert:        Boolean(process.env.EFI_CERTIFICATE_PATH),
-    efiBaseUrl:     process.env.EFI_BASE_URL,
-    nodeEnv:        process.env.NODE_ENV,
-  });
 
   const { id } = await params;
   if (!id) return NextResponse.json({ error: "id obrigatório." }, { status: 400 });
@@ -83,50 +74,81 @@ export async function POST(
     return NextResponse.json({ error: "Agência não tem chave PIX configurada." }, { status: 422 });
   }
 
-  // ── 3. Call Efí API — POST /v2/gn/pix/enviar ─────────────────────────────────
-  const pixPayload = {
-    valor:   Number(tx.net_amount).toFixed(2),
-    pagador: { chave: pix_key_value.trim() },
-  };
+  const platformPixKey = process.env.EFI_PIX_KEY;
+  if (!platformPixKey) {
+    console.error("[send-pix] EFI_PIX_KEY not set");
+    return NextResponse.json({ error: "Chave PIX da plataforma não configurada (EFI_PIX_KEY)." }, { status: 500 });
+  }
 
-  console.log("[PIX PAYLOAD]", JSON.stringify(pixPayload, null, 2));
+  // ── 3. Call Efí SDK — PUT /v3/gn/pix/:idEnvio on pix.api.efipay.com.br ────────
+  // idEnvio = withdrawal UUID — ensures idempotency (same UUID = same transfer).
+  // pagador.chave  = platform's PIX key (the sender account)
+  // favorecido.chave = agency's PIX key (the recipient)
+  const idEnvio = id;
+  const valor   = Number(tx.net_amount).toFixed(2);
 
-  let efi: Awaited<ReturnType<typeof getEfiPixClient>>;
+  console.log("[send-pix] calling Efí PIX endpoint", {
+    sdkMethod:    "pixSend",
+    apiHost:      "pix.api.efipay.com.br (internal to SDK)",
+    route:        `PUT /v3/gn/pix/${idEnvio}`,
+    idEnvio,
+    valor,
+    favorecidoChave: pix_key_value.trim(),
+    pagadorChave:    platformPixKey,
+  });
+
+  let efipay: ReturnType<typeof getEfiSdk>;
   try {
-    efi = await getEfiPixClient();
+    efipay = getEfiSdk();
   } catch (err) {
-    console.error("[send-pix] Efí client init failed:", String(err));
-    return NextResponse.json({ error: "Falha ao conectar com Efí." }, { status: 502 });
+    console.error("[send-pix] SDK init failed:", String(err));
+    return NextResponse.json({ error: "Falha ao inicializar SDK Efí." }, { status: 502 });
   }
 
   let efiResponse: EfiPixSendResponse;
   try {
-    const res = await efi.post<EfiPixSendResponse>("/v2/gn/pix/enviar", pixPayload);
-    efiResponse = res.data;
-    console.log("[EFI SUCCESS]", JSON.stringify(efiResponse, null, 2));
+    efiResponse = await efipay.pixSend(
+      { idEnvio },
+      {
+        valor,
+        pagador:    { chave: platformPixKey },
+        favorecido: { chave: pix_key_value.trim() },
+      },
+    ) as EfiPixSendResponse;
   } catch (err: unknown) {
-    const axErr = err as { response?: { status?: number; data?: unknown } };
-    console.error("[EFI ERROR FULL]", {
-      status: axErr?.response?.status ?? null,
-      body:   JSON.stringify(axErr?.response?.data ?? String(err), null, 2),
+    const axErr = err as { type?: string; nome?: string; mensagem?: string; response?: { status?: number; data?: unknown } };
+    console.error("[EFI SEND PIX ERROR]", {
+      type:     axErr?.type,
+      nome:     axErr?.nome,
+      mensagem: axErr?.mensagem,
+      status:   axErr?.response?.status ?? null,
+      body:     JSON.stringify(axErr?.response?.data ?? axErr ?? String(err), null, 2),
     });
-    return NextResponse.json({ error: "Erro ao criar transferência PIX no Efí." }, { status: 502 });
+    return NextResponse.json({ error: "Erro ao enviar PIX via Efí." }, { status: 502 });
   }
 
-  // ── 4. Resolve transfer reference ─────────────────────────────────────────────
-  // Priority: idEnvio (Efí's transfer ID) → identificadorPagamento → fallback to
-  // withdrawal DB id. Never use a generic placeholder — provider_transfer_id has
-  // a unique constraint and must identify exactly this transfer.
-  const transferId = efiResponse.idEnvio
-    ?? efiResponse.identificadorPagamento
-    ?? id; // withdrawal's own UUID — always unique
+  // Guard: SDK should always return JSON — if it somehow returns HTML the host is wrong.
+  const responseStr = typeof efiResponse === "string" ? efiResponse : JSON.stringify(efiResponse);
+  if (responseStr.includes("<!doctype html") || responseStr.includes("<!DOCTYPE html")) {
+    console.error("[send-pix] Efí returned HTML — wrong endpoint or misconfigured SDK", {
+      preview: responseStr.slice(0, 200),
+    });
+    return NextResponse.json(
+      { error: "Efí returned HTML instead of JSON — wrong endpoint. Check SDK config." },
+      { status: 502 },
+    );
+  }
 
-  const efiStatus = (efiResponse.status ?? "processando").toLowerCase();
+  console.log("[EFI PIX SEND RESPONSE]", JSON.stringify(efiResponse, null, 2));
+
+  // ── 4. Resolve transfer reference ─────────────────────────────────────────────
+  // SDK echoes back idEnvio; fall back to the withdrawal id (same value we sent).
+  const transferId     = efiResponse.idEnvio ?? idEnvio;
+  const efiStatus      = (efiResponse.status ?? "processando").toLowerCase();
 
   console.log("[send-pix] unique txId selected", {
-    idEnvio:                efiResponse.idEnvio,
-    identificadorPagamento: efiResponse.identificadorPagamento,
-    usedFallbackToTxId:     !efiResponse.idEnvio && !efiResponse.identificadorPagamento,
+    responseIdEnvio: efiResponse.idEnvio,
+    usedFallback:    !efiResponse.idEnvio,
     transferId,
     efiStatus,
   });
@@ -142,8 +164,6 @@ export async function POST(
   }
 
   // ── 6a. Critical update — confirmed-existing columns ─────────────────────────
-  // Only set processed_at if the transfer is definitively complete.
-  // .eq("status", "pending") ensures a double-click cannot trigger two transfers.
   const adminNote = isCompleted
     ? `PIX confirmado via Efí — ref: ${transferId}`
     : `PIX enviado via Efí, aguardando confirmação — ref: ${transferId}`;
@@ -154,13 +174,7 @@ export async function POST(
     ...(isCompleted && { processed_at: new Date().toISOString() }),
   };
 
-  console.log("[EFI TRANSFER DB UPDATE ATTEMPT]", {
-    txId:          id,
-    transferId,
-    efiStatus,
-    dbStatus,
-    updatePayload,
-  });
+  console.log("[EFI TRANSFER DB UPDATE ATTEMPT]", { txId: id, transferId, efiStatus, dbStatus, updatePayload });
 
   const { error: updateError } = await supabase
     .from("wallet_transactions")
@@ -183,7 +197,7 @@ export async function POST(
     });
     return NextResponse.json(
       {
-        error:       "Transferência PIX criada no Efí mas falhou ao salvar no banco. Verificar manualmente.",
+        error:       "PIX enviado no Efí mas falhou ao salvar no banco. Verificar manualmente.",
         transfer_id: transferId,
         tx_id:       id,
       },
@@ -209,12 +223,7 @@ export async function POST(
     });
   }
 
-  console.log("[send-pix] DB update success", {
-    txId:      id,
-    dbStatus,
-    transferId,
-    admin:     auth.userId,
-  });
+  console.log("[send-pix] DB update success", { txId: id, dbStatus, transferId, admin: auth.userId });
 
   return NextResponse.json({
     ok:              true,
