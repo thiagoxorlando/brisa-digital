@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
-// Read at build time from NEXT_PUBLIC_MIN_WITHDRAW; falls back to 100.
-const MIN_WITHDRAW = Number(process.env.NEXT_PUBLIC_MIN_WITHDRAW || 100);
+// Temporarily hardcoded to 1 for Efí payout testing. Restore to 100 after.
+const MIN_WITHDRAW = 1;
 
 const SavedCardsWidget   = dynamic(() => import("@/components/ui/SavedCards"),         { ssr: false });
 const WalletDepositModal = dynamic(() => import("@/components/ui/WalletDepositModal"), { ssr: false });
