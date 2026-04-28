@@ -19,6 +19,33 @@ interface EfiPixSendResponse {
 // Efí statuses that mean the transfer is definitively complete.
 const EFI_COMPLETED_STATUSES = ["liquidado", "concluido", "realizado", "completed", "paid"];
 
+// Normalize PIX key to the format Efí expects for favorecido.chave.
+// Type values match what the agencies API and UI store: cpf, cnpj, email, phone, random.
+function normalizePixKey(key: string, type: string): string {
+  if (!key) return key;
+  const clean = key.trim();
+  switch (type) {
+    case "phone": {
+      const digits = clean.replace(/\D/g, "");
+      if (digits.startsWith("55")) return "+" + digits;
+      return "+55" + digits;
+    }
+    case "cpf":
+    case "cnpj":
+      return clean.replace(/\D/g, "");
+    case "email":
+      return clean.toLowerCase();
+    case "random":
+    default:
+      return clean;
+  }
+}
+
+function maskPixKey(key: string): string {
+  if (key.length <= 6) return "***";
+  return key.slice(0, 3) + "***" + key.slice(-3);
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -74,6 +101,18 @@ export async function POST(
     return NextResponse.json({ error: "Agência não tem chave PIX configurada." }, { status: 422 });
   }
 
+  const normalizedPixKey = normalizePixKey(pix_key_value, pix_key_type);
+
+  console.log("[send-pix] pix_key_type", pix_key_type);
+  console.log("[send-pix] normalized favorecido pix key (masked)", {
+    type:    pix_key_type,
+    masked:  maskPixKey(normalizedPixKey),
+  });
+
+  if (!normalizedPixKey) {
+    return NextResponse.json({ error: "Chave PIX inválida para envio." }, { status: 422 });
+  }
+
   const platformPixKey = process.env.EFI_PIX_KEY;
   if (!platformPixKey) {
     console.error("[send-pix] EFI_PIX_KEY not set");
@@ -91,13 +130,13 @@ export async function POST(
   console.log("[send-pix] sanitized idEnvio", { rawId: id, idEnvio });
 
   console.log("[send-pix] calling Efí PIX endpoint", {
-    sdkMethod:    "pixSend",
-    apiHost:      "pix.api.efipay.com.br (internal to SDK)",
-    route:        `PUT /v3/gn/pix/${idEnvio}`,
+    sdkMethod:       "pixSend",
+    apiHost:         "pix.api.efipay.com.br (internal to SDK)",
+    route:           `PUT /v3/gn/pix/${idEnvio}`,
     idEnvio,
     valor,
-    favorecidoChave: pix_key_value.trim(),
-    pagadorChave:    platformPixKey,
+    favorecidoMasked: maskPixKey(normalizedPixKey),
+    pagadorMasked:    maskPixKey(platformPixKey),
   });
 
   let efipay: ReturnType<typeof getEfiSdk>;
@@ -115,7 +154,7 @@ export async function POST(
       {
         valor,
         pagador:    { chave: platformPixKey },
-        favorecido: { chave: pix_key_value.trim() },
+        favorecido: { chave: normalizedPixKey },
       },
     ) as EfiPixSendResponse;
   } catch (err: unknown) {
