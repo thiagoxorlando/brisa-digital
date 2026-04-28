@@ -77,17 +77,26 @@ export async function handleEfiWebhook(req: NextRequest): Promise<Response> {
     return OK();
   }
 
-  // ── Token check — NEVER blocks, always continues ─────────────────────────────
-  const receivedToken = req.headers.get("pix-token");
+  // ── Token validation ──────────────────────────────────────────────────────────
+  // Efí may send the token via pix-token header, x-pix-token header, or ?token
+  // query param — check all three. Only reject when a token IS received and does
+  // NOT match; a missing token is allowed (endpoint URL acts as the secret).
+  const expectedToken = process.env.EFI_WEBHOOK_TOKEN;
+  const receivedToken =
+    req.headers.get("pix-token") ??
+    req.headers.get("x-pix-token") ??
+    new URL(req.url).searchParams.get("token");
 
-  console.log("[EFI WEBHOOK TOKEN RECEIVED RAW]", receivedToken);
-  console.log("[EFI WEBHOOK TOKEN EXPECTED RAW]", process.env.EFI_WEBHOOK_TOKEN);
+  console.log("[EFI WEBHOOK HEADERS]", Object.fromEntries(req.headers.entries()));
 
-  if (receivedToken !== process.env.EFI_WEBHOOK_TOKEN) {
-    console.warn("[EFI WEBHOOK TOKEN MISMATCH - NOT BLOCKING]");
+  if (expectedToken && receivedToken && receivedToken !== expectedToken) {
+    log("warn", "Efí webhook token mismatch — rejecting", { tokenPrefix: receivedToken.slice(0, 6) });
+    return new Response("Unauthorized", { status: 401 });
   }
 
-  console.log("[EFI WEBHOOK CONTINUING AFTER TOKEN CHECK]");
+  if (!receivedToken) {
+    log("info", "Efí webhook — no token received; relying on endpoint secrecy");
+  }
 
   const supabase = createServerClient({ useServiceRole: true });
 
