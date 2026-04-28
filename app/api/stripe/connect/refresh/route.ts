@@ -36,8 +36,8 @@ export async function GET(_req: NextRequest) {
 
   const accountLink = await getStripe().accountLinks.create({
     account:     accountId,
-    refresh_url: `${APP_URL}/api/stripe/connect/refresh`,
-    return_url:  `${APP_URL}/api/stripe/connect/return`,
+    refresh_url: `${APP_URL}/talent/finances?stripe=refresh`,
+    return_url:  `${APP_URL}/talent/finances?stripe=success`,
     type:        "account_onboarding",
   });
 

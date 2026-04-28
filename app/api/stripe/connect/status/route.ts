@@ -3,11 +3,16 @@ import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
 
-export type StripeConnectStatus = "not_connected" | "incomplete" | "active";
+export type StripeConnectStatusResponse = {
+  connected:         boolean;
+  charges_enabled:   boolean;
+  payouts_enabled:   boolean;
+  details_submitted: boolean;
+};
 
 // GET /api/stripe/connect/status
-// Returns the talent's Stripe Connect onboarding status.
-// Calls the Stripe API only when an account_id is already stored.
+// Returns raw Stripe account fields so the UI can derive its own display state.
+// connected=false means no stripe_account_id is stored yet.
 export async function GET(_req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
@@ -24,23 +29,38 @@ export async function GET(_req: NextRequest) {
   const accountId = talentRow?.stripe_account_id ?? null;
 
   if (!accountId) {
-    return NextResponse.json({ status: "not_connected" as StripeConnectStatus });
+    const payload: StripeConnectStatusResponse = {
+      connected:         false,
+      charges_enabled:   false,
+      payouts_enabled:   false,
+      details_submitted: false,
+    };
+    return NextResponse.json(payload);
   }
 
   try {
     const account = await getStripe().accounts.retrieve(accountId);
-    console.log("[stripe] account status:", accountId, {
-      details_submitted: account.details_submitted,
-      payouts_enabled:   account.payouts_enabled,
-    });
 
-    const isActive = account.details_submitted && account.payouts_enabled;
-    const status: StripeConnectStatus = isActive ? "active" : "incomplete";
-    return NextResponse.json({ status });
+    const payload: StripeConnectStatusResponse = {
+      connected:         true,
+      charges_enabled:   account.charges_enabled   ?? false,
+      payouts_enabled:   account.payouts_enabled   ?? false,
+      details_submitted: account.details_submitted ?? false,
+    };
+
+    console.log("[stripe status]", accountId, payload);
+    return NextResponse.json(payload);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[stripe] failed to retrieve account:", accountId, msg);
-    // Treat as incomplete so the UI shows a retry option rather than crashing.
-    return NextResponse.json({ status: "incomplete" as StripeConnectStatus });
+    console.error("[stripe status] failed to retrieve account:", accountId, msg);
+    // Return connected=true so the UI shows the "Finalizar cadastro" button rather than
+    // treating the account as never created.
+    const fallback: StripeConnectStatusResponse = {
+      connected:         true,
+      charges_enabled:   false,
+      payouts_enabled:   false,
+      details_submitted: false,
+    };
+    return NextResponse.json(fallback);
   }
 }

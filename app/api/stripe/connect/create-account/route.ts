@@ -37,7 +37,7 @@ export async function POST(_req: NextRequest) {
   let accountId = talentRow?.stripe_account_id ?? null;
 
   if (!accountId) {
-    console.log("[stripe] creating Connect Express account for talent:", user.id);
+    console.log("[stripe connect create] creating Express account for talent:", user.id);
 
     const account = await getStripe().accounts.create({
       type: "express",
@@ -45,15 +45,10 @@ export async function POST(_req: NextRequest) {
       capabilities: {
         transfers: { requested: true },
       },
-      settings: {
-        payouts: {
-          schedule: { interval: "manual" },
-        },
-      },
     });
 
     accountId = account.id;
-    console.log("[stripe] Connect account created:", accountId, "talent:", user.id);
+    console.log("[stripe connect create] account created:", accountId, "talent:", user.id);
 
     const { error: updateErr } = await supabase
       .from("talent_profiles")
@@ -61,7 +56,7 @@ export async function POST(_req: NextRequest) {
       .eq("id", user.id);
 
     if (updateErr) {
-      console.error("[stripe] failed to save stripe_account_id:", updateErr.message);
+      console.error("[stripe connect create] failed to save stripe_account_id:", updateErr.message);
       return NextResponse.json({ error: "Erro ao salvar conta Stripe." }, { status: 500 });
     }
   }
@@ -69,12 +64,12 @@ export async function POST(_req: NextRequest) {
   // Always generate a fresh onboarding link (links expire after ~5 minutes).
   const accountLink = await getStripe().accountLinks.create({
     account:     accountId,
-    refresh_url: `${APP_URL}/api/stripe/connect/refresh`,
-    return_url:  `${APP_URL}/api/stripe/connect/return`,
+    refresh_url: `${APP_URL}/talent/finances?stripe=refresh`,
+    return_url:  `${APP_URL}/talent/finances?stripe=success`,
     type:        "account_onboarding",
   });
 
-  console.log("[stripe] onboarding link created for account:", accountId);
+  console.log("[stripe onboarding link] created for account:", accountId);
 
   return NextResponse.json({ url: accountLink.url });
 }
