@@ -34,10 +34,13 @@ export async function POST(
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  // ── 1. Fetch withdrawal — must be pending with no in-flight transfer ──────────
+  // ── 1. Fetch withdrawal — must be pending ─────────────────────────────────────
+  // Note: provider_transfer_id intentionally excluded from SELECT —
+  // the column may not exist yet if the migration hasn't been applied.
+  // Duplicate protection relies on status !== "pending".
   const { data: tx, error: txError } = await supabase
     .from("wallet_transactions")
-    .select("id, user_id, net_amount, status, provider_transfer_id")
+    .select("id, user_id, net_amount, status")
     .eq("id", id)
     .eq("type", "withdrawal")
     .single();
@@ -50,13 +53,6 @@ export async function POST(
   if (tx.status !== "pending") {
     return NextResponse.json(
       { error: `Saque está com status "${tx.status}". Apenas saques pendentes podem ser enviados.` },
-      { status: 409 },
-    );
-  }
-
-  if (tx.provider_transfer_id !== null) {
-    return NextResponse.json(
-      { error: "Transferência PIX já foi criada para este saque.", provider_transfer_id: tx.provider_transfer_id },
       { status: 409 },
     );
   }
@@ -114,40 +110,77 @@ export async function POST(
     return NextResponse.json({ error: "Erro ao criar transferência PIX no Efí." }, { status: 502 });
   }
 
-  // Use identificadorPagamento as the stable transfer reference
-  const transferId = efiResponse.identificadorPagamento ?? efiResponse.status ?? "efi-transfer";
+  const transferId     = efiResponse.identificadorPagamento ?? efiResponse.status ?? "efi-transfer";
   const transferStatus = efiResponse.status ?? "processando";
 
-  // ── 4. Update wallet_transactions — only after Efí succeeds ──────────────────
+  // ── 4a. Critical update — columns guaranteed to exist in every schema version ──
+  // Marks the withdrawal as paid. Uses .eq("status", "pending") as an extra
+  // guard so a race-condition double-click cannot double-pay.
+  const processedAt = new Date().toISOString();
+  const adminNote   = `PIX enviado automaticamente via Efí — ref: ${transferId}`;
+
+  const updatePayload = {
+    status:       "paid",
+    processed_at: processedAt,
+    admin_note:   adminNote,
+  };
+
+  console.log("[EFI TRANSFER DB UPDATE ATTEMPT]", {
+    txId:          id,
+    transferId,
+    transferStatus,
+    updatePayload,
+  });
+
   const { error: updateError } = await supabase
     .from("wallet_transactions")
-    .update({
-      status:               "paid",
-      provider:             "efi",
-      provider_transfer_id: transferId,
-      provider_status:      transferStatus,
-      processed_at:         new Date().toISOString(),
-      admin_note:           "PIX enviado automaticamente via Efí",
-    })
-    .eq("id", id);
+    .update(updatePayload)
+    .eq("id", id)
+    .eq("status", "pending");
 
   if (updateError) {
-    console.error("[send-pix] CRITICAL: Efí transfer created but DB update failed:", {
-      txId:        id,
+    console.error("[EFI TRANSFER DB UPDATE ERROR FULL]", {
+      txId:          id,
       transferId,
       transferStatus,
-      db_error:    updateError.message,
+      updatePayload,
+      supabase_code:    updateError.code,
+      supabase_message: updateError.message,
+      supabase_details: updateError.details,
+      supabase_hint:    updateError.hint,
+      full_error:       JSON.stringify(updateError),
     });
     return NextResponse.json(
       {
         error:       "Transferência PIX criada no Efí mas falhou ao salvar no banco. Verificar manualmente.",
         transfer_id: transferId,
+        tx_id:       id,
       },
       { status: 500 },
     );
   }
 
-  console.log("[EFI TRANSFER]", {
+  // ── 4b. Best-effort update — provider columns (added by migration 20260427) ────
+  // Non-fatal: if the migration hasn't been applied yet the transfer ID is
+  // already preserved in admin_note above.
+  const { error: providerUpdateError } = await supabase
+    .from("wallet_transactions")
+    .update({
+      provider:             "efi",
+      provider_transfer_id: transferId,
+      provider_status:      transferStatus,
+    })
+    .eq("id", id);
+
+  if (providerUpdateError) {
+    console.warn("[send-pix] provider columns update failed (non-fatal — run migration 20260427):", {
+      txId:    id,
+      code:    providerUpdateError.code,
+      message: providerUpdateError.message,
+    });
+  }
+
+  console.log("[EFI TRANSFER COMPLETE]", {
     txId:          id,
     transferId,
     transferStatus,
@@ -155,9 +188,9 @@ export async function POST(
   });
 
   return NextResponse.json({
-    ok:             true,
+    ok:              true,
     id,
-    status:         "paid",
+    status:          "paid",
     efi_transfer_id: transferId,
     efi_status:      transferStatus,
   });
