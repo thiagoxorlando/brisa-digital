@@ -352,14 +352,25 @@ export async function PATCH(
           contractId: id,
         });
       } else {
-        const cr = commResult as { ok: boolean; already_processed?: boolean };
+        const cr = commResult as {
+          ok: boolean;
+          already_processed?: boolean;
+          wallet_balance_credited?: boolean;
+        };
         if (cr.already_processed) {
-          console.log("[referral commission] skipped already paid", {
+          console.log("[referral commission] already credited", {
             inviteId:   referralInvite.id,
             contractId: id,
           });
         } else {
           console.log("[referral commission] credited referrer", {
+            referrerId: referralInvite.referrer_id,
+            commission: referralCommission,
+            contractId: id,
+          });
+        }
+        if (cr.wallet_balance_credited) {
+          console.log("[referral commission] wallet balance credited", {
             referrerId: referralInvite.referrer_id,
             commission: referralCommission,
             contractId: id,

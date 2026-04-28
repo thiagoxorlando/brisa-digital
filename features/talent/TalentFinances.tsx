@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 const TALENT_RATE   = 0.85; // 85% of deal value
-const REFERRAL_RATE = 0.02; // 2% referral commission
+const TALENT_WITHDRAWAL_MIN_AMOUNT = 100;
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -144,6 +144,10 @@ function StatCard({ label, value, sub, stripe }: { label: string; value: string;
 // ── PIX account setup ─────────────────────────────────────────────────────────
 
 type PixKeyType = "cpf" | "cnpj" | "email" | "phone" | "random";
+type PixProfileRow = {
+  pix_key_type: PixKeyType | null;
+  pix_key_value: string | null;
+};
 
 const PIX_LABELS: Record<PixKeyType, string> = {
   cpf:    "CPF",
@@ -179,9 +183,10 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
         .select("pix_key_type, pix_key_value")
         .eq("id", user.id)
         .single();
-      if ((data as any)?.pix_key_value) {
-        const t = ((data as any).pix_key_type ?? "cpf") as PixKeyType;
-        const v = (data as any).pix_key_value as string;
+      const profile = data as PixProfileRow | null;
+      if (profile?.pix_key_value) {
+        const t = profile.pix_key_type ?? "cpf";
+        const v = profile.pix_key_value;
         setSavedType(t);
         setSavedValue(v);
         setKeyType(t);
@@ -325,6 +330,7 @@ export default function TalentFinances() {
   const [payments, setPayments]         = useState<Payment[]>([]);
   const [referrals, setReferrals]       = useState<Referral[]>([]);
   const [paidContracts, setPaidContracts] = useState<PaidContract[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading]           = useState(true);
   const [withdrawState, setWithdrawState] = useState<WithdrawState>("idle");
   const [withdrawMsg, setWithdrawMsg]   = useState("");
@@ -339,6 +345,14 @@ export default function TalentFinances() {
     if (initial) setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { if (initial) setLoading(false); return; }
+
+    const { data: profileBalance } = await supabase
+      .from("profiles")
+      .select("wallet_balance")
+      .eq("id", user.id)
+      .single();
+
+    setWalletBalance(Number(profileBalance?.wallet_balance ?? 0));
 
     // My bookings
     const { data: bookingsData } = await supabase
@@ -485,23 +499,34 @@ export default function TalentFinances() {
     if (initial) setLoading(false);
   }
 
-  useEffect(() => { load(true); }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const { refreshing } = useRealtimeRefresh(
-    [{ table: "bookings" }, { table: "contracts" }],
+    [{ table: "bookings" }, { table: "contracts" }, { table: "profiles" }, { table: "wallet_transactions" }],
     () => load(false),
   );
 
-  const completed           = payments.filter((p) => p.status === "paid" || p.status === "confirmed");
   const pendingPayment      = payments.filter((p) => p.status === "pending_payment");
-  const totalEarnings       = completed.reduce((s, p) => s + p.earnings, 0);
   const pendingEarnings     = pendingPayment.reduce((s, p) => s + p.earnings, 0);
   const referralEarnings    = referrals.reduce((s, r) => s + r.commission, 0);
 
-  // Available = paid contracts not yet withdrawn
+  // Available = unpaid contract payouts + wallet-backed referral commissions.
+  // Referral commissions are real wallet balance, so only add the wallet
+  // portion above the currently withdrawable contract payouts.
   const withdrawableContracts = paidContracts.filter((c) => !c.withdrawn_at);
   const withdrawnContracts    = paidContracts.filter((c) => !!c.withdrawn_at);
-  const availableToWithdraw   = withdrawableContracts.reduce((s, c) => s + c.earnings, 0);
+  const contractAvailableToWithdraw = withdrawableContracts.reduce((s, c) => s + c.earnings, 0);
+  const referralAvailableToWithdraw = Math.min(
+    referralEarnings,
+    Math.max(0, walletBalance - contractAvailableToWithdraw),
+  );
+  const availableToWithdraw   = contractAvailableToWithdraw + referralAvailableToWithdraw;
   const alreadyWithdrawn      = withdrawnContracts.reduce((s, c) => s + c.earnings, 0);
   const filteredPaidContracts = paidContracts.filter((c) => periodMatches(c.paid_at, period));
   const filteredPayments = payments.filter((p) => periodMatches(p.date, period));
@@ -576,7 +601,7 @@ export default function TalentFinances() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatCard
               label="Total Ganho"
-              value={brl(availableToWithdraw + alreadyWithdrawn + referralEarnings)}
+              value={brl(availableToWithdraw + alreadyWithdrawn)}
               sub="Contratos pagos + indicações"
               stripe="from-indigo-500 to-violet-500"
             />
@@ -589,7 +614,11 @@ export default function TalentFinances() {
             <StatCard
               label="Disponível para Saque"
               value={brl(availableToWithdraw)}
-              sub={withdrawableContracts.length > 0 ? `${withdrawableContracts.length} contrato${withdrawableContracts.length > 1 ? "s" : ""} pronto${withdrawableContracts.length > 1 ? "s" : ""}` : "Nada pendente"}
+              sub={
+                availableToWithdraw > 0
+                  ? `${withdrawableContracts.length} contrato${withdrawableContracts.length !== 1 ? "s" : ""} + ${brl(referralAvailableToWithdraw)} em indicações`
+                  : "Nada pendente"
+              }
               stripe="from-emerald-400 to-teal-500"
             />
             <StatCard
@@ -612,7 +641,12 @@ export default function TalentFinances() {
               </div>
               <button
                 onClick={handleWithdraw}
-                disabled={availableToWithdraw === 0 || !hasPixKey || withdrawState === "loading" || withdrawState === "success"}
+                disabled={
+                  availableToWithdraw < TALENT_WITHDRAWAL_MIN_AMOUNT ||
+                  !hasPixKey ||
+                  withdrawState === "loading" ||
+                  withdrawState === "success"
+                }
                 className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 {withdrawState === "loading" ? (
@@ -639,6 +673,17 @@ export default function TalentFinances() {
                 </svg>
                 <p className="text-[13px] text-amber-800 leading-relaxed">
                   Cadastre sua <strong>chave PIX</strong> abaixo para habilitar o saque.
+                </p>
+              </div>
+            )}
+
+            {hasPixKey && availableToWithdraw > 0 && availableToWithdraw < TALENT_WITHDRAWAL_MIN_AMOUNT && (
+              <div className="mx-6 mb-5 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-[13px] text-amber-800 leading-relaxed">
+                  O valor mínimo para saque é <strong>{brl(TALENT_WITHDRAWAL_MIN_AMOUNT)}</strong>.
                 </p>
               </div>
             )}
@@ -863,4 +908,3 @@ export default function TalentFinances() {
     </div>
   );
 }
-
