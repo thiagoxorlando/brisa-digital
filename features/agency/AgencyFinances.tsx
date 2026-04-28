@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
+// Read at build time from NEXT_PUBLIC_MIN_WITHDRAW; falls back to 100.
+const MIN_WITHDRAW = Number(process.env.NEXT_PUBLIC_MIN_WITHDRAW || 100);
+
 const SavedCardsWidget   = dynamic(() => import("@/components/ui/SavedCards"),         { ssr: false });
 const WalletDepositModal = dynamic(() => import("@/components/ui/WalletDepositModal"), { ssr: false });
 
@@ -245,7 +248,7 @@ export default function AgencyFinances({
   const withdrawFeeNum    = Math.max(Math.round(withdrawAmountNum * withdrawalFeeRate * 100) / 100, withdrawAmountNum > 0 ? withdrawalMinFee : 0);
   const withdrawNetNum    = Math.round((withdrawAmountNum - withdrawFeeNum) * 100) / 100;
   const isMinFeeApplied   = withdrawAmountNum > 0 && withdrawFeeNum === withdrawalMinFee;
-  const canWithdraw       = Boolean(hasPix && withdrawAmountNum >= withdrawalMinAmount && withdrawAmountNum <= walletBalance);
+  const canWithdraw       = Boolean(hasPix && withdrawAmountNum >= MIN_WITHDRAW && withdrawAmountNum <= walletBalance);
 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
@@ -414,7 +417,7 @@ export default function AgencyFinances({
                   <div className="relative flex-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
                     <input
-                      type="number" min={withdrawalMinAmount} step={0.01} value={withdrawAmount}
+                      type="number" min={MIN_WITHDRAW} step={0.01} value={withdrawAmount}
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder="0,00"
                       className="w-full pl-8 pr-3 py-2.5 text-[13px] font-semibold bg-white/10 border border-white/10 rounded-xl text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30 transition-colors"
@@ -439,10 +442,10 @@ export default function AgencyFinances({
                 {withdrawAmountNum > walletBalance && (
                   <p className="text-[11px] text-rose-400">Valor superior ao saldo disponível.</p>
                 )}
-                {withdrawAmountNum > 0 && withdrawAmountNum < withdrawalMinAmount && (
-                  <p className="text-[11px] text-amber-400">Valor mínimo para saque: {brl(withdrawalMinAmount)}.</p>
+                {withdrawAmountNum > 0 && withdrawAmountNum < MIN_WITHDRAW && (
+                  <p className="text-[11px] text-amber-400">Valor mínimo para saque: {brl(MIN_WITHDRAW)}.</p>
                 )}
-                {isMinFeeApplied && withdrawAmountNum >= withdrawalMinAmount && withdrawAmountNum <= walletBalance && (
+                {isMinFeeApplied && withdrawAmountNum >= MIN_WITHDRAW && withdrawAmountNum <= walletBalance && (
                   <p className="text-[11px] text-zinc-400">Taxa mínima de {brl(withdrawalMinFee)} aplicada.</p>
                 )}
                 {withdrawError && (
