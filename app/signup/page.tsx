@@ -9,11 +9,6 @@ import Logo from "@/components/Logo";
 type Role = "agency" | "talent";
 type Plan = "free" | "pro" | "premium";
 
-const ROLE_HOME: Record<Role, string> = {
-  agency: "/agency/dashboard",
-  talent: "/talent/dashboard",
-};
-
 const ROLE_LABELS: Record<Role, { title: string; sub: string }> = {
   agency: { title: "Criar conta como Agência", sub: "Publique vagas e gerencie talentos." },
   talent: { title: "Criar conta como Talento", sub: "Candidate-se a vagas e seja contratado." },
@@ -54,11 +49,18 @@ const PLANS: { id: Plan; name: string; price: string; features: string[]; highli
   },
 ];
 
+function safeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  return value;
+}
+
 function SignupPageContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const role         = (searchParams.get("role") ?? "agency") as Role;
   const refToken     = searchParams.get("ref") ?? null;
+  const jobId        = searchParams.get("job") ?? null;
+  const nextPath     = safeNextPath(searchParams.get("next")) ?? (jobId ? `/talent/jobs/${jobId}` : null);
   const label        = ROLE_LABELS[role] ?? ROLE_LABELS.agency;
   const initialPlan  = (["free", "pro"].includes(searchParams.get("plan") ?? "") ? searchParams.get("plan") : "free") as Plan;
 
@@ -114,7 +116,7 @@ function SignupPageContent() {
     }
 
     // 5. Redirect to profile setup
-    router.push("/setup-profile");
+    router.push(nextPath ? `/setup-profile?next=${encodeURIComponent(nextPath)}` : "/setup-profile");
   }
 
   return (
@@ -236,7 +238,14 @@ function SignupPageContent() {
 
         <p className="text-center text-[13px] text-zinc-400 mt-5">
           Já tem uma conta?{" "}
-          <Link href="/login" className="text-zinc-700 font-medium hover:text-zinc-900 transition-colors">
+          <Link
+            href={
+              refToken
+                ? `/login?ref=${encodeURIComponent(refToken)}${jobId ? `&job=${encodeURIComponent(jobId)}` : ""}${nextPath ? `&next=${encodeURIComponent(nextPath)}` : ""}`
+                : "/login"
+            }
+            className="text-zinc-700 font-medium hover:text-zinc-900 transition-colors"
+          >
             Entrar
           </Link>
         </p>

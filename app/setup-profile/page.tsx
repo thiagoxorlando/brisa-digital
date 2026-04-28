@@ -6,7 +6,15 @@ import SetupProfile from "@/features/onboarding/SetupProfile";
 
 export const metadata: Metadata = { title: "Configurar perfil — BrisaHub" };
 
-export default async function SetupProfilePage() {
+type Props = { searchParams: Promise<{ next?: string }> };
+
+function safeNextPath(value?: string) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  return value;
+}
+
+export default async function SetupProfilePage({ searchParams }: Props) {
+  const { next } = await searchParams;
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
 
@@ -19,10 +27,10 @@ export default async function SetupProfilePage() {
     .eq("id", user.id)
     .single();
 
-  // Already onboarded — send them straight to their dashboard
   if (profile?.onboarding_completed) {
-    redirect(`/${profile.role}/dashboard`);
+    const nextPath = safeNextPath(next);
+    redirect(profile.role === "talent" && nextPath ? nextPath : `/${profile.role}/dashboard`);
   }
 
-  return <SetupProfile />;
+  return <SetupProfile nextPath={safeNextPath(next)} />;
 }

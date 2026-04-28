@@ -37,6 +37,17 @@ type AgencyForm = {
   website:      string;
 };
 
+type AgencyRow = {
+  company_name?: string | null;
+  contact_name?: string | null;
+  phone?: string | null;
+  country?: string | null;
+  city?: string | null;
+  description?: string | null;
+  website?: string | null;
+  avatar_url?: string | null;
+};
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TALENT_CATEGORIES = TALENT_CATEGORY_LABELS;
@@ -727,16 +738,17 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
       .single()
       .then(({ data }) => {
         if (!data) return;
+        const agency = data as AgencyRow;
         setForm({
-          companyName:  (data as any).company_name  ?? "",
-          contactName:  (data as any).contact_name  ?? "",
-          phone:        (data as any).phone         ?? "",
-          country:      (data as any).country       ?? "",
-          city:         (data as any).city          ?? "",
-          description:  (data as any).description   ?? "",
-          website:      (data as any).website       ?? "",
+          companyName:  agency.company_name ?? "",
+          contactName:  agency.contact_name ?? "",
+          phone:        agency.phone ?? "",
+          country:      agency.country ?? "",
+          city:         agency.city ?? "",
+          description:  agency.description ?? "",
+          website:      agency.website ?? "",
         });
-        if ((data as any).avatar_url) setPreview((data as any).avatar_url);
+        if (agency.avatar_url) setPreview(agency.avatar_url);
       });
   }, [userId]);
 
@@ -863,7 +875,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
 
 // ── Main shell ────────────────────────────────────────────────────────────────
 
-export default function SetupProfile() {
+export default function SetupProfile({ nextPath = null }: { nextPath?: string | null }) {
   const router              = useRouter();
   const [role, setRole]     = useState<Role>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -889,7 +901,7 @@ export default function SetupProfile() {
 
   function handleDone() {
     if (role === "agency") router.push("/agency/first-job");
-    else router.push("/talent/dashboard");
+    else router.push(nextPath ?? "/talent/dashboard");
   }
 
   if (checking) {

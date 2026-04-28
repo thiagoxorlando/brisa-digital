@@ -456,16 +456,15 @@ function ReferralModal({
     const { data: { user } } = await (await import("@/lib/supabase")).supabase.auth.getUser();
     if (!user?.id) { setError("Não autenticado."); setSubmitting(false); return; }
 
-    const res = await fetch("/api/submissions", {
+    const res = await fetch("/api/referrals/invite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        job_id:      jobId,
-        talent_name: form.name.trim(),
-        email:       form.email.trim(),
-        bio:         form.bio.trim() || null,
-        mode:        "referral",
-        referrer_id: user.id,
+        job_id:         jobId,
+        referrer_id:    user.id,
+        referred_name:  form.name.trim(),
+        referred_email: form.email.trim(),
+        bio:            form.bio.trim() || null,
       }),
     });
 

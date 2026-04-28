@@ -3,6 +3,13 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { notify } from "@/lib/notify";
 
+type LinkedReferral = {
+  id: string;
+  referrer_id: string;
+  submission_id: string | null;
+  status: string | null;
+};
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
@@ -43,20 +50,16 @@ export async function POST(req: NextRequest) {
     if (referrer_id && referrer_id !== user.id) {
       return NextResponse.json({ error: "Invalid referrer" }, { status: 403 });
     }
-  } else {
-    if (caller?.role !== "talent" || referrer_id !== user.id) {
-      return NextResponse.json({ error: "Referral submissions require the logged-in referrer" }, { status: 403 });
-    }
+  } else if (caller?.role !== "talent" || referrer_id !== user.id) {
+    return NextResponse.json({ error: "Referral submissions require the logged-in referrer" }, { status: 403 });
   }
 
-  // Fetch job to check visibility, ownership, and requested application uploads.
   let { data: job, error: jobError } = await supabase
     .from("jobs")
     .select("id, title, agency_id, visibility, application_requirements")
     .eq("id", job_id)
     .single();
 
-  // Column may not be in schema cache yet; keep older deployments working.
   if (jobError?.message?.includes("application_requirements")) {
     ({ data: job, error: jobError } = await supabase
       .from("jobs")
@@ -69,7 +72,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
-  // Private job: only invited talents may apply
+  let linkedReferral: LinkedReferral | null = null;
+  if (isSelfApplication) {
+    const { data: linkedReferralRows } = await supabase
+      .from("referral_invites")
+      .select("id, referrer_id, submission_id, status")
+      .eq("job_id", job_id)
+      .eq("referred_user_id", user.id)
+      .neq("status", "fraud_reported")
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    linkedReferral = (linkedReferralRows?.[0] ?? null) as LinkedReferral | null;
+  }
+
   if (job.visibility === "private") {
     const { data: invite } = await supabase
       .from("job_invites")
@@ -78,9 +94,9 @@ export async function POST(req: NextRequest) {
       .eq("talent_id", user.id)
       .maybeSingle();
 
-    if (!invite) {
+    if (!invite && !linkedReferral) {
       return NextResponse.json(
-        { error: "Esta vaga é privada e está disponível apenas para talentos convidados." },
+        { error: "Esta vaga é privada e está disponível apenas para talentos convidados ou indicados." },
         { status: 403 }
       );
     }
@@ -90,7 +106,7 @@ export async function POST(req: NextRequest) {
     (job as { application_requirements?: unknown } | null)?.application_requirements
   )
     ? ((job as { application_requirements?: unknown[] }).application_requirements ?? []).filter(
-        (req): req is string => typeof req === "string"
+        (requirement): requirement is string => typeof requirement === "string"
       )
     : [];
 
@@ -111,34 +127,59 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const baseInsert = {
+  const baseSubmission = {
     job_id,
-    talent_user_id:  talent_id  ? user.id : null,
-    talent_name:     talent_id  ? null : (talent_name ?? null),
-    email:           email      ?? null,
-    bio:             bio        ?? null,
-    referrer_id:     referrer_id ?? null,
+    talent_user_id:  talent_id ? user.id : null,
+    talent_name:     talent_id ? null : (talent_name ?? null),
+    email:           email ?? null,
+    bio:             bio ?? null,
+    referrer_id:     talent_id ? (linkedReferral?.referrer_id ?? null) : (referrer_id ?? null),
     status:          "pending",
     mode,
     photo_front_url: photo_front_url ?? null,
-    photo_left_url:  photo_left_url  ?? null,
+    photo_left_url:  photo_left_url ?? null,
     photo_right_url: photo_right_url ?? null,
-    video_url:       video_url       ?? null,
+    video_url:       video_url ?? null,
+  };
+  const fullSubmission = {
+    ...baseSubmission,
+    curriculum_url: curriculum_url ?? null,
+    portfolio_url: portfolio_url ?? null,
   };
 
-  let { data, error } = await supabase
-    .from("submissions")
-    .insert({ ...baseInsert, curriculum_url: curriculum_url ?? null, portfolio_url: portfolio_url ?? null })
-    .select()
-    .single();
+  let data;
+  let error;
 
-  // Columns may not be in schema cache yet — fall back without them
-  if (error?.message?.includes("curriculum_url") || error?.message?.includes("portfolio_url")) {
+  if (isSelfApplication && linkedReferral?.submission_id) {
     ({ data, error } = await supabase
       .from("submissions")
-      .insert(baseInsert)
+      .update(fullSubmission)
+      .eq("id", linkedReferral.submission_id)
       .select()
       .single());
+  } else {
+    ({ data, error } = await supabase
+      .from("submissions")
+      .insert(fullSubmission)
+      .select()
+      .single());
+  }
+
+  if (error?.message?.includes("curriculum_url") || error?.message?.includes("portfolio_url")) {
+    if (isSelfApplication && linkedReferral?.submission_id) {
+      ({ data, error } = await supabase
+        .from("submissions")
+        .update(baseSubmission)
+        .eq("id", linkedReferral.submission_id)
+        .select()
+        .single());
+    } else {
+      ({ data, error } = await supabase
+        .from("submissions")
+        .insert(baseSubmission)
+        .select()
+        .single());
+    }
   }
 
   if (error) {
@@ -146,8 +187,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  // Notify agency that owns this job
-  if (job?.agency_id) {
+  if (isSelfApplication && linkedReferral) {
+    // Commission foundation: after this referred job is completed/paid,
+    // finalize referral_invites.commission_amount as paid_job_amount * 0.02
+    // and move status through commission_due -> paid when payout is handled.
+    await supabase
+      .from("referral_invites")
+      .update({
+        submission_id: data.id,
+        referred_user_id: user.id,
+        status: "applied",
+        applied_at: new Date().toISOString(),
+      })
+      .eq("id", linkedReferral.id);
+  }
+
+  if (job.agency_id) {
     const displayName = talent_name ?? (talent_id
       ? (await supabase.from("talent_profiles").select("full_name").eq("id", talent_id).single())
           .data?.full_name ?? "A talent"

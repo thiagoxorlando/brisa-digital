@@ -28,7 +28,6 @@ export default async function TalentJobDetailPage({ params }: Props) {
       .eq("id", id)
       .single()
       .then(async (res) => {
-        // Column may not be in schema cache yet — retry without it
         if (res.error?.message?.includes("application_requirements")) {
           return supabase
             .from("jobs")
@@ -45,9 +44,8 @@ export default async function TalentJobDetailPage({ params }: Props) {
 
   if (!data || data.status === "inactive") return notFound();
 
-  // Private job access control — enforce at server level
   if (data.visibility === "private") {
-    const [{ data: invite }, { data: history }] = await Promise.all([
+    const [{ data: invite }, { data: history }, { data: referralInvite }] = await Promise.all([
       supabase
         .from("job_invites")
         .select("id")
@@ -62,14 +60,20 @@ export default async function TalentJobDetailPage({ params }: Props) {
             .eq("talent_id", user.id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      supabase
+        .from("referral_invites")
+        .select("id")
+        .eq("job_id", id)
+        .eq("referred_user_id", user.id)
+        .neq("status", "fraud_reported")
+        .maybeSingle(),
     ]);
 
-    if (!invite && !history) {
+    if (!invite && !history && !referralInvite) {
       return notFound();
     }
   }
 
-  // Fetch agency name and plan
   let agencyName = "";
   let agencyPlan = "free";
   if (data.agency_id) {

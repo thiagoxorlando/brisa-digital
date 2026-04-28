@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Logo from "@/components/Logo";
 import { getAgencyLanding } from "@/lib/getAgencyLanding";
@@ -11,12 +12,40 @@ const ROLE_HOME: Record<string, string> = {
   admin:  "/admin/dashboard",
 };
 
-export default function LoginPage() {
+function safeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
+  return value;
+}
+
+function LoginPageContent() {
+  const searchParams = useSearchParams();
+  const refToken = searchParams.get("ref")?.trim() || null;
+  const jobId = searchParams.get("job")?.trim() || null;
+  const nextPath = safeNextPath(searchParams.get("next")) ?? (jobId ? `/talent/jobs/${jobId}` : null);
+
   const [email,          setEmail]          = useState("");
   const [password,       setPassword]       = useState("");
   const [error,          setError]          = useState("");
   const [loading,        setLoading]        = useState(false);
   const [showRoleChoice, setShowRoleChoice] = useState(false);
+
+  function talentSignupHref() {
+    const params = new URLSearchParams({ role: "talent" });
+    if (refToken) params.set("ref", refToken);
+    if (jobId) params.set("job", jobId);
+    if (nextPath) params.set("next", nextPath);
+    return `/signup?${params.toString()}`;
+  }
+
+  async function linkReferral(userId: string) {
+    if (!refToken) return;
+
+    await fetch("/api/referrals/link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: refToken, user_id: userId }),
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,13 +74,15 @@ export default function LoginPage() {
       } else {
         destination = await getAgencyLanding(data.user.id);
       }
+    } else if (profile?.role === "talent") {
+      await linkReferral(data.user.id);
+      destination = profile.onboarding_completed === false
+        ? (nextPath ? `/setup-profile?next=${encodeURIComponent(nextPath)}` : "/setup-profile")
+        : (nextPath ?? ROLE_HOME.talent);
     } else {
-      destination = profile?.role ? ROLE_HOME[profile.role] : "/onboarding/role";
+      destination = "/onboarding/role";
     }
 
-    // Hard navigation so the browser sends fresh cookies with the request.
-    // router.push (soft RSC navigation) can hit a cached redirect from
-    // layouts that ran before the session cookie was established.
     window.location.assign(destination);
   }
 
@@ -82,7 +113,7 @@ export default function LoginPage() {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
                 className="input-base"
               />
@@ -96,7 +127,7 @@ export default function LoginPage() {
                 type="password"
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
                 className="input-base"
               />
@@ -123,7 +154,7 @@ export default function LoginPage() {
             Não tem uma conta?{" "}
             <button
               type="button"
-              onClick={() => setShowRoleChoice((v) => !v)}
+              onClick={() => setShowRoleChoice((value) => !value)}
               className="text-[#1ABC9C] font-medium hover:text-[#0E7C86] transition-colors cursor-pointer"
             >
               Criar conta
@@ -142,7 +173,7 @@ export default function LoginPage() {
                 <span className="text-[11px] text-[#647B7B]">Publique vagas</span>
               </Link>
               <Link
-                href="/signup?role=talent"
+                href={talentSignupHref()}
                 className="flex flex-col items-center gap-1 px-4 py-3 rounded-xl border border-[#DDE6E6] hover:border-[#1ABC9C] hover:bg-[#F8FAFC] transition-colors"
               >
                 <svg className="w-4 h-4 text-[#1ABC9C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,5 +188,13 @@ export default function LoginPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

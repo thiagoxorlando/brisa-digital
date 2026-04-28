@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { buildReferralEmail, buildReferralJobUrl, getAppUrl } from "@/lib/referralEmail";
 import { getEmailErrorHttpStatus, sendEmail } from "@/lib/resend";
+
+type InviteForEmail = {
+  id: string;
+  token: string;
+  referred_email: string;
+  job_id: string;
+  referrer_id: string;
+  submission_id: string | null;
+  status: string | null;
+};
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
@@ -14,79 +25,111 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invite_id ou submission_id é obrigatório" }, { status: 400 });
   }
 
-  let toEmail: string | null = null;
-  let jobId: string | null = null;
-  let inviteToken: string | null = null;
+  let invite: InviteForEmail | null = null;
 
-  // Try invite first
   if (invite_id) {
-    const { data: invite } = await supabase
+    const { data } = await supabase
       .from("referral_invites")
-      .select("token, referred_email, referred_name, job_id")
+      .select("id, token, referred_email, job_id, referrer_id, submission_id, status")
       .eq("id", invite_id)
-      .single();
-    if (invite) {
-      toEmail     = invite.referred_email ?? null;
-      jobId       = invite.job_id         ?? null;
-      inviteToken = invite.token          ?? null;
-    }
+      .maybeSingle();
+
+    invite = data as InviteForEmail | null;
   }
 
-  // Fallback to submission
-  if (!toEmail && submission_id) {
+  if (!invite && submission_id) {
     const { data: sub } = await supabase
       .from("submissions")
-      .select("email, talent_name, job_id")
+      .select("id, email, talent_name, job_id, referrer_id")
       .eq("id", submission_id)
-      .single();
-    if (sub) {
-      toEmail = sub.email       ?? sub.talent_name ?? null;
-      jobId   = sub.job_id      ?? null;
-    }
+      .maybeSingle();
 
-    // Also try to get the invite token from submissions
-    if (!inviteToken && submission_id) {
-      const { data: inv } = await supabase
+    const email = typeof sub?.email === "string" ? sub.email.trim().toLowerCase() : "";
+
+    if (sub?.job_id && sub.referrer_id && email) {
+      const { data: existingRows } = await supabase
         .from("referral_invites")
-        .select("token")
-        .eq("submission_id", submission_id)
-        .maybeSingle();
-      inviteToken = inv?.token ?? null;
+        .select("id, token, referred_email, job_id, referrer_id, submission_id, status")
+        .eq("job_id", sub.job_id)
+        .ilike("referred_email", email)
+        .limit(1);
+
+      invite = (existingRows?.[0] ?? null) as InviteForEmail | null;
+
+      if (!invite) {
+        const { data: createdInvite, error: createErr } = await supabase
+          .from("referral_invites")
+          .insert({
+            job_id: sub.job_id,
+            referrer_id: sub.referrer_id,
+            referred_email: email,
+            referred_name: sub.talent_name ?? null,
+            submission_id,
+            status: "pending",
+          })
+          .select("id, token, referred_email, job_id, referrer_id, submission_id, status")
+          .single();
+
+        if (createErr) {
+          return NextResponse.json({ error: createErr.message }, { status: 400 });
+        }
+
+        invite = createdInvite as InviteForEmail;
+      } else if (!invite.submission_id) {
+        await supabase
+          .from("referral_invites")
+          .update({ submission_id })
+          .eq("id", invite.id);
+        invite = { ...invite, submission_id };
+      }
     }
   }
 
-  if (!toEmail) return NextResponse.json({ error: "Email do indicado não disponível" }, { status: 400 });
+  if (!invite) {
+    return NextResponse.json(
+      { error: "Convite de indicação não encontrado para reenviar com rastreamento." },
+      { status: 404 }
+    );
+  }
 
-  const { data: job } = jobId
-    ? await supabase.from("jobs").select("title").eq("id", jobId).maybeSingle()
+  if (invite.status === "fraud_reported") {
+    return NextResponse.json({ error: "Esta indicação está em revisão." }, { status: 409 });
+  }
+  if (!invite.job_id) {
+    return NextResponse.json({ error: "Convite sem vaga vinculada; não é possível reenviar com rastreamento." }, { status: 400 });
+  }
+
+  const [{ data: job }, { data: referrerProfile }] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select("title, agency_id, location")
+      .eq("id", invite.job_id)
+      .maybeSingle(),
+    supabase.from("talent_profiles").select("full_name").eq("id", invite.referrer_id).maybeSingle(),
+  ]);
+
+  const { data: agency } = job?.agency_id
+    ? await supabase.from("agencies").select("company_name").eq("id", job.agency_id).maybeSingle()
     : { data: null };
 
-  const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const jobTitle = job?.title ?? "uma vaga";
-  const link     = inviteToken
-    ? `${appUrl}/signup?role=talent&ref=${inviteToken}`
-    : `${appUrl}/signup?role=talent`;
+  const referralUrl = buildReferralJobUrl({
+    appUrl: getAppUrl(),
+    jobId: invite.job_id,
+    token: invite.token,
+  });
+  const email = buildReferralEmail({
+    referrerName: referrerProfile?.full_name ?? "Um talento da BrisaHub",
+    jobTitle: job?.title ?? "uma oportunidade",
+    agencyName: agency?.company_name ?? null,
+    location: job?.location ?? null,
+    jobUrl: referralUrl,
+  });
 
   const emailResult = await sendEmail({
-    to: toEmail,
-    subject: `Lembrete: Você foi indicado para "${jobTitle}" na Brisa Digital`,
-    html: `
-      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
-        <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">Você ainda tem um convite esperando!</h2>
-        <p style="font-size:15px;color:#555;line-height:1.6;margin-bottom:24px">
-          Você foi indicado para <strong>${jobTitle}</strong>.
-          Crie sua conta gratuita na Brisa Digital e candidate-se com um clique.
-        </p>
-        <a href="${link}"
-           style="display:inline-block;background:#18181b;color:#fff;font-size:14px;font-weight:600;
-                  padding:12px 28px;border-radius:12px;text-decoration:none">
-          Criar conta e candidatar-se
-        </a>
-        <p style="font-size:12px;color:#aaa;margin-top:32px">
-          Se você não esperava este e-mail, pode ignorá-lo com segurança.
-        </p>
-      </div>
-    `,
+    to: invite.referred_email,
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
   });
 
   if (!emailResult.ok) {
@@ -95,12 +138,18 @@ export async function POST(req: NextRequest) {
         ok: false,
         emailSent: false,
         emailStatus: emailResult.status,
-        error: "Convite encontrado, mas o email nao foi enviado.",
+        error: "Convite encontrado, mas o email não foi enviado.",
         emailError: emailResult.error,
       },
       { status: getEmailErrorHttpStatus(emailResult.status) }
     );
   }
 
-  return NextResponse.json({ ok: true, emailSent: true, emailStatus: emailResult.status });
+  return NextResponse.json({
+    ok: true,
+    inviteId: invite.id,
+    referralUrl,
+    emailSent: true,
+    emailStatus: emailResult.status,
+  });
 }
