@@ -245,9 +245,9 @@ export default function AgencyFinances({
 
   const hasPix            = !!(savedPix?.pix_key_type && savedPix?.pix_key_value?.trim());
   const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
-  const withdrawFeeNum    = Math.max(Math.round(withdrawAmountNum * withdrawalFeeRate * 100) / 100, withdrawAmountNum > 0 ? withdrawalMinFee : 0);
-  const withdrawNetNum    = Math.round((withdrawAmountNum - withdrawFeeNum) * 100) / 100;
-  const isMinFeeApplied   = withdrawAmountNum > 0 && withdrawFeeNum === withdrawalMinFee;
+  const withdrawFeeNum    = 0; // temporarily zeroed for Efí payout testing
+  const withdrawNetNum    = withdrawAmountNum;
+  const isMinFeeApplied   = false;
   const canWithdraw       = Boolean(hasPix && withdrawAmountNum >= MIN_WITHDRAW && withdrawAmountNum <= walletBalance);
 
   async function handleDeposit(e: React.FormEvent) {
@@ -338,26 +338,24 @@ export default function AgencyFinances({
         {/* Balance row / withdrawal confirmation */}
         {withdrawConfirming ? (
           <div className="px-6 py-6 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white space-y-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">Confirmar Saque</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white">Confirmar Saque</p>
             <div className="space-y-2 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-white/70">Valor solicitado</span>
-                <span className="font-bold">{brl(withdrawAmountNum)}</span>
+                <span className="text-white">Valor solicitado</span>
+                <span className="font-bold text-white">{brl(withdrawAmountNum)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/70">
-                  Taxa de processamento{isMinFeeApplied ? ` (mín. ${brl(withdrawalMinFee)})` : ` (${(withdrawalFeeRate * 100).toFixed(0)}%)`}
-                </span>
-                <span className="font-bold text-rose-200">−{brl(withdrawFeeNum)}</span>
+                <span className="text-white">Taxa de processamento</span>
+                <span className="font-bold text-white">{brl(withdrawFeeNum)}</span>
               </div>
-              <div className="flex justify-between border-t border-white/20 pt-2">
+              <div className="flex justify-between border-t border-white/30 pt-2">
                 <span className="text-white font-semibold">Valor líquido a receber</span>
                 <span className="font-black text-white">{brl(withdrawNetNum)}</span>
               </div>
               {savedPix && (
                 <div className="flex justify-between pt-1">
-                  <span className="text-white/70">Chave PIX</span>
-                  <span className="text-white/80 font-medium text-right">
+                  <span className="text-white">Chave PIX</span>
+                  <span className="text-white font-medium text-right">
                     {PIX_TYPE_LABELS[savedPix.pix_key_type ?? ""] ?? savedPix.pix_key_type} · {savedPix.pix_key_value}
                   </span>
                 </div>
