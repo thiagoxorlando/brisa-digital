@@ -4,8 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { getEfiPixClient } from "@/lib/efiClient";
 
 // POST /api/admin/withdrawals/[id]/send-pix
-// Creates a PIX transfer via Efí for a pending withdrawal.
-// Does NOT mark the withdrawal as paid — admin manually approves after confirming.
+// Creates a PIX transfer via Efí for a pending withdrawal and marks it paid immediately.
 
 interface EfiPixSendResponse {
   identificadorPagamento?: string;
@@ -123,10 +122,12 @@ export async function POST(
   const { error: updateError } = await supabase
     .from("wallet_transactions")
     .update({
-      status:               "processing",
+      status:               "paid",
       provider:             "efi",
       provider_transfer_id: transferId,
       provider_status:      transferStatus,
+      processed_at:         new Date().toISOString(),
+      admin_note:           "PIX enviado automaticamente via Efí",
     })
     .eq("id", id);
 
@@ -156,7 +157,7 @@ export async function POST(
   return NextResponse.json({
     ok:             true,
     id,
-    status:         "processing",
+    status:         "paid",
     efi_transfer_id: transferId,
     efi_status:      transferStatus,
   });

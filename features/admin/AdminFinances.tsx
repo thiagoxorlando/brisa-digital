@@ -703,6 +703,11 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
       setError(data.error ?? "Erro ao enviar PIX.");
       return;
     }
+    setRows((current) =>
+      current.map((w) => w.id === id
+        ? { ...w, status: "paid", processedAt: new Date().toISOString(), adminNote: "PIX enviado automaticamente via Efí" }
+        : w),
+    );
     router.refresh();
   }
 
@@ -764,7 +769,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
   return (
     <Section
       title="Saques de agências"
-      subtitle={`${pendingOnly.length} pendente(s)${processingOnly.length > 0 ? ` · ${processingOnly.length} em processamento via Asaas` : ""}`}
+      subtitle={`${pendingOnly.length} pendente(s)${processingOnly.length > 0 ? ` · ${processingOnly.length} em processamento via Efí` : ""}`}
     >
       {canceling && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -831,7 +836,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
       )}
 
       <div className="rounded-2xl border border-amber-900/50 bg-amber-950/40 px-4 py-3 text-[13px] text-amber-400">
-        Use <strong>Enviar PIX</strong> para criar a transferência automaticamente via Asaas, ou envie manualmente e use <strong>Marcar como pago</strong>.
+        Use <strong>Enviar PIX</strong> para criar a transferência automaticamente via Efí, ou envie manualmente e use <strong>Marcar como pago</strong>.
       </div>
 
       {error && !canceling && !approving && (
@@ -899,10 +904,12 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                         PIX em andamento
                       </span>
                     )}
-                    <button onClick={() => { setApproving(w.id); setApproveNote(""); setError(null); }} disabled={canceling === w.id || sendingPix === w.id}
-                      className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
-                      Marcar como pago
-                    </button>
+                    {w.status === "pending" && (
+                      <button onClick={() => { setApproving(w.id); setApproveNote(""); setError(null); }} disabled={canceling === w.id || sendingPix === w.id}
+                        className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg hover:shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed">
+                        Marcar como pago
+                      </button>
+                    )}
                     <button onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }} disabled={approving === w.id || sendingPix === w.id}
                       className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-400 transition-all hover:border-red-800 hover:bg-red-950/40 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed">
                       Cancelar
