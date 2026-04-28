@@ -440,9 +440,6 @@ export default function AgencyFinances({
                 {withdrawAmountNum > walletBalance && (
                   <p className="text-[11px] text-rose-400">Valor superior ao saldo disponível.</p>
                 )}
-                {withdrawAmountNum > 0 && withdrawAmountNum < MIN_WITHDRAW && (
-                  <p className="text-[11px] text-amber-400">Valor mínimo para saque: {brl(MIN_WITHDRAW)}.</p>
-                )}
                 {withdrawError && (
                   <p className="text-[11px] text-rose-400">{withdrawError}</p>
                 )}
@@ -450,7 +447,7 @@ export default function AgencyFinances({
             )}
 
             {!hasPix && walletBalance > 0 && (
-              <p className="text-[11px] text-amber-400">Configure sua chave PIX para habilitar saques.</p>
+              <p className="text-[11px] text-white font-semibold">⚠ Configure sua chave PIX para habilitar saques.</p>
             )}
           </div>
         )}
