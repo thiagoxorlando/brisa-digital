@@ -5,6 +5,7 @@ import AdminFinances, {
   type FinancesPlanPayment,
   type FinancesSubscription,
   type FinancesSummary,
+  type FinancesWallet,
   type FinancesWithdrawal,
 } from "@/features/admin/AdminFinances";
 import { createServerClient } from "@/lib/supabase";
@@ -89,6 +90,7 @@ export default async function AdminFinancesPage() {
     { data: allAgenciesData },
     contractsData,
     { data: withdrawalTxs },
+    { data: talentWalletsData },
   ] = await Promise.all([
     supabase
       .from("bookings")
@@ -100,7 +102,7 @@ export default async function AdminFinancesPage() {
       .not("referrer_id", "is", null),
     supabase
       .from("profiles")
-      .select("wallet_balance")
+      .select("id, wallet_balance")
       .eq("role", "agency"),
     supabase
       .from("profiles")
@@ -122,6 +124,12 @@ export default async function AdminFinancesPage() {
       .select("id, user_id, amount, fee_amount, net_amount, status, processed_at, admin_note, created_at")
       .eq("type", "withdrawal")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("profiles")
+      .select("id, wallet_balance")
+      .eq("role", "talent")
+      .gt("wallet_balance", 0)
+      .order("wallet_balance", { ascending: false }),
   ]);
 
   const rows = bookingsData ?? [];
@@ -141,6 +149,7 @@ export default async function AdminFinancesPage() {
   const contractJobIds = [...new Set(contractRows.map((contract) => contract.job_id).filter(Boolean))] as string[];
 
   const talentMap = new Map<string, string>();
+  const talentWalletNameMap = new Map<string, string>();
   const bookingJobMap = new Map<string, { title: string; agencyId: string | null }>();
   const contractTalentMap = new Map<string, string>();
   const contractAgencyMap = new Map<string, string>();
@@ -202,6 +211,17 @@ export default async function AdminFinancesPage() {
           .then(({ data }) => {
             for (const job of data ?? []) {
               contractJobMap.set(job.id, job.title ?? "Untitled Job");
+            }
+          })
+      : Promise.resolve(),
+    (talentWalletsData ?? []).length > 0
+      ? supabase
+          .from("talent_profiles")
+          .select("id, full_name")
+          .in("id", (talentWalletsData ?? []).map((w) => w.id))
+          .then(({ data }) => {
+            for (const profile of data ?? []) {
+              talentWalletNameMap.set(profile.id, profile.full_name ?? "Sem nome");
             }
           })
       : Promise.resolve(),
@@ -305,6 +325,25 @@ export default async function AdminFinancesPage() {
     });
   }
 
+  const agencyWalletList: FinancesWallet[] = (agencyWallets ?? [])
+    .filter((w) => (w.wallet_balance ?? 0) > 0)
+    .sort((a, b) => (b.wallet_balance ?? 0) - (a.wallet_balance ?? 0))
+    .map((w) => ({
+      userId: w.id,
+      name:   allAgencyNameMap.get(w.id) ?? "Agência sem nome",
+      role:   "agency" as const,
+      balance: w.wallet_balance ?? 0,
+      plan:   agencyPlanMap.get(w.id) ?? "free",
+      hasPix: !!(agencyPixMap.get(w.id)?.pix_key_value),
+    }));
+
+  const talentWalletList: FinancesWallet[] = (talentWalletsData ?? []).map((w) => ({
+    userId:  w.id,
+    name:    talentWalletNameMap.get(w.id) ?? "Talento sem nome",
+    role:    "talent" as const,
+    balance: w.wallet_balance ?? 0,
+  }));
+
   const planOrder: Record<string, number> = { premium: 0, pro: 1, free: 2 };
   const subscriptions: FinancesSubscription[] = typedAgencyPlanProfiles
     .map((profile) => {
@@ -394,6 +433,8 @@ export default async function AdminFinancesPage() {
       planPayments={planPayments}
       subscriptions={subscriptions}
       withdrawals={withdrawals}
+      agencyWallets={agencyWalletList}
+      talentWallets={talentWalletList}
     />
   );
 }
