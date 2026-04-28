@@ -445,8 +445,18 @@ export default function TalentFinances() {
       .eq("type", "referral_commission")
       .order("created_at", { ascending: false });
 
-    if (refCommTxs && refCommTxs.length > 0) {
-      const refContractIds = [...new Set(refCommTxs.map((tx) => tx.reference_id).filter(Boolean))];
+    // One commission per referred contract: deduplicate by reference_id.
+    // Guards against duplicate rows from old code paths that lacked idempotency.
+    const seenRefKeys = new Set<string>();
+    const uniqueRefCommTxs = (refCommTxs ?? []).filter((tx) => {
+      const key = tx.reference_id ?? tx.id;
+      if (seenRefKeys.has(key)) return false;
+      seenRefKeys.add(key);
+      return true;
+    });
+
+    if (uniqueRefCommTxs.length > 0) {
+      const refContractIds = [...new Set(uniqueRefCommTxs.map((tx) => tx.reference_id).filter(Boolean))];
       const refTalentNameMap = new Map<string, string>();
       const refJobTitleMap   = new Map<string, string>();
       const refGrossMap      = new Map<string, number>();
@@ -482,7 +492,7 @@ export default function TalentFinances() {
       }
 
       setReferrals(
-        refCommTxs.map((tx) => ({
+        uniqueRefCommTxs.map((tx) => ({
           id:         tx.id,
           talentName: tx.reference_id ? (refTalentNameMap.get(tx.reference_id) ?? "Sem nome") : "Sem nome",
           job:        tx.reference_id ? (refJobTitleMap.get(tx.reference_id) ?? "—") : "—",
