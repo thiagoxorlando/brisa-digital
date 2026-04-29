@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { notify, notifyAdmins } from "@/lib/notify";
 
 export const runtime = "nodejs";
@@ -97,7 +97,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
         sessionId,
         error: error.message,
       });
-      throw new Error(`failed to load wallet_transaction: ${error.message}`);
+      return false;
     }
 
     if (data) {
@@ -153,7 +153,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
         wallet_transaction_id_in_metadata: explicitTxId ?? "missing",
         fallback_reference_id: sessionId,
       });
-      throw new Error(`no wallet_transaction found for session ${sessionId}`);
+      return false;
     }
   }
 
@@ -164,7 +164,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
       amount,
       amount_total: session.amount_total,
     });
-    throw new Error(`invalid amount: ${amount}`);
+    return false;
   }
 
   // 5. Idempotency guard
@@ -188,7 +188,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
   });
 
   if (creditError) {
-    console.error("[stripe deposit] CRITICAL RPC error", {
+    console.error("[stripe deposit] RPC error full", {
       transactionId: tx.id,
       sessionId,
       paymentIntentId,
@@ -196,7 +196,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
       error: creditError.message,
       details: creditError,
     });
-    throw new Error(`credit_stripe_wallet_deposit failed: ${creditError.message}`);
+    return false;
   }
 
   const payload = creditResult as {
@@ -215,7 +215,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
       sessionId,
       payload,
     });
-    throw new Error(`credit_stripe_wallet_deposit returned ${payload?.error ?? "not ok"}`);
+    return false;
   }
 
   if (payload.already_processed) {
@@ -228,16 +228,35 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
   }
 
   // 7. Stamp transfer reference — RPC already set status/provider/payment_id; we add provider_transfer_id + reference_id
-  await supabase
+  const { data: finalUpdate, error: finalUpdateError } = await supabase
     .from("wallet_transactions")
     .update({
       provider_transfer_id: paymentIntentId,
       reference_id: sessionId,
       processed_at: new Date().toISOString(),
     } as Record<string, unknown>)
-    .eq("id", payload.transaction_id ?? tx.id);
+    .eq("id", payload.transaction_id ?? tx.id)
+    .select("id, status, provider, provider_transfer_id, provider_status, payment_id, reference_id, processed_at")
+    .maybeSingle();
 
-  console.log("[stripe deposit] wallet credited", {
+  console.log("[stripe deposit] final update result", {
+    sessionId,
+    transactionId: payload.transaction_id ?? tx.id,
+    finalUpdate,
+    finalUpdateError: finalUpdateError?.message ?? null,
+  });
+
+  if (finalUpdateError) {
+    console.error("[stripe deposit] CRITICAL final update failed", {
+      transactionId: payload.transaction_id ?? tx.id,
+      sessionId,
+      paymentIntentId,
+      error: finalUpdateError.message,
+    });
+    return false;
+  }
+
+  console.log("[stripe deposit] wallet credited successfully", {
     userId: tx.user_id,
     transactionId: payload.transaction_id ?? tx.id,
     paymentIntentId,
@@ -257,6 +276,8 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
     "/admin/finances",
     `admin-stripe-wallet-deposit:${paymentIntentId}`,
   );
+
+  return true;
 }
 
 async function handleContractFunding(supabase: Supabase, session: Stripe.Checkout.Session) {
@@ -615,37 +636,43 @@ async function handleSubscriptionDeleted(supabase: Supabase, subscription: Strip
 }
 
 export async function POST(req: NextRequest) {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    console.error("[stripe webhook] STRIPE_WEBHOOK_SECRET is not configured");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
-  }
-
-  const signature = req.headers.get("stripe-signature");
-  if (!signature) {
-    return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
-  }
-
-  const rawBody = await req.text();
-  let event: Stripe.Event;
-
   try {
-    event = getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch (err) {
-    console.error("[stripe webhook] invalid signature", err instanceof Error ? err.message : String(err));
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  }
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error("[stripe webhook] STRIPE_WEBHOOK_SECRET is not configured");
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+    }
 
-  console.log("[stripe webhook] received", { type: event.type, eventId: event.id });
+    if (!isStripeConfigured()) {
+      console.error("Missing STRIPE_SECRET_KEY");
+      return new Response("Server misconfigured", { status: 500 });
+    }
 
-  const supabase = createServerClient({ useServiceRole: true });
+    const signature = req.headers.get("stripe-signature");
+    if (!signature) {
+      return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
+    }
 
-  if (await hasProcessedEvent(supabase, event.id)) {
-    console.log("[stripe webhook] duplicate event skipped", { eventId: event.id, type: event.type });
-    return NextResponse.json({ ok: true, duplicate: true });
-  }
+    const rawBody = await req.text();
+    let event: Stripe.Event;
 
-  try {
+    try {
+      event = getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
+    } catch (err) {
+      console.error("[stripe webhook] invalid signature", err instanceof Error ? err.message : String(err));
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    }
+
+    console.log("[stripe webhook] received", { type: event.type, eventId: event.id });
+
+    const supabase = createServerClient({ useServiceRole: true });
+    let shouldMarkProcessed = true;
+
+    if (await hasProcessedEvent(supabase, event.id)) {
+      console.log("[stripe webhook] duplicate event skipped", { eventId: event.id, type: event.type });
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -654,7 +681,15 @@ export async function POST(req: NextRequest) {
         console.log("[stripe webhook] checkout.session.completed", { type, sessionId: session.id });
 
         if (type === "wallet_deposit") {
-          await handleWalletDeposit(supabase, session);
+          const walletCredited = await handleWalletDeposit(supabase, session);
+          if (!walletCredited) {
+            shouldMarkProcessed = false;
+            console.error("[stripe deposit] CRITICAL credit failed, event not marked processed", {
+              eventId: event.id,
+              sessionId: session.id,
+              transactionId: session.metadata?.wallet_transaction_id ?? null,
+            });
+          }
         } else if (type === "contract_funding") {
           await handleContractFunding(supabase, session);
         } else if (type === "plan_subscription") {
@@ -691,17 +726,17 @@ export async function POST(req: NextRequest) {
       default:
         break;
     }
+
+    if (shouldMarkProcessed) {
+      await markEventProcessed(supabase, event);
+    }
+
+    return NextResponse.json({ ok: true, processed: shouldMarkProcessed });
   } catch (err) {
-    console.error("[stripe webhook] processing failed", {
-      eventId: event.id,
-      type: event.type,
+    console.error("[stripe webhook] global handler error", {
       error: err instanceof Error ? err.message : String(err),
       stack: err instanceof Error ? err.stack : undefined,
     });
-    // Return 500 so Stripe retries the event
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+    return NextResponse.json({ ok: true, recovered: true });
   }
-
-  await markEventProcessed(supabase, event);
-  return NextResponse.json({ ok: true });
 }

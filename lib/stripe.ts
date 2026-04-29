@@ -4,6 +4,10 @@ import Stripe from "stripe";
 
 let _instance: Stripe | undefined;
 
+export function isStripeConfigured() {
+  return Boolean(process.env.STRIPE_SECRET_KEY);
+}
+
 // Lazy singleton: throws at the first request rather than at module load,
 // so `next build` succeeds even when STRIPE_SECRET_KEY is not in the environment.
 export function getStripe(): Stripe {
@@ -11,6 +15,7 @@ export function getStripe(): Stripe {
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
+    console.error("Missing STRIPE_SECRET_KEY");
     throw new Error(
       "[stripe] STRIPE_SECRET_KEY is not configured. " +
         "Add it to your .env.local (or server environment) and restart."
