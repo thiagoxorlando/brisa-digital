@@ -343,6 +343,11 @@ async function handleWalletDepositSafely(supabase: Supabase, session: Stripe.Che
 
   try {
     await handleWalletDeposit(supabase, session);
+    console.log("[stripe deposit] wallet credited successfully", {
+      sessionId: session.id,
+      transactionId,
+      paymentIntentId,
+    });
     return { ok: true, reason: "credited" } satisfies WalletDepositHandleResult;
   } catch (err) {
     console.error("[stripe deposit] CRITICAL failed to credit wallet", {
@@ -625,32 +630,72 @@ export async function POST(req: NextRequest) {
   console.log("[stripe webhook] received", { type: event.type, eventId: event.id });
 
   const supabase = createServerClient({ useServiceRole: true });
-  if (await hasProcessedEvent(supabase, event.id)) {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const type = session.metadata?.type;
-      if (type === "wallet_deposit") {
-        const tx = await getWalletDepositTransactionForSession(supabase, session);
-        if (tx && tx.status !== "paid" && tx.provider_status !== "paid") {
-          console.error("[stripe webhook] duplicate event but deposit still pending, processing anyway", {
+  const eventAlreadyProcessed = await hasProcessedEvent(supabase, event.id);
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const type = session.metadata?.type;
+
+    if (type === "wallet_deposit") {
+      const tx = await getWalletDepositTransactionForSession(supabase, session);
+
+      console.log("[stripe webhook] loaded transaction", {
+        eventId: event.id,
+        sessionId: session.id,
+        transactionId: tx?.id ?? stringFrom(session.metadata?.wallet_transaction_id),
+        status: tx?.status ?? null,
+        providerStatus: tx?.provider_status ?? null,
+      });
+
+      if (tx && (tx.status === "paid" || tx.provider_status === "paid")) {
+        console.log("[stripe webhook] duplicate event skipped, already paid", {
+          eventId: event.id,
+          sessionId: session.id,
+          transactionId: tx.id,
+          status: tx.status,
+          providerStatus: tx.provider_status,
+        });
+
+        if (!eventAlreadyProcessed) {
+          await markEventProcessed(supabase, event);
+          console.log("[stripe deposit] event marked processed after successful credit", {
+            eventId: event.id,
+            sessionId: session.id,
+            transactionId: tx.id,
+          });
+        }
+
+        return NextResponse.json({ ok: true, duplicate: eventAlreadyProcessed, processed: true });
+      }
+
+      if (tx?.status === "pending") {
+        if (eventAlreadyProcessed) {
+          console.error("[stripe webhook] duplicate event but transaction pending, reprocessing", {
             eventId: event.id,
             sessionId: session.id,
             transactionId: tx.id,
             status: tx.status,
             providerStatus: tx.provider_status,
           });
-        } else {
-          console.log("[stripe webhook] duplicate event skipped", { eventId: event.id, type: event.type });
-          return NextResponse.json({ ok: true, duplicate: true });
         }
-      } else {
-        console.log("[stripe webhook] duplicate event skipped", { eventId: event.id, type: event.type });
-        return NextResponse.json({ ok: true, duplicate: true });
+      } else if (tx) {
+        console.error("[stripe deposit] CRITICAL credit failed, event not marked processed", {
+          eventId: event.id,
+          sessionId: session.id,
+          transactionId: tx.id,
+          reason: "transaction_not_pending_or_paid",
+          status: tx.status,
+          providerStatus: tx.provider_status,
+        });
+        return NextResponse.json({ ok: true, processed: false });
       }
-    } else {
+    } else if (eventAlreadyProcessed) {
       console.log("[stripe webhook] duplicate event skipped", { eventId: event.id, type: event.type });
       return NextResponse.json({ ok: true, duplicate: true });
     }
+  } else if (eventAlreadyProcessed) {
+    console.log("[stripe webhook] duplicate event skipped", { eventId: event.id, type: event.type });
+    return NextResponse.json({ ok: true, duplicate: true });
   }
 
   let shouldMarkProcessed = true;
@@ -712,7 +757,12 @@ export async function POST(req: NextRequest) {
   } else if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.type === "wallet_deposit") {
-      console.error("[stripe deposit] CRITICAL failed before marking event processed", {
+      console.error("[stripe deposit] CRITICAL credit failed, event not marked processed", {
+        eventId: event.id,
+        sessionId: session.id,
+        transactionId: session.metadata?.wallet_transaction_id ?? null,
+      });
+      console.error("[stripe deposit] failed before marking processed", {
         eventId: event.id,
         sessionId: session.id,
         transactionId: session.metadata?.wallet_transaction_id ?? null,
