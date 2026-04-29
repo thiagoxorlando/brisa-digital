@@ -374,6 +374,23 @@ export default function BillingDashboard({
 
   return (
     <div className="max-w-3xl space-y-8">
+      {(activePlanStatus === "past_due" || activePlanStatus === "unpaid") && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3.5">
+          <svg className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-rose-800">
+              {activePlanStatus === "unpaid" ? "Assinatura vencida" : "Falha no pagamento"}
+            </p>
+            <p className="text-[12px] text-rose-700 mt-0.5">
+              {activePlanStatus === "unpaid"
+                ? "Sua assinatura esta vencida. Acesse o portal do Stripe para regularizar o pagamento."
+                : "Houve uma falha no pagamento da sua assinatura. O Stripe tentara novamente em breve."}
+            </p>
+          </div>
+        </div>
+      )}
       {returnBanner === "success" && (
         <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5">
           <svg className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

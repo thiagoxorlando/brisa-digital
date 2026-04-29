@@ -7,11 +7,10 @@ import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
-// Returns the Stripe Price ID for a plan from env vars, e.g. STRIPE_PRICE_PRO_ID.
-// If not configured, falls back to inline price_data so the checkout still works.
 function getStripePriceId(plan: Plan): string | null {
-  const key = `STRIPE_PRICE_${plan.toUpperCase()}_ID`;
-  return process.env[key] ?? null;
+  if (plan === "pro") return process.env.STRIPE_PRO_PRICE_ID ?? null;
+  if (plan === "premium") return process.env.STRIPE_PREMIUM_PRICE_ID ?? null;
+  return null;
 }
 
 // POST /api/agencies/plan-change
@@ -23,7 +22,6 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({})) as {
     plan?: string;
-    chargeImmediately?: boolean;
   };
 
   if (!body.plan || !PLAN_KEYS.includes(body.plan as Plan)) {
@@ -141,22 +139,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erro ao preparar cliente Stripe." }, { status: 500 });
   }
 
-  // Use pre-configured Stripe Price ID if available; fall back to inline price_data.
   const stripePriceId = getStripePriceId(selectedPlan);
+  if (!stripePriceId) {
+    console.error("[plan] stripe price id not configured", { plan: selectedPlan });
+    return NextResponse.json({ error: `Stripe price id missing for plan ${selectedPlan}` }, { status: 500 });
+  }
 
-  const lineItems = stripePriceId
-    ? [{ price: stripePriceId, quantity: 1 }]
-    : [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "brl",
-            unit_amount: amountInCents,
-            recurring: { interval: "month" as const },
-            product_data: { name: `BrisaHub ${definition.label}` },
-          },
-        },
-      ];
+  const lineItems = [{ price: stripePriceId, quantity: 1 }];
 
   let checkoutSession: Awaited<ReturnType<ReturnType<typeof getStripe>["checkout"]["sessions"]["create"]>>;
   try {

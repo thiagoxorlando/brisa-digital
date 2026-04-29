@@ -477,6 +477,118 @@ async function handleInvoicePaid(supabase: Supabase, invoice: Stripe.Invoice) {
   });
 }
 
+async function resolveUserIdFromSubscription(
+  supabase: Supabase,
+  subscriptionId: string,
+  metadata: Record<string, unknown>,
+): Promise<string | null> {
+  const metadataUserId = stringFrom(metadata.user_id);
+  if (metadataUserId) return metadataUserId;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+
+  return profile?.id ?? null;
+}
+
+async function handleSubscriptionUpdated(supabase: Supabase, subscription: Stripe.Subscription) {
+  const subscriptionRecord = subscription as unknown as Record<string, unknown>;
+  const status = stringFrom(subscriptionRecord.status);
+  const cancelAtPeriodEnd = Boolean(subscriptionRecord.cancel_at_period_end);
+  const cancelAt = numberFrom(subscriptionRecord.cancel_at);
+  const currentPeriodEnd = numberFrom(subscriptionRecord.current_period_end);
+  const metadata = recordFrom(subscriptionRecord.metadata);
+
+  const userId = await resolveUserIdFromSubscription(supabase, subscription.id, metadata);
+  if (!userId) {
+    console.log("[stripe subscription] customer.subscription.updated: no user found", { subscriptionId: subscription.id });
+    return;
+  }
+
+  let planStatus: string;
+  let planExpiresAt: string | null = null;
+
+  if (cancelAtPeriodEnd) {
+    planStatus = "cancelling";
+    const expireTs = cancelAt ?? currentPeriodEnd;
+    planExpiresAt = expireTs ? new Date(expireTs * 1000).toISOString() : null;
+  } else if (status === "past_due") {
+    planStatus = "past_due";
+  } else if (status === "unpaid") {
+    planStatus = "unpaid";
+  } else if (status === "active") {
+    planStatus = "active";
+    planExpiresAt = currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : null;
+  } else {
+    planStatus = status ?? "unknown";
+  }
+
+  const profileUpdate: Record<string, unknown> = {
+    plan_status: planStatus,
+    stripe_subscription_status: status,
+  };
+  if (planExpiresAt !== undefined) profileUpdate.plan_expires_at = planExpiresAt;
+
+  await supabase.from("profiles").update(profileUpdate).eq("id", userId);
+  await supabase.from("agencies").update({ subscription_status: planStatus }).eq("id", userId);
+
+  console.log("[stripe subscription] updated", {
+    userId,
+    subscriptionId: subscription.id,
+    status,
+    cancelAtPeriodEnd,
+    planStatus,
+    planExpiresAt,
+  });
+}
+
+async function handleInvoicePaymentFailed(supabase: Supabase, invoice: Stripe.Invoice) {
+  const invoiceRecord = invoice as unknown as Record<string, unknown>;
+  const subscriptionId = idFrom(invoiceRecord.subscription);
+  if (!subscriptionId) return;
+
+  let userId: string | null = null;
+  try {
+    const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+    const subscriptionRecord = subscription as unknown as Record<string, unknown>;
+    const metadata = recordFrom(subscriptionRecord.metadata);
+    userId = await resolveUserIdFromSubscription(supabase, subscriptionId, metadata);
+    const subStatus = stringFrom(subscriptionRecord.status);
+    const planStatus = subStatus === "unpaid" ? "unpaid" : "past_due";
+
+    if (!userId) {
+      console.error("[stripe billing] invoice.payment_failed: no user found", {
+        subscriptionId,
+        invoiceId: invoice.id,
+      });
+      return;
+    }
+
+    await supabase.from("profiles").update({
+      plan_status: planStatus,
+      stripe_subscription_status: subStatus,
+    }).eq("id", userId);
+    await supabase.from("agencies").update({ subscription_status: planStatus }).eq("id", userId);
+
+    console.log("[stripe billing] payment failed, plan status updated", {
+      userId,
+      subscriptionId,
+      invoiceId: invoice.id,
+      planStatus,
+    });
+  } catch (err) {
+    console.error("[stripe billing] invoice.payment_failed handler error", {
+      subscriptionId,
+      invoiceId: invoice.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
 async function handleSubscriptionDeleted(supabase: Supabase, subscription: Stripe.Subscription) {
   await supabase
     .from("profiles")
@@ -554,7 +666,22 @@ export async function POST(req: NextRequest) {
       }
 
       case "invoice.payment_succeeded":
+      case "invoice.paid":
         await handleInvoicePaid(supabase, event.data.object as Stripe.Invoice);
+        break;
+
+      case "invoice.payment_failed":
+        await handleInvoicePaymentFailed(supabase, event.data.object as Stripe.Invoice);
+        break;
+
+      case "customer.subscription.created":
+        console.log("[stripe webhook] customer.subscription.created", {
+          subscriptionId: (event.data.object as Stripe.Subscription).id,
+        });
+        break;
+
+      case "customer.subscription.updated":
+        await handleSubscriptionUpdated(supabase, event.data.object as Stripe.Subscription);
         break;
 
       case "customer.subscription.deleted":
