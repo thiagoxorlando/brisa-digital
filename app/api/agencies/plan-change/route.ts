@@ -29,11 +29,27 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createServerClient({ useServiceRole: true });
-  const { data: profile } = await supabase
+
+  // Select only stable columns — stripe_subscription_id was added in a later migration
+  // and may not exist yet in production. Fetching it here would make the query fail and
+  // return a null profile, which incorrectly blocks the role check.
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, plan, stripe_customer_id, stripe_subscription_id")
+    .select("role, plan")
     .eq("id", user.id)
     .single();
+
+  console.log("[plan] role check", {
+    userId: user.id,
+    role: profile?.role ?? null,
+    isAgency: profile?.role === "agency",
+    queryError: profileError?.message ?? null,
+  });
+
+  if (profileError) {
+    console.error("[plan] profile query failed", { userId: user.id, error: profileError.message });
+    return NextResponse.json({ error: "Erro interno ao verificar perfil." }, { status: 500 });
+  }
 
   if (profile?.role !== "agency") {
     return NextResponse.json({ error: "Apenas agencias podem alterar planos" }, { status: 403 });
@@ -45,7 +61,19 @@ export async function POST(req: NextRequest) {
   }
 
   if (selectedPlan === "free") {
-    const subscriptionId = profile?.stripe_subscription_id as string | null | undefined;
+    // Fetch stripe_subscription_id separately — only needed here, and column may not exist
+    // in older DB instances; handle gracefully so plan cancellation still works.
+    let subscriptionId: string | null = null;
+    try {
+      const { data: stripeProfile } = await supabase
+        .from("profiles")
+        .select("stripe_subscription_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      subscriptionId = (stripeProfile as Record<string, unknown> | null)?.stripe_subscription_id as string | null ?? null;
+    } catch {
+      // Column does not exist yet — treated as no active subscription
+    }
 
     if (subscriptionId) {
       try {
