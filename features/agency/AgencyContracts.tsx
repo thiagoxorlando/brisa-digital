@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
@@ -162,13 +162,13 @@ function ContractCard({
 
   async function handleStripeFunding() {
     setActing("stripe_funding");
-    const res = await fetch(`/api/contracts/${c.id}/stripe-checkout`, { method: "POST" });
+    const res = await fetch(`/api/contracts/${c.id}/stripe-fund`, { method: "POST" });
     const data = await res.json().catch(() => ({})) as { error?: string; url?: string };
     if (res.ok && data.url) {
       window.location.href = data.url;
       return;
     }
-    console.error("[contract stripe funding]", data.error ?? "Stripe checkout failed");
+    console.error("[contract stripe funding]", data.error ?? "Stripe fund failed");
     setActing(null);
   }
 
@@ -414,8 +414,15 @@ function JobGroup({
 export default function AgencyContracts({ contracts: initialContracts }: { contracts: AgencyContract[] }) {
   const [contracts,    setContracts]    = useState<AgencyContract[]>(initialContracts);
   const [filter,       setFilter]       = useState<FilterStatus>("all");
+  const [stripeBanner, setStripeBanner] = useState<"success" | "cancel" | null>(null);
   const { t } = useT();
   const { commissionLabel, talentShareLabel } = useSubscription();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("stripe_success") === "1") setStripeBanner("success");
+    else if (params.get("stripe_cancel") === "1") setStripeBanner("cancel");
+  }, []);
 
   function handleUpdate(id: string, updates: Partial<AgencyContract>) {
     setContracts((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
@@ -443,6 +450,42 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
           {contracts.length} {t("general_contracts")}
         </p>
       </div>
+
+      {stripeBanner === "success" && (
+        <div className="flex items-center justify-between gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-3">
+            <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-[13px] font-medium text-emerald-800">
+              Pagamento confirmado! O contrato será atualizado em instantes.
+            </p>
+          </div>
+          <button onClick={() => setStripeBanner(null)} className="text-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {stripeBanner === "cancel" && (
+        <div className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-3">
+            <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-[13px] font-medium text-amber-800">
+              Pagamento cancelado. O contrato permanece aguardando pagamento.
+            </p>
+          </div>
+          <button onClick={() => setStripeBanner(null)} className="text-amber-500 hover:text-amber-700 transition-colors cursor-pointer flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {awaitingTalent > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
