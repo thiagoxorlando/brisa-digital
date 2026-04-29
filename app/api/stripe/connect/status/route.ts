@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
@@ -8,12 +8,13 @@ export type StripeConnectStatusResponse = {
   charges_enabled:   boolean;
   payouts_enabled:   boolean;
   details_submitted: boolean;
+  transfers_active:  boolean;
 };
 
 // GET /api/stripe/connect/status
 // Returns raw Stripe account fields so the UI can derive its own display state.
 // connected=false means no stripe_account_id is stored yet.
-export async function GET(_req: NextRequest) {
+export async function GET() {
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,6 +35,7 @@ export async function GET(_req: NextRequest) {
       charges_enabled:   false,
       payouts_enabled:   false,
       details_submitted: false,
+      transfers_active:  false,
     };
     return NextResponse.json(payload);
   }
@@ -46,6 +48,7 @@ export async function GET(_req: NextRequest) {
       charges_enabled:   account.charges_enabled   ?? false,
       payouts_enabled:   account.payouts_enabled   ?? false,
       details_submitted: account.details_submitted ?? false,
+      transfers_active:  account.capabilities?.transfers === "active",
     };
 
     console.log("[stripe status]", accountId, payload);
@@ -60,6 +63,7 @@ export async function GET(_req: NextRequest) {
       charges_enabled:   false,
       payouts_enabled:   false,
       details_submitted: false,
+      transfers_active:  false,
     };
     return NextResponse.json(fallback);
   }

@@ -46,6 +46,9 @@ export type FinancesWithdrawal = {
   status: string;
   createdAt: string;
   processedAt: string | null;
+  provider: string | null;
+  providerTransferId: string | null;
+  providerStatus: string | null;
   pixKeyType: string | null;
   pixKeyValue: string | null;
   pixHolderName: string | null;
@@ -148,6 +151,19 @@ function fmt(value: string | null) {
 
 function planLabel(plan: string) {
   return plan === "pro" ? "Pro" : plan === "premium" ? "Premium" : "Free";
+}
+
+function withdrawalProviderLabel(w: FinancesWithdrawal) {
+  if (w.provider === "stripe") return "Stripe";
+  if (w.provider === "efi") return "Efí";
+  if (w.provider === "asaas") return "Asaas";
+  return w.userRole === "talent" ? "Manual" : "Efí/manual";
+}
+
+function withdrawalProviderTone(w: FinancesWithdrawal) {
+  if (w.provider === "stripe") return "bg-indigo-500/15 text-indigo-400 ring-1 ring-indigo-500/30";
+  if (w.provider === "efi") return "bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30";
+  return "bg-zinc-500/15 text-zinc-400 ring-1 ring-zinc-500/30";
 }
 
 function isInRange(value: string | null, range: ProfitRange) {
@@ -993,10 +1009,10 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
 
       <Section
         title="Saques"
-        subtitle={`${pendingOnly.length} pendente(s)${processingOnly.length > 0 ? ` · ${processingOnly.length} em processamento via Efí` : ""}`}
+        subtitle={`${pendingOnly.length} pendente(s)${processingOnly.length > 0 ? ` · ${processingOnly.length} em processamento` : ""}`}
       >
         <div className="rounded-2xl border border-amber-900/40 bg-amber-950/30 px-4 py-3 text-[13px] text-amber-400">
-          Use <strong>Enviar PIX</strong> para saques de agências via Efí. Saques de talentos podem ser pagos manualmente e marcados como pagos.
+          Use <strong>Enviar PIX</strong> para saques de agências via Efí. Saques Stripe de talentos são automáticos; o manual fica como fallback.
         </div>
 
         {error && !canceling && !approving && (
@@ -1012,6 +1028,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
             <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
               <tr>
                 <Th>Usuário</Th>
+                <Th>Provedor</Th>
                 <Th right>Debitado</Th>
                 <Th right>Taxa</Th>
                 <Th right>Líquido</Th>
@@ -1031,6 +1048,14 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                     </span>
                     {w.adminNote?.startsWith("Efí recusou") && (
                       <p className="text-[10px] text-red-400 mt-0.5 max-w-[180px] truncate" title={w.adminNote}>{w.adminNote}</p>
+                    )}
+                  </Td>
+                  <Td>
+                    <Badge value={withdrawalProviderLabel(w)} tone={withdrawalProviderTone(w)} />
+                    {w.providerStatus && (
+                      <p className="mt-1 max-w-[140px] truncate text-[10px] text-zinc-400" title={w.providerStatus}>
+                        {w.providerStatus}
+                      </p>
                     )}
                   </Td>
                   <Td right><strong className="text-[#1F2D2E]">{brl(w.amount)}</strong></Td>
@@ -1067,17 +1092,22 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                           {sendingPix === w.id ? "Enviando…" : "Enviar PIX"}
                         </button>
                       )}
-                      {w.status === "pending" && w.userRole === "talent" && (
+                      {w.status === "pending" && w.userRole === "talent" && w.provider !== "stripe" && (
                         <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 ring-1 ring-blue-100">
                           Manual
                         </span>
                       )}
-                      {w.status === "processing" && (
+                      {w.status === "processing" && w.provider !== "stripe" && (
                         <span className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-400 ring-1 ring-cyan-500/20">
                           Em andamento
                         </span>
                       )}
-                      {(w.status === "pending" || w.status === "processing") && (
+                      {w.provider === "stripe" && (
+                        <span className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 ring-1 ring-indigo-100">
+                          Stripe
+                        </span>
+                      )}
+                      {(w.status === "pending" || w.status === "processing") && w.provider !== "stripe" && (
                         <button
                           onClick={() => { setApproving(w.id); setApproveNote(""); setError(null); }}
                           disabled={!!canceling || sendingPix === w.id}
@@ -1086,13 +1116,15 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                           Marcar pago
                         </button>
                       )}
-                      <button
-                        onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }}
-                        disabled={!!approving || sendingPix === w.id}
-                        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-500 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Cancelar
-                      </button>
+                      {w.provider !== "stripe" && (
+                        <button
+                          onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }}
+                          disabled={!!approving || sendingPix === w.id}
+                          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-500 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Cancelar
+                        </button>
+                      )}
                     </div>
                   </Td>
                 </tr>
@@ -1111,7 +1143,8 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
             <TableCard>
               <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
                 <tr>
-                  <Th>Agência</Th>
+                  <Th>Usuário</Th>
+                  <Th>Provedor</Th>
                   <Th right>Total</Th>
                   <Th right>Taxa</Th>
                   <Th right>Líquido</Th>
@@ -1124,7 +1157,25 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
               <tbody className="divide-y divide-[#EFF5F5] [&>tr:hover]:bg-[#F8FAFC]">
                 {visibleHistory.map((w) => (
                   <tr key={w.id}>
-                    <Td><span className="font-medium text-[#1F2D2E]">{w.agencyName}</span></Td>
+                    <Td>
+                      <span className="font-medium text-[#1F2D2E]">{w.agencyName}</span>
+                      <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500">
+                        {w.userRole === "talent" ? "Talento" : "Agência"}
+                      </span>
+                    </Td>
+                    <Td>
+                      <Badge value={withdrawalProviderLabel(w)} tone={withdrawalProviderTone(w)} />
+                      {w.providerStatus && (
+                        <p className="mt-1 max-w-[140px] truncate text-[10px] text-zinc-400" title={w.providerStatus}>
+                          {w.providerStatus}
+                        </p>
+                      )}
+                      {w.providerTransferId && (
+                        <p className="mt-1 max-w-[140px] truncate font-mono text-[10px] text-zinc-500" title={w.providerTransferId}>
+                          {w.providerTransferId}
+                        </p>
+                      )}
+                    </Td>
                     <Td right>{brl(w.amount)}</Td>
                     <Td right>{w.feeAmount ? brl(w.feeAmount) : "—"}</Td>
                     <Td right>{w.netAmount ? brl(w.netAmount) : "—"}</Td>

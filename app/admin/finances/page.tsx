@@ -126,7 +126,7 @@ export default async function AdminFinancesPage() {
     fetchContracts(supabase),
     supabase
       .from("wallet_transactions")
-      .select("id, user_id, amount, fee_amount, net_amount, status, processed_at, admin_note, created_at")
+      .select("id, user_id, amount, fee_amount, net_amount, status, processed_at, admin_note, provider, provider_transfer_id, provider_status, created_at")
       .eq("type", "withdrawal")
       .order("created_at", { ascending: false }),
     supabase
@@ -427,6 +427,9 @@ export default async function AdminFinancesPage() {
       status:       w.status ?? "paid",
       createdAt:    w.created_at ?? "",
       processedAt:  w.processed_at ?? null,
+      provider:     typeof raw.provider === "string" ? raw.provider : null,
+      providerTransferId: typeof raw.provider_transfer_id === "string" ? raw.provider_transfer_id : null,
+      providerStatus:     typeof raw.provider_status === "string" ? raw.provider_status : null,
       pixKeyType:   pix?.pix_key_type   ?? null,
       pixKeyValue:  pix?.pix_key_value  ?? null,
       pixHolderName: agencyPix?.pix_holder_name ?? null,

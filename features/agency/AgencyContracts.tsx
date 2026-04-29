@@ -140,8 +140,6 @@ function ContractCard({
 }) {
   const [expanded,         setExpanded]         = useState(false);
   const [acting,           setActing]           = useState<string | null>(null);
-  const [stripeLoading,    setStripeLoading]    = useState(false);
-  const [stripeError,      setStripeError]      = useState<string | null>(null);
   const { t, lang } = useT();
   const stCls   = STATUS_CLS[c.status] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
   const stLabel = t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
@@ -160,24 +158,6 @@ function ContractCard({
       onUpdate(c.id, { status: nextStatus, ...updates });
     }
     setActing(null);
-  }
-
-  async function handleStripeCheckout() {
-    setStripeLoading(true);
-    setStripeError(null);
-    try {
-      const res  = await fetch(`/api/contracts/${c.id}/stripe-checkout`, { method: "POST" });
-      const data = await res.json() as { url?: string; error?: string };
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setStripeError(data.error ?? "Erro ao iniciar pagamento.");
-        setStripeLoading(false);
-      }
-    } catch {
-      setStripeError("Erro de rede. Tente novamente.");
-      setStripeLoading(false);
-    }
   }
 
   return (
@@ -199,19 +179,6 @@ function ContractCard({
         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${stCls}`}>
           {stLabel}
         </span>
-
-        {/* Pagar com Stripe — available for signed contracts (escrow step) */}
-        {c.status === "signed" && (
-          <button
-            onClick={handleStripeCheckout}
-            disabled={stripeLoading}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-[#635BFF] hover:bg-[#4F45E4] disabled:bg-zinc-100 disabled:text-zinc-400 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-          >
-            {stripeLoading ? (
-              <><div className="w-3 h-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />Abrindo…</>
-            ) : "Pagar com Stripe"}
-          </button>
-        )}
 
         {/* Cancel only — payments happen on /agency/bookings */}
         {!isPaid && c.status === "confirmed" && (
@@ -258,13 +225,6 @@ function ContractCard({
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
         </button>
-
-        {/* Stripe error inline badge */}
-        {stripeError && (
-          <span className="flex-shrink-0 text-[11px] font-medium text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-xl max-w-[180px] truncate" title={stripeError}>
-            {stripeError}
-          </span>
-        )}
 
         {/* Expand toggle */}
         <button
@@ -432,17 +392,8 @@ function JobGroup({
 export default function AgencyContracts({ contracts: initialContracts }: { contracts: AgencyContract[] }) {
   const [contracts,    setContracts]    = useState<AgencyContract[]>(initialContracts);
   const [filter,       setFilter]       = useState<FilterStatus>("all");
-  const [stripeBanner, setStripeBanner] = useState<"success" | "cancel" | null>(null);
   const { t } = useT();
   const { commissionLabel, talentShareLabel } = useSubscription();
-
-  // Detect Stripe redirect params and show a one-time banner.
-  useState(() => {
-    if (typeof window === "undefined") return;
-    const p = new URLSearchParams(window.location.search);
-    if (p.get("stripe_success") === "1") setStripeBanner("success");
-    else if (p.get("stripe_cancel")  === "1") setStripeBanner("cancel");
-  });
 
   function handleUpdate(id: string, updates: Partial<AgencyContract>) {
     setContracts((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
@@ -470,30 +421,6 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
           {contracts.length} {t("general_contracts")}
         </p>
       </div>
-
-      {stripeBanner === "success" && (
-        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
-          <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-[13px] font-medium text-emerald-800">
-            Pagamento Stripe concluído! O contrato será atualizado em instantes.
-          </p>
-          <button onClick={() => setStripeBanner(null)} className="ml-auto text-emerald-500 hover:text-emerald-800 text-[18px] leading-none cursor-pointer">&times;</button>
-        </div>
-      )}
-
-      {stripeBanner === "cancel" && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-          <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-[13px] font-medium text-amber-800">
-            Pagamento cancelado. Você pode tentar novamente.
-          </p>
-          <button onClick={() => setStripeBanner(null)} className="ml-auto text-amber-500 hover:text-amber-800 text-[18px] leading-none cursor-pointer">&times;</button>
-        </div>
-      )}
 
       {awaitingTalent > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
@@ -585,4 +512,3 @@ export default function AgencyContracts({ contracts: initialContracts }: { contr
     </div>
   );
 }
-

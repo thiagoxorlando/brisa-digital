@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import type { StripeConnectStatusResponse } from "@/app/api/stripe/connect/status/route";
@@ -233,7 +233,7 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Recebimentos</p>
-            <p className="text-[15px] font-semibold text-zinc-900">Chave PIX</p>
+            <p className="text-[15px] font-semibold text-zinc-900">Chave PIX fallback</p>
           </div>
         </div>
         {isRegistered && (
@@ -264,7 +264,7 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
                 </span>
               </div>
               <p className="text-[14px] font-semibold text-zinc-900 truncate">{savedValue}</p>
-              <p className="text-[12px] text-zinc-400 mt-0.5">Seus saques serão enviados para esta chave.</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">Usada apenas como fallback manual quando necessário.</p>
             </div>
           </div>
         ) : (
@@ -272,7 +272,7 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
           <form onSubmit={handleSave} className="space-y-4">
             {!savedValue && (
               <p className="text-[12px] text-zinc-400 leading-relaxed">
-                Cadastre sua chave PIX para habilitar saques direto na sua conta.
+                Cadastre sua chave PIX para fallback manual, caso o Stripe não esteja disponível.
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
@@ -326,21 +326,24 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
 
 // ── Stripe Connect section ────────────────────────────────────────────────────
 
-function StripeConnectSection() {
+function StripeConnectSection({
+  onStatusChange,
+}: {
+  onStatusChange?: (status: { ready: boolean; loaded: boolean }) => void;
+}) {
   const [acct,       setAcct]       = useState<StripeConnectStatusResponse | null>(null);
   const [statusLoad, setStatusLoad] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
-  const [note,       setNote]       = useState<string | null>(null);
-  const hasFetched = useRef(false);
-
-  useEffect(() => {
-    // Show contextual message based on query param set by Stripe return/refresh URLs.
+  const [note] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
     const params = new URLSearchParams(window.location.search);
     const p = params.get("stripe");
-    if (p === "success") setNote("Cadastro enviado! Verificando status…");
-    if (p === "refresh") setNote("O link expirou. Clique abaixo para continuar.");
-  }, []);
+    if (p === "success") return "Cadastro enviado! Verificando status…";
+    if (p === "refresh") return "O link expirou. Clique abaixo para continuar.";
+    return null;
+  });
+  const hasFetched = useRef(false);
 
   useEffect(() => {
     if (hasFetched.current) return;
@@ -350,7 +353,7 @@ function StripeConnectSection() {
       .then((r) => r.json())
       .then((d: StripeConnectStatusResponse) => { setAcct(d); setStatusLoad(false); })
       .catch(() => {
-        setAcct({ connected: false, charges_enabled: false, payouts_enabled: false, details_submitted: false });
+        setAcct({ connected: false, charges_enabled: false, payouts_enabled: false, details_submitted: false, transfers_active: false });
         setStatusLoad(false);
       });
   }, []);
@@ -374,12 +377,16 @@ function StripeConnectSection() {
   }
 
   // Derived display state from raw Stripe fields.
-  const isReady      = Boolean(acct?.connected && acct.details_submitted && acct.payouts_enabled);
+  const isReady      = Boolean(acct?.connected && acct.details_submitted && acct.payouts_enabled && acct.transfers_active);
   const isPending    = Boolean(acct?.connected && !isReady);
   const isUnconnected = !acct?.connected;
 
+  useEffect(() => {
+    onStatusChange?.({ ready: isReady, loaded: !statusLoad });
+  }, [isReady, onStatusChange, statusLoad]);
+
   return (
-    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+    <div id="stripe-connect-section" className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-50">
         <div className="flex items-center gap-3">
@@ -465,7 +472,7 @@ function StripeConnectSection() {
             <div className="flex-1">
               <p className="text-[14px] font-semibold text-zinc-900">Conta pronta para receber</p>
               <p className="text-[12px] text-zinc-400 mt-0.5">
-                Seus pagamentos via Stripe serão depositados automaticamente.
+                Seus saques serão enviados via Stripe quando você solicitar.
               </p>
             </div>
           </div>
@@ -489,7 +496,8 @@ export default function TalentFinances() {
   const [loading, setLoading]           = useState(true);
   const [withdrawState, setWithdrawState] = useState<WithdrawState>("idle");
   const [withdrawMsg, setWithdrawMsg]   = useState("");
-  const [hasPixKey, setHasPixKey]       = useState(false);
+  const [stripeReady, setStripeReady] = useState(false);
+  const [stripeStatusLoaded, setStripeStatusLoaded] = useState(false);
   const [period, setPeriod]             = useState<PeriodFilter>("all");
   const [showAllContracts, setShowAllContracts] = useState(false);
   const [showAllBookings, setShowAllBookings]   = useState(false);
@@ -692,9 +700,23 @@ export default function TalentFinances() {
   const filteredPayments = payments.filter((p) => periodMatches(p.date, period));
   const filteredWithdrawnContracts = withdrawnContracts.filter((c) => periodMatches(c.withdrawn_at, period));
   const filteredReferrals = referrals.filter((r) => periodMatches(r.date, period));
+  const canWithdrawViaStripe = availableToWithdraw > 0 && stripeStatusLoaded && stripeReady;
+
+  const handleStripeStatusChange = useCallback((status: { ready: boolean; loaded: boolean }) => {
+    setStripeReady(status.ready);
+    setStripeStatusLoaded(status.loaded);
+  }, []);
 
   async function handleWithdraw() {
     if (availableToWithdraw <= 0) return;
+    if (!stripeStatusLoaded) return;
+    if (!stripeReady) {
+      setWithdrawState("error");
+      setWithdrawMsg("Configure sua conta Stripe para sacar.");
+      document.getElementById("stripe-connect-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     setWithdrawState("loading");
     try {
       const withdrawRes = await fetch("/api/talent/withdraw", {
@@ -705,6 +727,7 @@ export default function TalentFinances() {
       const withdrawData = await withdrawRes.json().catch(() => ({})) as {
         error?: string;
         remaining_balance?: number;
+        provider_transfer_id?: string;
       };
 
       if (!withdrawRes.ok) {
@@ -733,7 +756,7 @@ export default function TalentFinances() {
         );
         setWithdrawState("success");
         setWithdrawMsg(
-          `Saque solicitado! ${brl(availableToWithdraw)} a caminho.`
+          `Saque enviado via Stripe! ${brl(availableToWithdraw)} a caminho.`
         );
       } else {
         setWithdrawState("error");
@@ -820,8 +843,7 @@ export default function TalentFinances() {
               <button
                 onClick={handleWithdraw}
                 disabled={
-                  availableToWithdraw <= 0 ||
-                  !hasPixKey ||
+                  !canWithdrawViaStripe ||
                   withdrawState === "loading" ||
                   withdrawState === "success"
                 }
@@ -837,21 +859,30 @@ export default function TalentFinances() {
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
-                    Sacado
+                    Enviado
                   </>
-                ) : "Sacar"}
+                ) : !stripeStatusLoaded && availableToWithdraw > 0 ? "Verificando Stripe" : !stripeReady && availableToWithdraw > 0 ? "Configurar Stripe" : "Sacar via Stripe"}
               </button>
             </div>
 
-            {/* No PIX key warning */}
-            {!hasPixKey && availableToWithdraw > 0 && (
+            {/* Stripe setup warning */}
+            {stripeStatusLoaded && !stripeReady && availableToWithdraw > 0 && (
               <div className="mx-6 mb-5 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                 <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-[13px] text-amber-800 leading-relaxed">
-                  Cadastre sua <strong>chave PIX</strong> abaixo para habilitar o saque.
-                </p>
+                <div className="flex-1">
+                  <p className="text-[13px] text-amber-800 leading-relaxed">
+                    Configure sua <strong>conta Stripe</strong> para sacar automaticamente.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("stripe-connect-section")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    className="mt-2 text-[12px] font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4 cursor-pointer"
+                  >
+                    Configurar Stripe para sacar
+                  </button>
+                </div>
               </div>
             )}
 
@@ -933,10 +964,10 @@ export default function TalentFinances() {
           </div>
 
           {/* PIX account setup */}
-          <PixSetup onSaved={() => setHasPixKey(true)} />
+          <PixSetup onSaved={() => {}} />
 
           {/* Stripe Connect payout account */}
-          <StripeConnectSection />
+          <StripeConnectSection onStatusChange={handleStripeStatusChange} />
 
           {/* My bookings */}
           <div className="space-y-3">
