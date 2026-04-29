@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 
 interface WalletTransaction {
@@ -169,7 +169,7 @@ function PlanChangeModal({
     }
 
     if (data.url) {
-      window.location.href = data.url;
+      window.location.assign(data.url);
       return;
     }
 
@@ -316,6 +316,13 @@ export default function BillingDashboard({
   const [pendingChange, setPendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
   const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success") === "true") setReturnBanner("success");
+    else if (params.get("canceled") === "true") setReturnBanner("canceled");
+  }, []);
 
   const currentPlanDef = getPlanDef(activePlan);
   const planChargeTransactions = transactions.filter(isPlanChargeTransaction);
@@ -367,6 +374,34 @@ export default function BillingDashboard({
 
   return (
     <div className="max-w-3xl space-y-8">
+      {returnBanner === "success" && (
+        <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5">
+          <svg className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-emerald-800">Assinatura confirmada</p>
+            <p className="text-[12px] text-emerald-700 mt-0.5">Seu plano sera atualizado automaticamente apos confirmacao do Stripe.</p>
+          </div>
+          <button type="button" onClick={() => setReturnBanner(null)} className="text-emerald-500 hover:text-emerald-700 flex-shrink-0 cursor-pointer">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
+      {returnBanner === "canceled" && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
+          <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-amber-800">Checkout cancelado</p>
+            <p className="text-[12px] text-amber-700 mt-0.5">Nenhum pagamento foi realizado. Voce pode tentar novamente quando quiser.</p>
+          </div>
+          <button type="button" onClick={() => setReturnBanner(null)} className="text-amber-500 hover:text-amber-700 flex-shrink-0 cursor-pointer">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
       {toast && (
         <div className={[
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-[13px] font-medium text-white",
@@ -469,15 +504,7 @@ export default function BillingDashboard({
                       </li>
                     ))}
                   </ul>
-                  {!isCurrent && !isPending && p.key === "premium" && (
-                    <button
-                      disabled
-                      className="w-full mt-auto text-zinc-400 text-[13px] font-semibold py-2.5 rounded-xl bg-zinc-100 border border-zinc-200 cursor-not-allowed"
-                    >
-                      Em breve
-                    </button>
-                  )}
-                  {!isCurrent && !isPending && p.key !== "premium" && (
+                  {!isCurrent && !isPending && (
                     <button
                       onClick={() => handlePlanClick(p)}
                       className={[
