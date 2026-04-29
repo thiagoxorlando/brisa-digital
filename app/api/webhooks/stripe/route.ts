@@ -5,6 +5,7 @@ import { getStripe } from "@/lib/stripe";
 import { notify, notifyAdmins } from "@/lib/notify";
 
 export const runtime = "nodejs";
+const STRIPE_WALLET_DEPOSIT_DESCRIPTION = "Depósito via Stripe Checkout";
 
 type Supabase = ReturnType<typeof createServerClient>;
 
@@ -68,7 +69,6 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
   const transactionId = metadata.wallet_transaction_id;
   const paymentIntentId = idFrom(session.payment_intent) ?? session.id;
   const amount = amountFromCents(session.amount_total);
-  const confirmedDescription = "Deposito via Stripe Checkout confirmado";
   const confirmedAdminNote = `Stripe Checkout confirmado. Session: ${session.id}`;
 
   console.log("[stripe deposit] handling wallet deposit", { userId, transactionId, paymentIntentId, amount });
@@ -110,7 +110,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
       provider_status: "paid",
       payment_id: paymentIntentId,
       reference_id: session.id,
-      description: confirmedDescription,
+      description: STRIPE_WALLET_DEPOSIT_DESCRIPTION,
       admin_note: confirmedAdminNote,
     } as Record<string, unknown>)
     .eq("id", confirmedTxId);

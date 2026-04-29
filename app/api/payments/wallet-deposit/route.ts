@@ -7,6 +7,7 @@ import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const STRIPE_CHECKOUT_HOSTS = new Set(["checkout.stripe.com", "pay.stripe.com"]);
+const STRIPE_WALLET_DEPOSIT_DESCRIPTION = "Depósito via Stripe Checkout";
 
 // POST /api/payments/wallet-deposit
 // Body: { amount: number }
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       type: "deposit",
       amount,
-      description: "Deposito via Stripe Checkout - aguardando pagamento",
+      description: STRIPE_WALLET_DEPOSIT_DESCRIPTION,
       provider: "stripe",
       provider_status: "pending_checkout",
       status: "pending",
