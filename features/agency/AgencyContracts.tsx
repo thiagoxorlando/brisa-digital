@@ -160,6 +160,18 @@ function ContractCard({
     setActing(null);
   }
 
+  async function handleStripeFunding() {
+    setActing("stripe_funding");
+    const res = await fetch(`/api/contracts/${c.id}/stripe-checkout`, { method: "POST" });
+    const data = await res.json().catch(() => ({})) as { error?: string; url?: string };
+    if (res.ok && data.url) {
+      window.location.href = data.url;
+      return;
+    }
+    console.error("[contract stripe funding]", data.error ?? "Stripe checkout failed");
+    setActing(null);
+  }
+
   return (
     <div>
       {/* Header row */}
@@ -180,7 +192,17 @@ function ContractCard({
           {stLabel}
         </span>
 
-        {/* Cancel only — payments happen on /agency/bookings */}
+        {c.status === "signed" && (
+          <button
+            onClick={handleStripeFunding}
+            disabled={acting !== null}
+            className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {acting === "stripe_funding" ? "Abrindo..." : "Pagar via Stripe"}
+          </button>
+        )}
+
+        {/* Cancel only after escrow is funded */}
         {!isPaid && c.status === "confirmed" && (
           <button
             onClick={() => callAction("cancel_job", "cancelled", {})}

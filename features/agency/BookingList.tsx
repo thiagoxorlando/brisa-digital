@@ -138,17 +138,18 @@ function BookingRow({
     setBalanceError(null);
     setApiError(null);
     setActing("confirm");
-    const res = await callContract("agency_sign");
+    if (!booking.contractId) { setActing(null); return; }
+    const res = await fetch(`/api/contracts/${booking.contractId}/stripe-checkout`, {
+      method: "POST",
+    });
     if (!res) { setActing(null); return; }
-    const d = await res.json().catch(() => ({}));
-    if (res.status === 402) {
-      setBalanceError({ required: d.required, available: d.available });
-    } else if (res.ok) {
-      onStatusChange(booking.id, d.derived_status ?? "aguardando_pagamento");
+    const d = await res.json().catch(() => ({})) as { error?: string; url?: string };
+    if (res.ok && d.url) {
+      window.location.href = d.url;
     } else if (res.status === 409) {
       onStatusChange(booking.id, "aguardando_pagamento");
     } else {
-      setApiError(d.error ?? "Erro ao confirmar reserva. Tente novamente.");
+      setApiError(d.error ?? "Erro ao abrir pagamento Stripe. Tente novamente.");
     }
     setActing(null);
   }
@@ -256,7 +257,7 @@ function BookingRow({
                       d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 )}
-                {acting === "confirm" ? "Verificando…" : "Confirmar Reserva"}
+                {acting === "confirm" ? "Abrindo..." : "Pagar via Stripe"}
               </button>
               {canCancelBooking && (
                 <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>

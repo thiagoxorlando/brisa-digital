@@ -15,7 +15,7 @@ export default async function AgencyFinancesPage() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const [{ data: bookings }, { data: walletTxs }, { data: savedCards }, { data: profile }, { data: contracts }, { data: agencyRow }] = await Promise.all([
+  const [{ data: bookings }, { data: walletTxs }, { data: profile }, { data: contracts }, { data: agencyRow }] = await Promise.all([
     supabase
       .from("bookings")
       .select("id, talent_user_id, job_title, price, status, created_at")
@@ -27,11 +27,6 @@ export default async function AgencyFinancesPage() {
       .eq("user_id", user?.id ?? "")
       .order("created_at", { ascending: false })
       .limit(100),
-    supabase
-      .from("saved_cards")
-      .select("id, brand, last_four, holder_name, expiry_month, expiry_year, created_at")
-      .eq("user_id", user?.id ?? "")
-      .order("created_at", { ascending: false }),
     supabase
       .from("profiles")
       .select("wallet_balance")
@@ -156,8 +151,6 @@ export default async function AgencyFinancesPage() {
     <AgencyFinances
       summary={summary}
       transactions={transactions}
-      savedCards={savedCards ?? []}
-      mpPublicKey={process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY ?? ""}
       agencyPix={agencyPix}
       withdrawalFeeRate={WITHDRAWAL_FEE_RATE}
       withdrawalMinFee={WITHDRAWAL_MIN_FEE}

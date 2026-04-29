@@ -1,89 +1,76 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
-import type { SavedCard } from "@/components/ui/SavedCards";
-import { AddCardForm } from "@/components/ui/SavedCards";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 
-const SavedCardsWidget = dynamic(() => import("@/components/ui/SavedCards"), { ssr: false });
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 interface WalletTransaction {
-  id:           string;
-  type:         string;
-  amount:       number;
-  description:  string | null;
-  created_at:   string;
+  id: string;
+  type: string;
+  amount: number;
+  description: string | null;
+  created_at: string;
 }
 
 interface Props {
-  userId:        string;
-  plan:          string;
-  planStatus:    string | null;
+  plan: string;
+  planStatus: string | null;
   planExpiresAt: string | null;
-  walletBalance: number;
-  savedCards:    SavedCard[];
-  transactions:  WalletTransaction[];
-  mpPublicKey:   string;
+  transactions: WalletTransaction[];
 }
 
 type PlanChangeResponse = {
-  effectiveAt: string;
-  expiresAt?: string | null;
-  paidVia?: "wallet" | "card";
+  effectiveAt?: string;
+  url?: string;
+  provider?: string;
 };
-
-// ── Plan definitions ──────────────────────────────────────────────────────────
 
 const PLANS = [
   {
-    key:           "free" as const,
-    name:          PLAN_DEFINITIONS.free.label,
-    price:         PLAN_DEFINITIONS.free.price,
-    priceLabel:    "R$ 0",
-    period:        "",
-    badge:         null,
-    gradient:      "from-zinc-300 to-zinc-400",
-    headline:      "Versão de teste",
-    commission:    "20% de comissão",
+    key: "free" as const,
+    name: PLAN_DEFINITIONS.free.label,
+    price: PLAN_DEFINITIONS.free.price,
+    priceLabel: "R$ 0",
+    period: "",
+    badge: null,
+    gradient: "from-zinc-300 to-zinc-400",
+    headline: "Versao de teste",
+    commission: "20% de comissao",
     features: [
       "1 vaga ativa",
-      "Até 3 contratações por vaga",
-      "Somente vagas públicas",
+      "Ate 3 contratacoes por vaga",
+      "Somente vagas publicas",
     ],
   },
   {
-    key:           "pro" as const,
-    name:          PLAN_DEFINITIONS.pro.label,
-    price:         PLAN_DEFINITIONS.pro.price,
-    priceLabel:    "R$ 247",
-    period:        "/mês",
-    badge:         "POPULAR" as const,
-    gradient:      "from-indigo-500 to-violet-600",
-    headline:      "Sistema completo de contratação",
-    commission:    "10% de comissão",
+    key: "pro" as const,
+    name: PLAN_DEFINITIONS.pro.label,
+    price: PLAN_DEFINITIONS.pro.price,
+    priceLabel: "R$ 247",
+    period: "/mes",
+    badge: "POPULAR" as const,
+    gradient: "from-indigo-500 to-violet-600",
+    headline: "Sistema completo de contratacao",
+    commission: "10% de comissao",
     features: [
-      "Vagas públicas ilimitadas",
-      "Contratações ilimitadas",
+      "Vagas publicas ilimitadas",
+      "Contratacoes ilimitadas",
       "Marketplace e descoberta de talentos",
-      "Histórico completo de contratos e pagamentos",
+      "Historico completo de contratos e pagamentos",
     ],
   },
   {
-    key:           "premium" as const,
-    name:          PLAN_DEFINITIONS.premium.label,
-    price:         PLAN_DEFINITIONS.premium.price,
-    priceLabel:    "Sob consulta",
-    period:        "",
-    badge:         "EM BREVE" as const,
-    gradient:      "from-violet-500 to-purple-700",
-    headline:      "Sistema privado da sua agência",
-    commission:    "10% de comissão",
+    key: "premium" as const,
+    name: PLAN_DEFINITIONS.premium.label,
+    price: PLAN_DEFINITIONS.premium.price,
+    priceLabel: "Sob consulta",
+    period: "",
+    badge: "EM BREVE" as const,
+    gradient: "from-violet-500 to-purple-700",
+    headline: "Sistema privado da sua agencia",
+    commission: "10% de comissao",
     features: [
       "Tudo do Pro",
-      "Vagas fechadas (apenas convidados)",
+      "Vagas fechadas",
       "Gerencie sua equipe internamente",
       "Pool de talentos privado",
     ],
@@ -92,8 +79,6 @@ const PLANS = [
 
 type PlanKey = Plan;
 type PlanDef = typeof PLANS[number];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -117,169 +102,86 @@ function getPlanDef(planKey: PlanKey) {
   return PLANS.find((plan) => plan.key === planKey) ?? PLANS[0];
 }
 
-function getPlanChargeDescription(planKey: PlanKey, paidVia: "wallet" | "card") {
-  const planLabel = planKey.charAt(0).toUpperCase() + planKey.slice(1);
-  return paidVia === "wallet"
-    ? `Plano ${planLabel} - debitado da carteira`
-    : `Plano ${planLabel} - cobranca imediata`;
-}
-
 function isPlanChargeTransaction(tx: WalletTransaction) {
   const description = (tx.description ?? "").toLowerCase();
   return tx.type === "payment" && (
-    description.includes("assinatura pro") ||
+    description.includes("stripe billing") ||
+    description.includes("assinatura") ||
     description.includes("plano ")
   );
 }
 
 function getPlanChargeMethod(tx: WalletTransaction) {
   const description = (tx.description ?? "").toLowerCase();
-
-  if (description.includes("carteira")) {
-    return "Saldo da carteira";
-  }
-
-  if (
-    description.includes("cobranca imediata") ||
-    description.includes("assinatura pro")
-  ) {
-    return "Cartão de crédito";
-  }
-
-  return "Cobrança da plataforma";
+  if (description.includes("stripe")) return "Stripe Billing";
+  if (description.includes("carteira")) return "Saldo da carteira";
+  return "Cobranca da plataforma";
 }
-
-const TX_ICON: Record<string, React.ReactNode> = {
-  deposit: (
-    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8l-8 8-8-8" />
-    </svg>
-  ),
-  payment: (
-    <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20V4m-8 8l8-8 8 8" />
-    </svg>
-  ),
-  refund: (
-    <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-    </svg>
-  ),
-  admin_grant: (
-    <svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-    </svg>
-  ),
-};
-
-function BrandBadge({ brand }: { brand: string | null }) {
-  const BRAND_COLORS: Record<string, string> = {
-    visa: "bg-[#1A1F71]", master: "bg-[#EB001B]", amex: "bg-[#2E77BC]",
-    elo: "bg-[#2D4142]", hiper: "bg-orange-600",
-  };
-  const name = brand?.toLowerCase() ?? "";
-  return (
-    <span className={`${BRAND_COLORS[name] ?? "bg-zinc-700"} text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-md tracking-wider`}>
-      {name || "card"}
-    </span>
-  );
-}
-
-// ── Plan-change modal ─────────────────────────────────────────────────────────
 
 interface ModalProps {
-  plan:            PlanDef;
-  currentPlanKey:  PlanKey;
-  currentPrice:    number;
-  planExpiresAt:   string | null;
-  walletBalance:   number;
-  savedCards:      SavedCard[];
-  mpPublicKey:     string;
-  onSuccess:       (newPlan: PlanKey, immediate: boolean, result: PlanChangeResponse) => void;
-  onClose:         () => void;
+  plan: PlanDef;
+  currentPlanKey: PlanKey;
+  currentPrice: number;
+  planExpiresAt: string | null;
+  onSuccess: (newPlan: PlanKey, result: PlanChangeResponse) => void;
+  onClose: () => void;
 }
 
 function PlanChangeModal({
-  plan, currentPlanKey, currentPrice, planExpiresAt,
-  walletBalance, savedCards: initialCards, mpPublicKey, onSuccess, onClose,
+  plan,
+  currentPlanKey,
+  currentPrice,
+  planExpiresAt,
+  onSuccess,
+  onClose,
 }: ModalProps) {
-  const isFromFree   = currentPlanKey === "free";
-  const isUpgrade    = plan.price > currentPrice;
-  const isDowngrade  = plan.price < currentPrice;
-  const isToFree     = plan.key === "free";
-
-  const forcedImmediate  = isFromFree && !isToFree;
-  const forcedNextCycle  = isDowngrade;
+  const isFromFree = currentPlanKey === "free";
+  const isUpgrade = plan.price > currentPrice;
+  const isDowngrade = plan.price < currentPrice;
+  const isToFree = plan.key === "free";
+  const forcedImmediate = !isToFree;
   const [timing, setTiming] = useState<"immediate" | "next_cycle">(
-    forcedImmediate ? "immediate" : "next_cycle"
+    forcedImmediate ? "immediate" : "next_cycle",
   );
-
-  const needsPayment = timing === "immediate" && !isToFree;
-  const walletSufficient = walletBalance >= plan.price;
-
-  type PayMethod = "wallet" | "card";
-  const [payMethod, setPayMethod] = useState<PayMethod>(
-    walletSufficient ? "wallet" : "card"
-  );
-
-  const [cards, setCards]             = useState<SavedCard[]>(initialCards);
-  const [selectedCardId, setSelected] = useState<string | null>(initialCards[0]?.id ?? null);
-  const [showCardForm, setShowCardForm] = useState(initialCards.length === 0 && !walletSufficient);
-  const [submitting, setSubmitting]   = useState(false);
-  const [error, setError]             = useState("");
-  const [cvv, setCvv]                 = useState("");
-
-  // Compute "next billing date" label
-  const nextBillingLabel = planExpiresAt ? fmtDate(planExpiresAt) : "no próximo ciclo";
-
-  function handleCardSaved(card: SavedCard) {
-    setCards((prev) => [card, ...prev]);
-    setSelected(card.id);
-    setShowCardForm(false);
-  }
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const nextBillingLabel = planExpiresAt ? fmtDate(planExpiresAt) : "no proximo ciclo";
+  const needsStripeCheckout = timing === "immediate" && !isToFree;
 
   async function handleConfirm() {
-    if (needsPayment && payMethod === "card" && !selectedCardId) {
-      setError("Selecione um cartão para continuar.");
-      return;
-    }
-    if (needsPayment && payMethod === "card" && selectedCardId && cvv.length < 3) {
-      setError("Informe o CVV do cartão.");
-      return;
-    }
     setSubmitting(true);
     setError("");
+
     const res = await fetch("/api/agencies/plan-change", {
-      method:  "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        plan:              plan.key,
-        chargeImmediately: timing === "immediate",
-        useWallet:         timing === "immediate" && payMethod === "wallet",
-        savedCardId:       timing === "immediate" && payMethod === "card" ? selectedCardId : null,
-        cvv:               timing === "immediate" && payMethod === "card" ? cvv : undefined,
+        plan: plan.key,
+        chargeImmediately: needsStripeCheckout,
       }),
     });
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({})) as PlanChangeResponse & { error?: string };
+
     setSubmitting(false);
     if (!res.ok) {
       setError(data.error ?? "Erro ao alterar plano. Tente novamente.");
       return;
     }
-    onSuccess(plan.key, timing === "immediate", {
-      effectiveAt: data.effectiveAt ?? new Date().toISOString(),
-      expiresAt: data.expiresAt ?? null,
-      paidVia: data.paidVia === "wallet" ? "wallet" : "card",
-    });
+
+    if (data.url) {
+      window.location.href = data.url;
+      return;
+    }
+
+    onSuccess(plan.key, data);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-zinc-100">
           <div>
             <div className={`h-[3px] w-12 rounded-full bg-gradient-to-r ${plan.gradient} mb-3`} />
@@ -287,7 +189,7 @@ function PlanChangeModal({
               {isToFree ? "Cancelar assinatura" : `Mudar para o plano ${plan.name}`}
             </h2>
             <p className="text-[13px] text-zinc-400 mt-0.5">
-              {isToFree ? "Você passará para o plano gratuito" : `${plan.priceLabel}${plan.period}`}
+              {isToFree ? "Voce passara para o plano gratuito" : `${plan.priceLabel}${plan.period}`}
             </p>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors mt-0.5 cursor-pointer">
@@ -297,16 +199,11 @@ function PlanChangeModal({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-
-          {/* ── Billing timing ── */}
+        <div className="px-6 py-5 space-y-5">
           {forcedImmediate && !isToFree && (
-            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3.5 flex items-start gap-2.5">
-              <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3.5">
               <p className="text-[13px] text-amber-800">
-                Você será cobrado <strong>{brl(plan.price)}</strong> agora e o plano será ativado imediatamente.
+                Voce sera enviado ao Stripe para assinar <strong>{brl(plan.price)}/mes</strong>.
               </p>
             </div>
           )}
@@ -314,22 +211,12 @@ function PlanChangeModal({
           {isToFree && (
             <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3.5">
               <p className="text-[13px] text-zinc-700">
-                Seu plano encerrará em <strong>{nextBillingLabel}</strong>.
-                Até lá você continua com acesso completo.
+                O cancelamento sera agendado no Stripe. Ate o fim do ciclo voce continua com acesso ao plano atual.
               </p>
             </div>
           )}
 
-          {forcedNextCycle && !isToFree && (
-            <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3.5">
-              <p className="text-[13px] text-zinc-700">
-                O downgrade para <strong>{plan.name}</strong> será ativado em <strong>{nextBillingLabel}</strong>.
-                Nenhuma cobrança será feita hoje.
-              </p>
-            </div>
-          )}
-
-          {isUpgrade && !isFromFree && (
+          {isUpgrade && !isFromFree && !isToFree && !forcedImmediate && (
             <div className="space-y-2.5">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Quando ativar?</p>
               <label className={[
@@ -337,14 +224,16 @@ function PlanChangeModal({
                 timing === "next_cycle" ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300",
               ].join(" ")}>
                 <input
-                  type="radio" name="timing" value="next_cycle"
+                  type="radio"
+                  name="timing"
+                  value="next_cycle"
                   checked={timing === "next_cycle"}
                   onChange={() => setTiming("next_cycle")}
                   className="mt-0.5 accent-zinc-900"
                 />
                 <div>
-                  <p className="text-[13px] font-semibold text-zinc-900">No próximo ciclo — {nextBillingLabel}</p>
-                  <p className="text-[12px] text-zinc-400 mt-0.5">Sem cobrança hoje. Novo plano ativa na próxima renovação.</p>
+                  <p className="text-[13px] font-semibold text-zinc-900">No proximo ciclo</p>
+                  <p className="text-[12px] text-zinc-400 mt-0.5">Sem cobranca hoje. Novo plano ativa em {nextBillingLabel}.</p>
                 </div>
               </label>
               <label className={[
@@ -352,145 +241,36 @@ function PlanChangeModal({
                 timing === "immediate" ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300",
               ].join(" ")}>
                 <input
-                  type="radio" name="timing" value="immediate"
+                  type="radio"
+                  name="timing"
+                  value="immediate"
                   checked={timing === "immediate"}
                   onChange={() => setTiming("immediate")}
                   className="mt-0.5 accent-zinc-900"
                 />
                 <div>
-                  <p className="text-[13px] font-semibold text-zinc-900">Agora — cobrar {brl(plan.price)} hoje</p>
-                  <p className="text-[12px] text-zinc-400 mt-0.5">Acesso imediato ao novo plano.</p>
+                  <p className="text-[13px] font-semibold text-zinc-900">Agora via Stripe</p>
+                  <p className="text-[12px] text-zinc-400 mt-0.5">Abre o Stripe Billing para confirmar a assinatura.</p>
                 </div>
               </label>
             </div>
           )}
 
-          {/* ── Payment method (only when charging now) ── */}
-          {needsPayment && (
-            <div className="space-y-3">
+          {isDowngrade && !isToFree && (
+            <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3.5">
+              <p className="text-[13px] text-zinc-700">
+                Mudancas de plano pago devem ser ajustadas no Stripe Billing. Esta acao abre o checkout quando houver cobranca imediata.
+              </p>
+            </div>
+          )}
+
+          {needsStripeCheckout && (
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3.5">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Forma de pagamento</p>
-
-              {/* Wallet option */}
-              <label className={[
-                "flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors",
-                !walletSufficient ? "opacity-50 cursor-not-allowed" : payMethod === "wallet" ? "border-emerald-600 bg-emerald-50" : "border-zinc-200 hover:border-zinc-300",
-              ].join(" ")}>
-                <input
-                  type="radio" name="payMethod" value="wallet"
-                  checked={payMethod === "wallet"}
-                  disabled={!walletSufficient}
-                  onChange={() => { setPayMethod("wallet"); setShowCardForm(false); }}
-                  className="accent-emerald-600"
-                />
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  <div>
-                    <p className="text-[13px] font-semibold text-zinc-900">Carteira Brisa</p>
-                    <p className={[
-                      "text-[12px] tabular-nums",
-                      walletSufficient ? "text-emerald-600" : "text-rose-500",
-                    ].join(" ")}>
-                      {brl(walletBalance)} disponível
-                      {!walletSufficient && ` — faltam ${brl(plan.price - walletBalance)}`}
-                    </p>
-                  </div>
-                </div>
-              </label>
-
-              {/* Card option header */}
-              <label className={[
-                "flex items-center gap-3 px-3.5 pt-3.5 pb-1 rounded-t-xl border-x border-t cursor-pointer transition-colors",
-                payMethod === "card" ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300",
-              ].join(" ")}>
-                <input
-                  type="radio" name="payMethod" value="card"
-                  checked={payMethod === "card"}
-                  onChange={() => setPayMethod("card")}
-                  className="accent-zinc-900"
-                />
-                <p className="text-[13px] font-semibold text-zinc-900">Cartão de crédito</p>
-              </label>
-              <div className={[
-                "rounded-b-xl border-x border-b px-3.5 pb-3.5 space-y-2",
-                payMethod === "card" ? "border-zinc-900 bg-zinc-50" : "border-zinc-200",
-              ].join(" ")}>
-
-              {cards.length > 0 && (
-                <div className="space-y-2">
-                  {cards.map((c) => {
-                    const expiry = c.expiry_month && c.expiry_year
-                      ? `${String(c.expiry_month).padStart(2, "0")}/${String(c.expiry_year).slice(-2)}`
-                      : null;
-                    return (
-                      <label key={c.id} className={[
-                        "flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors",
-                        selectedCardId === c.id ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300",
-                      ].join(" ")}>
-                        <input
-                          type="radio" name="card" value={c.id}
-                          checked={selectedCardId === c.id}
-                          onChange={() => { setSelected(c.id); setShowCardForm(false); setCvv(""); }}
-                          className="accent-zinc-900"
-                        />
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <BrandBadge brand={c.brand} />
-                          <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">•••• {c.last_four ?? "----"}</span>
-                          {expiry && <span className="text-[12px] text-zinc-400">{expiry}</span>}
-                          {c.holder_name && <span className="text-[12px] text-zinc-400 truncate">{c.holder_name}</span>}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* CVV — required when charging a saved card */}
-              {payMethod === "card" && selectedCardId && !showCardForm && (
-                <div className="space-y-1.5 pt-1">
-                  <label className="block text-[11px] font-medium text-zinc-500">CVV do cartão</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="000"
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    autoComplete="cc-csc"
-                    className="w-24 h-10 border border-zinc-200 rounded-xl px-3 bg-white text-[14px] text-zinc-900 text-center tabular-nums placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 transition-colors"
-                  />
-                </div>
-              )}
-
-              {/* Add new card toggle */}
-              {!showCardForm && (
-                <button
-                  type="button"
-                  onClick={() => { setShowCardForm(true); setSelected(null); }}
-                  className="flex items-center gap-2 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 border border-dashed border-zinc-300 hover:border-zinc-400 rounded-xl px-4 py-3 w-full transition-colors cursor-pointer"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  {cards.length === 0 ? "Adicionar cartão para continuar" : "Usar outro cartão"}
-                </button>
-              )}
-
-              {showCardForm && (
-                <div className="border border-zinc-200 rounded-xl overflow-hidden">
-                  <AddCardForm
-                    publicKey={mpPublicKey}
-                    onSaved={handleCardSaved}
-                    onCancel={() => { setShowCardForm(false); setSelected(cards[0]?.id ?? null); }}
-                  />
-                </div>
-              )}
-              </div>{/* end card section wrapper */}
+              <p className="text-[13px] text-zinc-700 mt-1">Stripe Billing</p>
             </div>
           )}
 
-          {/* Error */}
           {error && (
             <p className="text-[13px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
               {error}
@@ -498,73 +278,47 @@ function PlanChangeModal({
           )}
         </div>
 
-        {/* Footer */}
-        {!showCardForm && (
-          <div className="px-6 pb-6 pt-3 flex gap-3 border-t border-zinc-100">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={submitting || (needsPayment && payMethod === "card" && (!selectedCardId || cvv.length < 3)) || (needsPayment && payMethod === "wallet" && !walletSufficient)}
-              className={[
-                "flex-1 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
-                isToFree || isDowngrade
-                  ? "bg-[#647B7B] hover:bg-[#4A6262]"
-                  : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2]",
-              ].join(" ")}
-            >
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Processando…
-                </span>
-              ) : isToFree ? "Confirmar cancelamento"
-                : timing === "immediate" ? `Cobrar ${brl(plan.price)} agora`
-                : "Confirmar mudança"}
-            </button>
-          </div>
-        )}
+        <div className="px-6 pb-6 pt-3 flex gap-3 border-t border-zinc-100">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={submitting}
+            className={[
+              "flex-1 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+              isToFree || isDowngrade
+                ? "bg-[#647B7B] hover:bg-[#4A6262]"
+                : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2]",
+            ].join(" ")}
+          >
+            {submitting ? "Processando..." : needsStripeCheckout ? "Continuar no Stripe" : "Confirmar"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
-
 export default function BillingDashboard({
-  userId,
   plan: initialPlan,
   planStatus,
   planExpiresAt,
-  walletBalance,
-  savedCards,
   transactions,
-  mpPublicKey,
 }: Props) {
-  // A plan is active if it's not free — don't gate on plan_status so admin grants work
   const isActivePaid = initialPlan !== "free";
-
-  const [activePlan, setActivePlan]       = useState<PlanKey>(
-    (isActivePaid ? initialPlan : "free") as PlanKey
-  );
-  const [activePlanStatus, setActivePlanStatus] = useState(
-    planStatus ?? (isActivePaid ? "active" : "inactive")
-  );
-  const [expiresAt, setExpiresAt]               = useState(planExpiresAt);
-  const [currentWalletBalance, setCurrentWalletBalance] = useState(walletBalance);
-  const [billingTransactions, setBillingTransactions]   = useState(transactions);
+  const [activePlan, setActivePlan] = useState<PlanKey>((isActivePaid ? initialPlan : "free") as PlanKey);
+  const [activePlanStatus, setActivePlanStatus] = useState(planStatus ?? (isActivePaid ? "active" : "inactive"));
+  const [expiresAt, setExpiresAt] = useState(planExpiresAt);
   const [pendingChange, setPendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
-  const [changingTo, setChangingTo]       = useState<PlanDef | null>(null);
-  const [toast, setToast]                 = useState<{ msg: string; ok: boolean } | null>(null);
+  const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const currentPlanDef = getPlanDef(activePlan);
-  const planChargeTransactions = billingTransactions.filter(isPlanChargeTransaction);
+  const planChargeTransactions = transactions.filter(isPlanChargeTransaction);
   const latestPlanCharge = planChargeTransactions[0] ?? null;
   const upcomingPlanKey = pendingChange?.plan ?? activePlan;
   const upcomingPlanDef = getPlanDef(upcomingPlanKey);
@@ -576,9 +330,7 @@ export default function BillingDashboard({
       ? {
           amount: upcomingPlanDef.price,
           chargeAt: upcomingChargeDate!,
-          label: pendingChange
-            ? `Mudança para ${upcomingPlanDef.name}`
-            : `Renovação do plano ${upcomingPlanDef.name}`,
+          label: pendingChange ? `Mudanca para ${upcomingPlanDef.name}` : `Renovacao do plano ${upcomingPlanDef.name}`,
         }
       : null;
 
@@ -592,54 +344,29 @@ export default function BillingDashboard({
     setChangingTo(p);
   }
 
-  function handleSuccess(newPlan: PlanKey, immediate: boolean, result: PlanChangeResponse) {
+  function handleSuccess(newPlan: PlanKey, result: PlanChangeResponse) {
     setChangingTo(null);
-    if (immediate) {
-      const nextPlanDef = getPlanDef(newPlan);
-      const nextExpiresAt = result.expiresAt ?? (() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 30);
-        return d.toISOString();
+    if (newPlan === "free") {
+      const effectiveAt = result.effectiveAt ?? (() => {
+        const date = new Date();
+        date.setDate(date.getDate() + 30);
+        return date.toISOString();
       })();
-
-      setActivePlan(newPlan);
-      setActivePlanStatus(newPlan === "free" ? "inactive" : "active");
-      setPendingChange(null);
-      setExpiresAt(nextExpiresAt);
-
-      if (nextPlanDef.price > 0) {
-        const paidVia = result.paidVia === "wallet" ? "wallet" : "card";
-
-        setBillingTransactions((prev) => [
-          {
-            id: `plan-charge-${Date.now()}`,
-            type: "payment",
-            amount: paidVia === "wallet" ? -nextPlanDef.price : nextPlanDef.price,
-            description: getPlanChargeDescription(newPlan, paidVia),
-            created_at: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
-
-        if (paidVia === "wallet") {
-          setCurrentWalletBalance((prev) => Math.max(0, prev - nextPlanDef.price));
-        }
-      }
-
-      showToast(`Plano ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)} ativado com sucesso!`, true);
-    } else if (newPlan === "free") {
-      setPendingChange({ plan: newPlan, effectiveAt: result.effectiveAt });
-      showToast(`Seu plano será cancelado em ${fmtDate(result.effectiveAt)}.`, true);
-    } else {
-      setPendingChange({ plan: newPlan, effectiveAt: result.effectiveAt });
-      showToast(`Mudança para ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)} agendada para ${fmtDate(result.effectiveAt)}.`, true);
+      setActivePlanStatus("cancelling");
+      setPendingChange({ plan: newPlan, effectiveAt });
+      showToast(`Seu plano sera cancelado em ${fmtDate(effectiveAt)}.`, true);
+      return;
     }
+
+    setActivePlan(newPlan);
+    setActivePlanStatus("active");
+    setPendingChange(null);
+    setExpiresAt(result.effectiveAt ?? expiresAt);
+    showToast(`Plano ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)} atualizado.`, true);
   }
 
   return (
     <div className="max-w-3xl space-y-8">
-
-      {/* Toast */}
       {toast && (
         <div className={[
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-lg text-[13px] font-medium text-white",
@@ -649,40 +376,33 @@ export default function BillingDashboard({
         </div>
       )}
 
-      {/* Modal */}
       {changingTo && (
         <PlanChangeModal
           plan={changingTo}
           currentPlanKey={activePlan}
           currentPrice={currentPlanDef.price}
           planExpiresAt={expiresAt}
-          walletBalance={currentWalletBalance}
-          savedCards={savedCards}
-          mpPublicKey={mpPublicKey}
           onSuccess={handleSuccess}
           onClose={() => setChangingTo(null)}
         />
       )}
 
-      {/* ── Header ── */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agência</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900">Plano & Cobrança</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agencia</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900">Plano & Cobranca</h1>
       </div>
 
-      {/* Pending change banner */}
       {pendingChange && (
         <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3.5">
           <svg className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p className="text-[13px] text-indigo-800">
-            Mudança agendada: plano <strong>{pendingChange.plan.charAt(0).toUpperCase() + pendingChange.plan.slice(1)}</strong> ativará em <strong>{fmtDate(pendingChange.effectiveAt)}</strong>.
+            Mudanca agendada: plano <strong>{pendingChange.plan.charAt(0).toUpperCase() + pendingChange.plan.slice(1)}</strong> em <strong>{fmtDate(pendingChange.effectiveAt)}</strong>.
           </p>
         </div>
       )}
 
-      {/* ── Plans ── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Planos</p>
@@ -692,9 +412,9 @@ export default function BillingDashboard({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {PLANS.map((p) => {
-            const isCurrent   = activePlan === p.key;
+            const isCurrent = activePlan === p.key;
             const isDowngrade = p.price < currentPlanDef.price;
-            const isPending   = pendingChange?.plan === p.key;
+            const isPending = pendingChange?.plan === p.key;
             return (
               <div
                 key={p.key}
@@ -740,12 +460,12 @@ export default function BillingDashboard({
                     ].join(" ")}>{p.commission}</p>
                   )}
                   <ul className="space-y-1.5 mb-5 flex-1">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-[12px] text-zinc-600">
+                    {p.features.map((feature) => (
+                      <li key={feature} className="flex items-center gap-2 text-[12px] text-zinc-600">
                         <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
-                        {f}
+                        {feature}
                       </li>
                     ))}
                   </ul>
@@ -757,7 +477,7 @@ export default function BillingDashboard({
                       Em breve
                     </button>
                   )}
-                  {!isCurrent && !isPending && p.key !== "free" && p.key !== "premium" && (
+                  {!isCurrent && !isPending && p.key !== "premium" && (
                     <button
                       onClick={() => handlePlanClick(p)}
                       className={[
@@ -776,7 +496,7 @@ export default function BillingDashboard({
                   )}
                   {isPending && !isCurrent && (
                     <p className="text-[11px] text-indigo-600 text-center font-medium">
-                      Ativará em {fmtDate(pendingChange!.effectiveAt)}
+                      Ativara em {fmtDate(pendingChange!.effectiveAt)}
                     </p>
                   )}
                 </div>
@@ -786,12 +506,11 @@ export default function BillingDashboard({
         </div>
       </div>
 
-      {/* ── Cancel subscription (paid plans only) ── */}
       {activePlan !== "free" && !pendingChange && (
         <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-2xl px-5 py-4">
           <div>
             <p className="text-[13px] font-semibold text-zinc-900">Cancelar assinatura</p>
-            <p className="text-[12px] text-zinc-400 mt-0.5">Você voltará ao plano gratuito no fim do ciclo atual.</p>
+            <p className="text-[12px] text-zinc-400 mt-0.5">O cancelamento passa pelo Stripe e preserva o fallback administrativo.</p>
           </div>
           <button
             onClick={() => {
@@ -805,69 +524,60 @@ export default function BillingDashboard({
         </div>
       )}
 
-      {/* ── Billing summary ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Última cobrança do plano</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Ultima cobranca do plano</p>
           {latestPlanCharge ? (
             <div className="space-y-1">
               <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">
                 {brl(Math.abs(latestPlanCharge.amount))}
               </p>
-              <p className="text-[13px] text-zinc-600">{latestPlanCharge.description ?? "Cobrança de plano"}</p>
+              <p className="text-[13px] text-zinc-600">{latestPlanCharge.description ?? "Cobranca de plano"}</p>
               <p className="text-[12px] text-zinc-400">{fmtDate(latestPlanCharge.created_at)}</p>
             </div>
           ) : (
-            <p className="text-[13px] text-zinc-400">Nenhuma cobrança de plano registrada ainda.</p>
+            <p className="text-[13px] text-zinc-400">Nenhuma cobranca de plano registrada ainda.</p>
           )}
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Próxima cobrança</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Proxima cobranca</p>
           {pendingChange?.plan === "free" ? (
             <div className="space-y-1">
-              <p className="text-[15px] font-semibold text-zinc-900">Sem nova cobrança agendada</p>
-              <p className="text-[13px] text-zinc-600">O plano atual será encerrado no fim do ciclo.</p>
+              <p className="text-[15px] font-semibold text-zinc-900">Sem nova cobranca agendada</p>
+              <p className="text-[13px] text-zinc-600">O plano atual sera encerrado no fim do ciclo.</p>
               <p className="text-[12px] text-zinc-400">{fmtDate(pendingChange.effectiveAt)}</p>
             </div>
           ) : upcomingCharge ? (
             <div className="space-y-1">
-              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">
-                {brl(upcomingCharge.amount)}
-              </p>
+              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{brl(upcomingCharge.amount)}</p>
               <p className="text-[13px] text-zinc-600">{upcomingCharge.label}</p>
               <p className="text-[12px] text-zinc-400">{fmtDate(upcomingCharge.chargeAt)}</p>
             </div>
           ) : (
-            <p className="text-[13px] text-zinc-400">Sem cobrança futura disponível no momento.</p>
+            <p className="text-[13px] text-zinc-400">Sem cobranca futura disponivel no momento.</p>
           )}
         </div>
       </div>
 
-      {/* ── Saved cards ── */}
       <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Cartões salvos</p>
-        <SavedCardsWidget initialCards={savedCards} publicKey={mpPublicKey} />
-      </div>
-
-      {/* ── Transaction history ── */}
-      <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Histórico de cobranças</p>
-
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Historico de cobrancas</p>
         {planChargeTransactions.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-100 py-10 text-center">
-            <p className="text-[13px] text-zinc-400">Nenhuma cobrança de plano ainda.</p>
+            <p className="text-[13px] text-zinc-400">Nenhuma cobranca de plano ainda.</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
             {planChargeTransactions.map((tx) => (
               <div key={tx.id} className="flex items-center gap-4 px-5 py-4">
                 <div className="w-8 h-8 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center flex-shrink-0">
-                  {TX_ICON[tx.type] ?? TX_ICON.payment}
+                  <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20V4m-8 8l8-8 8 8" />
+                  </svg>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-zinc-900 truncate leading-snug">
-                    {tx.description ?? "Cobrança de plano"}
+                    {tx.description ?? "Cobranca de plano"}
                   </p>
                   <p className="text-[11px] text-zinc-400 mt-0.5">
                     {fmtDateTime(tx.created_at)} · {getPlanChargeMethod(tx)}
@@ -884,6 +594,3 @@ export default function BillingDashboard({
     </div>
   );
 }
-
-
-

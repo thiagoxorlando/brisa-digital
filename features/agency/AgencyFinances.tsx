@@ -1,19 +1,15 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
-
-// Temporarily hardcoded to 1 for Efí payout testing. Restore to 100 after.
-const MIN_WITHDRAW = 1;
-
-const SavedCardsWidget   = dynamic(() => import("@/components/ui/SavedCards"),         { ssr: false });
-const WalletDepositModal = dynamic(() => import("@/components/ui/WalletDepositModal"), { ssr: false });
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", {
-    style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -40,60 +36,50 @@ export type AgencyFinanceSummary = {
   walletBalance?: number;
 };
 
-const WITHDRAWAL_STATUS_CLS: Record<string, string> = {
-  pending:  "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  paid:     "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  rejected: "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
-};
-
-const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
-  pending:  "Pendente",
-  paid:     "Pago",
-  rejected: "Cancelado",
+const PIX_TYPE_LABELS: Record<string, string> = {
+  cpf: "CPF",
+  cnpj: "CNPJ",
+  email: "E-mail",
+  phone: "Telefone",
+  random: "Chave aleatoria",
 };
 
 const STATUS_CLS: Record<string, string> = {
-  paid:            "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  confirmed:       "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  pending_payment: "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  pending:         "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  cancelled:       "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
-  deposit:         "bg-teal-50    text-teal-700    ring-1 ring-teal-100",
-  payment:         "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
-  withdrawal:      "bg-blue-50    text-blue-700    ring-1 ring-blue-100",
-  escrow:          "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  escrow_lock:     "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  paid: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  confirmed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  pending_payment: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
+  pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
+  cancelled: "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
+  deposit: "bg-teal-50 text-teal-700 ring-1 ring-teal-100",
+  payment: "bg-violet-50 text-violet-700 ring-1 ring-violet-100",
+  withdrawal: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
+  escrow_lock: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
   escrow_released: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  escrow_refunded: "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
-  release:         "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  refund:          "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
-  credit:          "bg-teal-50    text-teal-700    ring-1 ring-teal-100",
+  escrow_refunded: "bg-rose-50 text-rose-700 ring-1 ring-rose-100",
+  refund: "bg-rose-50 text-rose-700 ring-1 ring-rose-100",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  paid:            "Pago",
-  confirmed:       "Reservado",
-  pending_payment: "Aguardando Pagamento",
-  pending:         "Pendente",
-  cancelled:       "Cancelado",
-  deposit:         "Depósito",
-  payment:         "Pagamento",
-  withdrawal:      "Saque",
-  escrow:          "Escrow",
-  escrow_lock:     "Custódia",
-  escrow_released: "Pago",
+  paid: "Pago",
+  confirmed: "Reservado",
+  pending_payment: "Aguardando pagamento",
+  pending: "Pendente",
+  cancelled: "Cancelado",
+  deposit: "Deposito",
+  payment: "Pagamento",
+  withdrawal: "Saque",
+  escrow_lock: "Custodia",
+  escrow_released: "Liberado",
   escrow_refunded: "Estornado",
-  release:         "Liberado",
-  refund:          "Reembolso",
-  credit:          "Crédito",
+  refund: "Reembolso",
 };
 
-const PIX_TYPE_LABELS: Record<string, string> = {
-  cpf:    "CPF",
-  cnpj:   "CNPJ",
-  email:  "E-mail",
-  phone:  "Telefone",
-  random: "Chave aleatória",
+const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  paid: "Pago",
+  processing: "Processando",
+  rejected: "Cancelado",
+  failed: "Falhou",
 };
 
 function StatCard({ label, value, sub, stripe }: { label: string; value: string; sub?: string; stripe: string }) {
@@ -112,8 +98,6 @@ function StatCard({ label, value, sub, stripe }: { label: string; value: string;
 export default function AgencyFinances({
   summary,
   transactions,
-  savedCards,
-  mpPublicKey,
   agencyPix,
   withdrawalFeeRate,
   withdrawalMinFee,
@@ -121,8 +105,6 @@ export default function AgencyFinances({
 }: {
   summary: AgencyFinanceSummary;
   transactions: AgencyTransaction[];
-  savedCards: import("@/components/ui/SavedCards").SavedCard[];
-  mpPublicKey: string;
   agencyPix?: { pix_key_type: string | null; pix_key_value: string | null; pix_holder_name: string | null } | null;
   withdrawalFeeRate: number;
   withdrawalMinFee: number;
@@ -130,24 +112,6 @@ export default function AgencyFinances({
 }) {
   const router = useRouter();
 
-  // Withdraw
-  const [withdrawing,        setWithdrawing]        = useState(false);
-  const [withdrawDone,       setWithdrawDone]        = useState(false);
-  const [withdrawConfirming, setWithdrawConfirming]  = useState(false);
-  const [withdrawAmount,     setWithdrawAmount]      = useState("");
-  const [withdrawError,      setWithdrawError]       = useState("");
-
-  // Agency PIX key
-  const [savedPix,      setSavedPix]      = useState(agencyPix ?? null);
-  const [pixEditing,    setPixEditing]    = useState(false);
-  const [pixKeyType,    setPixKeyType]    = useState(agencyPix?.pix_key_type ?? "cpf");
-  const [pixKeyValue,   setPixKeyValue]   = useState(agencyPix?.pix_key_value ?? "");
-  const [pixHolderName, setPixHolderName] = useState(agencyPix?.pix_holder_name ?? "");
-  const [pixSaving,     setPixSaving]     = useState(false);
-  const [pixError,      setPixError]      = useState("");
-  const [pixSaved,      setPixSaved]      = useState(false);
-
-  // Wallet balance (live) — uses server props unless a local optimistic update is active.
   const serverWalletBalance = summary.walletBalance ?? 0;
   const [walletBalanceOverride, setWalletBalanceOverride] = useState<{ base: number; value: number } | null>(null);
   const walletBalance = walletBalanceOverride?.base === serverWalletBalance
@@ -158,64 +122,92 @@ export default function AgencyFinances({
     setWalletBalanceOverride((current) => {
       const currentValue = current?.base === serverWalletBalance ? current.value : serverWalletBalance;
       return {
-        base:  serverWalletBalance,
+        base: serverWalletBalance,
         value: typeof next === "function" ? next(currentValue) : next,
       };
     });
   }
 
   const { refreshing: walletRefreshing } = useRealtimeRefresh(
-    [{ table: "wallet_transactions" }, { table: "wallets" }],
+    [{ table: "wallet_transactions" }, { table: "profiles" }],
     () => router.refresh(),
   );
 
-  // Deposit method toggle
-  const [depositMethod, setDepositMethod] = useState<"pix" | "card">("pix");
-
-  // PIX deposit
-  const [depositAmount,  setDepositAmount]  = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
   const [depositLoading, setDepositLoading] = useState(false);
-  const [depositError,   setDepositError]   = useState("");
-  const [depositModal,   setDepositModal]   = useState<{
-    txId: string; amount: number; creditAmount: number; fee: number; qrCode: string; qrCodeBase64: string | null;
-  } | null>(null);
+  const [depositError, setDepositError] = useState("");
 
-  // Live cards state — shared between the deposit selector and the SavedCards widget
-  const [liveCards,          setLiveCards]          = useState(savedCards);
-  const [selectedCard,       setSelectedCard]       = useState(savedCards[0]?.id ?? "");
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawDone, setWithdrawDone] = useState(false);
+  const [withdrawConfirming, setWithdrawConfirming] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawError, setWithdrawError] = useState("");
 
-  function handleCardsChange(nextCards: typeof savedCards) {
-    setLiveCards(nextCards);
-    setSelectedCard((current) =>
-      nextCards.some((card) => card.id === current) ? current : nextCards[0]?.id ?? ""
-    );
+  const [savedPix, setSavedPix] = useState(agencyPix ?? null);
+  const [pixEditing, setPixEditing] = useState(false);
+  const [pixKeyType, setPixKeyType] = useState(agencyPix?.pix_key_type ?? "cpf");
+  const [pixKeyValue, setPixKeyValue] = useState(agencyPix?.pix_key_value ?? "");
+  const [pixHolderName, setPixHolderName] = useState(agencyPix?.pix_holder_name ?? "");
+  const [pixSaving, setPixSaving] = useState(false);
+  const [pixError, setPixError] = useState("");
+  const [pixSaved, setPixSaved] = useState(false);
+
+  const hasPix = Boolean(savedPix?.pix_key_type && savedPix?.pix_key_value?.trim());
+  const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
+  const withdrawFeeNum = withdrawAmountNum > 0
+    ? Math.max(withdrawalMinFee, Math.round(withdrawAmountNum * withdrawalFeeRate * 100) / 100)
+    : 0;
+  const withdrawNetNum = Math.max(0, Math.round((withdrawAmountNum - withdrawFeeNum) * 100) / 100);
+  const canWithdraw = Boolean(
+    hasPix &&
+    withdrawAmountNum >= withdrawalMinAmount &&
+    withdrawAmountNum <= walletBalance,
+  );
+
+  async function handleDeposit(e: React.FormEvent) {
+    e.preventDefault();
+    const amount = Number(depositAmount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    setDepositLoading(true);
+    setDepositError("");
+
+    const res = await fetch("/api/payments/wallet-deposit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount }),
+    });
+    const data = await res.json().catch(() => ({})) as { error?: string; url?: string };
+
+    if (!res.ok || !data.url) {
+      setDepositLoading(false);
+      setDepositError(data.error ?? "Erro ao abrir pagamento Stripe.");
+      return;
+    }
+
+    window.location.href = data.url;
   }
 
-  // Card deposit
-  const [cardDepositAmount,  setCardDepositAmount]  = useState("");
-  const [cardDepositLoading, setCardDepositLoading] = useState(false);
-  const [cardDepositError,   setCardDepositError]   = useState("");
-  const [cardDepositDone,    setCardDepositDone]    = useState(false);
-  const [cardCvv,            setCardCvv]            = useState("");
-
   async function handleWithdraw() {
-    const amt = Number(withdrawAmount);
+    const amount = Number(withdrawAmount);
     setWithdrawConfirming(false);
     setWithdrawing(true);
     setWithdrawError("");
+
     const res = await fetch("/api/agencies/withdraw", {
-      method:  "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ amount: amt }),
+      body: JSON.stringify({ amount }),
     });
-    const data = await res.json().catch(() => ({})) as { error?: string; remaining_balance?: number };
+    const data = await res.json().catch(() => ({})) as { error?: string };
+
     setWithdrawing(false);
     if (!res.ok) {
-      console.error("[handleWithdraw] status:", res.status, "body:", data);
-      setWithdrawError(data.error ?? "Erro ao solicitar saque. Tente novamente.");
+      setWithdrawError(data.error ?? "Erro ao solicitar saque.");
       return;
     }
-    setLocalWalletBalance((prev) => Math.round((prev - amt) * 100) / 100);
+
+    setLocalWalletBalance((prev) => Math.round((prev - amount) * 100) / 100);
     setWithdrawAmount("");
     setWithdrawDone(true);
     setTimeout(() => setWithdrawDone(false), 4000);
@@ -224,118 +216,48 @@ export default function AgencyFinances({
   async function handlePixSave(e: React.FormEvent) {
     e.preventDefault();
     if (!pixKeyType || !pixKeyValue.trim() || !pixHolderName.trim()) {
-      setPixError("Todos os campos são obrigatórios.");
+      setPixError("Todos os campos sao obrigatorios.");
       return;
     }
+
     setPixSaving(true);
     setPixError("");
     const res = await fetch("/api/agencies/pix", {
-      method:  "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ pix_key_type: pixKeyType, pix_key_value: pixKeyValue.trim(), pix_holder_name: pixHolderName.trim() }),
+      body: JSON.stringify({
+        pix_key_type: pixKeyType,
+        pix_key_value: pixKeyValue.trim(),
+        pix_holder_name: pixHolderName.trim(),
+      }),
     });
     const data = await res.json().catch(() => ({})) as { error?: string };
     setPixSaving(false);
-    if (!res.ok) { setPixError(data.error ?? "Erro ao salvar chave PIX."); return; }
-    setSavedPix({ pix_key_type: pixKeyType, pix_key_value: pixKeyValue.trim(), pix_holder_name: pixHolderName.trim() });
+
+    if (!res.ok) {
+      setPixError(data.error ?? "Erro ao salvar chave PIX.");
+      return;
+    }
+
+    setSavedPix({
+      pix_key_type: pixKeyType,
+      pix_key_value: pixKeyValue.trim(),
+      pix_holder_name: pixHolderName.trim(),
+    });
     setPixEditing(false);
     setPixSaved(true);
     setTimeout(() => setPixSaved(false), 3000);
   }
 
-  const hasPix            = !!(savedPix?.pix_key_type && savedPix?.pix_key_value?.trim());
-  const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
-  const withdrawFeeNum    = 0; // temporarily zeroed for Efí payout testing
-  const withdrawNetNum    = withdrawAmountNum;
-  const isMinFeeApplied   = false;
-  const canWithdraw       = Boolean(hasPix && withdrawAmountNum >= MIN_WITHDRAW && withdrawAmountNum <= walletBalance);
-
-  async function handleDeposit(e: React.FormEvent) {
-    e.preventDefault();
-    const amount = Number(depositAmount);
-    if (!amount || amount <= 0) return;
-    setDepositLoading(true);
-    setDepositError("");
-    const res = await fetch("/api/payments/wallet-deposit", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ amount }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setDepositError(data.error ?? "Erro ao gerar PIX. Tente novamente.");
-    } else {
-      setDepositModal({
-        txId:         data.tx_id,
-        amount:       data.totalCharged  ?? amount,
-        creditAmount: data.creditAmount  ?? amount,
-        fee:          data.fee           ?? 0,
-        qrCode:       data.qr_code       ?? "",
-        qrCodeBase64: data.qr_code_base64 ?? null,
-      });
-      setDepositAmount("");
-    }
-    setDepositLoading(false);
-  }
-
-  async function handleCardDeposit(e: React.FormEvent) {
-    e.preventDefault();
-    const amount = Number(cardDepositAmount);
-    if (!amount || amount <= 0 || !selectedCard || cardCvv.length < 3) return;
-    setCardDepositLoading(true);
-    setCardDepositError("");
-    setCardDepositDone(false);
-    const res  = await fetch("/api/payments/wallet-deposit-card", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ card_id: selectedCard, amount, security_code: cardCvv }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setCardDepositError(data.error ?? "Erro ao processar pagamento. Tente novamente.");
-    } else {
-      setLocalWalletBalance((prev) => prev + (data.amount ?? amount));
-      setCardDepositAmount("");
-      setCardCvv("");
-      setCardDepositDone(true);
-      setTimeout(() => setCardDepositDone(false), 4000);
-      router.refresh();
-    }
-    setCardDepositLoading(false);
-  }
-
   return (
     <div className="max-w-6xl space-y-8">
-
-      {/* Header */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Visão Geral</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Visao Geral</p>
         <h1 className="text-[2rem] font-black tracking-[-0.04em] text-zinc-950 leading-tight">Financeiro</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">{transactions.length} transações no total</p>
+        <p className="text-[13px] text-zinc-400 mt-1">{transactions.length} transacoes no total</p>
       </div>
 
-      {/* PIX modal */}
-      {depositModal && (
-        <WalletDepositModal
-          txId={depositModal.txId}
-          amount={depositModal.amount}
-          creditAmount={depositModal.creditAmount}
-          fee={depositModal.fee}
-          qrCode={depositModal.qrCode}
-          qrCodeBase64={depositModal.qrCodeBase64}
-          onConfirmed={() => {
-            setDepositModal(null);
-            setLocalWalletBalance((prev) => prev + depositModal.creditAmount);
-            router.refresh();
-          }}
-          onClose={() => setDepositModal(null)}
-        />
-      )}
-
-      {/* Wallet card */}
       <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
-
-        {/* Balance row / withdrawal confirmation */}
         {withdrawConfirming ? (
           <div className="px-6 py-6 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white space-y-4">
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white">Confirmar Saque</p>
@@ -349,32 +271,28 @@ export default function AgencyFinances({
                 <span className="font-bold text-white">{brl(withdrawFeeNum)}</span>
               </div>
               <div className="flex justify-between border-t border-white/30 pt-2">
-                <span className="text-white font-semibold">Valor líquido a receber</span>
+                <span className="text-white font-semibold">Valor liquido a receber</span>
                 <span className="font-black text-white">{brl(withdrawNetNum)}</span>
               </div>
-              {savedPix && (
-                <div className="flex justify-between pt-1">
-                  <span className="text-white">Chave PIX</span>
-                  <span className="text-white font-medium text-right">
-                    {PIX_TYPE_LABELS[savedPix.pix_key_type ?? ""] ?? savedPix.pix_key_type} · {savedPix.pix_key_value}
-                  </span>
-                </div>
-              )}
             </div>
             <div className="flex gap-2 pt-1">
-              <button onClick={handleWithdraw} disabled={withdrawing}
-                className="flex-1 bg-white hover:bg-white/90 disabled:opacity-50 text-[#0E7C86] text-[13px] font-black py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
-                {withdrawing ? "Processando…" : "Confirmar Saque"}
+              <button
+                onClick={handleWithdraw}
+                disabled={withdrawing}
+                className="flex-1 bg-white hover:bg-white/90 disabled:opacity-50 text-[#0E7C86] text-[13px] font-black py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+              >
+                {withdrawing ? "Processando..." : "Confirmar Saque"}
               </button>
-              <button onClick={() => setWithdrawConfirming(false)}
-                className="px-5 bg-white/20 hover:bg-white/30 text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer">
+              <button
+                onClick={() => setWithdrawConfirming(false)}
+                className="px-5 bg-white/20 hover:bg-white/30 text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
+              >
                 Cancelar
               </button>
             </div>
           </div>
         ) : (
           <div className="px-6 py-6 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white space-y-4">
-            {/* Balance display */}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
@@ -382,12 +300,12 @@ export default function AgencyFinances({
                   {walletRefreshing && (
                     <span className="flex items-center gap-1 text-[10px] text-white/70">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                      Atualizando…
+                      Atualizando...
                     </span>
                   )}
                 </div>
                 <p className="text-[3rem] font-black tracking-[-0.07em] text-white leading-none">{brl(walletBalance)}</p>
-                <p className="text-[12px] text-white/70 mt-1">Disponível para confirmar reservas ou sacar</p>
+                <p className="text-[12px] text-white/70 mt-1">Disponivel para confirmar reservas ou sacar</p>
               </div>
               {withdrawDone && (
                 <div className="flex items-center gap-1.5 text-[12px] text-white font-semibold mt-1">
@@ -399,14 +317,16 @@ export default function AgencyFinances({
               )}
             </div>
 
-            {/* Amount input + quick buttons */}
             {hasPix && walletBalance > 0 && !withdrawDone && (
               <div className="space-y-2">
                 <div className="flex gap-1.5">
                   {([0.25, 0.5, 1] as const).map((pct) => (
-                    <button key={pct} type="button"
+                    <button
+                      key={pct}
+                      type="button"
                       onClick={() => setWithdrawAmount(String(Math.floor(walletBalance * pct * 100) / 100))}
-                      className="text-[11px] font-bold px-2.5 py-1 bg-white/10 hover:bg-white/20 text-[#647B7B] rounded-lg transition-colors cursor-pointer">
+                      className="text-[11px] font-bold px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors cursor-pointer"
+                    >
                       {pct === 1 ? "100%" : pct === 0.5 ? "50%" : "25%"}
                     </button>
                   ))}
@@ -415,7 +335,10 @@ export default function AgencyFinances({
                   <div className="relative flex-1">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
                     <input
-                      type="number" min={MIN_WITHDRAW} step={0.01} value={withdrawAmount}
+                      type="number"
+                      min={withdrawalMinAmount}
+                      step={0.01}
+                      value={withdrawAmount}
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder="0,00"
                       className="w-full pl-8 pr-3 py-2.5 text-[13px] font-semibold bg-white/10 border border-white/10 rounded-xl text-white placeholder:text-zinc-500 focus:outline-none focus:border-white/30 transition-colors"
@@ -426,186 +349,83 @@ export default function AgencyFinances({
                     disabled={Boolean(!canWithdraw || withdrawing)}
                     className="flex items-center gap-2 bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white border border-white/10 text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
                   >
-                    {withdrawing ? (
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-400 border-t-zinc-800 animate-spin" />
-                    ) : (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                      </svg>
-                    )}
                     Solicitar Saque
                   </button>
                 </div>
                 {withdrawAmountNum > walletBalance && (
-                  <p className="text-[11px] text-rose-400">Valor superior ao saldo disponível.</p>
+                  <p className="text-[11px] text-rose-100">Valor superior ao saldo disponivel.</p>
                 )}
-                {withdrawError && (
-                  <p className="text-[11px] text-rose-400">{withdrawError}</p>
+                {withdrawAmountNum > 0 && withdrawAmountNum < withdrawalMinAmount && (
+                  <p className="text-[11px] text-white/80">Valor minimo para agencias: {brl(withdrawalMinAmount)}.</p>
                 )}
+                {withdrawError && <p className="text-[11px] text-rose-100">{withdrawError}</p>}
               </div>
             )}
 
             {!hasPix && walletBalance > 0 && (
-              <p className="text-[11px] text-white font-semibold">⚠ Configure sua chave PIX para habilitar saques.</p>
+              <p className="text-[11px] text-white font-semibold">Configure sua chave PIX para habilitar o fallback manual de saque.</p>
             )}
           </div>
         )}
 
-        {/* Deposit section */}
         <div className="px-6 pt-5 pb-6 space-y-4">
-          <div className="flex items-center justify-between">
+          <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Depositar Fundos</p>
-            <div className="flex bg-zinc-100 rounded-xl p-0.5 gap-0.5">
-              {(["pix", "card"] as const).map((m) => (
+            <p className="text-[12px] text-zinc-400 mt-1">O pagamento abre no Stripe Checkout. O saldo aparece depois da confirmacao do Stripe.</p>
+          </div>
+          <form onSubmit={handleDeposit} className="space-y-3">
+            {depositError && (
+              <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{depositError}</p>
+            )}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="0"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-[#647B7B] hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={Boolean(depositLoading || !depositAmount || Number(depositAmount) <= 0)}
+                className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4] disabled:bg-none text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
+              >
+                {depositLoading ? "Abrindo..." : "Abrir Stripe"}
+              </button>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {[500, 1000, 2000, 5000].map((value) => (
                 <button
-                  key={m}
+                  key={value}
                   type="button"
-                  onClick={() => setDepositMethod(m)}
-                  className={[
-                    "px-3.5 py-1.5 rounded-[10px] text-[12px] font-semibold transition-all",
-                    depositMethod === m
-                      ? "bg-white text-zinc-900 shadow-sm cursor-pointer"
-                      : "text-zinc-500 hover:text-zinc-700 cursor-pointer",
-                  ].join(" ")}
+                  onClick={() => setDepositAmount(String(value))}
+                  className="text-[11px] font-semibold px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-lg text-zinc-600 transition-colors cursor-pointer"
                 >
-                  {m === "pix" ? "PIX" : "Cartão"}
+                  {brl(value)}
                 </button>
               ))}
             </div>
-          </div>
-
-          {depositMethod === "pix" && (
-            <form onSubmit={handleDeposit} className="space-y-3">
-              <p className="text-[12px] text-zinc-400">Crédito imediato após confirmação do pagamento. Depósitos não têm taxa. Taxas podem ser aplicadas apenas em saques.</p>
-              {depositError && (
-                <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{depositError}</p>
-              )}
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
-                  <input type="number" min={1} step={1} placeholder="0" value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-[#647B7B] hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
-                </div>
-                <button type="submit" disabled={Boolean(depositLoading || !depositAmount || Number(depositAmount) <= 0)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4] disabled:bg-none text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
-                  {depositLoading ? <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> : "Gerar QR Code"}
-                </button>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {[500, 1000, 2000, 5000].map((v) => (
-                  <button key={v} type="button" onClick={() => setDepositAmount(String(v))}
-                    className="text-[11px] font-semibold px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-lg text-zinc-600 transition-colors cursor-pointer">
-                    {brl(v)}
-                  </button>
-                ))}
-              </div>
-            </form>
-          )}
-
-          {depositMethod === "card" && (
-            <div className="space-y-4">
-              {liveCards.length === 0 ? (
-                <div className="bg-zinc-50 border border-zinc-100 rounded-2xl px-5 py-8 text-center space-y-2">
-                  <svg className="w-8 h-8 text-[#647B7B] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  <p className="text-[13px] font-medium text-zinc-500">Nenhum cartão cadastrado</p>
-                  <p className="text-[12px] text-zinc-400">Adicione um cartão em <span className="font-semibold text-zinc-600">Métodos de Pagamento</span> abaixo.</p>
-                </div>
-              ) : (
-                <form onSubmit={handleCardDeposit} className="space-y-3">
-                  <div className="space-y-2">
-                    {liveCards.map((card) => {
-                      const expiry = card.expiry_month && card.expiry_year
-                        ? `${String(card.expiry_month).padStart(2, "0")}/${String(card.expiry_year).slice(-2)}`
-                        : null;
-                      const isSelected = selectedCard === card.id;
-                      return (
-                        <button key={card.id} type="button" onClick={() => { setSelectedCard(card.id); setCardCvv(""); }}
-                          className={["w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all cursor-pointer",
-                            isSelected ? "border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900" : "border-zinc-200 bg-white hover:border-zinc-300"].join(" ")}>
-                          <div className={["w-3 h-3 rounded-full border-2 flex-shrink-0 transition-colors",
-                            isSelected ? "border-[#1ABC9C] bg-[#1ABC9C]" : "border-[#DDE6E6]"].join(" ")} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold uppercase bg-[#2D4142] text-white px-1.5 py-0.5 rounded">{card.brand ?? "card"}</span>
-                              <span className="text-[13px] font-semibold text-zinc-900 tabular-nums">•••• {card.last_four ?? "----"}</span>
-                            </div>
-                            {expiry && <p className="text-[11px] text-zinc-400 mt-0.5">Válido até {expiry}</p>}
-                          </div>
-                          {isSelected && (
-                            <svg className="w-4 h-4 text-zinc-900 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-medium text-zinc-500">CVV do cartão</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={4}
-                      placeholder="000"
-                      value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      autoComplete="cc-csc"
-                      className="w-28 h-10 border border-zinc-200 rounded-xl px-3 bg-white text-[14px] text-zinc-900 text-center tabular-nums placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 transition-colors"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
-                      <input type="number" min={1} step={1} placeholder="0" value={cardDepositAmount}
-                        onChange={(e) => setCardDepositAmount(e.target.value)}
-                        className="w-full pl-9 pr-3.5 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl placeholder:text-[#647B7B] hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors" />
-                    </div>
-                    <button type="submit" disabled={Boolean(cardDepositLoading || !cardDepositAmount || Number(cardDepositAmount) <= 0 || !selectedCard || cardCvv.length < 3)}
-                      className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4] disabled:bg-none text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0">
-                      {cardDepositLoading ? <div className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" /> : "Depositar"}
-                    </button>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {[500, 1000, 2000, 5000].map((v) => (
-                      <button key={v} type="button" onClick={() => setCardDepositAmount(String(v))}
-                        className="text-[11px] font-semibold px-3 py-1.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-lg text-zinc-600 transition-colors cursor-pointer">
-                        {brl(v)}
-                      </button>
-                    ))}
-                  </div>
-                  {cardDepositError && (
-                    <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{cardDepositError}</p>
-                  )}
-                  {cardDepositDone && (
-                    <div className="flex items-center gap-2 text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
-                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Depósito confirmado! Saldo atualizado.
-                    </div>
-                  )}
-                </form>
-              )}
-            </div>
-          )}
+          </form>
         </div>
       </div>
 
-      {/* PIX key for withdrawals */}
       <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
         <div className="px-6 py-5 border-b border-zinc-50 flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Dados para Saque</p>
-            <p className="text-[12px] text-zinc-500 mt-0.5">Chave PIX para receber transferências manuais da equipe.</p>
+            <p className="text-[12px] text-zinc-500 mt-0.5">Chave PIX para o fallback manual da equipe.</p>
           </div>
           {hasPix && !pixEditing && (
-            <button type="button" onClick={() => { setPixEditing(true); setPixError(""); }}
-              className="text-[12px] font-semibold text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-xl px-3 py-1.5 transition-colors cursor-pointer">
+            <button
+              type="button"
+              onClick={() => { setPixEditing(true); setPixError(""); }}
+              className="text-[12px] font-semibold text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-xl px-3 py-1.5 transition-colors cursor-pointer"
+            >
               Editar
             </button>
           )}
@@ -614,58 +434,77 @@ export default function AgencyFinances({
           {!pixEditing && hasPix ? (
             <div className="space-y-2">
               <div className="flex items-center gap-3 text-[13px]">
-                <span className="text-[11px] font-bold uppercase bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded">{PIX_TYPE_LABELS[savedPix?.pix_key_type ?? ""] ?? savedPix?.pix_key_type}</span>
+                <span className="text-[11px] font-bold uppercase bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded">
+                  {PIX_TYPE_LABELS[savedPix?.pix_key_type ?? ""] ?? savedPix?.pix_key_type}
+                </span>
                 <span className="font-semibold text-zinc-900">{savedPix?.pix_key_value}</span>
               </div>
               {savedPix?.pix_holder_name && (
                 <p className="text-[12px] text-zinc-400">Titular: {savedPix.pix_holder_name}</p>
               )}
-              {pixSaved && (
-                <p className="text-[12px] text-emerald-600 mt-1">Chave PIX salva com sucesso.</p>
-              )}
-              <p className="text-[11px] text-zinc-400 pt-1">Depósitos não têm taxa. Saques possuem taxa de processamento de {(withdrawalFeeRate * 100).toFixed(0)}%.</p>
+              {pixSaved && <p className="text-[12px] text-emerald-600 mt-1">Chave PIX salva com sucesso.</p>}
+              <p className="text-[11px] text-zinc-400 pt-1">
+                Saques manuais de agencia mantem minimo de {brl(withdrawalMinAmount)} e taxa de {(withdrawalFeeRate * 100).toFixed(0)}%.
+              </p>
             </div>
           ) : (
             <form onSubmit={handlePixSave} className="space-y-3">
               {!hasPix && (
                 <p className="text-[12px] text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-                  Configure sua chave PIX para habilitar saques.
+                  Configure sua chave PIX para habilitar saques manuais.
                 </p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="block text-[11px] font-medium text-zinc-500">Tipo de chave</label>
-                  <select value={pixKeyType} onChange={(e) => setPixKeyType(e.target.value)}
-                    className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-white focus:outline-none focus:border-zinc-400 transition-colors">
-                    {Object.entries(PIX_TYPE_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
+                  <select
+                    value={pixKeyType}
+                    onChange={(e) => setPixKeyType(e.target.value)}
+                    className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-white focus:outline-none focus:border-zinc-400 transition-colors"
+                  >
+                    {Object.entries(PIX_TYPE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <label className="block text-[11px] font-medium text-zinc-500">Chave PIX</label>
-                  <input type="text" value={pixKeyValue} onChange={(e) => setPixKeyValue(e.target.value)}
+                  <input
+                    type="text"
+                    value={pixKeyValue}
+                    onChange={(e) => setPixKeyValue(e.target.value)}
                     placeholder="Sua chave PIX"
-                    className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors" />
+                    className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors"
+                  />
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="block text-[11px] font-medium text-zinc-500">Nome do titular</label>
-                <input type="text" value={pixHolderName} onChange={(e) => setPixHolderName(e.target.value)}
-                  placeholder="Nome completo ou razão social"
-                  className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors" />
+                <input
+                  type="text"
+                  value={pixHolderName}
+                  onChange={(e) => setPixHolderName(e.target.value)}
+                  placeholder="Nome completo ou razao social"
+                  className="w-full h-10 border border-zinc-200 rounded-xl px-3 text-[13px] text-zinc-900 bg-zinc-50 placeholder:text-[#647B7B] focus:outline-none focus:border-zinc-400 focus:bg-white transition-colors"
+                />
               </div>
               {pixError && (
                 <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{pixError}</p>
               )}
               <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={pixSaving}
-                  className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
-                  {pixSaving ? "Salvando…" : "Salvar Chave PIX"}
+                <button
+                  type="submit"
+                  disabled={pixSaving}
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {pixSaving ? "Salvando..." : "Salvar Chave PIX"}
                 </button>
                 {hasPix && (
-                  <button type="button" onClick={() => { setPixEditing(false); setPixError(""); }}
-                    className="text-[13px] font-semibold text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-xl px-4 py-2.5 transition-colors cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => { setPixEditing(false); setPixError(""); }}
+                    className="text-[13px] font-semibold text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-xl px-4 py-2.5 transition-colors cursor-pointer"
+                  >
                     Cancelar
                   </button>
                 )}
@@ -675,33 +514,25 @@ export default function AgencyFinances({
         </div>
       </div>
 
-      {/* Saved cards */}
-      <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Métodos de Pagamento</p>
-        <SavedCardsWidget initialCards={savedCards} publicKey={mpPublicKey} onCardsChange={handleCardsChange} />
-      </div>
-
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Total Gasto (Confirmado)" value={brl(summary.totalSpent)}        sub="Apenas depósitos confirmados" stripe="from-indigo-500 to-violet-500" />
-        <StatCard label="Pagamentos Pendentes"     value={brl(summary.pendingPayments)}   sub="Aguardando confirmação"      stripe="from-amber-400 to-orange-500"  />
-        <StatCard label="Pagamentos Realizados"    value={brl(summary.completedPayments)} sub="Reservas confirmadas"        stripe="from-emerald-400 to-teal-500"  />
+        <StatCard label="Total Gasto (Confirmado)" value={brl(summary.totalSpent)} sub="Depositos e jobs confirmados" stripe="from-indigo-500 to-violet-500" />
+        <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Aguardando confirmacao" stripe="from-amber-400 to-orange-500" />
+        <StatCard label="Pagamentos Realizados" value={brl(summary.completedPayments)} sub="Reservas confirmadas" stripe="from-emerald-400 to-teal-500" />
       </div>
 
-      {/* Transactions table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Transações</p>
-            <p className="text-[12px] text-zinc-400 mt-1">Depósitos, custódia, pagamentos e movimentações da carteira.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Transacoes</p>
+            <p className="text-[12px] text-zinc-400 mt-1">Depositos, custodia, pagamentos e movimentacoes da carteira.</p>
           </div>
           <span className="text-[12px] font-semibold text-zinc-400">{transactions.length} itens</span>
         </div>
 
         {transactions.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center">
-            <p className="text-[14px] font-medium text-zinc-500">Nenhuma transação ainda</p>
-            <p className="text-[13px] text-zinc-400 mt-1">Reservas e movimentações da carteira aparecerão aqui.</p>
+            <p className="text-[14px] font-medium text-zinc-500">Nenhuma transacao ainda</p>
+            <p className="text-[13px] text-zinc-400 mt-1">Reservas e movimentacoes da carteira aparecerao aqui.</p>
           </div>
         ) : (
           <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
@@ -709,92 +540,60 @@ export default function AgencyFinances({
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-zinc-100">
-                    <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Descrição</th>
-                    <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden md:table-cell">Vaga</th>
+                    <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Descricao</th>
                     <th className="text-right px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Valor</th>
                     <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Tipo</th>
                     <th className="text-right px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Data</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-50">
-                  {transactions.map((t) => {
-                    const isWallet     = t.kind === "wallet";
-                    const isWithdrawal = t.status === "withdrawal";
-                    const label        = isWallet ? (t.description ?? STATUS_LABEL[t.status] ?? t.status) : t.talent;
+                  {transactions.map((transaction) => {
+                    const isWithdrawal = transaction.status === "withdrawal";
+                    const label = transaction.kind === "wallet"
+                      ? transaction.description ?? STATUS_LABEL[transaction.status] ?? transaction.status
+                      : transaction.talent || transaction.description || "Reserva";
+
                     return (
                       <tr
-                        key={t.id}
-                        role={t.href ? "link" : undefined}
-                        tabIndex={t.href ? 0 : undefined}
-                        onClick={() => { if (t.href) router.push(t.href); }}
-                        onKeyDown={(e) => {
-                          if (t.href && (e.key === "Enter" || e.key === " ")) {
-                            e.preventDefault();
-                            router.push(t.href);
+                        key={transaction.id}
+                        role={transaction.href ? "link" : undefined}
+                        tabIndex={transaction.href ? 0 : undefined}
+                        onClick={() => { if (transaction.href) router.push(transaction.href); }}
+                        onKeyDown={(event) => {
+                          if (transaction.href && (event.key === "Enter" || event.key === " ")) {
+                            event.preventDefault();
+                            router.push(transaction.href);
                           }
                         }}
                         className={[
                           "hover:bg-zinc-50/60 transition-colors",
-                          t.href ? "cursor-pointer" : "",
+                          transaction.href ? "cursor-pointer" : "",
                         ].join(" ")}
                       >
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            {isWallet && (
-                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-teal-50 flex items-center justify-center">
-                                <svg className="w-3 h-3 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                </svg>
-                              </span>
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-[13px] font-bold text-zinc-950 truncate max-w-[220px]">{label}</p>
-                              {isWithdrawal && (
-                                <div className="mt-0.5 space-y-0.5">
-                                  <div className="flex flex-wrap gap-x-3">
-                                    <span className="text-[11px] text-zinc-400">
-                                      Solicitado {new Date(t.date).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
-                                    </span>
-                                    {t.processedAt && (
-                                      <span className="text-[11px] text-zinc-400">
-                                        Processado {new Date(t.processedAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
-                                      </span>
-                                    )}
-                                  </div>
-                                  {t.withdrawalStatus === "rejected" && t.adminNote && (
-                                    <p className="text-[11px] text-rose-500">Motivo do cancelamento: {t.adminNote}</p>
-                                  )}
-                                  {t.withdrawalStatus === "pending" && (
-                                    <p className="text-[11px] text-zinc-400">Processamento manual pela equipe.</p>
-                                  )}
-                                </div>
+                          <p className="text-[13px] font-bold text-zinc-950 truncate max-w-[260px]">{label}</p>
+                          {isWithdrawal && (
+                            <div className="mt-0.5 space-y-0.5">
+                              <p className="text-[11px] text-zinc-400">
+                                {transaction.withdrawalStatus ? WITHDRAWAL_STATUS_LABEL[transaction.withdrawalStatus] ?? transaction.withdrawalStatus : "Pendente"}
+                              </p>
+                              {transaction.adminNote && (
+                                <p className="text-[11px] text-rose-500">{transaction.adminNote}</p>
                               )}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 hidden md:table-cell">
-                          <p className="text-[12px] text-zinc-500 truncate max-w-[200px]">{isWallet ? "—" : (t.job || "—")}</p>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <p className="text-[14px] font-black tabular-nums text-zinc-950">
-                            {brl(Math.abs(t.amount))}
-                          </p>
+                          <p className="text-[14px] font-black tabular-nums text-zinc-950">{brl(Math.abs(transaction.amount))}</p>
                         </td>
                         <td className="px-4 py-4">
-                          {isWithdrawal && t.withdrawalStatus ? (
-                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${WITHDRAWAL_STATUS_CLS[t.withdrawalStatus] ?? "bg-zinc-100 text-zinc-500"}`}>
-                              {WITHDRAWAL_STATUS_LABEL[t.withdrawalStatus] ?? t.withdrawalStatus}
-                            </span>
-                          ) : (
-                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[t.status] ?? "bg-zinc-100 text-zinc-500"}`}>
-                              {STATUS_LABEL[t.status] ?? t.status}
-                            </span>
-                          )}
+                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[transaction.status] ?? "bg-zinc-100 text-zinc-500"}`}>
+                            {STATUS_LABEL[transaction.status] ?? transaction.status}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-right hidden sm:table-cell">
                           <p className="text-[12px] text-zinc-400">
-                            {new Date(t.date).toLocaleDateString("pt-BR", { month: "short", day: "numeric" })}
+                            {new Date(transaction.date).toLocaleDateString("pt-BR", { month: "short", day: "numeric" })}
                           </p>
                         </td>
                       </tr>
@@ -809,6 +608,3 @@ export default function AgencyFinances({
     </div>
   );
 }
-
-
-

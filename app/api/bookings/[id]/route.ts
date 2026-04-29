@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
  */
 export async function PATCH() {
   return NextResponse.json(
-    { error: "Booking status is managed via /api/contracts/[id]. Use action: agency_sign | pay | cancel_job | talent_cancel." },
+    { error: "Booking status is managed via /api/contracts/[id]. Use Stripe Checkout for funding, then actions pay | cancel_job | talent_cancel." },
     { status: 405 }
   );
 }

@@ -810,10 +810,9 @@ function SubmissionCard({
 
 // ─── Booking row ──────────────────────────────────────────────────────────────
 
-function BookingRow({ booking, onCancel, onConfirm, onMarkPaid }: {
+function BookingRow({ booking, onCancel, onMarkPaid }: {
   booking: JobBooking;
   onCancel: (id: string) => void;
-  onConfirm: (id: string) => void;
   onMarkPaid: (id: string) => void;
 }) {
   const [busy, setBusy] = useState<"cancel" | "confirm" | "paid" | null>(null);
@@ -851,13 +850,12 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid }: {
   async function handleConfirm() {
     setBalanceError(null);
     setBusy("confirm");
-    const res = await contractFetch("agency_sign");
+    if (!booking.contractId) { setBusy(null); return; }
+    const res = await fetch(`/api/contracts/${booking.contractId}/stripe-checkout`, { method: "POST" });
     if (!res) { setBusy(null); return; }
-    if (res.status === 402) {
-      const d = await res.json();
-      setBalanceError({ required: d.required, available: d.available });
-    } else if (res.ok) {
-      onConfirm(booking.id);
+    const data = await res.json().catch(() => ({})) as { url?: string };
+    if (res.ok && data.url) {
+      window.location.href = data.url;
     }
     setBusy(null);
   }
@@ -889,7 +887,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid }: {
               disabled={busy === "confirm"}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-colors cursor-pointer disabled:opacity-50"
             >
-              {busy === "confirm" ? "Verificando…" : "Confirmar Reserva"}
+              {busy === "confirm" ? "Abrindo..." : "Pagar via Stripe"}
             </button>
           )}
           {canMarkPaid && (
@@ -1038,10 +1036,6 @@ export default function JobDetail({
 
   function handleCancelBooking(id: string) {
     setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "cancelled" } : b));
-  }
-
-  function handleConfirmBooking(id: string) {
-    setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "confirmed" } : b));
   }
 
   function handleMarkPaid(id: string) {
@@ -1193,7 +1187,6 @@ export default function JobDetail({
                 key={b.id}
                 booking={b}
                 onCancel={handleCancelBooking}
-                onConfirm={handleConfirmBooking}
                 onMarkPaid={handleMarkPaid}
               />
             ))}

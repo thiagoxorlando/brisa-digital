@@ -2,131 +2,144 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
-import { getEfiSdk } from "@/lib/efiSdk";
+import { getStripe } from "@/lib/stripe";
+import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
+
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
 // POST /api/payments/wallet-deposit
 // Body: { amount: number }
-// Creates an Efí PIX charge to top up the agency's platform wallet balance.
-//
-// Response shape (unchanged from previous provider):
-//   qr_code        — PIX copia-e-cola text
-//   qr_code_base64 — raw base64 QR image (data: prefix stripped)
-//   payment_id     — txid used to track payment via webhook
-//   tx_id          — internal wallet_transactions UUID
-//   creditAmount   — amount credited to wallet
-//   fee            — 0
-//   totalCharged   — same as creditAmount
-
-interface EfiCobResponse {
-  txid: string;
-  loc:  { id: number; location: string; tipoCob: string };
-  status: string;
-}
-
-interface EfiQrCodeResponse {
-  qrcode:       string;
-  imagemQrcode: string;
-}
-
+// Creates a Stripe Checkout session to top up the agency internal wallet.
+// The wallet balance is credited only by the Stripe webhook after payment.
 export async function POST(req: NextRequest) {
-  const body      = await req.json();
-  const numAmount = Number(body.amount);
+  const body = await req.json().catch(() => ({})) as { amount?: unknown };
+  const amount = Number(body.amount);
 
-  if (!numAmount || numAmount <= 0) {
-    return NextResponse.json({ error: "amount must be greater than 0" }, { status: 400 });
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return NextResponse.json({ error: "Valor invalido." }, { status: 400 });
+  }
+
+  if (parseFloat(amount.toFixed(2)) !== amount) {
+    return NextResponse.json({ error: "Valor invalido." }, { status: 400 });
+  }
+
+  if (amount > 100_000) {
+    return NextResponse.json({ error: "Valor excede o limite por deposito." }, { status: 400 });
   }
 
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const pixKey = process.env.EFI_PIX_KEY;
-  if (!process.env.EFI_CLIENT_ID || !process.env.EFI_CLIENT_SECRET || !pixKey) {
-    console.error("[wallet-deposit] Efí env vars not fully configured", {
-      hasClientId: Boolean(process.env.EFI_CLIENT_ID),
-      hasSecret:   Boolean(process.env.EFI_CLIENT_SECRET),
-      hasPixKey:   Boolean(pixKey),
-    });
-    return NextResponse.json({ error: "Integração de pagamento não configurada." }, { status: 500 });
+  const supabase = createServerClient({ useServiceRole: true });
+
+  const { data: caller } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (caller?.role !== "agency") {
+    return NextResponse.json({ error: "Apenas agencias podem depositar na carteira." }, { status: 403 });
   }
 
-  const supabase = createServerClient({ useServiceRole: true });
+  const { data: authUser } = await supabase.auth.admin.getUserById(user.id);
+  const email = authUser?.user?.email ?? user.email ?? null;
 
   const { data: txRecord, error: txErr } = await supabase
     .from("wallet_transactions")
     .insert({
-      user_id:     user.id,
-      type:        "deposit",
-      amount:      numAmount,
-      description: "Depósito PIX — aguardando confirmação",
-      provider:    "efi",
+      user_id: user.id,
+      type: "deposit",
+      amount,
+      description: "Deposito via Stripe Checkout - aguardando pagamento",
+      provider: "stripe",
+      provider_status: "pending_checkout",
+      status: "pending",
+      idempotency_key: `stripe_wallet_deposit_pending:${user.id}:${randomUUID()}`,
     })
     .select("id")
     .single();
 
   if (txErr || !txRecord) {
-    console.error("[wallet-deposit] insert tx error:", txErr);
-    return NextResponse.json({ error: "Could not create deposit record" }, { status: 500 });
+    console.error("[stripe wallet deposit] failed to create pending transaction", txErr?.message);
+    return NextResponse.json({ error: "Erro ao criar deposito." }, { status: 500 });
   }
 
-  // Efí txid: alphanumeric, 26–35 chars — UUID without hyphens = 32 chars
-  const txid = randomUUID().replace(/-/g, "");
-
-  const cobPayload = {
-    calendario:         { expiracao: 3600 },
-    valor:              { original: numAmount.toFixed(2) },
-    chave:              pixKey,
-    solicitacaoPagador: "Deposito BrisaHub",
-  };
-
-  console.log("[EFI PIX CREATE]", JSON.stringify({ txid, value: numAmount.toFixed(2) }, null, 2));
-  console.log("[EFI PIX CREATE URL]", `pixCreateCharge /v2/cob/${txid}`);
-
-  let efipay: ReturnType<typeof getEfiSdk>;
   try {
-    efipay = getEfiSdk();
+    const customerId = await getOrCreateStripeCustomer(supabase, user.id, email);
+    const amountInCents = Math.round(amount * 100);
+
+    const checkoutSession = await getStripe().checkout.sessions.create({
+      mode: "payment",
+      customer: customerId,
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "brl",
+            unit_amount: amountInCents,
+            product_data: { name: "Credito de carteira BrisaHub" },
+          },
+        },
+      ],
+      metadata: {
+        type: "wallet_deposit",
+        user_id: user.id,
+        wallet_transaction_id: txRecord.id,
+        amount: amount.toFixed(2),
+      },
+      payment_intent_data: {
+        metadata: {
+          type: "wallet_deposit",
+          user_id: user.id,
+          wallet_transaction_id: txRecord.id,
+        },
+      },
+      success_url: `${APP_URL}/agency/finances?stripe_wallet=success`,
+      cancel_url: `${APP_URL}/agency/finances?stripe_wallet=cancel`,
+    });
+
+    await supabase
+      .from("wallet_transactions")
+      .update({ reference_id: checkoutSession.id })
+      .eq("id", txRecord.id);
+
+    if (!checkoutSession.url) {
+      throw new Error("Stripe Checkout session URL missing.");
+    }
+
+    console.log("[stripe wallet deposit] checkout created", {
+      sessionId: checkoutSession.id,
+      txId: txRecord.id,
+      userId: user.id,
+      amount,
+    });
+
+    return NextResponse.json({
+      url: checkoutSession.url,
+      session_id: checkoutSession.id,
+      tx_id: txRecord.id,
+      amount,
+    });
   } catch (err) {
-    await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
-    console.error("[wallet-deposit] Efí SDK init failed:", String(err));
-    return NextResponse.json({ error: "Erro ao conectar com provedor de pagamento." }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[stripe wallet deposit] checkout failed", {
+      txId: txRecord.id,
+      userId: user.id,
+      error: message,
+    });
+
+    await supabase
+      .from("wallet_transactions")
+      .update({
+        status: "failed",
+        provider_status: "checkout_failed",
+        processed_at: new Date().toISOString(),
+      })
+      .eq("id", txRecord.id);
+
+    return NextResponse.json({ error: "Erro ao abrir pagamento Stripe." }, { status: 500 });
   }
-
-  // SDK: pixCreateCharge → PUT /v2/cob/:txid on pix.api.efipay.com.br
-  let cob: EfiCobResponse;
-  try {
-    cob = await efipay.pixCreateCharge({ txid }, cobPayload) as EfiCobResponse;
-  } catch (err: unknown) {
-    await supabase.from("wallet_transactions").delete().eq("id", txRecord.id);
-    console.error("[EFI PAYMENT ERROR FULL]", JSON.stringify(err, null, 2));
-    return NextResponse.json({ error: "Erro ao criar pagamento PIX." }, { status: 502 });
-  }
-
-  // Store txid so the webhook can find and credit this transaction
-  await supabase
-    .from("wallet_transactions")
-    .update({ payment_id: txid })
-    .eq("id", txRecord.id);
-
-  // SDK: pixGenerateQRCode → GET /v2/loc/:id/qrcode (non-fatal if it fails)
-  let qrData: EfiQrCodeResponse | null = null;
-  try {
-    qrData = await efipay.pixGenerateQRCode({ id: cob.loc.id }) as EfiQrCodeResponse;
-  } catch (err: unknown) {
-    console.error("[wallet-deposit] Efí QR fetch failed (non-fatal):", JSON.stringify(err, null, 2));
-  }
-
-  // imagemQrcode may include "data:image/png;base64," prefix — strip it
-  const rawBase64 = qrData?.imagemQrcode?.replace(/^data:image\/[^;]+;base64,/, "") ?? null;
-
-  console.log("[wallet-deposit] Efí PIX created — txid:", txid, "tx:", txRecord.id);
-
-  return NextResponse.json({
-    qr_code:        qrData?.qrcode ?? null,
-    qr_code_base64: rawBase64,
-    payment_id:     txid,
-    tx_id:          txRecord.id,
-    creditAmount:   numAmount,
-    fee:            0,
-    totalCharged:   numAmount,
-  });
 }

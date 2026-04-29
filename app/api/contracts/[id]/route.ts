@@ -76,6 +76,16 @@ export async function PATCH(
 
   const now = new Date().toISOString();
 
+  if (action === "agency_sign") {
+    return NextResponse.json(
+      {
+        error: "Contract funding must use Stripe Checkout.",
+        checkout_route: `/api/contracts/${id}/stripe-checkout`,
+      },
+      { status: 409 },
+    );
+  }
+
   // ── Talent: reject ────────────────────────────────────────────────────────
   if (action === "reject") {
     if (contract.status !== "sent") {
