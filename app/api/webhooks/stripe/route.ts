@@ -91,6 +91,13 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
     .eq("id", transactionId)
     .maybeSingle();
 
+  console.log("[stripe deposit] lookup result", {
+    sessionId: session.id,
+    transactionId,
+    lookupResult: tx,
+    lookupError: txError?.message ?? null,
+  });
+
   if (txError) {
     throw new Error(`failed to load wallet_transaction before credit: ${txError.message}`);
   }
@@ -135,9 +142,16 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
     throw new Error(`credit_stripe_wallet_deposit returned ${payload?.error ?? "not ok"}`);
   }
 
+  console.log("[stripe deposit] RPC result", {
+    sessionId: session.id,
+    transactionId,
+    paymentIntentId,
+    payload,
+  });
+
   const confirmedTxId = payload.transaction_id ?? transactionId;
 
-  const { error: finalizeError } = await supabase
+  const { data: finalUpdate, error: finalizeError } = await supabase
     .from("wallet_transactions")
     .update({
       status: "paid",
@@ -150,7 +164,16 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
       admin_note: confirmedAdminNote,
       processed_at: new Date().toISOString(),
     } as Record<string, unknown>)
-    .eq("id", confirmedTxId);
+    .eq("id", confirmedTxId)
+    .select("id, status, provider, provider_transfer_id, provider_status, payment_id, reference_id, processed_at")
+    .maybeSingle();
+
+  console.log("[stripe deposit] final update result", {
+    sessionId: session.id,
+    transactionId: confirmedTxId,
+    finalUpdate,
+    finalizeError: finalizeError?.message ?? null,
+  });
 
   if (finalizeError) {
     throw new Error(`failed to finalize wallet_transaction: ${finalizeError.message}`);
@@ -212,6 +235,12 @@ async function handleWalletDepositSafely(supabase: Supabase, session: Stripe.Che
   });
 
   if (!transactionId) {
+    console.error("[stripe deposit] CRITICAL skipped/failure reason", {
+      reason: "missing_wallet_transaction_id",
+      sessionId: session.id,
+      paymentIntentId,
+      metadata,
+    });
     console.log("[stripe deposit] wallet_transaction_id missing on checkout.session.completed", {
       sessionId: session.id,
       paymentIntentId,
@@ -226,6 +255,13 @@ async function handleWalletDepositSafely(supabase: Supabase, session: Stripe.Che
     .eq("id", transactionId)
     .maybeSingle();
 
+  console.log("[stripe deposit] lookup result", {
+    sessionId: session.id,
+    transactionId,
+    lookupResult: tx,
+    lookupError: txError?.message ?? null,
+  });
+
   if (txError) {
     console.error("[stripe deposit] CRITICAL failed to credit wallet", {
       transactionId,
@@ -238,6 +274,12 @@ async function handleWalletDepositSafely(supabase: Supabase, session: Stripe.Che
   }
 
   if (!tx) {
+    console.error("[stripe deposit] CRITICAL skipped/failure reason", {
+      reason: "missing_wallet_transaction_row",
+      transactionId,
+      sessionId: session.id,
+      paymentIntentId,
+    });
     console.log("[stripe deposit] no matching transaction for checkout.session.completed", {
       transactionId,
       sessionId: session.id,
@@ -247,6 +289,13 @@ async function handleWalletDepositSafely(supabase: Supabase, session: Stripe.Che
   }
 
   if (tx.status === "paid" || tx.provider_status === "paid") {
+    console.error("[stripe deposit] CRITICAL skipped/failure reason", {
+      reason: "already_paid_before_checkout_completed",
+      transactionId,
+      sessionId: session.id,
+      paymentIntentId,
+      tx,
+    });
     console.log("[stripe deposit] transaction already paid before checkout.session.completed", {
       transactionId,
       sessionId: session.id,
@@ -257,6 +306,13 @@ async function handleWalletDepositSafely(supabase: Supabase, session: Stripe.Che
   }
 
   if (tx.status !== "pending") {
+    console.error("[stripe deposit] CRITICAL skipped/failure reason", {
+      reason: "transaction_not_pending",
+      transactionId,
+      sessionId: session.id,
+      paymentIntentId,
+      tx,
+    });
     console.log("[stripe deposit] transaction not pending, skipping checkout.session.completed", {
       transactionId,
       sessionId: session.id,
