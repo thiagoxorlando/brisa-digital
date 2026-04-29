@@ -39,11 +39,13 @@ export async function POST(_req: NextRequest) {
   if (!accountId) {
     console.log("[stripe connect create] creating Express account for talent:", user.id);
 
+    console.log("[stripe connect fixed capabilities] requesting transfers + card_payments for BR account");
     const account = await getStripe().accounts.create({
       type: "express",
       country: "BR",
       capabilities: {
-        transfers: { requested: true },
+        transfers:     { requested: true },
+        card_payments: { requested: true },
       },
     });
 
