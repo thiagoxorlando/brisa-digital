@@ -109,6 +109,7 @@ export default function AgencyFinances({
   summary,
   transactions,
   agencyPix,
+  stripeConnected = false,
   withdrawalFeeRate,
   withdrawalMinFee,
   withdrawalMinAmount,
@@ -116,6 +117,7 @@ export default function AgencyFinances({
   summary: AgencyFinanceSummary;
   transactions: AgencyTransaction[];
   agencyPix?: { pix_key_type: string | null; pix_key_value: string | null; pix_holder_name: string | null } | null;
+  stripeConnected?: boolean;
   withdrawalFeeRate: number;
   withdrawalMinFee: number;
   withdrawalMinAmount: number;
@@ -447,7 +449,7 @@ export default function AgencyFinances({
             )}
 
             {!hasPix && walletBalance > 0 && (
-              <p className="text-[11px] text-white font-semibold">Configure sua chave PIX para habilitar o fallback manual de saque.</p>
+              <p className="text-[11px] text-white/80 font-semibold">Configure uma chave PIX como fallback manual, ou aguarde a configuracao do Stripe Connect.</p>
             )}
           </div>
         )}
@@ -499,16 +501,54 @@ export default function AgencyFinances({
       </div>
 
       <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
-        <div className="px-6 py-5 border-b border-zinc-50 flex items-center justify-between gap-3">
+        {/* Card header */}
+        <div className="px-6 py-5 border-b border-zinc-50">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Metodo de Saque</p>
+          <p className="text-[12px] text-zinc-500 mt-0.5">Stripe e o metodo principal. PIX e o fallback processado manualmente.</p>
+        </div>
+
+        {/* Stripe section — primary */}
+        <div className="px-6 py-5 border-b border-zinc-50">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[#635BFF]/10 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-[#635BFF]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-900">Stripe Connect</p>
+                <p className="text-[12px] text-zinc-400">Saques automaticos e diretos</p>
+              </div>
+            </div>
+            {stripeConnected ? (
+              <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                Conectado
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200 px-2.5 py-1 rounded-full flex-shrink-0">
+                Nao configurado
+              </span>
+            )}
+          </div>
+          <p className="text-[12px] text-zinc-400 mt-3">
+            {stripeConnected
+              ? "Saques sao processados automaticamente via Stripe Connect. Prazo de 2 a 5 dias uteis."
+              : "Sem conta Stripe Connect, saques sao processados manualmente pela equipe via PIX. Entre em contato para configurar."}
+          </p>
+        </div>
+
+        {/* PIX section — fallback */}
+        <div className="px-6 py-4 border-b border-zinc-50 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Dados para Saque</p>
-            <p className="text-[12px] text-zinc-500 mt-0.5">Chave PIX para o fallback manual da equipe.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">PIX <span className="normal-case font-medium text-zinc-400">(fallback manual)</span></p>
+            <p className="text-[12px] text-zinc-400 mt-0.5">Usado quando Stripe nao esta disponivel.</p>
           </div>
           {hasPix && !pixEditing && (
             <button
               type="button"
               onClick={() => { setPixEditing(true); setPixError(""); }}
-              className="text-[12px] font-semibold text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-xl px-3 py-1.5 transition-colors cursor-pointer"
+              className="text-[12px] font-semibold text-zinc-500 hover:text-zinc-900 border border-zinc-200 rounded-xl px-3 py-1.5 transition-colors cursor-pointer flex-shrink-0"
             >
               Editar
             </button>
@@ -528,14 +568,14 @@ export default function AgencyFinances({
               )}
               {pixSaved && <p className="text-[12px] text-emerald-600 mt-1">Chave PIX salva com sucesso.</p>}
               <p className="text-[11px] text-zinc-400 pt-1">
-                Saques manuais de agencia mantem minimo de {brl(withdrawalMinAmount)} e taxa de {(withdrawalFeeRate * 100).toFixed(0)}%.
+                Saques via PIX mantem minimo de {brl(withdrawalMinAmount)} e taxa de {(withdrawalFeeRate * 100).toFixed(0)}%.
               </p>
             </div>
           ) : (
             <form onSubmit={handlePixSave} className="space-y-3">
               {!hasPix && (
-                <p className="text-[12px] text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-                  Configure sua chave PIX para habilitar saques manuais.
+                <p className="text-[12px] text-zinc-500 bg-zinc-50 border border-zinc-100 rounded-xl px-3 py-2">
+                  Configure uma chave PIX como fallback para saques manuais.
                 </p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
