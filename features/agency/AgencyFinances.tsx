@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
@@ -36,6 +36,14 @@ export type AgencyFinanceSummary = {
   walletBalance?: number;
 };
 
+function getStripeWalletBannerFromLocation(): "pending" | "cancel" | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("stripe_wallet") === "success") return "pending";
+  if (params.get("stripe_wallet") === "cancel") return "cancel";
+  return null;
+}
+
 const PIX_TYPE_LABELS: Record<string, string> = {
   cpf: "CPF",
   cnpj: "CNPJ",
@@ -46,6 +54,7 @@ const PIX_TYPE_LABELS: Record<string, string> = {
 
 const STATUS_CLS: Record<string, string> = {
   paid: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
   confirmed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
   pending_payment: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
   pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
@@ -61,6 +70,7 @@ const STATUS_CLS: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   paid: "Pago",
+  completed: "Pago",
   confirmed: "Reservado",
   pending_payment: "Aguardando pagamento",
   pending: "Pendente",
@@ -133,13 +143,7 @@ export default function AgencyFinances({
     () => router.refresh(),
   );
 
-  const [stripeWalletBanner, setStripeWalletBanner] = useState<"pending" | "cancel" | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("stripe_wallet") === "success") setStripeWalletBanner("pending");
-    else if (params.get("stripe_wallet") === "cancel") setStripeWalletBanner("cancel");
-  }, []);
+  const [stripeWalletBanner, setStripeWalletBanner] = useState<"pending" | "cancel" | null>(getStripeWalletBannerFromLocation);
 
   const [depositAmount, setDepositAmount] = useState("");
   const [depositLoading, setDepositLoading] = useState(false);

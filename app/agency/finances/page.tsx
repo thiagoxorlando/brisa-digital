@@ -23,7 +23,7 @@ export default async function AgencyFinancesPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("wallet_transactions")
-      .select("id, type, amount, description, created_at, idempotency_key, status, admin_note, processed_at")
+      .select("id, type, amount, description, created_at, idempotency_key, status, provider, provider_status, admin_note, processed_at")
       .eq("user_id", user?.id ?? "")
       .order("created_at", { ascending: false })
       .limit(100),
@@ -97,6 +97,17 @@ export default async function AgencyFinancesPage() {
     let status = w.type ?? "payment";
     let description = w.description ?? undefined;
     let bookingId: string | null = null;
+
+    if (w.type === "deposit") {
+      const normalized = (w.status ?? "").toLowerCase();
+      if (normalized === "paid" || normalized === "completed" || normalized === "confirmed") {
+        status = normalized;
+      } else if (normalized === "pending" || w.provider_status === "pending_checkout") {
+        status = "pending";
+      } else {
+        status = "deposit";
+      }
+    }
 
     if (status === "escrow_lock") {
       const contract = findEscrowContract(w);
