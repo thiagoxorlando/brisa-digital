@@ -3,6 +3,13 @@ import { createServerClient } from "@/lib/supabase";
 
 type Supabase = ReturnType<typeof createServerClient>;
 
+type SupabaseLikeError = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
 export type StripeConnectRole = "agency" | "talent";
 
 export type StripeConnectStatus = {
@@ -19,6 +26,30 @@ export type StripeConnectStatus = {
   display_name: string;
   finances_path: "/agency/finances" | "/talent/finances";
 };
+
+export class StripeConnectSchemaError extends Error {
+  table: string;
+  column: string | null;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+
+  constructor(message: string, options: {
+    table: string;
+    column?: string | null;
+    code?: string | null;
+    details?: string | null;
+    hint?: string | null;
+  }) {
+    super(message);
+    this.name = "StripeConnectSchemaError";
+    this.table = options.table;
+    this.column = options.column ?? null;
+    this.code = options.code ?? null;
+    this.details = options.details ?? null;
+    this.hint = options.hint ?? null;
+  }
+}
 
 type StoredStripeConnectFields = {
   stripe_account_id: string | null;
@@ -41,6 +72,28 @@ export function hasManualPixFallback(status: Pick<StripeConnectStatus, "pix_key_
   return Boolean(status.pix_key_value?.trim());
 }
 
+function missingColumnFromError(error: SupabaseLikeError | null | undefined) {
+  const message = error?.message ?? "";
+  const match = message.match(/column\s+([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\s+does not exist/i);
+  if (!match) return { table: null, column: null };
+  return { table: match[1] ?? null, column: match[2] ?? null };
+}
+
+function throwIfSchemaError(error: SupabaseLikeError | null | undefined, fallbackTable: string) {
+  if (!error) return;
+  const parsed = missingColumnFromError(error);
+  throw new StripeConnectSchemaError(
+    error.message ?? `Schema error on ${fallbackTable}`,
+    {
+      table: parsed.table ?? fallbackTable,
+      column: parsed.column,
+      code: error.code ?? null,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+    },
+  );
+}
+
 export async function getStripeConnectStatusForUser(supabase: Supabase, userId: string): Promise<StripeConnectStatus | null> {
   const { data: profile } = await supabase
     .from("profiles")
@@ -52,11 +105,12 @@ export async function getStripeConnectStatusForUser(supabase: Supabase, userId: 
   if (role !== "agency" && role !== "talent") return null;
 
   if (role === "agency") {
-    const { data: agency } = await supabase
+    const { data: agency, error } = await supabase
       .from("agencies")
       .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_transfers_active, pix_key_type, pix_key_value, pix_holder_name, company_name")
       .eq("id", userId)
       .maybeSingle();
+    throwIfSchemaError(error, "agencies");
 
     const row = (agency ?? null) as StoredStripeConnectFields | null;
     return {
@@ -75,11 +129,12 @@ export async function getStripeConnectStatusForUser(supabase: Supabase, userId: 
     };
   }
 
-  const { data: talent } = await supabase
+  const { data: talent, error } = await supabase
     .from("talent_profiles")
     .select("stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, stripe_transfers_active, pix_key_type, pix_key_value, pix_holder_name, full_name")
     .eq("id", userId)
     .maybeSingle();
+  throwIfSchemaError(error, "talent_profiles");
 
   const row = (talent ?? null) as StoredStripeConnectFields | null;
   return {
@@ -116,6 +171,9 @@ export async function syncStripeConnectAccountStatus(supabase: Supabase, account
     console.error("[stripe connect] failed to sync agency account status", {
       accountId: account.id,
       error: agencyResult.error.message,
+      details: agencyResult.error.details,
+      hint: agencyResult.error.hint,
+      code: agencyResult.error.code,
     });
   }
 
@@ -123,6 +181,9 @@ export async function syncStripeConnectAccountStatus(supabase: Supabase, account
     console.error("[stripe connect] failed to sync talent account status", {
       accountId: account.id,
       error: talentResult.error.message,
+      details: talentResult.error.details,
+      hint: talentResult.error.hint,
+      code: talentResult.error.code,
     });
   }
 }
