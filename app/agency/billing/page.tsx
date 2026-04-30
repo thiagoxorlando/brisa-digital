@@ -18,7 +18,7 @@ export default async function BillingPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("plan, plan_status, plan_expires_at")
+      .select("plan, plan_status, plan_expires_at, stripe_customer_id, stripe_subscription_id, stripe_subscription_status")
       .eq("id", userId)
       .single(),
 
@@ -35,6 +35,9 @@ export default async function BillingPage() {
       plan={profile?.plan ?? "free"}
       planStatus={profile?.plan_status ?? null}
       planExpiresAt={profile?.plan_expires_at ?? null}
+      stripeCustomerId={profile?.stripe_customer_id ?? null}
+      stripeSubscriptionId={profile?.stripe_subscription_id ?? null}
+      stripeSubscriptionStatus={profile?.stripe_subscription_status ?? null}
       transactions={transactions ?? []}
     />
   );

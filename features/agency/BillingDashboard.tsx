@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 
 interface WalletTransaction {
@@ -15,6 +15,9 @@ interface Props {
   plan: string;
   planStatus: string | null;
   planExpiresAt: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  stripeSubscriptionStatus: string | null;
   transactions: WalletTransaction[];
 }
 
@@ -62,11 +65,11 @@ const PLANS = [
     key: "premium" as const,
     name: PLAN_DEFINITIONS.premium.label,
     price: PLAN_DEFINITIONS.premium.price,
-    priceLabel: "Sob consulta",
-    period: "",
-    badge: "EM BREVE" as const,
+    priceLabel: "R$ 297",
+    period: "/mes",
+    badge: null,
     gradient: "from-violet-500 to-purple-700",
-    headline: "Sistema privado da sua agencia",
+    headline: "Operacao premium com cobranca recorrente",
     commission: "10% de comissao",
     features: [
       "Tudo do Pro",
@@ -79,6 +82,14 @@ const PLANS = [
 
 type PlanKey = Plan;
 type PlanDef = typeof PLANS[number];
+
+function getBillingReturnBanner(): "success" | "canceled" | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("success") === "true") return "success";
+  if (params.get("canceled") === "true") return "canceled";
+  return null;
+}
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -307,6 +318,9 @@ export default function BillingDashboard({
   plan: initialPlan,
   planStatus,
   planExpiresAt,
+  stripeCustomerId,
+  stripeSubscriptionId,
+  stripeSubscriptionStatus,
   transactions,
 }: Props) {
   const isActivePaid = initialPlan !== "free";
@@ -316,13 +330,8 @@ export default function BillingDashboard({
   const [pendingChange, setPendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
   const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("success") === "true") setReturnBanner("success");
-    else if (params.get("canceled") === "true") setReturnBanner("canceled");
-  }, []);
+  const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(getBillingReturnBanner);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const currentPlanDef = getPlanDef(activePlan);
   const planChargeTransactions = transactions.filter(isPlanChargeTransaction);
@@ -349,6 +358,20 @@ export default function BillingDashboard({
   function handlePlanClick(p: PlanDef) {
     if (p.key === activePlan) return;
     setChangingTo(p);
+  }
+
+  async function handleOpenBillingPortal() {
+    setPortalLoading(true);
+    const res = await fetch("/api/agencies/billing-portal", { method: "POST" });
+    const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
+    setPortalLoading(false);
+
+    if (!res.ok || !data.url) {
+      showToast(data.error ?? "Nao foi possivel abrir o portal Stripe.", false);
+      return;
+    }
+
+    window.location.assign(data.url);
   }
 
   function handleSuccess(newPlan: PlanKey, result: PlanChangeResponse) {
@@ -444,6 +467,44 @@ export default function BillingDashboard({
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900">Plano & Cobranca</h1>
       </div>
 
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Plano atual</p>
+            <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">
+              {currentPlanDef.name}
+            </p>
+            <p className="text-[13px] text-zinc-500">
+              Status: <strong className="text-zinc-800">{activePlanStatus ?? "inactive"}</strong>
+              {expiresAt && activePlan !== "free" ? ` · renova em ${fmtDate(expiresAt)}` : ""}
+            </p>
+            <p className="text-[13px] text-zinc-600">
+              O cartão é salvo com segurança pela Stripe para cobranças mensais automáticas.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <button
+              type="button"
+              onClick={handleOpenBillingPortal}
+              disabled={portalLoading || !stripeCustomerId}
+              className="rounded-xl border border-zinc-200 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 transition-colors hover:border-zinc-300 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {portalLoading ? "Abrindo..." : "Gerenciar pagamento/cartão"}
+            </button>
+            <p className="text-[11px] text-zinc-400">
+              {stripeCustomerId
+                ? `Stripe Customer: ${stripeCustomerId.slice(0, 14)}...`
+                : "O portal Stripe sera habilitado apos a primeira assinatura paga."}
+            </p>
+            {stripeSubscriptionId && (
+              <p className="text-[11px] text-zinc-400">
+                Subscrição Stripe: {stripeSubscriptionStatus ?? "active"} · {stripeSubscriptionId.slice(0, 14)}...
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {pendingChange && (
         <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3.5">
           <svg className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -482,10 +543,7 @@ export default function BillingDashboard({
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[15px] font-semibold text-zinc-900">{p.name}</span>
                     {p.badge && (
-                      <span className={[
-                        "text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider",
-                        p.badge === "EM BREVE" ? "bg-zinc-200 text-zinc-500" : "bg-indigo-600 text-white",
-                      ].join(" ")}>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider bg-indigo-600 text-white">
                         {p.badge}
                       </span>
                     )}
