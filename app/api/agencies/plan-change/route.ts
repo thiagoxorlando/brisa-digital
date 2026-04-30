@@ -8,11 +8,31 @@ import { getOrCreateStripeCustomer } from "@/lib/stripeCustomer";
 export const runtime = "nodejs";
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const BLOCKING_PLAN_STATUSES = new Set(["active", "trialing", "past_due", "cancelling", "cancel_at_period_end"]);
+
+type StripeProfileState = {
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_subscription_status: string | null;
+};
 
 function getStripePriceId(plan: Plan): string | null {
   if (plan === "pro") return process.env.STRIPE_PRO_PRICE_ID ?? null;
   if (plan === "premium") return process.env.STRIPE_PREMIUM_PRICE_ID ?? null;
   return null;
+}
+
+function hasBlockingPlanStatus(status: string | null | undefined) {
+  return typeof status === "string" && BLOCKING_PLAN_STATUSES.has(status);
+}
+
+function isBlockingStripeSubscription(subscription: Awaited<ReturnType<ReturnType<typeof getStripe>["subscriptions"]["list"]>>["data"][number]) {
+  return (
+    subscription.status === "active" ||
+    subscription.status === "trialing" ||
+    subscription.status === "past_due" ||
+    Boolean(subscription.cancel_at_period_end)
+  );
 }
 
 // POST /api/agencies/plan-change
@@ -44,14 +64,35 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  // Select only stable columns — stripe_subscription_id was added in a later migration
-  // and may not exist yet in production. Fetching it here would make the query fail and
-  // return a null profile, which incorrectly blocks the role check.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role, plan")
+    .select("role, plan, plan_status")
     .eq("id", user.id)
     .single();
+
+  let stripeProfile: StripeProfileState | null = null;
+
+  try {
+    const stripeProfileResult = await supabase
+      .from("profiles")
+      .select("stripe_customer_id, stripe_subscription_id, stripe_subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    stripeProfile = (stripeProfileResult.data as StripeProfileState | null) ?? null;
+
+    if (stripeProfileResult.error) {
+      console.warn("[plan] optional stripe profile lookup failed", {
+        userId: user.id,
+        error: stripeProfileResult.error.message,
+      });
+    }
+  } catch (err) {
+    console.warn("[plan] optional stripe profile columns unavailable", {
+      userId: user.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   console.log("[plan] role check", {
     userId: user.id,
@@ -72,6 +113,27 @@ export async function POST(req: NextRequest) {
   const currentPlan = profile?.plan ?? "free";
   if (currentPlan === selectedPlan) {
     return NextResponse.json({ error: "Voce ja esta neste plano" }, { status: 400 });
+  }
+
+  const currentPlanStatus = profile?.plan_status ?? null;
+  const existingSubscriptionId = stripeProfile?.stripe_subscription_id ?? null;
+  const existingCustomerId = stripeProfile?.stripe_customer_id ?? null;
+  const existingSubscriptionStatus = stripeProfile?.stripe_subscription_status ?? null;
+
+  if (
+    selectedPlan !== "free" &&
+    existingSubscriptionId &&
+    (hasBlockingPlanStatus(currentPlanStatus) || hasBlockingPlanStatus(existingSubscriptionStatus))
+  ) {
+    console.warn("[plan] blocked duplicate subscription from profile state", {
+      userId: user.id,
+      selectedPlan,
+      currentPlan,
+      currentPlanStatus,
+      existingSubscriptionId,
+      existingSubscriptionStatus,
+    });
+    return NextResponse.json({ error: "Você já possui uma assinatura ativa." }, { status: 400 });
   }
 
   // ── Cancel / downgrade to free ────────────────────────────────────────────────
@@ -144,11 +206,40 @@ export async function POST(req: NextRequest) {
 
   let customerId: string;
   try {
-    customerId = await getOrCreateStripeCustomer(supabase, user.id, email);
+    customerId = existingCustomerId ?? await getOrCreateStripeCustomer(supabase, user.id, email);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[plan] getOrCreateStripeCustomer failed", { userId: user.id, error: message });
     return NextResponse.json({ error: "Erro ao preparar cliente Stripe." }, { status: 500 });
+  }
+
+  try {
+    const subscriptions = await getStripe().subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 10,
+    });
+
+    const blockingSubscription = subscriptions.data.find(isBlockingStripeSubscription);
+
+    if (blockingSubscription) {
+      console.warn("[plan] blocked duplicate subscription from Stripe", {
+        userId: user.id,
+        customerId,
+        selectedPlan,
+        subscriptionId: blockingSubscription.id,
+        status: blockingSubscription.status,
+        cancelAtPeriodEnd: blockingSubscription.cancel_at_period_end,
+      });
+      return NextResponse.json({ error: "Você já possui uma assinatura ativa." }, { status: 400 });
+    }
+  } catch (err) {
+    console.error("[plan] failed to inspect Stripe subscriptions", {
+      userId: user.id,
+      customerId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json({ error: "Nao foi possivel verificar assinaturas existentes no Stripe." }, { status: 500 });
   }
 
   const stripePriceId = getStripePriceId(selectedPlan);

@@ -114,6 +114,11 @@ function getPlanDef(planKey: PlanKey) {
   return PLANS.find((plan) => plan.key === planKey) ?? PLANS[0];
 }
 
+function hasManagedStripeSubscription(stripeSubscriptionId: string | null, stripeSubscriptionStatus: string | null) {
+  if (!stripeSubscriptionId) return false;
+  return ["active", "trialing", "past_due", "cancel_at_period_end"].includes(stripeSubscriptionStatus ?? "active");
+}
+
 function isPlanChargeTransaction(tx: WalletTransaction) {
   const description = (tx.description ?? "").toLowerCase();
   return tx.type === "payment" && (
@@ -335,6 +340,8 @@ export default function BillingDashboard({
   const [portalLoading, setPortalLoading] = useState(false);
 
   const currentPlanDef = getPlanDef(activePlan);
+  const hasExternalActiveSubscription = hasManagedStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus);
+  const isCancellationScheduled = activePlan !== "free" && activePlanStatus === "cancelling";
   const planChargeTransactions = transactions.filter(isPlanChargeTransaction);
   const latestPlanCharge = planChargeTransactions[0] ?? null;
   const upcomingPlanKey = pendingChange?.plan ?? activePlan;
@@ -389,7 +396,7 @@ export default function BillingDashboard({
       })();
       setActivePlanStatus("cancelling");
       setPendingChange({ plan: newPlan, effectiveAt });
-      showToast(`Seu plano sera cancelado em ${fmtDate(effectiveAt)}.`, true);
+      showToast(`Cancelamento agendado. Acesso ate ${fmtDate(effectiveAt)}.`, true);
       return;
     }
 
@@ -510,6 +517,20 @@ export default function BillingDashboard({
         </div>
       </div>
 
+      {isCancellationScheduled && expiresAt && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
+          <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-amber-800">Cancelamento agendado</p>
+            <p className="text-[12px] text-amber-700 mt-0.5">
+              Seu plano continuara ativo ate o fim do ciclo atual em {fmtDate(expiresAt)}.
+            </p>
+          </div>
+        </div>
+      )}
+
       {pendingChange && (
         <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3.5">
           <svg className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -534,6 +555,7 @@ export default function BillingDashboard({
             const isDowngrade = p.price < currentPlanDef.price;
             const isPending = pendingChange?.plan === p.key;
             const isAvailable = !("available" in p) || p.available !== false;
+            const isDuplicateBlocked = p.key !== "free" && !isCurrent && hasExternalActiveSubscription;
             return (
               <div
                 key={p.key}
@@ -590,10 +612,10 @@ export default function BillingDashboard({
                   {!isCurrent && !isPending && (
                     <button
                       onClick={() => handlePlanClick(p)}
-                      disabled={!isAvailable}
+                      disabled={!isAvailable || isDuplicateBlocked}
                       className={[
                         "w-full mt-auto text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors",
-                        !isAvailable
+                        !isAvailable || isDuplicateBlocked
                           ? "bg-zinc-300 cursor-not-allowed"
                           : isDowngrade
                           ? "bg-zinc-500 hover:bg-zinc-600"
@@ -602,6 +624,8 @@ export default function BillingDashboard({
                     >
                       {!isAvailable
                         ? "Em breve"
+                        : isDuplicateBlocked
+                          ? "Assinatura ativa"
                         : activePlan === "free"
                           ? `Assinar ${p.name}`
                           : isDowngrade
@@ -612,6 +636,11 @@ export default function BillingDashboard({
                   {!isAvailable && (
                     <p className="mt-3 text-[11px] text-zinc-500 text-center">
                       Premium ainda nao esta disponivel para novas assinaturas.
+                    </p>
+                  )}
+                  {isDuplicateBlocked && (
+                    <p className="mt-3 text-[11px] text-zinc-500 text-center">
+                      Voce ja possui uma assinatura ativa vinculada a este cliente Stripe.
                     </p>
                   )}
                   {isPending && !isCurrent && (
@@ -626,11 +655,11 @@ export default function BillingDashboard({
         </div>
       </div>
 
-      {activePlan !== "free" && !pendingChange && (
+      {activePlan !== "free" && !pendingChange && !isCancellationScheduled && (
         <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-2xl px-5 py-4">
           <div>
             <p className="text-[13px] font-semibold text-zinc-900">Cancelar assinatura</p>
-            <p className="text-[12px] text-zinc-400 mt-0.5">O cancelamento passa pelo Stripe e preserva o fallback administrativo.</p>
+            <p className="text-[12px] text-zinc-400 mt-0.5">Seu plano continuara ativo ate o fim do ciclo atual.</p>
           </div>
           <button
             onClick={() => {
