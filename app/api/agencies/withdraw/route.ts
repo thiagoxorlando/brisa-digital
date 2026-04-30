@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
-import { WITHDRAWAL_FEE_RATE, WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
+import { WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
 
 export async function POST(req: NextRequest) {
   const session = await createSessionClient();
@@ -12,28 +12,23 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({})) as { amount?: unknown };
-
   const requestedAmount = Number(body.amount);
 
-  // Reject NaN, Infinity, and non-positive values
   if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
-    return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
+    return NextResponse.json({ error: "Valor de saque invalido." }, { status: 400 });
   }
 
-  // Reject more than 2 decimal places (e.g. 1.999)
   if (parseFloat(requestedAmount.toFixed(2)) !== requestedAmount) {
-    return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
+    return NextResponse.json({ error: "Valor de saque invalido." }, { status: 400 });
   }
 
-  // Minimum withdrawal amount
   if (requestedAmount < WITHDRAWAL_MIN_AMOUNT) {
     const minFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(WITHDRAWAL_MIN_AMOUNT);
-    return NextResponse.json({ error: `Valor mínimo para saque é ${minFmt}.` }, { status: 400 });
+    return NextResponse.json({ error: `Valor minimo para saque e ${minFmt}.` }, { status: 400 });
   }
 
-  // Sanity upper cap — prevents absurdly large values reaching the DB
   if (requestedAmount > 50_000) {
-    return NextResponse.json({ error: "Valor de saque excede o limite por solicitação." }, { status: 400 });
+    return NextResponse.json({ error: "Valor de saque excede o limite por solicitacao." }, { status: 400 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
@@ -45,41 +40,42 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (profile?.role !== "agency") {
-    return NextResponse.json({ error: "Apenas agências podem solicitar saques." }, { status: 403 });
+    return NextResponse.json({ error: "Apenas agencias podem solicitar saques." }, { status: 403 });
   }
 
-  const { data: result, error: rpcError } = await supabase.rpc("request_agency_withdrawal", {
-    p_user_id:  user.id,
-    p_amount:   requestedAmount,
-    p_fee_rate: WITHDRAWAL_FEE_RATE,
+  const { data: txId, error: rpcError } = await supabase.rpc("request_wallet_withdrawal", {
+    p_user_id: user.id,
+    p_amount: requestedAmount,
+    p_kind: "agency",
   });
 
   if (rpcError) {
-    console.error("[POST /api/agencies/withdraw] rpc error:", rpcError.message);
-    return NextResponse.json({ error: "Erro ao processar saque." }, { status: 500 });
-  }
+    console.error("[withdrawal] requested rpc error", {
+      userId: user.id,
+      role: "agency",
+      amount: requestedAmount,
+      message: rpcError.message,
+    });
 
-  if (!result?.ok) {
-    if (result?.error === "pix_not_configured") {
+    if (rpcError.message.includes("pix_not_configured")) {
       return NextResponse.json({ error: "Configure sua chave PIX antes de solicitar saque." }, { status: 400 });
     }
-    if (result?.error === "invalid_amount") {
-      return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
+    if (rpcError.message.includes("invalid_amount")) {
+      return NextResponse.json({ error: "Valor de saque invalido." }, { status: 400 });
     }
-    if (result?.error === "below_minimum") {
-      const minFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(WITHDRAWAL_MIN_AMOUNT);
-      return NextResponse.json({ error: `Valor mínimo para saque é ${minFmt}.` }, { status: 400 });
-    }
-    if (result?.error === "insufficient_balance") {
+    if (rpcError.message.includes("insufficient_balance")) {
       return NextResponse.json({ error: "Saldo insuficiente para saque." }, { status: 400 });
     }
-    if (result?.error === "profile_not_found") {
-      return NextResponse.json({ error: "Perfil não encontrado." }, { status: 404 });
+    if (rpcError.message.includes("profile_not_found")) {
+      return NextResponse.json({ error: "Perfil nao encontrado." }, { status: 404 });
+    }
+    if (rpcError.message.includes("role_mismatch")) {
+      return NextResponse.json({ error: "Apenas agencias podem solicitar saques." }, { status: 403 });
     }
     return NextResponse.json({ error: "Erro ao processar saque." }, { status: 500 });
   }
 
-  const amount = Number(result.amount);
+  const amount = requestedAmount;
   const brl = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -92,20 +88,27 @@ export async function POST(req: NextRequest) {
     .select("company_name")
     .eq("id", user.id)
     .single();
-  const agencyName = agencyRow?.company_name ?? "Agência";
+  const agencyName = agencyRow?.company_name ?? "Agencia";
 
   await notifyAdmins(
     "payment",
-    `Novo saque solicitado — ${agencyName}: ${brl}`,
+    `Novo saque solicitado - ${agencyName}: ${brl}`,
     "/admin/finances",
-    `admin-withdrawal-request:${user.id}:${amount}`,
+    `admin-withdrawal-request:${user.id}:${txId}`,
   );
 
-  return NextResponse.json({
-    success:           true,
+  console.log("[withdrawal] requested", {
+    txId,
+    userId: user.id,
+    role: "agency",
     amount,
-    fee:               Number(result.fee ?? 0),
-    net_amount:        Number(result.net_amount ?? amount),
-    remaining_balance: Number(result.remaining_balance ?? 0),
+  });
+
+  return NextResponse.json({
+    success: true,
+    tx_id: txId,
+    amount,
+    fee: 0,
+    net_amount: amount,
   });
 }

@@ -13,6 +13,15 @@ function brl(n: number) {
   }).format(n);
 }
 
+function fmtDate(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("pt-BR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export type AgencyTransaction = {
   id: string;
   kind?: "booking" | "wallet";
@@ -88,6 +97,7 @@ const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
   paid: "Pago",
   processing: "Processando",
+  cancelled: "Cancelado",
   rejected: "Cancelado",
   failed: "Falhou",
 };
@@ -110,35 +120,17 @@ export default function AgencyFinances({
   transactions,
   agencyPix,
   stripeConnected = false,
-  withdrawalFeeRate,
-  withdrawalMinFee,
   withdrawalMinAmount,
 }: {
   summary: AgencyFinanceSummary;
   transactions: AgencyTransaction[];
   agencyPix?: { pix_key_type: string | null; pix_key_value: string | null; pix_holder_name: string | null } | null;
   stripeConnected?: boolean;
-  withdrawalFeeRate: number;
-  withdrawalMinFee: number;
   withdrawalMinAmount: number;
 }) {
   const router = useRouter();
 
-  const serverWalletBalance = summary.walletBalance ?? 0;
-  const [walletBalanceOverride, setWalletBalanceOverride] = useState<{ base: number; value: number } | null>(null);
-  const walletBalance = walletBalanceOverride?.base === serverWalletBalance
-    ? walletBalanceOverride.value
-    : serverWalletBalance;
-
-  function setLocalWalletBalance(next: number | ((previous: number) => number)) {
-    setWalletBalanceOverride((current) => {
-      const currentValue = current?.base === serverWalletBalance ? current.value : serverWalletBalance;
-      return {
-        base: serverWalletBalance,
-        value: typeof next === "function" ? next(currentValue) : next,
-      };
-    });
-  }
+  const walletBalance = summary.walletBalance ?? 0;
 
   const { refreshing: walletRefreshing } = useRealtimeRefresh(
     [{ table: "wallet_transactions" }, { table: "profiles" }],
@@ -168,14 +160,16 @@ export default function AgencyFinances({
 
   const hasPix = Boolean(savedPix?.pix_key_type && savedPix?.pix_key_value?.trim());
   const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
-  const withdrawFeeNum = withdrawAmountNum > 0
-    ? Math.max(withdrawalMinFee, Math.round(withdrawAmountNum * withdrawalFeeRate * 100) / 100)
-    : 0;
-  const withdrawNetNum = Math.max(0, Math.round((withdrawAmountNum - withdrawFeeNum) * 100) / 100);
   const canWithdraw = Boolean(
     hasPix &&
     withdrawAmountNum >= withdrawalMinAmount &&
     withdrawAmountNum <= walletBalance,
+  );
+  const pendingWithdrawals = transactions.filter(
+    (transaction) => transaction.withdrawalStatus === "pending" || transaction.withdrawalStatus === "processing",
+  );
+  const withdrawalHistory = transactions.filter(
+    (transaction) => transaction.withdrawalStatus === "paid" || transaction.withdrawalStatus === "cancelled" || transaction.withdrawalStatus === "rejected",
   );
 
   async function handleDeposit(e: React.FormEvent) {
@@ -251,9 +245,9 @@ export default function AgencyFinances({
       return;
     }
 
-    setLocalWalletBalance((prev) => Math.round((prev - amount) * 100) / 100);
     setWithdrawAmount("");
     setWithdrawDone(true);
+    router.refresh();
     setTimeout(() => setWithdrawDone(false), 4000);
   }
 
@@ -352,13 +346,9 @@ export default function AgencyFinances({
                 <span className="text-white">Valor solicitado</span>
                 <span className="font-bold text-white">{brl(withdrawAmountNum)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-white">Taxa de processamento</span>
-                <span className="font-bold text-white">{brl(withdrawFeeNum)}</span>
-              </div>
               <div className="flex justify-between border-t border-white/30 pt-2">
-                <span className="text-white font-semibold">Valor liquido a receber</span>
-                <span className="font-black text-white">{brl(withdrawNetNum)}</span>
+                <span className="text-white font-semibold">Valor a receber</span>
+                <span className="font-black text-white">{brl(withdrawAmountNum)}</span>
               </div>
             </div>
             <div className="flex gap-2 pt-1">
@@ -568,7 +558,7 @@ export default function AgencyFinances({
               )}
               {pixSaved && <p className="text-[12px] text-emerald-600 mt-1">Chave PIX salva com sucesso.</p>}
               <p className="text-[11px] text-zinc-400 pt-1">
-                Saques via PIX mantem minimo de {brl(withdrawalMinAmount)} e taxa de {(withdrawalFeeRate * 100).toFixed(0)}%.
+                Saques manuais via PIX exigem minimo de {brl(withdrawalMinAmount)}.
               </p>
             </div>
           ) : (
@@ -634,6 +624,62 @@ export default function AgencyFinances({
                 )}
               </div>
             </form>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
+          <div className="px-5 py-4 border-b border-zinc-50">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Saques pendentes</p>
+            <p className="text-[12px] text-zinc-400 mt-1">Valores ja debitados da carteira e aguardando processamento manual.</p>
+          </div>
+          {pendingWithdrawals.length === 0 ? (
+            <div className="px-5 py-8 text-[13px] text-zinc-400">Nenhum saque pendente no momento.</div>
+          ) : (
+            <div className="divide-y divide-zinc-50">
+              {pendingWithdrawals.map((transaction) => (
+                <div key={transaction.id} className="px-5 py-4 flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-zinc-900">{transaction.description ?? "Saque solicitado"}</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      {transaction.withdrawalStatus ? WITHDRAWAL_STATUS_LABEL[transaction.withdrawalStatus] ?? transaction.withdrawalStatus : "Pendente"} · {fmtDate(transaction.date)}
+                    </p>
+                    {transaction.adminNote && (
+                      <p className="text-[11px] text-zinc-500 mt-1">{transaction.adminNote}</p>
+                    )}
+                  </div>
+                  <p className="text-[14px] font-bold text-zinc-900 tabular-nums">{brl(Math.abs(transaction.amount))}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
+          <div className="px-5 py-4 border-b border-zinc-50">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Historico de saques</p>
+            <p className="text-[12px] text-zinc-400 mt-1">Ultimos saques pagos ou cancelados.</p>
+          </div>
+          {withdrawalHistory.length === 0 ? (
+            <div className="px-5 py-8 text-[13px] text-zinc-400">Nenhum saque processado ainda.</div>
+          ) : (
+            <div className="divide-y divide-zinc-50">
+              {withdrawalHistory.slice(0, 5).map((transaction) => (
+                <div key={transaction.id} className="px-5 py-4 flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-zinc-900">{transaction.description ?? "Saque"}</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      {transaction.withdrawalStatus ? WITHDRAWAL_STATUS_LABEL[transaction.withdrawalStatus] ?? transaction.withdrawalStatus : "Pago"} · {fmtDate(transaction.processedAt ?? transaction.date)}
+                    </p>
+                    {transaction.adminNote && (
+                      <p className="text-[11px] text-zinc-500 mt-1">{transaction.adminNote}</p>
+                    )}
+                  </div>
+                  <p className="text-[14px] font-bold text-zinc-900 tabular-nums">{brl(Math.abs(transaction.amount))}</p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

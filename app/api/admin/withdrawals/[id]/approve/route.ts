@@ -3,10 +3,6 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
 
-// POST /api/admin/withdrawals/[id]/approve
-// Marks withdrawal as paid via RPC. Does NOT move money — admin must have
-// already sent the PIX manually before confirming here.
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -15,48 +11,47 @@ export async function POST(
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
-  if (!id) return NextResponse.json({ error: "id obrigatório." }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "id obrigatorio." }, { status: 400 });
 
-  const body = await req.json().catch(() => ({})) as { note?: string };
+  const body = await req.json().catch(() => ({})) as { note?: string; provider?: string };
   const note = body.note?.trim() ?? "";
+  const provider = body.provider?.trim() || "manual";
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const { data: result, error: rpcError } = await supabase.rpc("mark_agency_withdrawal_paid", {
-    p_tx_id:    id,
-    p_admin_id: auth.userId,
-    p_note:     note,
+  const { data: result, error: rpcError } = await supabase.rpc("mark_wallet_withdrawal_paid", {
+    p_transaction_id: id,
+    p_provider: provider,
+    p_admin_note: note,
   });
 
   if (rpcError) {
-    console.error("[approve-withdrawal] rpc error:", {
+    console.error("[withdrawal] marked paid rpc error", {
+      id,
+      adminId: auth.userId,
       message: rpcError.message,
-      code:    rpcError.code,
-      details: rpcError.details,
-      hint:    rpcError.hint,
     });
-    return NextResponse.json({
-      error:   "Erro ao chamar RPC mark_agency_withdrawal_paid.",
-      details: rpcError.message,
-      code:    rpcError.code,
-    }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao marcar saque como pago." }, { status: 500 });
   }
 
   if (!result?.ok) {
-    console.error("[approve-withdrawal] rpc returned not-ok:", result);
     if (result?.error === "not_found") {
-      return NextResponse.json({ error: "Saque não encontrado.", details: `tx_id: ${id}` }, { status: 404 });
+      return NextResponse.json({ error: "Saque nao encontrado." }, { status: 404 });
     }
     if (result?.error === "not_pending") {
-      return NextResponse.json({
-        error:   `Saque já está com status "${result.current_status}". Apenas saques pendentes podem ser aprovados.`,
-        details: result,
-      }, { status: 409 });
+      return NextResponse.json(
+        { error: `Saque ja esta com status "${result.current_status}". Apenas saques pendentes podem ser aprovados.` },
+        { status: 409 },
+      );
     }
-    return NextResponse.json({ error: "RPC retornou erro desconhecido.", details: result }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao marcar saque como pago." }, { status: 500 });
   }
 
-  console.log("[approve-withdrawal] paid:", id, "by admin:", auth.userId);
+  console.log("[withdrawal] marked paid", {
+    id,
+    adminId: auth.userId,
+    provider,
+  });
 
   const { data: tx } = await supabase
     .from("wallet_transactions")
@@ -78,10 +73,8 @@ export async function POST(
       "payment",
       `Seu saque de ${brlAmt} foi marcado como pago.`,
       profile?.role === "talent" ? "/talent/finances" : "/agency/finances",
-      `agency-withdrawal-paid:${id}`,
-    ).catch((e) => console.error("[approve-withdrawal] notify user failed:", e));
-  } else {
-    console.error("[approve-withdrawal] could not fetch tx to notify agency:", id);
+      `wallet-withdrawal-paid:${id}`,
+    ).catch((e) => console.error("[withdrawal] marked paid notify failed:", e));
   }
 
   return NextResponse.json({ ok: true, id, status: "paid" });

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import type { StripeConnectStatusResponse } from "@/app/api/stripe/connect/status/route";
@@ -128,6 +128,15 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled:       "Cancelado",
 };
 
+const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
+  pending: "Pendente",
+  processing: "Processando",
+  paid: "Pago",
+  cancelled: "Cancelado",
+  rejected: "Cancelado",
+  failed: "Falhou",
+};
+
 function StatCard({ label, value, sub, stripe }: { label: string; value: string; sub?: string; stripe: string }) {
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
@@ -147,6 +156,16 @@ type PixKeyType = "cpf" | "cnpj" | "email" | "phone" | "random";
 type PixProfileRow = {
   pix_key_type: PixKeyType | null;
   pix_key_value: string | null;
+  pix_holder_name: string | null;
+};
+
+type TalentWithdrawal = {
+  id: string;
+  amount: number;
+  status: string | null;
+  created_at: string;
+  processed_at: string | null;
+  admin_note: string | null;
 };
 
 const PIX_LABELS: Record<PixKeyType, string> = {
@@ -165,11 +184,13 @@ const PIX_PLACEHOLDERS: Record<PixKeyType, string> = {
   random: "Chave aleatória gerada pelo banco",
 };
 
-function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => void }) {
+function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string, holderName: string) => void }) {
   const [keyType,  setKeyType]  = useState<PixKeyType>("cpf");
   const [keyValue, setKeyValue] = useState("");
+  const [holderName, setHolderName] = useState("");
   const [savedType,  setSavedType]  = useState<PixKeyType | null>(null);
   const [savedValue, setSavedValue] = useState<string | null>(null);
+  const [savedHolderName, setSavedHolderName] = useState<string | null>(null);
   const [editing,  setEditing]  = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [loadDone, setLoadDone] = useState(false);
@@ -180,18 +201,21 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
       if (!user) { setLoadDone(true); return; }
       const { data } = await supabase
         .from("talent_profiles")
-        .select("pix_key_type, pix_key_value")
+        .select("pix_key_type, pix_key_value, pix_holder_name")
         .eq("id", user.id)
         .single();
       const profile = data as PixProfileRow | null;
       if (profile?.pix_key_value) {
         const t = profile.pix_key_type ?? "cpf";
         const v = profile.pix_key_value;
+        const h = profile.pix_holder_name ?? "";
         setSavedType(t);
         setSavedValue(v);
+        setSavedHolderName(h);
         setKeyType(t);
         setKeyValue(v);
-        onSaved(t, v);
+        setHolderName(h);
+        onSaved(t, v, h);
       }
       setLoadDone(true);
     });
@@ -200,20 +224,22 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!keyValue.trim()) return;
+    if (!keyValue.trim() || !holderName.trim()) return;
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("talent_profiles").update({
         pix_key_type:  keyType,
         pix_key_value: keyValue.trim(),
+        pix_holder_name: holderName.trim(),
       }).eq("id", user.id);
     }
     setSaving(false);
     setSavedType(keyType);
     setSavedValue(keyValue.trim());
+    setSavedHolderName(holderName.trim());
     setEditing(false);
-    onSaved(keyType, keyValue.trim());
+    onSaved(keyType, keyValue.trim(), holderName.trim());
   }
 
   if (!loadDone) return null;
@@ -264,6 +290,9 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
                 </span>
               </div>
               <p className="text-[14px] font-semibold text-zinc-900 truncate">{savedValue}</p>
+              {savedHolderName && (
+                <p className="text-[12px] text-zinc-500 mt-1">Titular: {savedHolderName}</p>
+              )}
               <p className="text-[12px] text-zinc-400 mt-0.5">Usada apenas como fallback manual quando necessário.</p>
             </div>
           </div>
@@ -299,10 +328,20 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1.5">Titular</label>
+              <input
+                type="text"
+                value={holderName}
+                onChange={(e) => setHolderName(e.target.value)}
+                placeholder="Nome completo"
+                className="w-full px-3 py-2.5 text-[13px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none bg-white transition-colors"
+              />
+            </div>
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                disabled={saving || !keyValue.trim()}
+                disabled={saving || !keyValue.trim() || !holderName.trim()}
                 className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
                 {saving ? "Salvando…" : "Salvar Chave PIX"}
@@ -310,7 +349,7 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string) => v
               {editing && (
                 <button
                   type="button"
-                  onClick={() => { setEditing(false); setKeyType(savedType!); setKeyValue(savedValue!); }}
+                  onClick={() => { setEditing(false); setKeyType(savedType!); setKeyValue(savedValue!); setHolderName(savedHolderName ?? ""); }}
                   className="text-[13px] font-medium text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer"
                 >
                   Cancelar
@@ -492,12 +531,13 @@ export default function TalentFinances() {
   const [payments, setPayments]         = useState<Payment[]>([]);
   const [referrals, setReferrals]       = useState<Referral[]>([]);
   const [paidContracts, setPaidContracts] = useState<PaidContract[]>([]);
+  const [withdrawals, setWithdrawals]   = useState<TalentWithdrawal[]>([]);
   const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading]           = useState(true);
   const [withdrawState, setWithdrawState] = useState<WithdrawState>("idle");
   const [withdrawMsg, setWithdrawMsg]   = useState("");
-  const [stripeReady, setStripeReady] = useState(false);
-  const [stripeStatusLoaded, setStripeStatusLoaded] = useState(false);
+  const [pixReady, setPixReady] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [period, setPeriod]             = useState<PeriodFilter>("all");
   const [showAllContracts, setShowAllContracts] = useState(false);
   const [showAllBookings, setShowAllBookings]   = useState(false);
@@ -516,6 +556,22 @@ export default function TalentFinances() {
       .single();
 
     setWalletBalance(Number(profileBalance?.wallet_balance ?? 0));
+
+    const { data: withdrawalRows } = await supabase
+      .from("wallet_transactions")
+      .select("id, amount, status, created_at, processed_at, admin_note")
+      .eq("user_id", user.id)
+      .eq("type", "withdrawal")
+      .order("created_at", { ascending: false });
+
+    setWithdrawals((withdrawalRows ?? []).map((row) => ({
+      id: row.id,
+      amount: Number(row.amount ?? 0),
+      status: row.status ?? null,
+      created_at: row.created_at,
+      processed_at: (row as Record<string, unknown>).processed_at as string | null ?? null,
+      admin_note: (row as Record<string, unknown>).admin_note as string | null ?? null,
+    })));
 
     // My bookings
     const { data: bookingsData } = await supabase
@@ -692,28 +748,26 @@ export default function TalentFinances() {
 
   // Available withdrawal money is the talent wallet balance. It includes both
   // contract payouts and referral commissions after they are credited.
-  const withdrawableContracts = paidContracts.filter((c) => !c.withdrawn_at);
-  const withdrawnContracts    = paidContracts.filter((c) => !!c.withdrawn_at);
   const availableToWithdraw = Math.max(0, walletBalance);
-  const alreadyWithdrawn      = withdrawnContracts.reduce((s, c) => s + c.earnings, 0);
+  const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
   const filteredPaidContracts = paidContracts.filter((c) => periodMatches(c.paid_at, period));
   const filteredPayments = payments.filter((p) => periodMatches(p.date, period));
-  const filteredWithdrawnContracts = withdrawnContracts.filter((c) => periodMatches(c.withdrawn_at, period));
   const filteredReferrals = referrals.filter((r) => periodMatches(r.date, period));
-  const canWithdrawViaStripe = availableToWithdraw > 0 && stripeStatusLoaded && stripeReady;
-
-  const handleStripeStatusChange = useCallback((status: { ready: boolean; loaded: boolean }) => {
-    setStripeReady(status.ready);
-    setStripeStatusLoaded(status.loaded);
-  }, []);
+  const pendingWithdrawals = withdrawals.filter((w) => w.status === "pending" || w.status === "processing");
+  const filteredWithdrawalHistory = withdrawals.filter((w) =>
+    (w.status === "paid" || w.status === "cancelled" || w.status === "rejected" || w.status === "failed")
+    && periodMatches(w.processed_at ?? w.created_at, period),
+  );
+  const alreadyWithdrawn = withdrawals
+    .filter((w) => w.status === "paid")
+    .reduce((sum, w) => sum + w.amount, 0);
+  const canRequestWithdrawal = withdrawAmountNum > 0 && withdrawAmountNum <= availableToWithdraw && pixReady && withdrawState !== "loading";
 
   async function handleWithdraw() {
-    if (availableToWithdraw <= 0) return;
-    if (!stripeStatusLoaded) return;
-    if (!stripeReady) {
+    if (withdrawAmountNum <= 0 || withdrawAmountNum > availableToWithdraw) return;
+    if (!pixReady) {
       setWithdrawState("error");
-      setWithdrawMsg("Configure sua conta Stripe para sacar.");
-      document.getElementById("stripe-connect-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setWithdrawMsg("Configure sua chave PIX fallback antes de solicitar saque.");
       return;
     }
 
@@ -722,7 +776,7 @@ export default function TalentFinances() {
       const withdrawRes = await fetch("/api/talent/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: Number(availableToWithdraw.toFixed(2)) }),
+        body: JSON.stringify({ amount: withdrawAmountNum }),
       });
       const withdrawData = await withdrawRes.json().catch(() => ({})) as {
         error?: string;
@@ -736,32 +790,10 @@ export default function TalentFinances() {
         return;
       }
 
-      const results = withdrawableContracts.length > 0
-        ? await Promise.all(
-            withdrawableContracts.map((c) =>
-              fetch(`/api/contracts/${c.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "withdraw" }),
-              }).then((r) => r.json())
-            )
-          )
-        : [];
-      const allOk = results.every((r) => r.ok || r.withdrawn_at);
-      if (allOk) {
-        const now = new Date().toISOString();
-        setWalletBalance(Number(withdrawData.remaining_balance ?? 0));
-        setPaidContracts((prev) =>
-          prev.map((c) => c.withdrawn_at ? c : { ...c, withdrawn_at: now })
-        );
-        setWithdrawState("success");
-        setWithdrawMsg(
-          `Saque enviado via Stripe! ${brl(availableToWithdraw)} a caminho.`
-        );
-      } else {
-        setWithdrawState("error");
-        setWithdrawMsg("Saque solicitado, mas alguns contratos podem demorar para atualizar.");
-      }
+      setWithdrawState("success");
+      setWithdrawAmount("");
+      setWithdrawMsg(`Saque solicitado com sucesso: ${brl(withdrawAmountNum)}.`);
+      await load(false);
     } catch {
       setWithdrawState("error");
       setWithdrawMsg("Erro de rede. Tente novamente.");
@@ -840,48 +872,56 @@ export default function TalentFinances() {
                   <p className="text-[12px] text-zinc-400 mt-1">{brl(alreadyWithdrawn)} já sacado</p>
                 )}
               </div>
-              <button
-                onClick={handleWithdraw}
-                disabled={
-                  !canWithdrawViaStripe ||
-                  withdrawState === "loading" ||
-                  withdrawState === "success"
-                }
-                className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
-              >
-                {withdrawState === "loading" ? (
-                  <>
-                    <div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                    Processando…
-                  </>
-                ) : withdrawState === "success" ? (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Enviado
-                  </>
-                ) : !stripeStatusLoaded && availableToWithdraw > 0 ? "Verificando Stripe" : !stripeReady && availableToWithdraw > 0 ? "Configurar Stripe" : "Sacar via Stripe"}
-              </button>
             </div>
 
-            {/* Stripe setup warning */}
-            {stripeStatusLoaded && !stripeReady && availableToWithdraw > 0 && (
+            <div className="px-6 pb-5">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.01}
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full pl-8 pr-3 py-2.5 text-[13px] font-semibold bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 transition-colors"
+                  />
+                </div>
+                <button
+                  onClick={handleWithdraw}
+                  disabled={!canRequestWithdrawal}
+                  className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {withdrawState === "loading" ? (
+                    <>
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                      Processando…
+                    </>
+                  ) : withdrawState === "success" ? (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Solicitado
+                    </>
+                  ) : "Solicitar saque"}
+                </button>
+              </div>
+              {withdrawAmountNum > availableToWithdraw && (
+                <p className="text-[11px] text-rose-600 mt-2">Valor superior ao saldo disponível.</p>
+              )}
+            </div>
+
+            {!pixReady && availableToWithdraw > 0 && (
               <div className="mx-6 mb-5 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                 <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="flex-1">
                   <p className="text-[13px] text-amber-800 leading-relaxed">
-                    Configure sua <strong>conta Stripe</strong> para sacar automaticamente.
+                    Configure sua <strong>chave PIX fallback</strong> para solicitar saque manual.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById("stripe-connect-section")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                    className="mt-2 text-[12px] font-semibold text-amber-900 underline decoration-amber-300 underline-offset-4 cursor-pointer"
-                  >
-                    Configurar Stripe para sacar
-                  </button>
                 </div>
               </div>
             )}
@@ -906,6 +946,29 @@ export default function TalentFinances() {
               </div>
             )}
 
+            {pendingWithdrawals.length > 0 && (
+              <div className="mx-6 mb-5 rounded-xl border border-zinc-100 bg-zinc-50">
+                <div className="px-4 py-3 border-b border-zinc-100">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Saques pendentes</p>
+                </div>
+                <div className="divide-y divide-zinc-100">
+                  {pendingWithdrawals.map((withdrawal) => (
+                    <div key={withdrawal.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-zinc-900">{brl(withdrawal.amount)}</p>
+                        <p className="text-[11px] text-zinc-400">
+                          {WITHDRAWAL_STATUS_LABEL[withdrawal.status ?? "pending"] ?? withdrawal.status ?? "Pendente"} · {new Date(withdrawal.created_at).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" })}
+                        </p>
+                        {withdrawal.admin_note && (
+                          <p className="text-[11px] text-zinc-500 mt-0.5">{withdrawal.admin_note}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Per-contract breakdown */}
             {filteredPaidContracts.length > 0 && (
               <div className="border-t border-zinc-50 divide-y divide-zinc-50">
@@ -917,15 +980,9 @@ export default function TalentFinances() {
                         Pago em {c.paid_at ? new Date(c.paid_at).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                       </p>
                     </div>
-                    {c.withdrawn_at ? (
-                      <span className="text-[11px] font-semibold bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-full flex-shrink-0">
-                        Sacado
-                      </span>
-                    ) : (
-                      <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
-                        Disponível
-                      </span>
-                    )}
+                    <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                      Creditado na carteira
+                    </span>
                     <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">{brl(c.earnings)}</p>
                   </div>
                 ))}
@@ -958,16 +1015,15 @@ export default function TalentFinances() {
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>
-              Os valores exibidos refletem reservas, contratos pagos e indicações registradas.
-              Taxas e repasses podem variar conforme o plano da agência e o contexto da contratação.
+              Os valores exibidos refletem reservas, contratos pagos, indicações e saques registrados na carteira.
             </span>
           </div>
 
           {/* PIX account setup */}
-          <PixSetup onSaved={() => {}} />
+          <PixSetup onSaved={(_, value, holderName) => setPixReady(Boolean(value.trim() && holderName.trim()))} />
 
           {/* Stripe Connect payout account */}
-          <StripeConnectSection onStatusChange={handleStripeStatusChange} />
+          <StripeConnectSection />
 
           {/* My bookings */}
           <div className="space-y-3">
@@ -1017,54 +1073,39 @@ export default function TalentFinances() {
           </div>
 
           {/* Withdrawal history */}
-          {filteredWithdrawnContracts.length > 0 && (() => {
-            // Group by day (YYYY-MM-DD) so each "Withdraw" click = one receipt
-            const groups = new Map<string, PaidContract[]>();
-            for (const c of filteredWithdrawnContracts) {
-              const day = c.withdrawn_at ? c.withdrawn_at.slice(0, 10) : "unknown";
-              if (!groups.has(day)) groups.set(day, []);
-              groups.get(day)!.push(c);
-            }
-            const receipts = [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-            const visibleReceipts = visibleItems(receipts, showAllWithdrawals);
-            return (
-              <div className="space-y-3">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Histórico de Saques</p>
-                <div className="space-y-3">
-                  {visibleReceipts.map(([day, items], i) => {
-                    const total = items.reduce((s, c) => s + c.earnings, 0);
-                    const date  = new Date(day + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
-                    return (
-                      <div key={day} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
-                        <div className="flex items-center gap-4 px-5 py-4">
-                          <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                            <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-semibold text-zinc-900">Saque #{receipts.length - i}</p>
-                            <p className="text-[11px] text-zinc-400 mt-0.5">{date}</p>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-[20px] font-semibold tracking-tight text-emerald-700 tabular-nums leading-none">{brl(total)}</p>
-                            <span className="inline-flex mt-1.5 text-[10px] font-semibold bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100 px-2 py-0.5 rounded-full">
-                              Concluído
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <ShowMoreButton
-                    total={receipts.length}
-                    expanded={showAllWithdrawals}
-                    onClick={() => setShowAllWithdrawals((value) => !value)}
-                  />
-                </div>
+          {filteredWithdrawalHistory.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Histórico de Saques</p>
+              <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-zinc-50">
+                {visibleItems(filteredWithdrawalHistory, showAllWithdrawals).map((withdrawal) => (
+                  <div key={withdrawal.id} className="px-5 py-4 flex items-center gap-4">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-zinc-900">{WITHDRAWAL_STATUS_LABEL[withdrawal.status ?? "paid"] ?? withdrawal.status ?? "Saque"}</p>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">
+                        {new Date(withdrawal.processed_at ?? withdrawal.created_at).toLocaleDateString("pt-BR", { weekday: "short", month: "long", day: "numeric", year: "numeric" })}
+                      </p>
+                      {withdrawal.admin_note && (
+                        <p className="text-[11px] text-zinc-500 mt-1">{withdrawal.admin_note}</p>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[20px] font-semibold tracking-tight text-emerald-700 tabular-nums leading-none">{brl(withdrawal.amount)}</p>
+                    </div>
+                  </div>
+                ))}
+                <ShowMoreButton
+                  total={filteredWithdrawalHistory.length}
+                  expanded={showAllWithdrawals}
+                  onClick={() => setShowAllWithdrawals((value) => !value)}
+                />
               </div>
-            );
-          })()}
+            </div>
+          )}
 
           {/* Referral earnings */}
           <div className="space-y-3">

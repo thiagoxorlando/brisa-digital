@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { REFERRAL_RATE } from "@/lib/plans";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export type FinancesBooking = {
   id: string;
@@ -107,7 +107,7 @@ export type FinancesSummary = {
   };
 };
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Tab = "saques" | "carteiras" | "visao-geral" | "contratos" | "reservas" | "planos";
 type ProfitRange = "today" | "month" | "total";
@@ -135,7 +135,7 @@ const PIX_TYPE_LABELS_ADMIN: Record<string, string> = {
   cpf: "CPF", cnpj: "CNPJ", email: "Email", phone: "Tel", random: "EVP",
 };
 
-// ── Utilities ─────────────────────────────────────────────────────────────────
+// â”€â”€ Utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function brl(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -145,7 +145,7 @@ function brl(value: number) {
 }
 
 function fmt(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "â€”";
   return new Date(value).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" });
 }
 
@@ -155,9 +155,9 @@ function planLabel(plan: string) {
 
 function withdrawalProviderLabel(w: FinancesWithdrawal) {
   if (w.provider === "stripe") return "Stripe";
-  if (w.provider === "efi") return "Efí";
+  if (w.provider === "efi") return "EfÃ­";
   if (w.provider === "asaas") return "Asaas";
-  return w.userRole === "talent" ? "Manual" : "Efí/manual";
+  return "Manual";
 }
 
 function withdrawalProviderTone(w: FinancesWithdrawal) {
@@ -178,7 +178,7 @@ function isInRange(value: string | null, range: ProfitRange) {
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
-// ── UI Atoms ──────────────────────────────────────────────────────────────────
+// â”€â”€ UI Atoms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Badge({ value, tone }: { value: string; tone: string }) {
   return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone}`}>{value}</span>;
@@ -276,7 +276,7 @@ function Divider() {
   return <div className="border-t border-zinc-800/60" />;
 }
 
-// ── Section: Profit ───────────────────────────────────────────────────────────
+// â”€â”€ Section: Profit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ProfitSection({
   bookings, contracts, planPayments,
@@ -299,14 +299,14 @@ function ProfitSection({
 
   const RANGES: { key: ProfitRange; label: string }[] = [
     { key: "today", label: "Hoje" },
-    { key: "month", label: "Este mês" },
+    { key: "month", label: "Este mÃªs" },
     { key: "total", label: "Total" },
   ];
 
   return (
     <Section
       title="Lucro da plataforma"
-      subtitle="Comissão e receita de planos filtráveis por período."
+      subtitle="ComissÃ£o e receita de planos filtrÃ¡veis por perÃ­odo."
       action={
         <div className="flex gap-1">
           {RANGES.map(({ key, label }) => (
@@ -328,17 +328,17 @@ function ProfitSection({
     >
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
-          label="Comissão de reservas/contratos"
+          label="ComissÃ£o de reservas/contratos"
           value={brl(totalCommission)}
-          sub={`Reservas: ${brl(bookingCommission)} · Contratos: ${brl(contractCommission)}`}
+          sub={`Reservas: ${brl(bookingCommission)} Â· Contratos: ${brl(contractCommission)}`}
         />
         <StatCard
           label="Receita de planos"
           value={brl(planRevenue)}
-          sub={`${fp.length} pagamento(s) no período`}
+          sub={`${fp.length} pagamento(s) no perÃ­odo`}
         />
         <StatCard
-          label="Total do período"
+          label="Total do perÃ­odo"
           value={brl(totalProfit)}
           sub={`${fb.length} reservas + ${fc.length} contratos`}
         />
@@ -347,7 +347,7 @@ function ProfitSection({
   );
 }
 
-// ── Section: Subscriptions ────────────────────────────────────────────────────
+// â”€â”€ Section: Subscriptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function SubscriptionsSection({
   subscriptions, summary,
@@ -362,24 +362,24 @@ function SubscriptionsSection({
 
   return (
     <Section
-      title="Planos de agências"
-      subtitle={`${subscriptions.length} agências cadastradas · ${proCount + premiumCount} pagantes`}
+      title="Planos de agÃªncias"
+      subtitle={`${subscriptions.length} agÃªncias cadastradas Â· ${proCount + premiumCount} pagantes`}
     >
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Receita total de assinaturas" value={brl(summary.subscriptionRevenue)} />
-        <StatCard label="Agências Pro" value={String(proCount)} sub={`${summary.planBreakdown.pro.priceLabel}`} />
-        <StatCard label="Agências Premium" value={String(premiumCount)} sub={`${summary.planBreakdown.premium.priceLabel}`} />
-        <StatCard label="Agências pagantes" value={String(proCount + premiumCount)} />
+        <StatCard label="AgÃªncias Pro" value={String(proCount)} sub={`${summary.planBreakdown.pro.priceLabel}`} />
+        <StatCard label="AgÃªncias Premium" value={String(premiumCount)} sub={`${summary.planBreakdown.premium.priceLabel}`} />
+        <StatCard label="AgÃªncias pagantes" value={String(proCount + premiumCount)} />
       </div>
       <TableCard>
         <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
           <tr>
-            <Th>Agência</Th>
+            <Th>AgÃªncia</Th>
             <Th>Plano</Th>
             <Th>Status</Th>
             <Th>Vencimento</Th>
             <Th right>Total pago</Th>
-            <Th right>Último pag.</Th>
+            <Th right>Ãšltimo pag.</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EFF5F5] [&>tr:hover]:bg-[#F8FAFC]">
@@ -389,7 +389,7 @@ function SubscriptionsSection({
               <Td><Badge value={planLabel(s.plan)} tone={PLAN_BADGES_LIGHT[s.plan] ?? PLAN_BADGES_LIGHT.free} /></Td>
               <Td><Badge value={s.planStatus} tone={STATUS_BADGES[s.planStatus] ?? STATUS_BADGES.inactive} /></Td>
               <Td>{fmt(s.planExpiresAt)}</Td>
-              <Td right>{s.totalPaid ? brl(s.totalPaid) : "—"}</Td>
+              <Td right>{s.totalPaid ? brl(s.totalPaid) : "â€”"}</Td>
               <Td right>{fmt(s.lastPayment)}</Td>
             </tr>
           ))}
@@ -400,7 +400,7 @@ function SubscriptionsSection({
   );
 }
 
-// ── Section: Withdrawal fees ──────────────────────────────────────────────────
+// â”€â”€ Section: Withdrawal fees â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawal[] }) {
   const [expanded, setExpanded] = useState(false);
@@ -422,20 +422,20 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
   return (
     <Section title="Taxas de saque" subtitle="Receita da plataforma por processamento de saques (3%)">
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Total arrecadado"  value={brl(totalEarned)}  sub="Saques concluídos" />
+        <StatCard label="Total arrecadado"  value={brl(totalEarned)}  sub="Saques concluÃ­dos" />
         <StatCard label="Pendente"          value={brl(totalPending)} sub="Aguardando processamento" />
         <StatCard label="Hoje"              value={brl(feesToday)}    sub="Processado hoje" />
-        <StatCard label="Este mês"          value={brl(feesMonth)}    sub="Mês atual" />
+        <StatCard label="Este mÃªs"          value={brl(feesMonth)}    sub="MÃªs atual" />
       </div>
       {sorted.length > 0 && (
         <>
           <TableCard>
             <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
               <tr>
-                <Th>Agência</Th>
+                <Th>AgÃªncia</Th>
                 <Th right>Sacado</Th>
                 <Th right>Taxa (3%)</Th>
-                <Th right>Líquido enviado</Th>
+                <Th right>LÃ­quido enviado</Th>
                 <Th>Solicitado em</Th>
                 <Th>Status</Th>
               </tr>
@@ -453,7 +453,7 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
                       {brl(w.feeAmount)}
                     </span>
                   </Td>
-                  <Td right>{w.status === "rejected" ? <span className="text-zinc-400">—</span> : brl(w.netAmount)}</Td>
+                  <Td right>{w.status === "rejected" ? <span className="text-zinc-400">â€”</span> : brl(w.netAmount)}</Td>
                   <Td>{fmt(w.createdAt)}</Td>
                   <Td>
                     {w.status === "paid"       && <Badge value="Pago"         tone="bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30" />}
@@ -473,7 +473,7 @@ function WithdrawalFeesSection({ withdrawals }: { withdrawals: FinancesWithdrawa
   );
 }
 
-// ── Section: Contracts ────────────────────────────────────────────────────────
+// â”€â”€ Section: Contracts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ContractsSection({
   contracts, summary,
@@ -505,26 +505,26 @@ function ContractsSection({
   return (
     <Section
       title="Contratos confirmados e pagos"
-      subtitle={`${rows.length} contratos · ${brl(summary.contractsCommission)} retido pela plataforma`}
+      subtitle={`${rows.length} contratos Â· ${brl(summary.contractsCommission)} retido pela plataforma`}
     >
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Em escrow" value={brl(summary.contractsEscrowValue)} sub="Bruto retido em confirmados" />
-        <StatCard label="Aguardando saque" value={brl(summary.contractsAwaitingValue)} sub="Líquido a sacar por talentos" />
-        <StatCard label="Já sacado" value={brl(summary.contractsWithdrawnValue)} sub="Líquido enviado aos talentos" />
-        <StatCard label="Comissão da plataforma" value={brl(summary.contractsCommission)} sub="Retenção por plano" />
+        <StatCard label="Aguardando saque" value={brl(summary.contractsAwaitingValue)} sub="LÃ­quido a sacar por talentos" />
+        <StatCard label="JÃ¡ sacado" value={brl(summary.contractsWithdrawnValue)} sub="LÃ­quido enviado aos talentos" />
+        <StatCard label="ComissÃ£o da plataforma" value={brl(summary.contractsCommission)} sub="RetenÃ§Ã£o por plano" />
       </div>
       <TableCard>
         <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
           <tr>
             <Th>Vaga</Th>
             <Th>Talento</Th>
-            <Th>Agência</Th>
+            <Th>AgÃªncia</Th>
             <Th>Plano</Th>
             <Th>Status</Th>
             <Th right>Bruto</Th>
-            <Th right>Comissão</Th>
-            <Th right>Líquido</Th>
-            <Th right>Ações</Th>
+            <Th right>ComissÃ£o</Th>
+            <Th right>LÃ­quido</Th>
+            <Th right>AÃ§Ãµes</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EFF5F5] [&>tr:hover]:bg-[#F8FAFC]">
@@ -553,10 +553,10 @@ function ContractsSection({
                       disabled={withdrawing === c.id}
                       className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {withdrawing === c.id ? "…" : "Sacar"}
+                      {withdrawing === c.id ? "â€¦" : "Sacar"}
                     </button>
                   ) : (
-                    <span className="text-xs text-zinc-500">{c.withdrawn_at ? "Concluído" : "—"}</span>
+                    <span className="text-xs text-zinc-500">{c.withdrawn_at ? "ConcluÃ­do" : "â€”"}</span>
                   )}
                 </Td>
               </tr>
@@ -591,9 +591,9 @@ function WithdrawalHistory({ contracts }: { contracts: FinancesContract[] }) {
   const grand    = withdrawn.reduce((s, c) => s + c.netAmount, 0);
 
   return (
-    <Section title="Histórico de saques para talentos" subtitle={`${receipts.length} saques concluídos`}>
+    <Section title="HistÃ³rico de saques para talentos" subtitle={`${receipts.length} saques concluÃ­dos`}>
       <div className="grid gap-3 md:grid-cols-3">
-        <StatCard label="Total pago a talentos" value={brl(grand)} sub={`${receipts.length} transações`} />
+        <StatCard label="Total pago a talentos" value={brl(grand)} sub={`${receipts.length} transaÃ§Ãµes`} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((items) => {
@@ -618,7 +618,7 @@ function WithdrawalHistory({ contracts }: { contracts: FinancesContract[] }) {
   );
 }
 
-// ── Section: Bookings ─────────────────────────────────────────────────────────
+// â”€â”€ Section: Bookings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; summary: FinancesSummary }) {
   const [expanded, setExpanded] = useState(false);
@@ -627,12 +627,12 @@ function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; s
   return (
     <Section
       title="Reservas"
-      subtitle={`${bookings.length} reservas · comissão dinâmica por plano`}
+      subtitle={`${bookings.length} reservas Â· comissÃ£o dinÃ¢mica por plano`}
     >
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Bruto confirmado"    value={brl(summary.confirmedGrossValue)} />
-        <StatCard label="Comissão plataforma" value={brl(summary.platformCommission)} sub="Free 20% · Pro/Premium 10%" />
-        <StatCard label="Indicações"          value={brl(summary.referralPayouts)} sub={`${REFERRAL_RATE * 100}% por indicação ativa`} />
+        <StatCard label="ComissÃ£o plataforma" value={brl(summary.platformCommission)} sub="Free 20% Â· Pro/Premium 10%" />
+        <StatCard label="IndicaÃ§Ãµes"          value={brl(summary.referralPayouts)} sub={`${REFERRAL_RATE * 100}% por indicaÃ§Ã£o ativa`} />
         <StatCard label="Pendente"            value={brl(summary.pendingValue)} />
       </div>
       <TableCard>
@@ -643,9 +643,9 @@ function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; s
             <Th>Plano</Th>
             <Th>Status</Th>
             <Th right>Valor</Th>
-            <Th right>Comissão</Th>
-            <Th right>Indicação</Th>
-            <Th right>Líq. plataforma</Th>
+            <Th right>ComissÃ£o</Th>
+            <Th right>IndicaÃ§Ã£o</Th>
+            <Th right>LÃ­q. plataforma</Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#EFF5F5] [&>tr:hover]:bg-[#F8FAFC]">
@@ -661,9 +661,9 @@ function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; s
               <Td><Badge value={planLabel(b.agencyPlan)} tone={PLAN_BADGES_LIGHT[b.agencyPlan] ?? PLAN_BADGES_LIGHT.free} /></Td>
               <Td><Badge value={b.status} tone={STATUS_BADGES[b.status] ?? STATUS_BADGES.cancelled} /></Td>
               <Td right>{brl(b.price)}</Td>
-              <Td right>{b.commissionAmount ? brl(b.commissionAmount) : "—"}</Td>
-              <Td right>{b.referralAmount ? brl(b.referralAmount) : "—"}</Td>
-              <Td right>{b.netPlatformAmount ? brl(b.netPlatformAmount) : "—"}</Td>
+              <Td right>{b.commissionAmount ? brl(b.commissionAmount) : "â€”"}</Td>
+              <Td right>{b.referralAmount ? brl(b.referralAmount) : "â€”"}</Td>
+              <Td right>{b.netPlatformAmount ? brl(b.netPlatformAmount) : "â€”"}</Td>
             </tr>
           ))}
         </tbody>
@@ -673,7 +673,7 @@ function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; s
   );
 }
 
-// ── Section: Wallets ──────────────────────────────────────────────────────────
+// â”€â”€ Section: Wallets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function WalletsSection({
   agencyWallets,
@@ -699,18 +699,18 @@ function WalletsSection({
   return (
     <>
       {/* Overview */}
-      <Section title="Carteiras na plataforma" subtitle="Saldos pertencentes a agências e talentos — obrigações da plataforma.">
+      <Section title="Carteiras na plataforma" subtitle="Saldos pertencentes a agÃªncias e talentos â€” obrigaÃ§Ãµes da plataforma.">
         <div className="grid gap-4 md:grid-cols-4">
-          <StatCard label="Total em carteiras" value={brl(totalAll)} sub={`${agencyWallets.length + talentWallets.length} usuários com saldo`} />
-          <StatCard label="Carteiras de agências" value={brl(totalAgency)} sub={`${agencyWallets.length} agências · ${agencyPct}% do total`} />
-          <StatCard label="Carteiras de talentos" value={brl(totalTalent)} sub={`${talentWallets.length} talentos · ${talentPct}% do total`} />
-          <StatCard label="Do mínimo obrigatório" value={brl(summary.agencyWalletTotal)} sub="Parcela das agências no mín. obrigatório" />
+          <StatCard label="Total em carteiras" value={brl(totalAll)} sub={`${agencyWallets.length + talentWallets.length} usuÃ¡rios com saldo`} />
+          <StatCard label="Carteiras de agÃªncias" value={brl(totalAgency)} sub={`${agencyWallets.length} agÃªncias Â· ${agencyPct}% do total`} />
+          <StatCard label="Carteiras de talentos" value={brl(totalTalent)} sub={`${talentWallets.length} talentos Â· ${talentPct}% do total`} />
+          <StatCard label="Do mÃ­nimo obrigatÃ³rio" value={brl(summary.agencyWalletTotal)} sub="Parcela das agÃªncias no mÃ­n. obrigatÃ³rio" />
         </div>
 
         {/* Balance bar */}
         {totalAll > 0 && (
           <div className="rounded-2xl border border-[#DDE6E6] bg-white p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500 mb-3">Distribuição de saldos</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500 mb-3">DistribuiÃ§Ã£o de saldos</p>
             <div className="flex h-3 overflow-hidden rounded-full bg-[#F0F9F8]">
               <div
                 className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
@@ -724,7 +724,7 @@ function WalletsSection({
             <div className="mt-2.5 flex gap-4 text-xs text-zinc-500">
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                Agências {agencyPct}%
+                AgÃªncias {agencyPct}%
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
@@ -738,17 +738,17 @@ function WalletsSection({
       <Divider />
 
       {/* Agency wallets */}
-      <Section title="Carteiras de agências" subtitle={`${agencyWallets.length} agência(s) com saldo positivo · ordenado por saldo`}>
+      <Section title="Carteiras de agÃªncias" subtitle={`${agencyWallets.length} agÃªncia(s) com saldo positivo Â· ordenado por saldo`}>
         {agencyWallets.length === 0 ? (
           <div className="rounded-2xl border border-[#DDE6E6] bg-white px-4 py-5 text-sm text-[#647B7B]">
-            Nenhuma agência com saldo.
+            Nenhuma agÃªncia com saldo.
           </div>
         ) : (
           <>
             <TableCard>
               <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
                 <tr>
-                  <Th>Usuário</Th>
+                  <Th>UsuÃ¡rio</Th>
                   <Th>Plano</Th>
                   <Th>PIX</Th>
                   <Th right>Saldo</Th>
@@ -782,7 +782,7 @@ function WalletsSection({
                     </Td>
                     <Td right>
                       <span className="text-xs text-zinc-500">
-                        {totalAgency > 0 ? `${((w.balance / totalAgency) * 100).toFixed(1)}%` : "—"}
+                        {totalAgency > 0 ? `${((w.balance / totalAgency) * 100).toFixed(1)}%` : "â€”"}
                       </span>
                     </Td>
                   </tr>
@@ -797,7 +797,7 @@ function WalletsSection({
       <Divider />
 
       {/* Talent wallets */}
-      <Section title="Carteiras de talentos" subtitle={`${talentWallets.length} talento(s) com saldo positivo · ordenado por saldo`}>
+      <Section title="Carteiras de talentos" subtitle={`${talentWallets.length} talento(s) com saldo positivo Â· ordenado por saldo`}>
         {talentWallets.length === 0 ? (
           <div className="rounded-2xl border border-[#DDE6E6] bg-white px-4 py-5 text-sm text-[#647B7B]">
             Nenhum talento com saldo.
@@ -830,7 +830,7 @@ function WalletsSection({
                     </Td>
                     <Td right>
                       <span className="text-xs text-zinc-500">
-                        {totalTalent > 0 ? `${((w.balance / totalTalent) * 100).toFixed(1)}%` : "—"}
+                        {totalTalent > 0 ? `${((w.balance / totalTalent) * 100).toFixed(1)}%` : "â€”"}
                       </span>
                     </Td>
                   </tr>
@@ -845,98 +845,112 @@ function WalletsSection({
   );
 }
 
-// ── Section: Withdrawals (action-heavy) ───────────────────────────────────────
+// â”€â”€ Section: Withdrawals (action-heavy) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[] }) {
   const router = useRouter();
   const [rows, setRows] = useState<FinancesWithdrawal[]>(withdrawals);
-  const [approving, setApproving]       = useState<string | null>(null);
-  const [approveNote, setApproveNote]   = useState("");
+  const [approving, setApproving] = useState<string | null>(null);
+  const [approveNote, setApproveNote] = useState("");
   const [approveLoading, setApproveLoading] = useState(false);
-  const [canceling, setCanceling]       = useState<string | null>(null);
+  const [canceling, setCanceling] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
-  const [sendingPix, setSendingPix]     = useState<string | null>(null);
-  const [error, setError]               = useState<string | null>(null);
-  const [expandedPending, setExpandedPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedAgencyPending, setExpandedAgencyPending] = useState(false);
+  const [expandedTalentPending, setExpandedTalentPending] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState(false);
-  const [copied, setCopied]             = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  useEffect(() => { setRows(withdrawals); }, [withdrawals]);
+  useEffect(() => {
+    setRows(withdrawals);
+  }, [withdrawals]);
 
-  const pendingOnly   = rows.filter((w) => w.status === "pending");
-  const processingOnly = rows.filter((w) => w.status === "processing");
-  const pending       = rows.filter((w) => w.status === "pending" || w.status === "processing");
-  const visiblePending = expandedPending ? pending : pending.slice(0, 5);
-  const history       = rows
-    .filter((w) => w.status !== "pending" && w.status !== "processing")
+  const pending = rows
+    .filter((w) => w.status === "pending")
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const agencyPending = pending.filter((w) => w.userRole === "agency");
+  const talentPending = pending.filter((w) => w.userRole === "talent");
+  const visibleAgencyPending = expandedAgencyPending ? agencyPending : agencyPending.slice(0, 5);
+  const visibleTalentPending = expandedTalentPending ? talentPending : talentPending.slice(0, 5);
+  const history = rows
+    .filter((w) => !["pending"].includes(w.status))
     .sort((a, b) => new Date(b.processedAt ?? b.createdAt).getTime() - new Date(a.processedAt ?? a.createdAt).getTime());
-  const visibleHistory = expandedHistory ? history : history.slice(0, 5);
-
-  async function handleSendPix(id: string) {
-    setSendingPix(id);
-    setError(null);
-    const res  = await fetch(`/api/admin/withdrawals/${id}/send-pix`, { method: "POST" });
-    const data = await res.json().catch(() => ({})) as { error?: string; status?: string };
-    setSendingPix(null);
-    if (!res.ok) {
-      const msg = data.error ?? "Erro ao enviar PIX.";
-      setError(msg);
-      setRows((cur) => cur.map((w) => w.id === id ? { ...w, adminNote: msg } : w));
-      router.refresh();
-      return;
-    }
-    const savedStatus = data.status ?? "processing";
-    setRows((cur) => cur.map((w) => w.id === id
-      ? {
-          ...w,
-          status:      savedStatus,
-          adminNote:   savedStatus === "paid" ? "PIX confirmado via Efí" : "PIX enviado via Efí, aguardando confirmação",
-          processedAt: savedStatus === "paid" ? new Date().toISOString() : w.processedAt,
-        }
-      : w,
-    ));
-    router.refresh();
-  }
+  const visibleHistory = expandedHistory ? history : history.slice(0, 10);
 
   async function handleApprove() {
     if (!approving) return;
-    const id   = approving;
+    const id = approving;
     const note = approveNote.trim();
     setApproveLoading(true);
     setError(null);
-    const res  = await fetch(`/api/admin/withdrawals/${id}/approve`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note }),
+
+    const res = await fetch(`/api/admin/withdrawals/${id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note, provider: "manual" }),
     });
     const data = await res.json().catch(() => ({})) as { error?: string; details?: unknown };
+
     setApproveLoading(false);
+
     if (!res.ok) {
-      setError(typeof data.details === "string" ? data.details : data.error ?? "Erro ao aprovar saque.");
+      setError(typeof data.details === "string" ? data.details : data.error ?? "Erro ao marcar saque como pago.");
       return;
     }
-    setRows((cur) => cur.map((w) => w.id === id ? { ...w, status: "paid", adminNote: note || null, processedAt: new Date().toISOString() } : w));
+
+    setRows((current) => current.map((w) => (
+      w.id === id
+        ? {
+            ...w,
+            status: "paid",
+            provider: "manual",
+            providerStatus: "paid",
+            adminNote: note || w.adminNote,
+            processedAt: new Date().toISOString(),
+          }
+        : w
+    )));
     setApproving(null);
     setApproveNote("");
+    router.refresh();
   }
 
   async function handleCancel() {
     if (!canceling || !cancelReason.trim()) return;
-    const id     = canceling;
+    const id = canceling;
     const reason = cancelReason.trim();
     setCancelLoading(true);
     setError(null);
+
     const res = await fetch(`/api/admin/withdrawals/${id}/cancel`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
     });
+    const data = await res.json().catch(() => ({})) as { error?: string };
+
     setCancelLoading(false);
-    if (res.ok) {
-      setRows((cur) => cur.map((w) => w.id === id ? { ...w, status: "rejected", adminNote: reason, processedAt: new Date().toISOString() } : w));
-      setCanceling(null);
-      setCancelReason("");
-    } else {
-      const data = await res.json().catch(() => ({})) as { error?: string };
+
+    if (!res.ok) {
       setError(data.error ?? "Erro ao cancelar saque.");
+      return;
     }
+
+    setRows((current) => current.map((w) => (
+      w.id === id
+        ? {
+            ...w,
+            status: "cancelled",
+            providerStatus: "cancelled",
+            adminNote: reason,
+            processedAt: new Date().toISOString(),
+          }
+        : w
+    )));
+    setCanceling(null);
+    setCancelReason("");
+    router.refresh();
   }
 
   function copyPix(value: string, id: string) {
@@ -946,185 +960,121 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
     }).catch(() => {});
   }
 
-  const MODAL_BASE = "fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4";
-  const MODAL_CARD = "bg-[#0B0F14] border border-zinc-800 rounded-2xl p-6 shadow-2xl max-w-md w-full space-y-4";
+  function renderStatusBadge(status: string) {
+    if (status === "paid") {
+      return <Badge value="Pago" tone="bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30" />;
+    }
+    if (status === "cancelled" || status === "rejected") {
+      return <Badge value="Cancelado" tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/20" />;
+    }
+    if (status === "failed") {
+      return <Badge value="Falhou" tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/30" />;
+    }
+    if (status === "processing") {
+      return <Badge value="Em processamento" tone="bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30" />;
+    }
+    return <Badge value={status} tone="bg-zinc-500/15 text-zinc-400 ring-1 ring-zinc-500/30" />;
+  }
 
-  return (
-    <>
-      {/* Cancel modal */}
-      {canceling && (
-        <div className={MODAL_BASE}>
-          <div className={MODAL_CARD}>
-            <h3 className="text-[15px] font-bold text-white">Cancelar saque</h3>
-            <p className="text-[13px] text-zinc-400">O valor integral será devolvido ao saldo da agência. Ação irreversível.</p>
-            <textarea
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Motivo do cancelamento…"
-              rows={3}
-              className="w-full border border-zinc-700 rounded-xl px-3 py-2.5 text-[13px] text-white bg-zinc-900 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
-            />
-            {error && <p className="text-[12px] text-red-400">{error}</p>}
-            <div className="flex gap-2">
-              <button onClick={handleCancel} disabled={cancelLoading || !cancelReason.trim()}
-                className="flex-1 bg-red-700 hover:bg-red-600 disabled:opacity-40 text-white text-[13px] font-bold py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed">
-                {cancelLoading ? "Cancelando…" : "Confirmar cancelamento"}
-              </button>
-              <button onClick={() => { setCanceling(null); setCancelReason(""); setError(null); }}
-                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer">
-                Voltar
-              </button>
-            </div>
-          </div>
+  function PendingTable({
+    title,
+    subtitle,
+    rows: tableRows,
+  }: {
+    title: string;
+    subtitle: string;
+    rows: FinancesWithdrawal[];
+  }) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-[#1F2D2E]">{title}</h3>
+          <p className="text-xs text-zinc-500">{subtitle}</p>
         </div>
-      )}
-
-      {/* Approve modal */}
-      {approving && (
-        <div className={MODAL_BASE}>
-          <div className={MODAL_CARD}>
-            <h3 className="text-[15px] font-bold text-white">Marcar saque como pago</h3>
-            <p className="text-[13px] text-zinc-400">Confirme que o PIX foi enviado manualmente. Ação irreversível.</p>
-            <textarea
-              value={approveNote}
-              onChange={(e) => setApproveNote(e.target.value)}
-              placeholder="Observação opcional (ex: PIX enviado, comprovante nº…)"
-              rows={3}
-              className="w-full border border-zinc-700 rounded-xl px-3 py-2.5 text-[13px] text-white bg-zinc-900 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 resize-none"
-            />
-            {error && <p className="text-[12px] text-red-400">{error}</p>}
-            <div className="flex gap-2">
-              <button onClick={handleApprove} disabled={approveLoading}
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-[13px] font-bold py-2.5 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed">
-                {approveLoading ? "Processando…" : "Confirmar pagamento"}
-              </button>
-              <button onClick={() => { setApproving(null); setApproveNote(""); setError(null); }}
-                className="px-4 border border-zinc-700 hover:border-zinc-600 text-zinc-400 text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer">
-                Voltar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Section
-        title="Saques"
-        subtitle={`${pendingOnly.length} pendente(s)${processingOnly.length > 0 ? ` · ${processingOnly.length} em processamento` : ""}`}
-      >
-        <div className="rounded-2xl border border-amber-900/40 bg-amber-950/30 px-4 py-3 text-[13px] text-amber-400">
-          Use <strong>Enviar PIX</strong> para saques de agências via Efí. Saques Stripe de talentos são automáticos; o manual fica como fallback.
-        </div>
-
-        {error && !canceling && !approving && (
-          <div className="rounded-2xl border border-red-900/50 bg-red-950/40 px-4 py-3 text-[13px] text-red-400">{error}</div>
-        )}
-
-        {pending.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-5 text-[13px] text-zinc-500 text-center">
-            Nenhum saque pendente.
+        {tableRows.length === 0 ? (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-5 text-center text-[13px] text-zinc-500">
+            Nenhum saque pendente nesta fila.
           </div>
         ) : (
           <TableCard>
             <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
               <tr>
                 <Th>Usuário</Th>
-                <Th>Provedor</Th>
-                <Th right>Debitado</Th>
-                <Th right>Taxa</Th>
+                <Th>Role</Th>
+                <Th right>Valor</Th>
                 <Th right>Líquido</Th>
                 <Th>Chave PIX</Th>
                 <Th>Titular</Th>
                 <Th>Solicitado</Th>
+                <Th>Status</Th>
                 <Th right>Ações</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFF5F5] [&>tr:hover]:bg-[#F8FAFC]">
-              {visiblePending.map((w) => (
+              {tableRows.map((w) => (
                 <tr key={w.id}>
                   <Td>
                     <span className="font-medium text-[#1F2D2E]">{w.agencyName}</span>
-                    <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500">
+                  </Td>
+                  <Td>
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500">
                       {w.userRole === "talent" ? "Talento" : "Agência"}
                     </span>
-                    {w.adminNote?.startsWith("Efí recusou") && (
-                      <p className="text-[10px] text-red-400 mt-0.5 max-w-[180px] truncate" title={w.adminNote}>{w.adminNote}</p>
-                    )}
                   </Td>
-                  <Td>
-                    <Badge value={withdrawalProviderLabel(w)} tone={withdrawalProviderTone(w)} />
-                    {w.providerStatus && (
-                      <p className="mt-1 max-w-[140px] truncate text-[10px] text-zinc-400" title={w.providerStatus}>
-                        {w.providerStatus}
-                      </p>
-                    )}
+                  <Td right>
+                    <strong className="text-[#1F2D2E]">{brl(w.amount)}</strong>
                   </Td>
-                  <Td right><strong className="text-[#1F2D2E]">{brl(w.amount)}</strong></Td>
-                  <Td right><span className="text-red-500 text-xs">{brl(w.feeAmount)}</span></Td>
-                  <Td right><strong className="text-emerald-600">{brl(w.netAmount)}</strong></Td>
+                  <Td right>
+                    <strong className="text-emerald-600">{brl(w.netAmount)}</strong>
+                  </Td>
                   <Td>
                     {w.pixKeyValue ? (
-                      <div className="flex items-center gap-1.5 max-w-[200px]">
-                        <span className="text-[10px] font-bold uppercase bg-[#E6F0F0] text-[#647B7B] px-1.5 py-0.5 rounded shrink-0">
-                          {PIX_TYPE_LABELS_ADMIN[w.pixKeyType ?? ""] ?? w.pixKeyType}
+                      <div className="flex max-w-[220px] items-center gap-1.5">
+                        <span className="shrink-0 rounded bg-[#E6F0F0] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#647B7B]">
+                          {PIX_TYPE_LABELS_ADMIN[w.pixKeyType ?? ""] ?? w.pixKeyType ?? "PIX"}
                         </span>
-                        <span className="font-mono text-xs text-[#647B7B] truncate">{w.pixKeyValue}</span>
-                        <button onClick={() => copyPix(w.pixKeyValue!, w.id)}
-                          className="text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer shrink-0"
-                          title="Copiar">
+                        <span className="truncate font-mono text-xs text-[#647B7B]">{w.pixKeyValue}</span>
+                        <button
+                          onClick={() => copyPix(w.pixKeyValue!, w.id)}
+                          className="shrink-0 cursor-pointer text-zinc-400 transition-colors hover:text-zinc-600"
+                          title="Copiar chave PIX"
+                        >
                           {copied === w.id
-                            ? <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                            : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                          }
+                            ? <svg className="h-3.5 w-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                            : <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
                         </button>
                       </div>
-                    ) : <span className="text-zinc-400 text-xs">Não configurado</span>}
+                    ) : (
+                      <span className="text-xs text-zinc-400">Não configurado</span>
+                    )}
                   </Td>
                   <Td>{w.pixHolderName ?? "—"}</Td>
                   <Td>{fmt(w.createdAt)}</Td>
+                  <Td>{renderStatusBadge(w.status)}</Td>
                   <Td right>
                     <div className="flex items-center justify-end gap-1.5">
-                      {w.status === "pending" && w.userRole === "agency" && (
-                        <button
-                          onClick={() => handleSendPix(w.id)}
-                          disabled={sendingPix === w.id || !!approving || !!canceling}
-                          className="rounded-lg bg-gradient-to-r from-cyan-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-cyan-500 hover:to-teal-500 hover:shadow-lg hover:shadow-cyan-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {sendingPix === w.id ? "Enviando…" : "Enviar PIX"}
-                        </button>
-                      )}
-                      {w.status === "pending" && w.userRole === "talent" && w.provider !== "stripe" && (
-                        <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 ring-1 ring-blue-100">
-                          Manual
-                        </span>
-                      )}
-                      {w.status === "processing" && w.provider !== "stripe" && (
-                        <span className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-400 ring-1 ring-cyan-500/20">
-                          Em andamento
-                        </span>
-                      )}
-                      {w.provider === "stripe" && (
-                        <span className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 ring-1 ring-indigo-100">
-                          Stripe
-                        </span>
-                      )}
-                      {(w.status === "pending" || w.status === "processing") && w.provider !== "stripe" && (
-                        <button
-                          onClick={() => { setApproving(w.id); setApproveNote(""); setError(null); }}
-                          disabled={!!canceling || sendingPix === w.id}
-                          className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          Marcar pago
-                        </button>
-                      )}
-                      {w.provider !== "stripe" && (
-                        <button
-                          onClick={() => { setCanceling(w.id); setCancelReason(""); setError(null); }}
-                          disabled={!!approving || sendingPix === w.id}
-                          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-500 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          Cancelar
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setApproving(w.id);
+                          setApproveNote("");
+                          setError(null);
+                        }}
+                        disabled={approveLoading || cancelLoading || !!canceling}
+                        className="rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:from-emerald-500 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Marcar pago
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCanceling(w.id);
+                          setCancelReason("");
+                          setError(null);
+                        }}
+                        disabled={approveLoading || cancelLoading || !!approving}
+                        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-500 transition-all hover:border-red-300 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Cancelar
+                      </button>
                     </div>
                   </Td>
                 </tr>
@@ -1132,8 +1082,125 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
             </tbody>
           </TableCard>
         )}
+      </div>
+    );
+  }
 
-        <ShowMoreButton total={pending.length} expanded={expandedPending} onToggle={() => setExpandedPending((c) => !c)} />
+  const MODAL_BASE = "fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm";
+  const MODAL_CARD = "w-full max-w-md space-y-4 rounded-2xl border border-zinc-800 bg-[#0B0F14] p-6 shadow-2xl";
+
+  return (
+    <>
+      {canceling && (
+        <div className={MODAL_BASE}>
+          <div className={MODAL_CARD}>
+            <h3 className="text-[15px] font-bold text-white">Cancelar saque</h3>
+            <p className="text-[13px] text-zinc-400">
+              O saldo será restaurado na carteira do usuário. Informe o motivo para auditoria.
+            </p>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Motivo do cancelamento..."
+              rows={3}
+              className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-[13px] text-white placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+            />
+            {error && <p className="text-[12px] text-red-400">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCancel}
+                disabled={cancelLoading || !cancelReason.trim()}
+                className="flex-1 rounded-xl bg-red-700 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {cancelLoading ? "Cancelando..." : "Confirmar cancelamento"}
+              </button>
+              <button
+                onClick={() => {
+                  setCanceling(null);
+                  setCancelReason("");
+                  setError(null);
+                }}
+                className="rounded-xl border border-zinc-700 px-4 py-2.5 text-[13px] font-semibold text-zinc-400 transition-colors hover:border-zinc-600"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {approving && (
+        <div className={MODAL_BASE}>
+          <div className={MODAL_CARD}>
+            <h3 className="text-[15px] font-bold text-white">Marcar saque como pago</h3>
+            <p className="text-[13px] text-zinc-400">
+              Confirme que o pagamento manual foi concluído. O saldo já foi debitado na solicitação.
+            </p>
+            <textarea
+              value={approveNote}
+              onChange={(e) => setApproveNote(e.target.value)}
+              placeholder="Observação opcional..."
+              rows={3}
+              className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-[13px] text-white placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+            />
+            {error && <p className="text-[12px] text-red-400">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleApprove}
+                disabled={approveLoading}
+                className="flex-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-[13px] font-bold text-white transition-all hover:from-emerald-500 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {approveLoading ? "Processando..." : "Confirmar pagamento"}
+              </button>
+              <button
+                onClick={() => {
+                  setApproving(null);
+                  setApproveNote("");
+                  setError(null);
+                }}
+                className="rounded-xl border border-zinc-700 px-4 py-2.5 text-[13px] font-semibold text-zinc-400 transition-colors hover:border-zinc-600"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Section title="Saques" subtitle={`${pending.length} pendente(s) aguardando ação manual`}>
+        <div className="rounded-2xl border border-amber-900/40 bg-amber-950/30 px-4 py-3 text-[13px] text-amber-400">
+          A carteira é debitada no pedido. O admin apenas confirma o pagamento manual via PIX ou cancela para devolver o saldo.
+        </div>
+
+        {error && !canceling && !approving && (
+          <div className="rounded-2xl border border-red-900/50 bg-red-950/40 px-4 py-3 text-[13px] text-red-400">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-6">
+          <PendingTable
+            title="Pendentes de agências"
+            subtitle={`${agencyPending.length} solicitação(ões) aguardando pagamento manual`}
+            rows={visibleAgencyPending}
+          />
+          <ShowMoreButton
+            total={agencyPending.length}
+            expanded={expandedAgencyPending}
+            onToggle={() => setExpandedAgencyPending((current) => !current)}
+          />
+
+          <PendingTable
+            title="Pendentes de talentos"
+            subtitle={`${talentPending.length} solicitação(ões) aguardando pagamento manual`}
+            rows={visibleTalentPending}
+          />
+          <ShowMoreButton
+            total={talentPending.length}
+            expanded={expandedTalentPending}
+            onToggle={() => setExpandedTalentPending((current) => !current)}
+          />
+        </div>
       </Section>
 
       {history.length > 0 && (
@@ -1144,10 +1211,12 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
               <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
                 <tr>
                   <Th>Usuário</Th>
+                  <Th>Role</Th>
                   <Th>Provedor</Th>
-                  <Th right>Total</Th>
-                  <Th right>Taxa</Th>
+                  <Th right>Valor</Th>
                   <Th right>Líquido</Th>
+                  <Th>Chave PIX</Th>
+                  <Th>Titular</Th>
                   <Th>Solicitado</Th>
                   <Th>Processado</Th>
                   <Th>Status</Th>
@@ -1159,7 +1228,9 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                   <tr key={w.id}>
                     <Td>
                       <span className="font-medium text-[#1F2D2E]">{w.agencyName}</span>
-                      <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500">
+                    </Td>
+                    <Td>
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500">
                         {w.userRole === "talent" ? "Talento" : "Agência"}
                       </span>
                     </Td>
@@ -1170,32 +1241,32 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
                           {w.providerStatus}
                         </p>
                       )}
-                      {w.providerTransferId && (
-                        <p className="mt-1 max-w-[140px] truncate font-mono text-[10px] text-zinc-500" title={w.providerTransferId}>
-                          {w.providerTransferId}
-                        </p>
-                      )}
                     </Td>
                     <Td right>{brl(w.amount)}</Td>
-                    <Td right>{w.feeAmount ? brl(w.feeAmount) : "—"}</Td>
-                    <Td right>{w.netAmount ? brl(w.netAmount) : "—"}</Td>
-                    <Td>{fmt(w.createdAt)}</Td>
-                    <Td>{fmt(w.processedAt)}</Td>
+                    <Td right>{brl(w.netAmount)}</Td>
                     <Td>
-                      {w.status === "paid"       && <Badge value="Pago"         tone="bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30" />}
-                      {w.status === "processing" && <Badge value="Em andamento" tone="bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30" />}
-                      {w.status === "failed"     && <Badge value="Falhou"       tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/30" />}
-                      {w.status === "rejected"   && <Badge value="Cancelado"    tone="bg-red-500/15 text-red-400 ring-1 ring-red-500/20" />}
-                      {!["paid", "processing", "failed", "rejected"].includes(w.status) && (
-                        <Badge value={w.status} tone="bg-zinc-500/15 text-zinc-400 ring-1 ring-zinc-500/30" />
+                      {w.pixKeyValue ? (
+                        <span className="font-mono text-xs text-[#647B7B]">{w.pixKeyValue}</span>
+                      ) : (
+                        <span className="text-xs text-zinc-400">Não configurado</span>
                       )}
                     </Td>
-                    <Td><span className="text-zinc-500 text-xs">{w.adminNote ?? "—"}</span></Td>
+                    <Td>{w.pixHolderName ?? "—"}</Td>
+                    <Td>{fmt(w.createdAt)}</Td>
+                    <Td>{fmt(w.processedAt)}</Td>
+                    <Td>{renderStatusBadge(w.status)}</Td>
+                    <Td>
+                      <span className="text-xs text-zinc-500">{w.adminNote ?? "—"}</span>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
             </TableCard>
-            <ShowMoreButton total={history.length} expanded={expandedHistory} onToggle={() => setExpandedHistory((c) => !c)} />
+            <ShowMoreButton
+              total={history.length}
+              expanded={expandedHistory}
+              onToggle={() => setExpandedHistory((current) => !current)}
+            />
           </Section>
         </>
       )}
@@ -1203,7 +1274,7 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type PlatformBalanceState =
   | { status: "loading" }
@@ -1251,7 +1322,7 @@ export default function AdminFinances({
   const TABS: { id: Tab; label: string; badge?: number }[] = [
     { id: "saques",    label: "Saques",      badge: pendingCount > 0 ? pendingCount : undefined },
     { id: "carteiras", label: "Carteiras",   badge: totalWallets > 0 ? totalWallets : undefined },
-    { id: "visao-geral", label: "Visão Geral" },
+    { id: "visao-geral", label: "VisÃ£o Geral" },
     { id: "contratos", label: "Contratos" },
     { id: "reservas",  label: "Reservas" },
     { id: "planos",    label: "Planos" },
@@ -1260,7 +1331,7 @@ export default function AdminFinances({
   return (
     <div className="bg-[#041C1E] -mx-6 -my-10 lg:-mx-10 min-h-full">
 
-      {/* ── Page header ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Page header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="px-6 pt-8 pb-6 lg:px-10">
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-end justify-between gap-4">
@@ -1268,21 +1339,21 @@ export default function AdminFinances({
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-600">Admin da plataforma</p>
               <h1 className="mt-1 text-3xl font-bold tracking-tight text-white">Financeiro</h1>
               <p className="mt-1 text-sm text-zinc-500">
-                {summary.confirmedBookings} reservas confirmadas · {contracts.length} contratos · {subscriptions.length} agências
+                {summary.confirmedBookings} reservas confirmadas Â· {contracts.length} contratos Â· {subscriptions.length} agÃªncias
               </p>
             </div>
             <div className="hidden md:flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
               <span>Free <strong className="text-zinc-500">{summary.planBreakdown.free.commissionLabel}</strong></span>
               <span>Pro <strong className="text-zinc-500">{summary.planBreakdown.pro.commissionLabel}</strong></span>
               <span>Premium <strong className="text-zinc-500">{summary.planBreakdown.premium.commissionLabel}</strong></span>
-              <span>Indicação <strong className="text-zinc-500">{REFERRAL_RATE * 100}%</strong></span>
+              <span>IndicaÃ§Ã£o <strong className="text-zinc-500">{REFERRAL_RATE * 100}%</strong></span>
             </div>
           </div>
 
-          {/* KPI bar — always visible */}
+          {/* KPI bar â€” always visible */}
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <KpiCard
-              label="Obrigações totais"
+              label="ObrigaÃ§Ãµes totais"
               value={brl(summary.minimumRequired)}
               sub="Escrow + talentos + carteiras"
               accent="amber"
@@ -1290,17 +1361,17 @@ export default function AdminFinances({
             <KpiCard
               label="Saques pendentes"
               value={String(pendingCount)}
-              sub={pendingCount > 0 ? "requerem ação" : "tudo em dia"}
+              sub={pendingCount > 0 ? "requerem aÃ§Ã£o" : "tudo em dia"}
               accent={pendingCount > 0 ? "red" : "neutral"}
             />
             <KpiCard
               label="Receita de planos"
               value={brl(summary.subscriptionRevenue)}
-              sub={`${subscriptions.filter((s) => s.plan !== "free").length} agências pagantes`}
+              sub={`${subscriptions.filter((s) => s.plan !== "free").length} agÃªncias pagantes`}
               accent="blue"
             />
             <KpiCard
-              label="Comissão de reservas"
+              label="ComissÃ£o de reservas"
               value={brl(summary.platformCommission)}
               sub={`${summary.confirmedBookings} reservas confirmadas`}
               accent="green"
@@ -1309,7 +1380,7 @@ export default function AdminFinances({
         </div>
       </div>
 
-      {/* ── Tab bar — sticky ─────────────────────────────────────────────── */}
+      {/* â”€â”€ Tab bar â€” sticky â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="sticky top-0 z-20 border-b border-zinc-800/60 bg-[#041C1E]/95 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
           <div className="flex gap-0.5 overflow-x-auto py-1.5 scrollbar-none">
@@ -1338,7 +1409,7 @@ export default function AdminFinances({
         </div>
       </div>
 
-      {/* ── Tab content ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Tab content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
 
         {/* Saques */}
@@ -1355,19 +1426,19 @@ export default function AdminFinances({
           />
         </div>
 
-        {/* Visão Geral */}
+        {/* VisÃ£o Geral */}
         <div className={activeTab === "visao-geral" ? "" : "hidden"}>
-          <Section title="Obrigações financeiras" subtitle="Mínimo necessário para honrar todos os compromissos da plataforma.">
+          <Section title="ObrigaÃ§Ãµes financeiras" subtitle="MÃ­nimo necessÃ¡rio para honrar todos os compromissos da plataforma.">
             <div className="grid gap-4 md:grid-cols-3">
-              <StatCard label="Escrow de contratos"    value={brl(summary.contractsEscrowValue)}   sub="Bruto em custódia" />
-              <StatCard label="Carteiras das agências" value={brl(summary.agencyWalletTotal)}       sub="Saldo pertencente às agências" />
-              <StatCard label="Passivo com talentos"   value={brl(summary.contractsAwaitingValue)} sub="Líquido pago, não sacado" />
+              <StatCard label="Escrow de contratos"    value={brl(summary.contractsEscrowValue)}   sub="Bruto em custÃ³dia" />
+              <StatCard label="Carteiras das agÃªncias" value={brl(summary.agencyWalletTotal)}       sub="Saldo pertencente Ã s agÃªncias" />
+              <StatCard label="Passivo com talentos"   value={brl(summary.contractsAwaitingValue)} sub="LÃ­quido pago, nÃ£o sacado" />
             </div>
 
             <div className="rounded-2xl border border-[#DDE6E6] bg-white p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Mínimo necessário</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">MÃ­nimo necessÃ¡rio</p>
                   <p className="mt-2 text-4xl font-bold tracking-tight text-[#1F2D2E]">{brl(summary.minimumRequired)}</p>
                   <p className="mt-1.5 text-sm text-zinc-500">
                     {brl(summary.contractsEscrowValue)} escrow + {brl(summary.contractsAwaitingValue)} talentos + {brl(summary.agencyWalletTotal)} carteiras
@@ -1375,15 +1446,15 @@ export default function AdminFinances({
                 </div>
                 {platformBalance.status === "ok" && (
                   <div className={`rounded-2xl border px-4 py-3 text-sm ${safe ? "border-emerald-900/50 bg-emerald-950/40 text-emerald-400" : "border-red-900/50 bg-red-950/40 text-red-400"}`}>
-                    <p className="font-semibold">{safe ? "✓ Plataforma solvente" : "⚠ Abaixo do mínimo"}</p>
+                    <p className="font-semibold">{safe ? "âœ“ Plataforma solvente" : "âš  Abaixo do mÃ­nimo"}</p>
                     <p className="mt-1 text-xs text-zinc-400">
-                      Saldo MP: {brl(platformBalance.balance)} · {safe ? "Margem" : "Déficit"}: {brl(Math.abs(platformBalance.balance - summary.minimumRequired))}
+                      Saldo MP: {brl(platformBalance.balance)} Â· {safe ? "Margem" : "DÃ©ficit"}: {brl(Math.abs(platformBalance.balance - summary.minimumRequired))}
                     </p>
                   </div>
                 )}
                 {platformBalance.status === "unavailable" && (
                   <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-500">
-                    Saldo MP: <strong className="text-zinc-400">Indisponível</strong>
+                    Saldo MP: <strong className="text-zinc-400">IndisponÃ­vel</strong>
                     <span className="ml-1 text-xs">(legado)</span>
                   </div>
                 )}
@@ -1421,3 +1492,5 @@ export default function AdminFinances({
     </div>
   );
 }
+
+

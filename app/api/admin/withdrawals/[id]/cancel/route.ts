@@ -3,10 +3,6 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
 
-// POST /api/admin/withdrawals/[id]/cancel
-// Atomically marks withdrawal as rejected AND restores full amount to agency wallet.
-// Does NOT move money externally.
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -15,41 +11,48 @@ export async function POST(
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
-  if (!id) return NextResponse.json({ error: "id obrigatório." }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "id obrigatorio." }, { status: 400 });
 
   const body = await req.json().catch(() => ({})) as { reason?: string };
   const reason = body.reason?.trim() ?? "";
   if (!reason) {
-    return NextResponse.json({ error: "Motivo do cancelamento é obrigatório." }, { status: 400 });
+    return NextResponse.json({ error: "Motivo do cancelamento e obrigatorio." }, { status: 400 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const { data: result, error: rpcError } = await supabase.rpc("cancel_agency_withdrawal", {
-    p_tx_id:    id,
-    p_admin_id: auth.userId,
-    p_note:     reason,
+  const { data: result, error: rpcError } = await supabase.rpc("cancel_wallet_withdrawal", {
+    p_transaction_id: id,
+    p_reason: reason,
   });
 
   if (rpcError) {
-    console.error("[cancel-withdrawal] rpc error:", rpcError.message);
+    console.error("[withdrawal] cancelled rpc error", {
+      id,
+      adminId: auth.userId,
+      message: rpcError.message,
+    });
     return NextResponse.json({ error: "Erro ao cancelar saque." }, { status: 500 });
   }
 
   if (!result?.ok) {
     if (result?.error === "not_found") {
-      return NextResponse.json({ error: "Saque não encontrado." }, { status: 404 });
+      return NextResponse.json({ error: "Saque nao encontrado." }, { status: 404 });
     }
     if (result?.error === "not_pending") {
       return NextResponse.json(
-        { error: `Saque já está com status "${result.current_status}". Apenas saques pendentes podem ser cancelados.` },
+        { error: `Saque ja esta com status "${result.current_status}". Apenas saques pendentes podem ser cancelados.` },
         { status: 409 },
       );
     }
     return NextResponse.json({ error: "Erro ao cancelar saque." }, { status: 500 });
   }
 
-  console.log("[cancel-withdrawal] cancelled:", id, "by admin:", auth.userId, "restored:", result.amount_restored);
+  console.log("[withdrawal] cancelled", {
+    id,
+    adminId: auth.userId,
+    amountRestored: result.amount_restored ?? null,
+  });
 
   const { data: tx } = await supabase
     .from("wallet_transactions")
@@ -66,17 +69,14 @@ export async function POST(
     const brlAmt = new Intl.NumberFormat("pt-BR", {
       style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
     }).format(Math.abs(Number(tx.amount ?? 0)));
-    const message = `Seu saque de ${brlAmt} foi cancelado. Motivo: ${reason}`;
     await notify(
       tx.user_id,
       "payment",
-      message,
+      `Seu saque de ${brlAmt} foi cancelado. Motivo: ${reason}`,
       profile?.role === "talent" ? "/talent/finances" : "/agency/finances",
-      `agency-withdrawal-cancelled:${id}`,
-    ).catch((e) => console.error("[cancel-withdrawal] notify user failed:", e));
-  } else {
-    console.error("[cancel-withdrawal] could not fetch tx to notify agency:", id);
+      `wallet-withdrawal-cancelled:${id}`,
+    ).catch((e) => console.error("[withdrawal] cancelled notify failed:", e));
   }
 
-  return NextResponse.json({ ok: true, id, status: "rejected", amount_restored: result.amount_restored });
+  return NextResponse.json({ ok: true, id, status: "cancelled", amount_restored: result.amount_restored ?? null });
 }

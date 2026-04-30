@@ -158,7 +158,7 @@ export default async function AdminFinancesPage() {
   const talentWalletNameMap = new Map<string, string>();
   const withdrawalRoleMap = new Map<string, string>();
   const withdrawalTalentNameMap = new Map<string, string>();
-  const withdrawalTalentPixMap = new Map<string, { pix_key_type: string | null; pix_key_value: string | null }>();
+  const withdrawalTalentPixMap = new Map<string, { pix_key_type: string | null; pix_key_value: string | null; pix_holder_name: string | null }>();
   const bookingJobMap = new Map<string, { title: string; agencyId: string | null }>();
   const contractTalentMap = new Map<string, string>();
   const contractAgencyMap = new Map<string, string>();
@@ -248,7 +248,7 @@ export default async function AdminFinancesPage() {
     withdrawalUserIds.length
       ? supabase
           .from("talent_profiles")
-          .select("id, full_name, pix_key_type, pix_key_value")
+          .select("id, full_name, pix_key_type, pix_key_value, pix_holder_name")
           .in("id", withdrawalUserIds)
           .then(({ data }) => {
             for (const profile of data ?? []) {
@@ -256,6 +256,7 @@ export default async function AdminFinancesPage() {
               withdrawalTalentPixMap.set(profile.id, {
                 pix_key_type: profile.pix_key_type ?? null,
                 pix_key_value: profile.pix_key_value ?? null,
+                pix_holder_name: (profile as Record<string, unknown>).pix_holder_name as string | null ?? null,
               });
             }
           })
@@ -432,7 +433,7 @@ export default async function AdminFinancesPage() {
       providerStatus:     typeof raw.provider_status === "string" ? raw.provider_status : null,
       pixKeyType:   pix?.pix_key_type   ?? null,
       pixKeyValue:  pix?.pix_key_value  ?? null,
-      pixHolderName: agencyPix?.pix_holder_name ?? null,
+      pixHolderName: isTalent ? (pix?.pix_holder_name ?? null) : (agencyPix?.pix_holder_name ?? null),
       adminNote:    typeof raw.admin_note === "string" ? raw.admin_note : null,
     };
   });

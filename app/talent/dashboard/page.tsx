@@ -18,6 +18,7 @@ export default async function TalentDashboardPage() {
     { data: upcomingData },
     { data: pendingContractsData },
     { data: paidContractsData },
+    { data: profileData },
   ] = await Promise.all([
     // Jobs applied
     supabase
@@ -60,6 +61,12 @@ export default async function TalentDashboardPage() {
       .eq("talent_id", talentId)
       .eq("payment_status", "paid")
       .is("deleted_at", null),
+
+    supabase
+      .from("profiles")
+      .select("wallet_balance")
+      .eq("id", talentId)
+      .maybeSingle(),
   ]);
 
   // Resolve agency names for upcoming jobs
@@ -100,9 +107,7 @@ export default async function TalentDashboardPage() {
 
   const totalEarned     = (paidContractsData ?? [])
     .reduce((sum, c) => sum + Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE), 0);
-  const pendingWithdraw = (paidContractsData ?? [])
-    .filter((c) => !c.withdrawn_at)
-    .reduce((sum, c) => sum + Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE), 0);
+  const pendingWithdraw = Math.max(0, Number(profileData?.wallet_balance ?? 0));
 
   // Today's availability
   const today = new Date().toISOString().slice(0, 10);
