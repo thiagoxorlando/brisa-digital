@@ -6,6 +6,15 @@ import { NextRequest, NextResponse } from "next/server";
 // run on every request and can corrupt the forwarded session cookies when
 // @supabase/ssr decides to clear an unverifiable token before layouts run.
 export function proxy(req: NextRequest) {
+  console.log("[middleware]", {
+    path: req.nextUrl.pathname,
+    host: req.headers.get("host"),
+  });
+
+  if (req.nextUrl.pathname === "/") {
+    return NextResponse.next();
+  }
+
   return NextResponse.next({ request: req });
 }
 
