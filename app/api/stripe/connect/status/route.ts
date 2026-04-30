@@ -12,6 +12,8 @@ export type StripeConnectStatusResponse = {
   payouts_enabled:   boolean;
   details_submitted: boolean;
   transfers_active:  boolean;
+  last_withdrawal_status: string | null;
+  last_withdrawal_provider_status: string | null;
 };
 
 // GET /api/stripe/connect/status
@@ -26,6 +28,15 @@ export async function GET() {
   const stored = await getStripeConnectStatusForUser(supabase, user.id);
   if (!stored) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const accountId = stored.stripe_account_id;
+  const { data: lastStripeWithdrawal } = await supabase
+    .from("wallet_transactions")
+    .select("status, provider_status")
+    .eq("user_id", user.id)
+    .eq("type", "withdrawal")
+    .eq("provider", "stripe")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (!accountId) {
     const payload: StripeConnectStatusResponse = {
@@ -34,6 +45,8 @@ export async function GET() {
       payouts_enabled:   false,
       details_submitted: false,
       transfers_active:  false,
+      last_withdrawal_status: null,
+      last_withdrawal_provider_status: null,
     };
     return NextResponse.json(payload);
   }
@@ -48,6 +61,8 @@ export async function GET() {
       payouts_enabled:   account.payouts_enabled   ?? false,
       details_submitted: account.details_submitted ?? false,
       transfers_active:  account.capabilities?.transfers === "active",
+      last_withdrawal_status: lastStripeWithdrawal?.status ?? null,
+      last_withdrawal_provider_status: lastStripeWithdrawal?.provider_status ?? null,
     };
 
     console.log("[stripe status]", accountId, { role: stored.role, ...payload });
@@ -61,6 +76,8 @@ export async function GET() {
       payouts_enabled:   stored.payouts_enabled,
       details_submitted: stored.details_submitted,
       transfers_active:  stored.transfers_active,
+      last_withdrawal_status: lastStripeWithdrawal?.status ?? null,
+      last_withdrawal_provider_status: lastStripeWithdrawal?.provider_status ?? null,
     };
     return NextResponse.json(fallback);
   }

@@ -630,6 +630,7 @@ export default function TalentFinances() {
         provider?: string;
         rail?: string;
         status?: string;
+        message?: string;
       };
 
       if (!withdrawRes.ok) {
@@ -641,9 +642,10 @@ export default function TalentFinances() {
       setWithdrawState("success");
       setWithdrawAmount("");
       setWithdrawMsg(
-        withdrawData.provider === "stripe"
-          ? `Saque enviado pelo Stripe: ${brl(withdrawAmountNum)}. Acompanhe o status abaixo.`
-          : `Saque manual solicitado com sucesso: ${brl(withdrawAmountNum)}.`,
+        withdrawData.message
+          ?? (withdrawData.provider === "stripe"
+            ? `Saque enviado pelo Stripe: ${brl(withdrawAmountNum)}. Acompanhe o status abaixo.`
+            : `Saque manual solicitado com sucesso: ${brl(withdrawAmountNum)}.`),
       );
       await load(false);
     } catch {

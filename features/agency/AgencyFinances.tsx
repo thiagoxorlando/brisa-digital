@@ -151,7 +151,11 @@ export default function AgencyFinances({
   const [withdrawConfirming, setWithdrawConfirming] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawError, setWithdrawError] = useState("");
+  const [withdrawInfo, setWithdrawInfo] = useState("");
   const [stripeReady, setStripeReady] = useState(stripeConnected);
+  const [stripeState, setStripeState] = useState<"unconnected" | "connected" | "review" | "blocked" | "ready">(
+    stripeConnected ? "ready" : "unconnected",
+  );
 
   const [savedPix, setSavedPix] = useState(agencyPix ?? null);
   const [pixEditing, setPixEditing] = useState(false);
@@ -235,13 +239,14 @@ export default function AgencyFinances({
     setWithdrawConfirming(false);
     setWithdrawing(true);
     setWithdrawError("");
+    setWithdrawInfo("");
 
     const res = await fetch("/api/agencies/withdraw", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount }),
     });
-    const data = await res.json().catch(() => ({})) as { error?: string; provider?: string };
+    const data = await res.json().catch(() => ({})) as { error?: string; provider?: string; message?: string };
 
     setWithdrawing(false);
     if (!res.ok) {
@@ -251,7 +256,7 @@ export default function AgencyFinances({
 
     setWithdrawAmount("");
     setWithdrawDone(true);
-    setWithdrawError(data.provider === "stripe" ? "Saque enviado pelo Stripe. Acompanhe o status abaixo." : "");
+    setWithdrawInfo(data.message ?? (data.provider === "stripe" ? "Saque enviado pelo Stripe. Acompanhe o status abaixo." : ""));
     router.refresh();
     setTimeout(() => setWithdrawDone(false), 4000);
   }
@@ -439,6 +444,7 @@ export default function AgencyFinances({
                 {withdrawAmountNum > 0 && withdrawAmountNum < withdrawalMinAmount && (
                   <p className="text-[11px] text-white/80">Valor minimo para agencias: {brl(withdrawalMinAmount)}.</p>
                 )}
+                {withdrawInfo && <p className="text-[11px] text-white/80">{withdrawInfo}</p>}
                 {withdrawError && <p className="text-[11px] text-rose-100">{withdrawError}</p>}
               </div>
             )}
@@ -495,7 +501,7 @@ export default function AgencyFinances({
         </div>
       </div>
 
-      <StripeConnectPayoutPanel onStatusChange={({ ready }) => setStripeReady(ready)} />
+      <StripeConnectPayoutPanel onStatusChange={({ ready, state }) => { setStripeReady(ready); setStripeState(state); }} />
 
       <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
         {/* Card header */}
@@ -518,8 +524,20 @@ export default function AgencyFinances({
                 <p className="text-[12px] text-zinc-400">Saques automaticos e diretos</p>
               </div>
             </div>
-            {stripeConnected ? (
+            {stripeState === "ready" ? (
               <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                Pronto para saque
+              </span>
+            ) : stripeState === "blocked" ? (
+              <span className="text-[11px] font-semibold bg-rose-50 text-rose-700 ring-1 ring-rose-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                Saques bloqueados
+              </span>
+            ) : stripeState === "review" ? (
+              <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                Em analise
+              </span>
+            ) : stripeState === "connected" ? (
+              <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
                 Conectado
               </span>
             ) : (
@@ -529,8 +547,12 @@ export default function AgencyFinances({
             )}
           </div>
           <p className="text-[12px] text-zinc-400 mt-3">
-            {stripeConnected
+            {stripeState === "ready"
               ? "Saques sao processados automaticamente via Stripe Connect. Prazo de 2 a 5 dias uteis."
+              : stripeState === "blocked"
+                ? "Stripe conectado, mas os saques automaticos estao indisponiveis. Os novos pedidos caem no fluxo manual via PIX."
+                : stripeState === "connected" || stripeState === "review"
+                  ? "A conta Stripe ja foi conectada, mas ainda nao esta pronta para payout automatico."
               : "Sem conta Stripe Connect pronta, os saques caem no fluxo manual via PIX. Use o painel acima para concluir a conexao."}
           </p>
         </div>

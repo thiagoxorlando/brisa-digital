@@ -4,7 +4,21 @@ import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
 import { WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
 import { createAutomaticStripeWithdrawal, StripeWithdrawalError } from "@/lib/stripeWithdrawal";
-import { getStripeConnectStatusForUser, hasManualPixFallback, isStripeConnectReady } from "@/lib/stripeConnect";
+import { getStripeConnectStatusForUser, getStripePayoutAvailabilityState, hasManualPixFallback, isStripeConnectReady } from "@/lib/stripeConnect";
+
+async function createManualWithdrawal(supabase: ReturnType<typeof createServerClient>, userId: string, amount: number) {
+  const { data: manualTxId, error: rpcError } = await supabase.rpc("request_wallet_withdrawal", {
+    p_user_id: userId,
+    p_amount: amount,
+    p_kind: "agency",
+  });
+
+  if (rpcError || !manualTxId) {
+    throw new Error(rpcError?.message ?? "request_wallet_withdrawal_failed");
+  }
+
+  return manualTxId;
+}
 
 export async function POST(req: NextRequest) {
   const session = await createSessionClient();
@@ -39,7 +53,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Apenas agencias podem solicitar saques." }, { status: 403 });
   }
 
-  const useStripe = isStripeConnectReady(connectStatus);
+  const { data: lastStripeWithdrawal } = await supabase
+    .from("wallet_transactions")
+    .select("provider_status")
+    .eq("user_id", user.id)
+    .eq("type", "withdrawal")
+    .eq("provider", "stripe")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const payoutState = getStripePayoutAvailabilityState({
+    connected: connectStatus.connected,
+    details_submitted: connectStatus.details_submitted,
+    payouts_enabled: connectStatus.payouts_enabled,
+    transfers_active: connectStatus.transfers_active,
+    lastWithdrawalProviderStatus: lastStripeWithdrawal?.provider_status ?? null,
+  });
+  const useStripe = isStripeConnectReady(connectStatus) && payoutState === "ready";
   const hasPix = hasManualPixFallback(connectStatus);
 
   if (!useStripe && !hasPix) {
@@ -69,17 +100,7 @@ export async function POST(req: NextRequest) {
       provider = stripeResult.provider;
       providerStatus = stripeResult.providerStatus;
     } else {
-      const { data: manualTxId, error: rpcError } = await supabase.rpc("request_wallet_withdrawal", {
-        p_user_id: user.id,
-        p_amount: requestedAmount,
-        p_kind: "agency",
-      });
-
-      if (rpcError || !manualTxId) {
-        throw new Error(rpcError?.message ?? "request_wallet_withdrawal_failed");
-      }
-
-      txId = manualTxId;
+      txId = await createManualWithdrawal(supabase, user.id, requestedAmount);
     }
 
     const amount = requestedAmount;
@@ -122,6 +143,45 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     if (error instanceof StripeWithdrawalError) {
+      if (hasPix && error.restorable) {
+        const fallbackTxId = await createManualWithdrawal(supabase, user.id, requestedAmount);
+        const brl = new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(requestedAmount);
+
+        await notifyAdmins(
+          "payment",
+          `Fallback manual apos falha Stripe - ${connectStatus.display_name}: ${brl}`,
+          "/admin/finances",
+          `admin-withdrawal-fallback:${user.id}:${fallbackTxId}`,
+        );
+
+        console.log("[withdrawal] automatic fallback to manual queue", {
+          txId: fallbackTxId,
+          userId: user.id,
+          role: "agency",
+          amount: requestedAmount,
+          originalStripeTxId: error.txId,
+        });
+
+        return NextResponse.json({
+          success: true,
+          tx_id: fallbackTxId,
+          amount: requestedAmount,
+          fee: 0,
+          net_amount: requestedAmount,
+          provider: "manual",
+          provider_status: "pending",
+          status: "pending",
+          rail: "pix_manual",
+          fallback_reason: "stripe_failed",
+          message: "Falha no payout Stripe. O saque foi enviado automaticamente para a fila manual via PIX.",
+        });
+      }
+
       console.error("[withdrawal] automatic stripe withdrawal failed", {
         txId: error.txId,
         userId: user.id,
@@ -160,6 +220,7 @@ export async function POST(req: NextRequest) {
       role: "agency",
       amount: requestedAmount,
       message,
+      payoutState,
     });
     return NextResponse.json({ error: "Erro ao processar saque." }, { status: 500 });
   }

@@ -27,6 +27,13 @@ export type StripeConnectStatus = {
   finances_path: "/agency/finances" | "/talent/finances";
 };
 
+export type StripePayoutAvailabilityState =
+  | "unconnected"
+  | "connected"
+  | "review"
+  | "blocked"
+  | "ready";
+
 export class StripeConnectSchemaError extends Error {
   table: string;
   column: string | null;
@@ -66,6 +73,18 @@ type StoredStripeConnectFields = {
 
 export function isStripeConnectReady(status: Pick<StripeConnectStatus, "connected" | "payouts_enabled" | "details_submitted" | "transfers_active">) {
   return Boolean(status.connected && status.payouts_enabled && status.details_submitted && status.transfers_active);
+}
+
+export function getStripePayoutAvailabilityState(status: Pick<StripeConnectStatus, "connected" | "payouts_enabled" | "details_submitted" | "transfers_active"> & {
+  lastWithdrawalProviderStatus?: string | null;
+}) {
+  const lastProviderStatus = status.lastWithdrawalProviderStatus?.trim().toLowerCase() ?? null;
+
+  if (!status.connected) return "unconnected" satisfies StripePayoutAvailabilityState;
+  if (lastProviderStatus === "failed") return "blocked" satisfies StripePayoutAvailabilityState;
+  if (!status.details_submitted) return "review" satisfies StripePayoutAvailabilityState;
+  if (!status.payouts_enabled || !status.transfers_active) return "connected" satisfies StripePayoutAvailabilityState;
+  return "ready" satisfies StripePayoutAvailabilityState;
 }
 
 export function hasManualPixFallback(status: Pick<StripeConnectStatus, "pix_key_value">) {
