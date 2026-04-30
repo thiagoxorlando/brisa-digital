@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { notify, notifyAdmins } from "@/lib/notify";
+import { PLAN_KEYS, type Plan } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,10 @@ function recordFrom(value: unknown): Record<string, unknown> {
 
 function amountFromCents(cents: number | null | undefined) {
   return cents && cents > 0 ? Math.round(cents) / 100 : 0;
+}
+
+function planFrom(value: unknown): Plan | null {
+  return typeof value === "string" && PLAN_KEYS.includes(value as Plan) ? (value as Plan) : null;
 }
 
 async function hasProcessedEvent(supabase: Supabase, eventId: string) {
@@ -431,13 +436,27 @@ async function activateStripePlan(
 }
 
 async function handlePlanCheckout(supabase: Supabase, session: Stripe.Checkout.Session) {
+  if (session.mode !== "subscription") {
+    throw new Error(`plan_subscription checkout completed with invalid mode: ${session.mode}`);
+  }
+
   const metadata = session.metadata ?? {};
   const userId = metadata.user_id;
   const plan = metadata.plan;
   const subscriptionId = idFrom(session.subscription);
+  const customerId = idFrom(session.customer);
 
-  if (!userId || !plan || !subscriptionId) {
-    throw new Error("plan_subscription metadata missing user_id, plan, or subscription");
+  console.log("[stripe subscription] checkout completed", {
+    sessionId: session.id,
+    userId,
+    plan,
+    customerId,
+    subscriptionId,
+    mode: session.mode,
+  });
+
+  if (!userId || !plan || !subscriptionId || !customerId) {
+    throw new Error("plan_subscription metadata missing user_id, plan, customer, or subscription");
   }
 
   const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
@@ -452,7 +471,7 @@ async function handlePlanCheckout(supabase: Supabase, session: Stripe.Checkout.S
   await activateStripePlan(supabase, {
     userId,
     plan,
-    customerId: idFrom(session.customer),
+    customerId,
     subscriptionId,
     subscriptionStatus: stringFrom(subscriptionRecord.status) ?? "active",
     priceId,
@@ -485,6 +504,15 @@ async function handleInvoicePaid(supabase: Supabase, invoice: Stripe.Invoice) {
   const priceId = idFrom(firstItem.price);
   const currentPeriodEnd = numberFrom(subscriptionRecord.current_period_end);
 
+  console.log("[stripe subscription] invoice paid", {
+    invoiceId: invoice.id,
+    subscriptionId,
+    userId,
+    plan,
+    customerId: idFrom(invoiceRecord.customer),
+    currentPeriodEnd,
+  });
+
   await activateStripePlan(supabase, {
     userId,
     plan,
@@ -515,6 +543,101 @@ async function resolveUserIdFromSubscription(
   return profile?.id ?? null;
 }
 
+async function syncSubscriptionState(
+  supabase: Supabase,
+  params: {
+    userId: string;
+    plan: Plan | null;
+    customerId: string | null;
+    subscriptionId: string;
+    subscriptionStatus: string | null;
+    priceId: string | null;
+    currentPeriodEnd: number | null;
+    cancelAtPeriodEnd: boolean;
+    cancelAt: number | null;
+  },
+) {
+  let planStatus: string;
+  let planExpiresAt: string | null = null;
+
+  if (params.cancelAtPeriodEnd) {
+    planStatus = "cancelling";
+    const expireTs = params.cancelAt ?? params.currentPeriodEnd;
+    planExpiresAt = expireTs ? new Date(expireTs * 1000).toISOString() : null;
+  } else if (params.subscriptionStatus === "past_due") {
+    planStatus = "past_due";
+  } else if (params.subscriptionStatus === "unpaid") {
+    planStatus = "unpaid";
+  } else if (params.subscriptionStatus === "active") {
+    planStatus = "active";
+    planExpiresAt = params.currentPeriodEnd ? new Date(params.currentPeriodEnd * 1000).toISOString() : null;
+  } else if (params.subscriptionStatus === "canceled") {
+    planStatus = "inactive";
+  } else {
+    planStatus = params.subscriptionStatus ?? "inactive";
+  }
+
+  const profileUpdate: Record<string, unknown> = {
+    plan_status: planStatus,
+    plan_expires_at: planExpiresAt,
+    stripe_customer_id: params.customerId,
+    stripe_subscription_id: params.subscriptionId,
+    stripe_subscription_status: params.subscriptionStatus,
+    stripe_price_id: params.priceId,
+  };
+
+  if (params.plan) {
+    profileUpdate.plan = params.subscriptionStatus === "canceled" ? "free" : params.plan;
+  } else if (params.subscriptionStatus === "canceled") {
+    profileUpdate.plan = "free";
+  }
+
+  await supabase.from("profiles").update(profileUpdate).eq("id", params.userId);
+  await supabase.from("agencies").update({ subscription_status: planStatus }).eq("id", params.userId);
+
+  return { planStatus, planExpiresAt };
+}
+
+async function handleSubscriptionCreated(supabase: Supabase, subscription: Stripe.Subscription) {
+  const subscriptionRecord = subscription as unknown as Record<string, unknown>;
+  const metadata = recordFrom(subscriptionRecord.metadata);
+  const userId = stringFrom(metadata.user_id);
+  const plan = planFrom(metadata.plan);
+  const items = recordFrom(subscriptionRecord.items);
+  const itemData = Array.isArray(items.data) ? items.data : [];
+  const firstItem = recordFrom(itemData[0]);
+  const priceId = idFrom(firstItem.price);
+  const currentPeriodEnd = numberFrom(subscriptionRecord.current_period_end);
+  const cancelAtPeriodEnd = Boolean(subscriptionRecord.cancel_at_period_end);
+  const cancelAt = numberFrom(subscriptionRecord.cancel_at);
+  const status = stringFrom(subscriptionRecord.status);
+
+  if (!userId) {
+    console.log("[stripe subscription] created: missing metadata.user_id", { subscriptionId: subscription.id });
+    return;
+  }
+
+  await syncSubscriptionState(supabase, {
+    userId,
+    plan,
+    customerId: idFrom(subscription.customer),
+    subscriptionId: subscription.id,
+    subscriptionStatus: status,
+    priceId,
+    currentPeriodEnd,
+    cancelAtPeriodEnd,
+    cancelAt,
+  });
+
+  console.log("[stripe subscription] created", {
+    userId,
+    subscriptionId: subscription.id,
+    plan,
+    status,
+    currentPeriodEnd,
+  });
+}
+
 async function handleSubscriptionUpdated(supabase: Supabase, subscription: Stripe.Subscription) {
   const subscriptionRecord = subscription as unknown as Record<string, unknown>;
   const status = stringFrom(subscriptionRecord.status);
@@ -522,6 +645,11 @@ async function handleSubscriptionUpdated(supabase: Supabase, subscription: Strip
   const cancelAt = numberFrom(subscriptionRecord.cancel_at);
   const currentPeriodEnd = numberFrom(subscriptionRecord.current_period_end);
   const metadata = recordFrom(subscriptionRecord.metadata);
+  const plan = planFrom(metadata.plan);
+  const items = recordFrom(subscriptionRecord.items);
+  const itemData = Array.isArray(items.data) ? items.data : [];
+  const firstItem = recordFrom(itemData[0]);
+  const priceId = idFrom(firstItem.price);
 
   const userId = await resolveUserIdFromSubscription(supabase, subscription.id, metadata);
   if (!userId) {
@@ -529,36 +657,22 @@ async function handleSubscriptionUpdated(supabase: Supabase, subscription: Strip
     return;
   }
 
-  let planStatus: string;
-  let planExpiresAt: string | null = null;
-
-  if (cancelAtPeriodEnd) {
-    planStatus = "cancelling";
-    const expireTs = cancelAt ?? currentPeriodEnd;
-    planExpiresAt = expireTs ? new Date(expireTs * 1000).toISOString() : null;
-  } else if (status === "past_due") {
-    planStatus = "past_due";
-  } else if (status === "unpaid") {
-    planStatus = "unpaid";
-  } else if (status === "active") {
-    planStatus = "active";
-    planExpiresAt = currentPeriodEnd ? new Date(currentPeriodEnd * 1000).toISOString() : null;
-  } else {
-    planStatus = status ?? "unknown";
-  }
-
-  const profileUpdate: Record<string, unknown> = {
-    plan_status: planStatus,
-    stripe_subscription_status: status,
-  };
-  if (planExpiresAt !== undefined) profileUpdate.plan_expires_at = planExpiresAt;
-
-  await supabase.from("profiles").update(profileUpdate).eq("id", userId);
-  await supabase.from("agencies").update({ subscription_status: planStatus }).eq("id", userId);
+  const { planStatus, planExpiresAt } = await syncSubscriptionState(supabase, {
+    userId,
+    plan,
+    customerId: idFrom(subscription.customer),
+    subscriptionId: subscription.id,
+    subscriptionStatus: status,
+    priceId,
+    currentPeriodEnd,
+    cancelAtPeriodEnd,
+    cancelAt,
+  });
 
   console.log("[stripe subscription] updated", {
     userId,
     subscriptionId: subscription.id,
+    plan,
     status,
     cancelAtPeriodEnd,
     planStatus,
@@ -611,28 +725,30 @@ async function handleInvoicePaymentFailed(supabase: Supabase, invoice: Stripe.In
 }
 
 async function handleSubscriptionDeleted(supabase: Supabase, subscription: Stripe.Subscription) {
-  await supabase
-    .from("profiles")
-    .update({
-      plan: "free",
-      plan_status: "inactive",
-      plan_expires_at: null,
-      stripe_subscription_status: "canceled",
-    })
-    .eq("stripe_subscription_id", subscription.id);
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("stripe_subscription_id", subscription.id)
-    .maybeSingle();
-
-  if (profile?.id) {
-    await supabase
-      .from("agencies")
-      .update({ subscription_status: "inactive" })
-      .eq("id", profile.id);
+  const subscriptionRecord = subscription as unknown as Record<string, unknown>;
+  const metadata = recordFrom(subscriptionRecord.metadata);
+  const userId = await resolveUserIdFromSubscription(supabase, subscription.id, metadata);
+  if (!userId) {
+    console.log("[stripe subscription] canceled: no user found", { subscriptionId: subscription.id });
+    return;
   }
+
+  await syncSubscriptionState(supabase, {
+    userId,
+    plan: "free",
+    customerId: idFrom(subscription.customer),
+    subscriptionId: subscription.id,
+    subscriptionStatus: "canceled",
+    priceId: null,
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    cancelAt: null,
+  });
+
+  console.log("[stripe subscription] canceled", {
+    userId,
+    subscriptionId: subscription.id,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -710,9 +826,7 @@ export async function POST(req: NextRequest) {
         break;
 
       case "customer.subscription.created":
-        console.log("[stripe webhook] customer.subscription.created", {
-          subscriptionId: (event.data.object as Stripe.Subscription).id,
-        });
+        await handleSubscriptionCreated(supabase, event.data.object as Stripe.Subscription);
         break;
 
       case "customer.subscription.updated":
