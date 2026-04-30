@@ -368,6 +368,10 @@ export default function BillingDashboard({
       showToast("Premium ainda nao esta disponivel.", false);
       return;
     }
+    if (p.key === "free" && activePlan !== "free") {
+      void handleOpenBillingPortal();
+      return;
+    }
     if (p.key === activePlan) return;
     setChangingTo(p);
   }
@@ -501,7 +505,7 @@ export default function BillingDashboard({
               disabled={portalLoading || !stripeCustomerId}
               className="rounded-xl border border-zinc-200 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 transition-colors hover:border-zinc-300 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {portalLoading ? "Abrindo..." : "Gerenciar pagamento/cartão"}
+              {portalLoading ? "Abrindo..." : "Gerenciar/cancelar assinatura"}
             </button>
             <p className="text-[11px] text-zinc-400">
               {stripeCustomerId
@@ -556,6 +560,7 @@ export default function BillingDashboard({
             const isPending = pendingChange?.plan === p.key;
             const isAvailable = !("available" in p) || p.available !== false;
             const isDuplicateBlocked = p.key !== "free" && !isCurrent && hasExternalActiveSubscription;
+            const shouldManageInPortal = p.key === "free" && activePlan !== "free";
             return (
               <div
                 key={p.key}
@@ -612,10 +617,10 @@ export default function BillingDashboard({
                   {!isCurrent && !isPending && (
                     <button
                       onClick={() => handlePlanClick(p)}
-                      disabled={!isAvailable || isDuplicateBlocked}
+                      disabled={!isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading))}
                       className={[
                         "w-full mt-auto text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors",
-                        !isAvailable || isDuplicateBlocked
+                        !isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading))
                           ? "bg-zinc-300 cursor-not-allowed"
                           : isDowngrade
                           ? "bg-zinc-500 hover:bg-zinc-600"
@@ -626,6 +631,10 @@ export default function BillingDashboard({
                         ? "Em breve"
                         : isDuplicateBlocked
                           ? "Assinatura ativa"
+                        : shouldManageInPortal
+                          ? portalLoading
+                            ? "Abrindo..."
+                            : "Gerenciar no Stripe"
                         : activePlan === "free"
                           ? `Assinar ${p.name}`
                           : isDowngrade
@@ -648,30 +657,17 @@ export default function BillingDashboard({
                       Ativara em {fmtDate(pendingChange!.effectiveAt)}
                     </p>
                   )}
+                  {shouldManageInPortal && !isPending && (
+                    <p className="mt-3 text-[11px] text-zinc-500 text-center">
+                      Cancelamentos da assinatura paga sao feitos no portal da Stripe.
+                    </p>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-
-      {activePlan !== "free" && !pendingChange && !isCancellationScheduled && (
-        <div className="flex items-center justify-between bg-zinc-50 border border-zinc-100 rounded-2xl px-5 py-4">
-          <div>
-            <p className="text-[13px] font-semibold text-zinc-900">Cancelar assinatura</p>
-            <p className="text-[12px] text-zinc-400 mt-0.5">Seu plano continuara ativo ate o fim do ciclo atual.</p>
-          </div>
-          <button
-            onClick={() => {
-              const freePlan = PLANS.find((p) => p.key === "free");
-              if (freePlan) setChangingTo(freePlan);
-            }}
-            className="text-[13px] font-medium text-zinc-500 hover:text-rose-600 transition-colors border border-zinc-200 hover:border-rose-200 px-4 py-2 rounded-xl cursor-pointer"
-          >
-            Cancelar plano
-          </button>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
