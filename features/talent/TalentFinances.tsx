@@ -376,8 +376,9 @@ export default function TalentFinances() {
   const [loading, setLoading]           = useState(true);
   const [withdrawState, setWithdrawState] = useState<WithdrawState>("idle");
   const [withdrawMsg, setWithdrawMsg]   = useState("");
-  const [pixReady, setPixReady] = useState(false);
+  const [, setPixReady] = useState(false);
   const [stripeReady, setStripeReady] = useState(false);
+  const [stripeReason, setStripeReason] = useState<string | null>(null);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [period, setPeriod]             = useState<PeriodFilter>("all");
   const [showAllContracts, setShowAllContracts] = useState(false);
@@ -606,14 +607,18 @@ export default function TalentFinances() {
     .reduce((sum, w) => sum + w.amount, 0);
   const canRequestWithdrawal = withdrawAmountNum > 0
     && withdrawAmountNum <= availableToWithdraw
-    && (stripeReady || pixReady)
+    && stripeReady
     && withdrawState !== "loading";
 
   async function handleWithdraw() {
     if (withdrawAmountNum <= 0 || withdrawAmountNum > availableToWithdraw) return;
-    if (!stripeReady && !pixReady) {
+    if (!stripeReady) {
       setWithdrawState("error");
-      setWithdrawMsg("Configure Stripe automatico ou chave PIX fallback antes de solicitar saque.");
+      setWithdrawMsg(
+        stripeReason
+          ? `Saque automático indisponível: ${stripeReason}`
+          : "Conclua a verificacao da conta Stripe para liberar saques automaticos.",
+      );
       return;
     }
 
@@ -767,14 +772,16 @@ export default function TalentFinances() {
               )}
             </div>
 
-            {!stripeReady && !pixReady && availableToWithdraw > 0 && (
+            {!stripeReady && availableToWithdraw > 0 && (
               <div className="mx-6 mb-5 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                 <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="flex-1">
                   <p className="text-[13px] text-amber-800 leading-relaxed">
-                    Configure <strong>Stripe automatico</strong> ou uma <strong>chave PIX fallback</strong> para solicitar saque.
+                    {stripeReason
+                      ? <>Saque automático indisponível: <strong>{stripeReason}</strong>.</>
+                      : <>Conclua a verificação da sua conta <strong>Stripe automático</strong> para solicitar saque.</>}
                   </p>
                 </div>
               </div>
@@ -881,7 +888,13 @@ export default function TalentFinances() {
           <PixSetup onSaved={(_, value, holderName) => setPixReady(Boolean(value.trim() && holderName.trim()))} />
 
           {/* Stripe Connect payout account */}
-          <StripeConnectPayoutPanel onStatusChange={({ ready }) => setStripeReady(ready)} />
+          <StripeConnectPayoutPanel
+            amount={withdrawAmountNum > 0 ? withdrawAmountNum : 0.01}
+            onStatusChange={({ ready, exactReason }) => {
+              setStripeReady(ready);
+              setStripeReason(exactReason);
+            }}
+          />
 
           {/* My bookings */}
           <div className="space-y-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { StripeConnectStatusResponse } from "@/app/api/stripe/connect/status/route";
 
 type StripePayoutAvailabilityState =
@@ -10,26 +10,43 @@ type StripePayoutAvailabilityState =
   | "blocked"
   | "ready";
 
-function getStripePayoutAvailabilityState(status: {
-  connected: boolean;
-  payouts_enabled: boolean;
-  details_submitted: boolean;
-  transfers_active: boolean;
-  last_withdrawal_provider_status?: string | null;
-}) {
-  const lastProviderStatus = status.last_withdrawal_provider_status?.trim().toLowerCase() ?? null;
+function getStripePayoutAvailabilityState(status: StripeConnectStatusResponse | null): StripePayoutAvailabilityState {
+  if (!status?.connected) return "unconnected";
+  if (status.exact_reason === "payouts Stripe ainda nao habilitados") return "review";
+  if (
+    status.exact_reason === "transferencias Stripe ainda nao habilitadas"
+    || status.exact_reason === "conta Stripe sem banco configurado"
+    || status.exact_reason === "transferencia Stripe Connect no Brasil exige source_transaction vinculado a uma cobranca"
+    || status.exact_reason === "saldo Stripe da plataforma insuficiente"
+  ) {
+    return "blocked";
+  }
+  if (status.connected && !status.payouts_enabled) return "review";
+  if (status.connected && (!status.bank_ready || !status.transfers_active)) return "connected";
+  if (status.exact_reason === null && status.connected && status.payouts_enabled && status.transfers_active && status.bank_ready) {
+    return "ready";
+  }
+  return "connected";
+}
 
-  if (!status.connected) return "unconnected" satisfies StripePayoutAvailabilityState;
-  if (lastProviderStatus === "failed") return "blocked" satisfies StripePayoutAvailabilityState;
-  if (!status.details_submitted) return "review" satisfies StripePayoutAvailabilityState;
-  if (!status.payouts_enabled || !status.transfers_active) return "connected" satisfies StripePayoutAvailabilityState;
-  return "ready" satisfies StripePayoutAvailabilityState;
+function ChecklistItem({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2">
+      <span className="text-[12px] text-zinc-600">{label}</span>
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-500" : "bg-rose-500"}`} />
+        {ok ? "OK" : "Pendente"}
+      </span>
+    </div>
+  );
 }
 
 export function StripeConnectPayoutPanel({
+  amount = 0.01,
   onStatusChange,
 }: {
-  onStatusChange?: (status: { ready: boolean; loaded: boolean; state: StripePayoutAvailabilityState }) => void;
+  amount?: number;
+  onStatusChange?: (status: { ready: boolean; loaded: boolean; state: StripePayoutAvailabilityState; exactReason: string | null }) => void;
 }) {
   const [acct, setAcct] = useState<StripeConnectStatusResponse | null>(null);
   const [statusLoad, setStatusLoad] = useState(true);
@@ -43,13 +60,9 @@ export function StripeConnectPayoutPanel({
     if (status === "refresh") return "O link expirou. Clique abaixo para continuar o onboarding.";
     return null;
   });
-  const hasFetched = useRef(false);
-
   useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    fetch("/api/stripe/connect/status")
+    setStatusLoad(true);
+    fetch(`/api/stripe/connect/status?amount=${encodeURIComponent(String(amount > 0 ? amount : 0.01))}`)
       .then((response) => response.json())
       .then((data: StripeConnectStatusResponse) => {
         setAcct(data);
@@ -62,12 +75,21 @@ export function StripeConnectPayoutPanel({
           payouts_enabled: false,
           details_submitted: false,
           transfers_active: false,
+          bank_ready: false,
+          wallet_ok: false,
+          stripe_account_ok: false,
+          platform_balance_ok: false,
+          platform_available_balance_brl: 0,
+          exact_reason: "nao foi possivel verificar a conta Stripe agora",
+          stripe_account_id: null,
+          stripe_account_country: null,
+          needs_source_transaction_for_brazil: false,
           last_withdrawal_status: null,
           last_withdrawal_provider_status: null,
         });
         setStatusLoad(false);
       });
-  }, []);
+  }, [amount]);
 
   async function handleConnect() {
     setConnecting(true);
@@ -87,27 +109,26 @@ export function StripeConnectPayoutPanel({
     }
   }
 
-  const payoutState = getStripePayoutAvailabilityState({
-    connected: Boolean(acct?.connected),
-    details_submitted: Boolean(acct?.details_submitted),
-    payouts_enabled: Boolean(acct?.payouts_enabled),
-    transfers_active: Boolean(acct?.transfers_active),
-    last_withdrawal_provider_status: acct?.last_withdrawal_provider_status ?? null,
-  });
+  const payoutState = getStripePayoutAvailabilityState(acct);
   const isReady = payoutState === "ready";
-  const isPending = payoutState === "review" || payoutState === "connected";
   const isBlocked = payoutState === "blocked";
+  const isReview = payoutState === "review";
   const isUnconnected = payoutState === "unconnected";
 
   useEffect(() => {
-    onStatusChange?.({ ready: isReady, loaded: !statusLoad, state: payoutState });
-  }, [isReady, onStatusChange, payoutState, statusLoad]);
+    onStatusChange?.({
+      ready: isReady,
+      loaded: !statusLoad,
+      state: payoutState,
+      exactReason: acct?.exact_reason ?? null,
+    });
+  }, [acct?.exact_reason, isReady, onStatusChange, payoutState, statusLoad]);
 
   const badgeLabel = isReady
     ? "Pronto para saque"
     : isBlocked
       ? "Saques bloqueados"
-      : payoutState === "review"
+      : isReview
         ? "Em analise"
         : payoutState === "connected"
           ? "Conectado"
@@ -156,7 +177,7 @@ export function StripeConnectPayoutPanel({
         {!statusLoad && isUnconnected && (
           <div className="space-y-4">
             <p className="text-[13px] text-zinc-500 leading-relaxed">
-              Conecte sua conta Stripe para liberar saques automaticos. Enquanto isso, o PIX continua como fallback manual.
+              Conecte sua conta Stripe para liberar saques automaticos.
             </p>
             <button
               type="button"
@@ -171,37 +192,43 @@ export function StripeConnectPayoutPanel({
           </div>
         )}
 
-        {!statusLoad && isPending && (
-          <div className="space-y-4">
-            <p className="text-[13px] text-zinc-500 leading-relaxed">
-              {payoutState === "review"
-                ? "Sua conta Stripe foi criada, mas ainda falta concluir o onboarding para habilitar payouts automaticos."
-                : "Sua conta Stripe esta conectada, mas os saques ainda nao foram liberados para payout automatico."}
-            </p>
-            <button
-              type="button"
-              onClick={handleConnect}
-              disabled={connecting}
-              className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
-            >
-              {connecting
-                ? <><div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />Abrindo Stripe...</>
-                : "Finalizar cadastro Stripe"}
-            </button>
-          </div>
-        )}
+        {!statusLoad && !isUnconnected && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <ChecklistItem label="Wallet OK" ok={Boolean(acct?.wallet_ok)} />
+              <ChecklistItem label="Stripe account OK" ok={Boolean(acct?.stripe_account_ok)} />
+              <ChecklistItem label="Bank/payouts OK" ok={Boolean(acct?.bank_ready && acct?.payouts_enabled && acct?.transfers_active)} />
+              <ChecklistItem label="Platform Stripe balance OK" ok={Boolean(acct?.platform_balance_ok)} />
+            </div>
 
-        {!statusLoad && isBlocked && (
-          <div className="space-y-2">
-            <p className="text-[14px] font-semibold text-rose-700">Stripe conectado, mas saques indisponiveis. Verifique sua conta Stripe.</p>
-            <p className="text-[12px] text-zinc-500">Novos saques seguem automaticamente para a fila PIX/manual enquanto o payout Stripe estiver bloqueado.</p>
-          </div>
-        )}
+            {acct?.exact_reason && (
+              <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2">
+                <p className="text-[12px] font-medium text-rose-700">
+                  Saque automático indisponível: {acct.exact_reason}
+                </p>
+              </div>
+            )}
 
-        {!statusLoad && isReady && (
-          <div className="space-y-2">
-            <p className="text-[14px] font-semibold text-zinc-900">Conta pronta para saque</p>
-            <p className="text-[12px] text-zinc-400">Quando voce solicitar um saque, o Stripe sera usado primeiro e o PIX manual fica apenas como fallback.</p>
+            {!acct?.exact_reason && isReady && (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+                <p className="text-[12px] font-medium text-emerald-700">
+                  Conta pronta para saque automatico via Stripe Connect.
+                </p>
+              </div>
+            )}
+
+            {(isReview || payoutState === "connected") && (
+              <button
+                type="button"
+                onClick={handleConnect}
+                disabled={connecting}
+                className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+              >
+                {connecting
+                  ? <><div className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />Abrindo Stripe...</>
+                  : "Revisar conta Stripe"}
+              </button>
+            )}
           </div>
         )}
 

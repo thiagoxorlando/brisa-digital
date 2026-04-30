@@ -153,6 +153,7 @@ export default function AgencyFinances({
   const [withdrawError, setWithdrawError] = useState("");
   const [withdrawInfo, setWithdrawInfo] = useState("");
   const [stripeReady, setStripeReady] = useState(stripeConnected);
+  const [stripeReason, setStripeReason] = useState<string | null>(null);
   const [stripeState, setStripeState] = useState<"unconnected" | "connected" | "review" | "blocked" | "ready">(
     stripeConnected ? "ready" : "unconnected",
   );
@@ -169,7 +170,7 @@ export default function AgencyFinances({
   const hasPix = Boolean(savedPix?.pix_key_type && savedPix?.pix_key_value?.trim());
   const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
   const canWithdraw = Boolean(
-    (stripeReady || hasPix) &&
+    stripeReady &&
     withdrawAmountNum >= withdrawalMinAmount &&
     withdrawAmountNum <= walletBalance,
   );
@@ -403,7 +404,7 @@ export default function AgencyFinances({
               )}
             </div>
 
-            {(stripeReady || hasPix) && walletBalance > 0 && !withdrawDone && (
+            {walletBalance > 0 && !withdrawDone && (
               <div className="space-y-2">
                 <div className="flex gap-1.5">
                   {([0.25, 0.5, 1] as const).map((pct) => (
@@ -449,8 +450,12 @@ export default function AgencyFinances({
               </div>
             )}
 
-            {!stripeReady && !hasPix && walletBalance > 0 && (
-              <p className="text-[11px] text-white/80 font-semibold">Configure Stripe automatico ou uma chave PIX como fallback manual antes de solicitar saque.</p>
+            {!stripeReady && walletBalance > 0 && (
+              <p className="text-[11px] text-white/80 font-semibold">
+                {stripeReason
+                  ? `Saque automático indisponível: ${stripeReason}`
+                  : "Conclua a verificacao da sua conta Stripe para liberar saques automaticos."}
+              </p>
             )}
           </div>
         )}
@@ -501,7 +506,14 @@ export default function AgencyFinances({
         </div>
       </div>
 
-      <StripeConnectPayoutPanel onStatusChange={({ ready, state }) => { setStripeReady(ready); setStripeState(state); }} />
+      <StripeConnectPayoutPanel
+        amount={withdrawAmountNum > 0 ? withdrawAmountNum : withdrawalMinAmount}
+        onStatusChange={({ ready, state, exactReason }) => {
+          setStripeReady(ready);
+          setStripeState(state);
+          setStripeReason(exactReason);
+        }}
+      />
 
       <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
         {/* Card header */}
@@ -550,10 +562,10 @@ export default function AgencyFinances({
             {stripeState === "ready"
               ? "Saques sao processados automaticamente via Stripe Connect. Prazo de 2 a 5 dias uteis."
               : stripeState === "blocked"
-                ? "Stripe conectado, mas os saques automaticos estao indisponiveis. Os novos pedidos caem no fluxo manual via PIX."
+                ? "Stripe conectado, mas o saque automatico esta indisponivel ate corrigir a conta ou o saldo da plataforma."
                 : stripeState === "connected" || stripeState === "review"
                   ? "A conta Stripe ja foi conectada, mas ainda nao esta pronta para payout automatico."
-              : "Sem conta Stripe Connect pronta, os saques caem no fluxo manual via PIX. Use o painel acima para concluir a conexao."}
+              : "Sem conta Stripe Connect pronta, o saque automatico fica indisponivel ate concluir a conexao."}
           </p>
         </div>
 
