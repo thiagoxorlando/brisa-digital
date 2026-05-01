@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
-import { StripeConnectPayoutPanel } from "@/features/finance/StripeConnectPayoutPanel";
 
 const TALENT_RATE = 0.85; // 85% of deal value
 
@@ -139,12 +138,12 @@ const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
 
 function StatCard({ label, value, sub, stripe }: { label: string; value: string; sub?: string; stripe: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+    <div className="min-w-0 bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
       <div className={`h-[3px] bg-gradient-to-r ${stripe}`} />
-      <div className="p-6">
+      <div className="p-5 sm:p-6">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">{label}</p>
-        <p className="text-[2rem] font-semibold tracking-tighter text-zinc-900 leading-none">{value}</p>
-        {sub && <p className="text-[12px] text-zinc-400 mt-1.5">{sub}</p>}
+        <p className="break-words text-[1.5rem] sm:text-[1.8rem] lg:text-[2rem] font-semibold tracking-tight text-zinc-900 leading-tight">{value}</p>
+        {sub && <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed">{sub}</p>}
       </div>
     </div>
   );
@@ -261,7 +260,7 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string, hold
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Recebimentos</p>
-            <p className="text-[15px] font-semibold text-zinc-900">Chave PIX fallback</p>
+            <p className="text-[15px] font-semibold text-zinc-900">Chave PIX</p>
           </div>
         </div>
         {isRegistered && (
@@ -295,7 +294,7 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string, hold
               {savedHolderName && (
                 <p className="text-[12px] text-zinc-500 mt-1">Titular: {savedHolderName}</p>
               )}
-              <p className="text-[12px] text-zinc-400 mt-0.5">Usada apenas como fallback manual quando necessário.</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">Usada para receber seus saques via PIX.</p>
             </div>
           </div>
         ) : (
@@ -303,7 +302,7 @@ function PixSetup({ onSaved }: { onSaved: (type: PixKeyType, value: string, hold
           <form onSubmit={handleSave} className="space-y-4">
             {!savedValue && (
               <p className="text-[12px] text-zinc-400 leading-relaxed">
-                Cadastre sua chave PIX para fallback manual, caso o Stripe não esteja disponível.
+                Cadastre sua chave PIX para sacar.
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
@@ -373,13 +372,10 @@ export default function TalentFinances() {
   const [paidContracts, setPaidContracts] = useState<PaidContract[]>([]);
   const [withdrawals, setWithdrawals]   = useState<TalentWithdrawal[]>([]);
   const [walletBalance, setWalletBalance] = useState(0);
-  const [autoWithdrawableBalance, setAutoWithdrawableBalance] = useState(0);
   const [loading, setLoading]           = useState(true);
   const [withdrawState, setWithdrawState] = useState<WithdrawState>("idle");
   const [withdrawMsg, setWithdrawMsg]   = useState("");
-  const [, setPixReady] = useState(false);
-  const [stripeReady, setStripeReady] = useState(false);
-  const [stripeReason, setStripeReason] = useState("fale com o suporte");
+  const [pixReady, setPixReady] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [period, setPeriod]             = useState<PeriodFilter>("all");
   const [showAllContracts, setShowAllContracts] = useState(false);
@@ -399,12 +395,6 @@ export default function TalentFinances() {
       .single();
 
     setWalletBalance(Number(profileBalance?.wallet_balance ?? 0));
-
-    const { data: autoWithdrawable } = await supabase.rpc("get_auto_withdrawable_balance", {
-      p_user_id: user.id,
-    });
-
-    setAutoWithdrawableBalance(Number(autoWithdrawable ?? 0));
 
     const { data: withdrawalRows } = await supabase
       .from("wallet_transactions")
@@ -599,7 +589,7 @@ export default function TalentFinances() {
 
   // Available withdrawal money is the talent wallet balance. It includes both
   // contract payouts and referral commissions after they are credited.
-  const availableToWithdraw = Math.max(0, autoWithdrawableBalance);
+  const availableToWithdraw = Math.max(0, walletBalance);
   const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
   const filteredPaidContracts = paidContracts.filter((c) => periodMatches(c.paid_at, period));
   const filteredPayments = payments.filter((p) => periodMatches(p.date, period));
@@ -614,22 +604,20 @@ export default function TalentFinances() {
     .reduce((sum, w) => sum + w.amount, 0);
   const canRequestWithdrawal = withdrawAmountNum > 0
     && withdrawAmountNum <= availableToWithdraw
-    && stripeReady
+    && pixReady
     && withdrawState !== "loading";
 
   async function handleWithdraw() {
     if (withdrawAmountNum <= 0 || withdrawAmountNum > availableToWithdraw) return;
-    if (!stripeReady) {
+    if (!pixReady) {
       setWithdrawState("error");
-      setWithdrawMsg(
-        `Saque automático indisponível: ${stripeReason}`,
-      );
+      setWithdrawMsg("Cadastre sua chave PIX para sacar");
       return;
     }
 
     setWithdrawState("loading");
     try {
-      const withdrawRes = await fetch("/api/talent/withdraw", {
+      const withdrawRes = await fetch("/api/asaas/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amount: withdrawAmountNum }),
@@ -653,7 +641,7 @@ export default function TalentFinances() {
       setWithdrawAmount("");
       setWithdrawMsg(
         withdrawData.message
-          ?? `Saque automático enviado: ${brl(withdrawAmountNum)}. Acompanhe o status abaixo.`,
+          ?? `Saque via PIX enviado: ${brl(withdrawAmountNum)}. Acompanhe o status abaixo.`,
       );
       await load(false);
     } catch {
@@ -693,7 +681,7 @@ export default function TalentFinances() {
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
             <StatCard
               label="Total Ganho"
               value={brl(paidContractEarnings + referralEarnings)}
@@ -713,11 +701,11 @@ export default function TalentFinances() {
               stripe="from-emerald-400 to-teal-500"
             />
             <StatCard
-              label="Saque Automático"
+              label="Disponível para saque"
               value={brl(availableToWithdraw)}
               sub={
                 availableToWithdraw > 0
-                  ? `Lastreado por Stripe: ${brl(availableToWithdraw)}`
+                  ? `Saldo disponível: ${brl(availableToWithdraw)}`
                   : "Nada pendente"
               }
               stripe="from-cyan-400 to-sky-500"
@@ -732,10 +720,10 @@ export default function TalentFinances() {
 
           {/* Withdraw */}
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Disponível para Saque Automático</p>
-                <p className="text-[1.75rem] font-semibold tracking-tighter text-zinc-900 leading-none">{brl(availableToWithdraw)}</p>
+            <div className="px-6 py-5">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Saque via PIX</p>
+                <p className="break-words text-[1.55rem] sm:text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{brl(availableToWithdraw)}</p>
                 {alreadyWithdrawn > 0 && (
                   <p className="text-[12px] text-zinc-400 mt-1">{brl(alreadyWithdrawn)} já sacado</p>
                 )}
@@ -744,8 +732,8 @@ export default function TalentFinances() {
             </div>
 
             <div className="px-6 pb-5">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1 min-w-0">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
                   <input
                     type="number"
@@ -760,7 +748,7 @@ export default function TalentFinances() {
                 <button
                   onClick={handleWithdraw}
                   disabled={!canRequestWithdrawal}
-                  className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-100 disabled:text-zinc-400 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   {withdrawState === "loading" ? (
                     <>
@@ -780,20 +768,10 @@ export default function TalentFinances() {
               {withdrawAmountNum > availableToWithdraw && (
                 <p className="text-[11px] text-rose-600 mt-2">Valor superior ao saldo disponível.</p>
               )}
+              {!pixReady && (
+                <p className="text-[11px] text-amber-700 mt-2">Cadastre sua chave PIX para sacar.</p>
+              )}
             </div>
-
-            {!stripeReady && availableToWithdraw > 0 && (
-              <div className="mx-6 mb-5 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-                <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div className="flex-1">
-                  <p className="text-[13px] text-amber-800 leading-relaxed">
-                    <>Saque automático indisponível: <strong>{stripeReason}</strong>.</>
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* Success message */}
             {withdrawState === "success" && (
@@ -829,7 +807,7 @@ export default function TalentFinances() {
                           {WITHDRAWAL_STATUS_LABEL[withdrawal.status ?? "pending"] ?? withdrawal.status ?? "Pendente"} · {new Date(withdrawal.created_at).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" })}
                         </p>
                         <p className="text-[11px] text-zinc-500 mt-0.5">
-                          {withdrawal.provider === "stripe" ? "Stripe automático" : "PIX manual fallback"}
+                          Saque via PIX
                           {withdrawal.provider_status ? ` · ${withdrawal.provider_status}` : ""}
                         </p>
                         {withdrawal.admin_note && (
@@ -894,15 +872,6 @@ export default function TalentFinances() {
 
           {/* PIX account setup */}
           <PixSetup onSaved={(_, value, holderName) => setPixReady(Boolean(value.trim() && holderName.trim()))} />
-
-          {/* Stripe Connect payout account */}
-          <StripeConnectPayoutPanel
-            amount={withdrawAmountNum > 0 ? withdrawAmountNum : 0.01}
-            onStatusChange={({ ready, message }) => {
-              setStripeReady(ready);
-              setStripeReason(message === "Saque automático indisponível — fale com o suporte" ? "fale com o suporte" : message);
-            }}
-          />
 
           {/* My bookings */}
           <div className="space-y-3">
@@ -969,7 +938,7 @@ export default function TalentFinances() {
                         {new Date(withdrawal.processed_at ?? withdrawal.created_at).toLocaleDateString("pt-BR", { weekday: "short", month: "long", day: "numeric", year: "numeric" })}
                       </p>
                       <p className="text-[11px] text-zinc-500 mt-0.5">
-                        {withdrawal.provider === "stripe" ? "Stripe automático" : "PIX manual fallback"}
+                        Saque via PIX
                         {withdrawal.provider_status ? ` · ${withdrawal.provider_status}` : ""}
                       </p>
                       {withdrawal.admin_note && (
