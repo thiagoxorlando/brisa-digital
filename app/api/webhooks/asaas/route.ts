@@ -1,58 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { notifyAdmins } from "@/lib/notify";
 
 // POST /api/webhooks/asaas
 //
-// Security: validates asaas-access-token header against ASAAS_WEBHOOK_TOKEN env var.
-// Deduplication: webhook_events table with unique (provider, provider_event_id).
+// Security  : validates asaas-access-token header against ASAAS_WEBHOOK_TOKEN.
+// Idempotency: inserts into asaas_webhook_events (unique event_id).
+//              If the row already exists with processed_at set, returns 200 immediately.
 //
 // Handled events:
-//   PAYMENT_RECEIVED / PAYMENT_CONFIRMED → credit agency wallet (PIX deposits)
-//   TRANSFER_DONE / TRANSFER_FINISHED    → update withdrawal provider_status
+//   PAYMENT_RECEIVED → credit agency wallet (PIX deposit confirmed)
+//
+// NOT handled (intentionally):
+//   PAYMENT_CONFIRMED — do not credit yet; wait for PAYMENT_RECEIVED
 
-type LogLevel = "info" | "warn" | "error";
-function log(level: LogLevel, msg: string, ctx?: Record<string, unknown>) {
+function log(level: "info" | "warn" | "error", msg: string, ctx?: Record<string, unknown>) {
   const entry = { ts: new Date().toISOString(), level, source: "webhook/asaas", msg, ...ctx };
   console[level === "info" ? "log" : level](JSON.stringify(entry));
 }
 
-interface AsaasPaymentObject {
+interface AsaasPayment {
   id: string;
-  customer: string;
-  billingType: string;
+  status: string;
   value: number;
   netValue?: number;
-  status: string;
-  externalReference?: string;
-  description?: string;
-}
-
-interface AsaasTransferObject {
-  id: string;
-  status: string;
-  value: number;
+  billingType?: string;
+  customer?: string;
   externalReference?: string;
 }
 
 interface AsaasWebhookBody {
   id?: string;
   event: string;
-  payment?: AsaasPaymentObject;
-  transfer?: AsaasTransferObject;
+  payment?: AsaasPayment;
 }
 
 export async function POST(req: NextRequest) {
-  // ── Auth ─────────────────────────────────────────────────────────────────────
+  // ── Token validation (always enforced) ───────────────────────────────────────
   const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
-  if (webhookToken) {
-    const incoming = req.headers.get("asaas-access-token") ?? "";
-    if (incoming !== webhookToken) {
-      log("warn", "Invalid asaas-access-token");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  } else {
-    log("warn", "ASAAS_WEBHOOK_TOKEN not configured — accepting without token validation");
+  const incoming     = req.headers.get("asaas-access-token") ?? "";
+
+  if (!webhookToken || incoming !== webhookToken) {
+    log("warn", "[asaas webhook] invalid or missing token");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────────
@@ -60,157 +49,129 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    log("warn", "Malformed JSON body");
+    log("warn", "[asaas webhook] malformed JSON body");
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const event   = body.event ?? "";
-  const eventId = body.id ?? `asaas:${event}:${Date.now()}`;
+  // Prefer top-level id; fall back to payment.id + ":" + event
+  const eventId = body.id ?? `${body.payment?.id ?? ""}:${event}`;
 
-  log("info", "Asaas webhook received", { event, eventId });
+  log("info", "[asaas webhook] received", { event, eventId });
 
   const supabase = createServerClient({ useServiceRole: true });
+  const now      = new Date().toISOString();
 
-  // ── Deduplication gate ────────────────────────────────────────────────────────
-  const { error: weErr } = await supabase
-    .from("webhook_events")
+  // ── Idempotency gate ──────────────────────────────────────────────────────────
+  const { error: insertErr } = await supabase
+    .from("asaas_webhook_events")
     .insert({
-      provider:          "asaas",
-      event_id:          eventId,
-      provider_event_id: eventId,
-      topic:             event,
-      raw_payload:       body as unknown as Record<string, unknown>,
-      processed:         false,
-    })
-    .select("id")
-    .single();
+      event_id:    eventId,
+      event_type:  event,
+      raw_payload: body as unknown as Record<string, unknown>,
+    } as Record<string, unknown>);
 
-  if (weErr) {
-    if (weErr.code === "23505") {
-      log("info", "Duplicate event — skipping", { eventId });
-      return NextResponse.json({ ok: true });
+  if (insertErr) {
+    if (insertErr.code === "23505") {
+      // Row exists — check whether it was already fully processed
+      const { data: existing } = await supabase
+        .from("asaas_webhook_events")
+        .select("processed_at")
+        .eq("event_id", eventId)
+        .single();
+
+      if (existing?.processed_at) {
+        log("info", "[asaas webhook] already processed — skipping", { eventId });
+        return NextResponse.json({ ok: true });
+      }
+      // processed_at is null: logged but processing failed previously — retry
+    } else {
+      log("warn", "[asaas webhook] asaas_webhook_events insert failed (non-fatal)", { err: insertErr.message });
     }
-    log("warn", "webhook_events insert failed (non-fatal)", { err: weErr.message });
   }
 
-  // ── PAYMENT_RECEIVED / PAYMENT_CONFIRMED → wallet deposit ────────────────────
-  if (event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED") {
+  // ── PAYMENT_RECEIVED → credit wallet ─────────────────────────────────────────
+  if (event === "PAYMENT_RECEIVED") {
     const payment = body.payment;
-    if (!payment) {
-      log("warn", "No payment object in event", { event });
+
+    if (!payment?.id) {
+      log("warn", "[asaas webhook] ignored — PAYMENT_RECEIVED missing payment object", { eventId });
       return NextResponse.json({ ok: true });
     }
 
-    const { id: asaasPaymentId, value, netValue, externalReference } = payment;
-    // Use netValue when available (net of Asaas fees); fall back to gross value.
-    const creditAmount = netValue && netValue > 0 ? netValue : value;
+    const asaasPaymentId = payment.id;
+    const asaasStatus    = payment.status;
 
-    // Look up wallet_transaction — try by payment_id first, then externalReference
-    let userId: string | null        = null;
-    let txAmount: number             = creditAmount;
-
-    const { data: txByPaymentId } = await supabase
+    // Find the pending deposit by asaas_payment_id
+    const { data: tx, error: txFetchErr } = await supabase
       .from("wallet_transactions")
-      .select("user_id, amount")
-      .eq("payment_id", asaasPaymentId)
-      .eq("provider", "asaas")
+      .select("id, user_id, amount, type, status")
+      .eq("asaas_payment_id", asaasPaymentId)
       .maybeSingle();
 
-    if (txByPaymentId) {
-      userId   = txByPaymentId.user_id;
-      txAmount = Number(txByPaymentId.amount);
-    } else if (externalReference) {
-      const { data: txByRef } = await supabase
-        .from("wallet_transactions")
-        .select("user_id, amount")
-        .eq("id", externalReference)
-        .eq("provider", "asaas")
-        .maybeSingle();
-
-      if (txByRef) {
-        userId   = txByRef.user_id;
-        txAmount = Number(txByRef.amount);
-
-        // Attach payment_id retroactively (webhook arrived before route could update it)
-        await supabase
-          .from("wallet_transactions")
-          .update({ payment_id: asaasPaymentId })
-          .eq("id", externalReference)
-          .is("payment_id", null);
-      }
+    if (txFetchErr) {
+      log("error", "[asaas webhook] failed — wallet_transactions lookup", {
+        asaasPaymentId, err: txFetchErr.message,
+      });
+      return NextResponse.json({ error: "DB lookup failed" }, { status: 500 });
     }
 
-    if (!userId) {
-      log("warn", "No wallet_transaction matched — ignoring", { asaasPaymentId, externalReference });
+    if (!tx) {
+      log("warn", "[asaas webhook] ignored — no matching wallet_transaction", { asaasPaymentId });
       return NextResponse.json({ ok: true });
     }
 
-    // credit_wallet_deposit is atomic and idempotent:
-    //   - claims the pending row by updating description to "Depósito via PIX"
-    //   - credits profiles.wallet_balance atomically
-    //   - the unique index on payment_id ensures only one concurrent call wins
-    const { data: credited, error: rpcErr } = await supabase.rpc("credit_wallet_deposit", {
-      p_user_id:    userId,
-      p_payment_id: asaasPaymentId,
-      p_amount:     txAmount,
+    if (tx.type !== "deposit") {
+      log("info", "[asaas webhook] ignored — transaction is not a deposit", {
+        txId: tx.id, type: tx.type,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    if (tx.status === "paid") {
+      log("info", "[asaas webhook] ignored — deposit already credited", { txId: tx.id });
+      return NextResponse.json({ ok: true });
+    }
+
+    const creditAmount = Number(tx.amount);
+
+    // Atomically increment wallet_balance using existing RPC
+    const { error: rpcErr } = await supabase.rpc("increment_wallet_balance", {
+      p_user_id: tx.user_id,
+      p_amount:  creditAmount,
     });
 
     if (rpcErr) {
-      log("error", "credit_wallet_deposit failed", {
-        userId,
-        asaasPaymentId,
-        err: rpcErr.message,
+      log("error", "[asaas deposit] failed — increment_wallet_balance", {
+        txId: tx.id, userId: tx.user_id, err: rpcErr.message,
       });
       return NextResponse.json({ error: "Balance update failed" }, { status: 500 });
     }
 
-    if (credited) {
-      log("info", "Wallet deposit credited via Asaas", {
-        userId,
-        amount: txAmount,
-        asaasPaymentId,
-      });
-      const brl = new Intl.NumberFormat("pt-BR", {
-        style:                 "currency",
-        currency:              "BRL",
-        maximumFractionDigits: 0,
-      }).format(txAmount);
-      await notifyAdmins(
-        "payment",
-        `Depósito de carteira confirmado (Asaas PIX): ${brl}`,
-        "/admin/finances",
-        `admin-wallet-deposit-asaas:${asaasPaymentId}`,
-      );
-    } else {
-      log("info", "Wallet deposit already credited — skipping", { asaasPaymentId, userId });
-    }
-
-    return NextResponse.json({ ok: true });
-  }
-
-  // ── TRANSFER_DONE / TRANSFER_FINISHED → withdrawal status update ─────────────
-  if (event === "TRANSFER_DONE" || event === "TRANSFER_FINISHED") {
-    const transfer = body.transfer;
-    if (!transfer) {
-      log("warn", "No transfer object in event", { event });
-      return NextResponse.json({ ok: true });
-    }
-
-    log("info", "Asaas transfer completed", {
-      transferId: transfer.id,
-      status:     transfer.status,
-    });
-
+    // Mark transaction paid
     await supabase
       .from("wallet_transactions")
-      .update({ provider_status: transfer.status })
-      .eq("provider_transfer_id", transfer.id)
-      .eq("provider", "asaas");
+      .update({
+        status:       "paid",
+        asaas_status: asaasStatus,
+        processed_at: now,
+      } as Record<string, unknown>)
+      .eq("id", tx.id);
+
+    // Mark webhook event processed
+    await supabase
+      .from("asaas_webhook_events")
+      .update({ processed_at: now } as Record<string, unknown>)
+      .eq("event_id", eventId);
+
+    log("info", "[asaas deposit] wallet credited", {
+      userId: tx.user_id, txId: tx.id, amount: creditAmount, asaasPaymentId,
+    });
 
     return NextResponse.json({ ok: true });
   }
 
-  // ── All other events — ack without processing ─────────────────────────────────
-  log("info", "Unhandled event type — acking", { event });
+  // ── All other events ──────────────────────────────────────────────────────────
+  log("info", "[asaas webhook] ignored — unhandled event", { event, eventId });
   return NextResponse.json({ ok: true });
 }
