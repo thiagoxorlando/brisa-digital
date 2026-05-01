@@ -11,6 +11,8 @@ import {
 
 export const runtime = "nodejs";
 
+const SUPPORT_MESSAGE = "Saque automático indisponível para este saldo. Entre em contato com o suporte.";
+
 export async function POST(req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user }, error: authError } = await session.auth.getUser();
@@ -22,20 +24,20 @@ export async function POST(req: NextRequest) {
   const requestedAmount = Number(body.amount);
 
   if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
-    return NextResponse.json({ error: "Saque automático indisponível: valor de saque invalido" }, { status: 400 });
+    return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
   }
 
   if (parseFloat(requestedAmount.toFixed(2)) !== requestedAmount) {
-    return NextResponse.json({ error: "Saque automático indisponível: valor de saque invalido" }, { status: 400 });
+    return NextResponse.json({ error: "Valor de saque inválido." }, { status: 400 });
   }
 
   if (requestedAmount < WITHDRAWAL_MIN_AMOUNT) {
     const minFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(WITHDRAWAL_MIN_AMOUNT);
-    return NextResponse.json({ error: `Saque automático indisponível: valor minimo para saque e ${minFmt}` }, { status: 400 });
+    return NextResponse.json({ error: `Valor mínimo para saque: ${minFmt}.` }, { status: 400 });
   }
 
   if (requestedAmount > 50_000) {
-    return NextResponse.json({ error: "Saque automático indisponível: valor de saque excede o limite por solicitacao" }, { status: 400 });
+    return NextResponse.json({ error: "Valor de saque excede o limite por solicitação." }, { status: 400 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (profile?.role !== "agency") {
-    return NextResponse.json({ error: "Apenas agencias podem solicitar saques." }, { status: 403 });
+    return NextResponse.json({ error: "Apenas agências podem solicitar saques." }, { status: 403 });
   }
 
   try {
@@ -65,10 +67,7 @@ export async function POST(req: NextRequest) {
         readiness,
       });
 
-      return NextResponse.json(
-        { error: `Saque automático indisponível: ${readiness.exactReason ?? "requisitos Stripe nao atendidos"}` },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: SUPPORT_MESSAGE }, { status: 400 });
     }
 
     const stripeResult = await createAutomaticStripeWithdrawal({
@@ -88,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     await notifyAdmins(
       "payment",
-      `Saque Stripe iniciado - Agencia: ${brl}`,
+      `Saque Stripe iniciado - Agência: ${brl}`,
       "/admin/finances",
       `admin-withdrawal-request:${user.id}:${stripeResult.txId}`,
     );
@@ -113,6 +112,7 @@ export async function POST(req: NextRequest) {
       provider_status: stripeResult.providerStatus,
       status: stripeResult.status,
       rail: "stripe_automatico",
+      message: "Saque automático em processamento.",
     });
   } catch (error) {
     if (error instanceof StripeWithdrawalError) {
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: error.userMessage ?? "Saque automático indisponível: erro ao processar saque Stripe" },
+        { error: error.userMessage ?? SUPPORT_MESSAGE },
         { status: 502 },
       );
     }
@@ -139,6 +139,6 @@ export async function POST(req: NextRequest) {
       amount: requestedAmount,
       message,
     });
-    return NextResponse.json({ error: "Saque automático indisponível: erro interno ao processar saque" }, { status: 500 });
+    return NextResponse.json({ error: SUPPORT_MESSAGE }, { status: 500 });
   }
 }

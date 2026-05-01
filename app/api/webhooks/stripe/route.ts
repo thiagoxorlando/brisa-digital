@@ -5,6 +5,7 @@ import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { notify, notifyAdmins } from "@/lib/notify";
 import { PLAN_KEYS, type Plan } from "@/lib/plans";
 import { syncStripeConnectAccountStatus } from "@/lib/stripeConnect";
+import { restoreStripeWithdrawalAfterPayoutFailure } from "@/lib/stripeWithdrawal";
 
 export const runtime = "nodejs";
 
@@ -222,11 +223,79 @@ async function updateProfileSubscriptionState(
   });
 }
 
+async function registerStripeFundingSource({
+  supabase,
+  userId,
+  walletTransactionId,
+  stripeChargeId,
+  stripePaymentIntentId,
+  sourceType,
+  amount,
+}: {
+  supabase: Supabase;
+  userId: string;
+  walletTransactionId: string;
+  stripeChargeId: string | null;
+  stripePaymentIntentId: string | null;
+  sourceType: "deposit" | "contract_payment" | "referral_commission";
+  amount: number;
+}) {
+  if (!stripeChargeId) {
+    console.error("[withdrawal stripe] missing source charge", {
+      userId,
+      walletTransactionId,
+      stripePaymentIntentId,
+      sourceType,
+      amount,
+    });
+    return;
+  }
+
+  const { data, error } = await supabase.rpc("register_wallet_funding_source", {
+    p_user_id: userId,
+    p_source_wallet_transaction_id: walletTransactionId,
+    p_stripe_charge_id: stripeChargeId,
+    p_stripe_payment_intent_id: stripePaymentIntentId,
+    p_source_type: sourceType,
+    p_amount: amount,
+  });
+
+  if (error) {
+    console.error("[withdrawal stripe] funding source registration failed", {
+      userId,
+      walletTransactionId,
+      stripeChargeId,
+      stripePaymentIntentId,
+      sourceType,
+      amount,
+      error: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+    return;
+  }
+
+  const payload = data as { ok?: boolean; error?: string } | null;
+  if (!payload?.ok) {
+    console.error("[withdrawal stripe] funding source registration not ok", {
+      userId,
+      walletTransactionId,
+      stripeChargeId,
+      stripePaymentIntentId,
+      sourceType,
+      amount,
+      payload,
+    });
+  }
+}
+
 async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.Session) {
   const sessionId = session.id;
   const metadata = session.metadata ?? {};
   const paymentIntentId = idFrom(session.payment_intent) ?? sessionId;
   const amount = amountFromCents(session.amount_total);
+  let stripeChargeId: string | null = null;
 
   // 1. Log everything raw — so we can see exactly what Stripe sent
   console.log("[stripe deposit] session metadata", { sessionId, metadata });
@@ -388,12 +457,28 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
   }
 
   // 7. Stamp transfer reference — RPC already set status/provider/payment_id; we add provider_transfer_id + reference_id
+  try {
+    const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId);
+    stripeChargeId = idFrom((paymentIntent as unknown as Record<string, unknown>).latest_charge);
+  } catch (error) {
+    console.error("[withdrawal stripe] missing source charge", {
+      userId: tx.user_id,
+      walletTransactionId: payload.transaction_id ?? tx.id,
+      stripePaymentIntentId: paymentIntentId,
+      sourceType: "deposit",
+      amount,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   const { data: finalUpdate, error: finalUpdateError } = await supabase
     .from("wallet_transactions")
     .update({
       provider_transfer_id: paymentIntentId,
       reference_id: sessionId,
       processed_at: new Date().toISOString(),
+      stripe_payment_intent_id: paymentIntentId,
+      stripe_charge_id: stripeChargeId,
     } as Record<string, unknown>)
     .eq("id", payload.transaction_id ?? tx.id)
     .select("id, status, provider, provider_transfer_id, provider_status, payment_id, reference_id, processed_at")
@@ -420,7 +505,18 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
     userId: tx.user_id,
     transactionId: payload.transaction_id ?? tx.id,
     paymentIntentId,
+    stripeChargeId,
     sessionId,
+    amount,
+  });
+
+  await registerStripeFundingSource({
+    supabase,
+    userId: tx.user_id,
+    walletTransactionId: payload.transaction_id ?? tx.id,
+    stripeChargeId,
+    stripePaymentIntentId: paymentIntentId,
+    sourceType: "deposit",
     amount,
   });
 
@@ -1145,121 +1241,53 @@ async function handleStripePayoutEvent(
     ?? "Stripe payout failed";
 
   const amount = Math.abs(Number(tx.amount ?? 0));
-  const transferId = stringFrom(payout.metadata?.transfer_id) ?? stringFrom(tx.provider_transfer_id);
+  const restoreResult = await restoreStripeWithdrawalAfterPayoutFailure({
+    supabase,
+    withdrawalTransactionId: txId,
+    payoutId: payout.id,
+    failureReason,
+  });
 
-  if (transferId) {
-    try {
-      await getStripe().transfers.createReversal(
-        transferId,
-        {
-          metadata: {
-            wallet_transaction_id: txId,
-            reason: "payout_failed_webhook",
-          },
-        },
-        {
-          idempotencyKey: `wallet_withdrawal_webhook_transfer_reversal:${txId}`,
-        },
-      );
+  if (restoreResult.restored) {
+    await notify(
+      tx.user_id,
+      "payment",
+      `Seu saque de ${formatBrl(amount)} falhou no Stripe e o saldo foi restaurado na carteira.`,
+      financesPath,
+      `wallet-withdrawal-failed-stripe:${txId}`,
+    ).catch((error) => console.error("[stripe payout] failed notify user failed", { txId, error }));
 
-      await supabase.rpc("fail_wallet_withdrawal", {
-        p_transaction_id: txId,
-        p_reason: `Stripe payout failed and transfer was reversed: ${failureReason}`,
-        p_provider_status: "failed",
-      });
+    await notifyAdmins(
+      "payment",
+      `Falha em saque Stripe com saldo restaurado: ${formatBrl(amount)}`,
+      "/admin/finances",
+      `admin-stripe-withdrawal-failed:${txId}`,
+    ).catch((error) => console.error("[stripe payout] failed notify admin failed", { txId, error }));
 
-      await supabase
-        .from("wallet_transactions")
-        .update({
-          provider_transfer_id: transferId,
-          provider_payout_id: payout.id,
-          failure_reason: failureReason,
-          needs_admin_review: false,
-        })
-        .eq("id", txId);
-
-      await notify(
-        tx.user_id,
-        "payment",
-        `Seu saque de ${formatBrl(amount)} falhou no Stripe e o saldo foi restaurado na carteira.`,
-        financesPath,
-        `wallet-withdrawal-failed-stripe:${txId}`,
-      ).catch((error) => console.error("[stripe payout] failed notify user failed", { txId, error }));
-
-      await notifyAdmins(
-        "payment",
-        `Falha em saque Stripe com saldo restaurado: ${formatBrl(amount)}`,
-        "/admin/finances",
-        `admin-stripe-withdrawal-failed:${txId}`,
-      ).catch((error) => console.error("[stripe payout] failed notify admin failed", { txId, error }));
-
-      console.log("[withdrawal] failed", {
-        txId,
-        provider: "stripe",
-        payoutId: payout.id,
-        transferId,
-        reason: failureReason,
-        eventType,
-      });
-      return;
-    } catch (reversalError) {
-      const reversalMessage = reversalError instanceof Error ? reversalError.message : String(reversalError);
-
-      await supabase
-        .from("wallet_transactions")
-        .update({
-          status: "failed",
-          provider: "stripe",
-          provider_status: "failed",
-          provider_transfer_id: transferId,
-          provider_payout_id: payout.id,
-          processed_at: new Date().toISOString(),
-          failure_reason: `${failureReason}. Reversal error: ${reversalMessage}`,
-          admin_note: `Stripe payout falhou apos a transferencia. Reconciliacao manual necessaria. Reversal error: ${reversalMessage}`,
-          needs_admin_review: true,
-        })
-        .eq("id", txId);
-
-      await notifyAdmins(
-        "payment",
-        `Saque Stripe exige reconciliacao manual: ${formatBrl(amount)}`,
-        "/admin/finances",
-        `admin-stripe-withdrawal-review:${txId}`,
-      ).catch((error) => console.error("[stripe payout] review notify admin failed", { txId, error }));
-
-      console.log("[withdrawal stripe] failed after transfer needs review", {
-        txId,
-        provider: "stripe",
-        payoutId: payout.id,
-        transferId,
-        reason: failureReason,
-        reversalError: reversalMessage,
-        eventType,
-      });
-      return;
-    }
-  }
-
-  await supabase
-    .from("wallet_transactions")
-    .update({
-      status: "failed",
+    console.log("[withdrawal] failed", {
+      txId,
       provider: "stripe",
-      provider_status: "failed",
-      provider_payout_id: payout.id,
-      processed_at: new Date().toISOString(),
-      failure_reason: failureReason,
-      admin_note: "Stripe payout falhou sem transfer_id rastreavel. Reconciliacao manual necessaria.",
-      needs_admin_review: true,
-    })
-    .eq("id", txId);
+      payoutId: payout.id,
+      reason: failureReason,
+      eventType,
+    });
+    return;
+  }
 
   await notifyAdmins(
     "payment",
-    `Saque Stripe sem transfer_id exige revisao: ${formatBrl(amount)}`,
+    `Saque Stripe exige conciliacao manual: ${formatBrl(amount)}`,
     "/admin/finances",
-    `admin-stripe-withdrawal-missing-transfer:${txId}`,
-  ).catch((error) => console.error("[stripe payout] missing transfer notify admin failed", { txId, error }));
+    `admin-stripe-withdrawal-review:${txId}`,
+  ).catch((error) => console.error("[stripe payout] review notify admin failed", { txId, error }));
+
+  console.log("[withdrawal stripe] failed after transfer needs review", {
+    txId,
+    provider: "stripe",
+    payoutId: payout.id,
+    reason: failureReason,
+    eventType,
+  });
 }
 
 export async function POST(req: NextRequest) {

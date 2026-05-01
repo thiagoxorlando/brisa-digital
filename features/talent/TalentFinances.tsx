@@ -378,7 +378,7 @@ export default function TalentFinances() {
   const [withdrawMsg, setWithdrawMsg]   = useState("");
   const [, setPixReady] = useState(false);
   const [stripeReady, setStripeReady] = useState(false);
-  const [stripeReason, setStripeReason] = useState<string | null>(null);
+  const [stripeReason, setStripeReason] = useState("fale com o suporte");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [period, setPeriod]             = useState<PeriodFilter>("all");
   const [showAllContracts, setShowAllContracts] = useState(false);
@@ -615,9 +615,7 @@ export default function TalentFinances() {
     if (!stripeReady) {
       setWithdrawState("error");
       setWithdrawMsg(
-        stripeReason
-          ? `Saque automático indisponível: ${stripeReason}`
-          : "Conclua a verificacao da conta Stripe para liberar saques automaticos.",
+        `Saque automático indisponível: ${stripeReason}`,
       );
       return;
     }
@@ -779,9 +777,7 @@ export default function TalentFinances() {
                 </svg>
                 <div className="flex-1">
                   <p className="text-[13px] text-amber-800 leading-relaxed">
-                    {stripeReason
-                      ? <>Saque automático indisponível: <strong>{stripeReason}</strong>.</>
-                      : <>Conclua a verificação da sua conta <strong>Stripe automático</strong> para solicitar saque.</>}
+                    <>Saque automático indisponível: <strong>{stripeReason}</strong>.</>
                   </p>
                 </div>
               </div>
@@ -890,9 +886,9 @@ export default function TalentFinances() {
           {/* Stripe Connect payout account */}
           <StripeConnectPayoutPanel
             amount={withdrawAmountNum > 0 ? withdrawAmountNum : 0.01}
-            onStatusChange={({ ready, exactReason }) => {
+            onStatusChange={({ ready, message }) => {
               setStripeReady(ready);
-              setStripeReason(exactReason);
+              setStripeReason(message === "Saque automático indisponível — fale com o suporte" ? "fale com o suporte" : message);
             }}
           />
 

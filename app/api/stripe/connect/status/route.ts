@@ -7,21 +7,13 @@ export const runtime = "nodejs";
 
 export type StripeConnectStatusResponse = {
   connected: boolean;
-  charges_enabled: boolean;
-  payouts_enabled: boolean;
   details_submitted: boolean;
+  payouts_enabled: boolean;
   transfers_active: boolean;
   bank_ready: boolean;
-  wallet_ok: boolean;
-  stripe_account_ok: boolean;
-  platform_balance_ok: boolean;
-  platform_available_balance_brl: number;
-  exact_reason: string | null;
-  stripe_account_id: string | null;
-  stripe_account_country: string | null;
-  needs_source_transaction_for_brazil: boolean;
-  last_withdrawal_status: string | null;
-  last_withdrawal_provider_status: string | null;
+  can_withdraw: boolean;
+  availability_state: "unconnected" | "review" | "processing" | "available" | "blocked";
+  display_message: string;
 };
 
 export async function GET(request: NextRequest) {
@@ -42,27 +34,14 @@ export async function GET(request: NextRequest) {
 
     const payload: StripeConnectStatusResponse = {
       connected: Boolean(readiness.stripeAccountId),
-      charges_enabled: readiness.chargesEnabled,
-      payouts_enabled: readiness.payoutsEnabled,
       details_submitted: readiness.detailsSubmitted,
+      payouts_enabled: readiness.payoutsEnabled,
       transfers_active: readiness.transfersActive,
       bank_ready: readiness.bankReady,
-      wallet_ok: readiness.walletOk,
-      stripe_account_ok: readiness.stripeAccountOk,
-      platform_balance_ok: readiness.platformBalanceOk,
-      platform_available_balance_brl: readiness.platformAvailableBalanceBrl,
-      exact_reason: readiness.exactReason,
-      stripe_account_id: readiness.stripeAccountId,
-      stripe_account_country: readiness.stripeAccountCountry,
-      needs_source_transaction_for_brazil: readiness.needsSourceTransactionForBrazil,
-      last_withdrawal_status: readiness.lastWithdrawalStatus,
-      last_withdrawal_provider_status: readiness.lastWithdrawalProviderStatus,
+      can_withdraw: readiness.ready,
+      availability_state: readiness.publicState,
+      display_message: readiness.publicMessage ?? "Saque automático indisponível — fale com o suporte",
     };
-
-    console.log("[stripe status]", {
-      userId: user.id,
-      payload,
-    });
 
     return NextResponse.json(payload);
   } catch (err) {
@@ -71,21 +50,13 @@ export async function GET(request: NextRequest) {
 
     const fallback: StripeConnectStatusResponse = {
       connected: false,
-      charges_enabled: false,
-      payouts_enabled: false,
       details_submitted: false,
+      payouts_enabled: false,
       transfers_active: false,
       bank_ready: false,
-      wallet_ok: false,
-      stripe_account_ok: false,
-      platform_balance_ok: false,
-      platform_available_balance_brl: 0,
-      exact_reason: "nao foi possivel verificar a conta Stripe agora",
-      stripe_account_id: null,
-      stripe_account_country: null,
-      needs_source_transaction_for_brazil: false,
-      last_withdrawal_status: null,
-      last_withdrawal_provider_status: null,
+      can_withdraw: false,
+      availability_state: "blocked",
+      display_message: "Saque automático indisponível — fale com o suporte",
     };
     return NextResponse.json(fallback);
   }

@@ -153,9 +153,11 @@ export default function AgencyFinances({
   const [withdrawError, setWithdrawError] = useState("");
   const [withdrawInfo, setWithdrawInfo] = useState("");
   const [stripeReady, setStripeReady] = useState(stripeConnected);
-  const [stripeReason, setStripeReason] = useState<string | null>(null);
-  const [stripeState, setStripeState] = useState<"unconnected" | "connected" | "review" | "blocked" | "ready">(
-    stripeConnected ? "ready" : "unconnected",
+  const [stripeMessage, setStripeMessage] = useState("fale com o suporte");
+  const stripeReason = stripeMessage;
+  const setStripeReason = setStripeMessage;
+  const [stripeState, setStripeState] = useState<"unconnected" | "review" | "processing" | "available" | "blocked">(
+    stripeConnected ? "available" : "unconnected",
   );
 
   const [savedPix, setSavedPix] = useState(agencyPix ?? null);
@@ -508,10 +510,10 @@ export default function AgencyFinances({
 
       <StripeConnectPayoutPanel
         amount={withdrawAmountNum > 0 ? withdrawAmountNum : withdrawalMinAmount}
-        onStatusChange={({ ready, state, exactReason }) => {
+        onStatusChange={({ ready, state, message }) => {
           setStripeReady(ready);
           setStripeState(state);
-          setStripeReason(exactReason);
+          setStripeReason(message === "Saque automático indisponível — fale com o suporte" ? "fale com o suporte" : message);
         }}
       />
 
@@ -536,9 +538,13 @@ export default function AgencyFinances({
                 <p className="text-[12px] text-zinc-400">Saques automaticos e diretos</p>
               </div>
             </div>
-            {stripeState === "ready" ? (
+            {stripeState === "available" ? (
               <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 px-2.5 py-1 rounded-full flex-shrink-0">
                 Pronto para saque
+              </span>
+            ) : stripeState === "processing" ? (
+              <span className="text-[11px] font-semibold bg-sky-50 text-sky-700 ring-1 ring-sky-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                Em processamento
               </span>
             ) : stripeState === "blocked" ? (
               <span className="text-[11px] font-semibold bg-rose-50 text-rose-700 ring-1 ring-rose-100 px-2.5 py-1 rounded-full flex-shrink-0">
@@ -548,10 +554,6 @@ export default function AgencyFinances({
               <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
                 Em analise
               </span>
-            ) : stripeState === "connected" ? (
-              <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
-                Conectado
-              </span>
             ) : (
               <span className="text-[11px] font-semibold bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200 px-2.5 py-1 rounded-full flex-shrink-0">
                 Nao configurado
@@ -559,13 +561,15 @@ export default function AgencyFinances({
             )}
           </div>
           <p className="text-[12px] text-zinc-400 mt-3">
-            {stripeState === "ready"
+            {stripeState === "available"
               ? "Saques sao processados automaticamente via Stripe Connect. Prazo de 2 a 5 dias uteis."
+              : stripeState === "processing"
+                ? "Seu saque automatico esta em processamento no Stripe."
               : stripeState === "blocked"
-                ? "Stripe conectado, mas o saque automatico esta indisponivel ate corrigir a conta ou o saldo da plataforma."
-                : stripeState === "connected" || stripeState === "review"
+                ? "Saque automatico indisponivel — fale com o suporte."
+                : stripeState === "review"
                   ? "A conta Stripe ja foi conectada, mas ainda nao esta pronta para payout automatico."
-              : "Sem conta Stripe Connect pronta, o saque automatico fica indisponivel ate concluir a conexao."}
+               : "Sem conta Stripe Connect pronta, o saque automatico fica indisponivel ate concluir a conexao."}
           </p>
         </div>
 
