@@ -138,16 +138,14 @@ const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
 
 function StatCard({ label, value, sub, stripe }: { label: string; value: string; sub?: string; stripe: string }) {
   return (
-    <div className="min-w-0 bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
-      <div className={`h-[3px] bg-gradient-to-r ${stripe}`} />
-      <div className="flex h-full flex-col justify-between gap-3 p-5 sm:p-5 lg:p-6">
-        <div className="space-y-2">
-          <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">{label}</p>
-          <p className="overflow-hidden whitespace-nowrap text-[1.2rem] sm:text-[1.35rem] lg:text-[1.55rem] xl:text-[1.7rem] font-semibold tracking-tight text-zinc-900 leading-tight tabular-nums pb-0.5">
-            {value}
-          </p>
-        </div>
-        {sub && <p className="text-[11px] sm:text-[12px] text-zinc-400 leading-relaxed">{sub}</p>}
+    <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_2px_8px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col">
+      <div className={`h-[3px] shrink-0 bg-gradient-to-r ${stripe}`} />
+      <div className="flex flex-col justify-between gap-3 p-5 grow">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-400 leading-snug">{label}</p>
+        <p className="whitespace-nowrap text-[1.6rem] font-extrabold tracking-tight text-zinc-900 leading-none tabular-nums">
+          {value}
+        </p>
+        {sub && <p className="text-[12px] text-zinc-400 leading-snug mt-auto pt-1">{sub}</p>}
       </div>
     </div>
   );
@@ -685,7 +683,7 @@ export default function TalentFinances() {
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
             <StatCard
               label="Total Ganho"
               value={brl(paidContractEarnings + referralEarnings)}
