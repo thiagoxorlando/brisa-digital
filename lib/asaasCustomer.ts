@@ -14,7 +14,7 @@ export class AsaasCustomerError extends Error {
 // Resolve CPF/CNPJ for a user from available DB sources:
 //   1. Agency PIX key (when type is "cpf" or "cnpj" the value IS the document)
 //   2. Saved cards holder document (most recently added card)
-async function resolveDocument(userId: string): Promise<string | null> {
+export async function resolveDocument(userId: string): Promise<string | null> {
   const supabase = createServerClient({ useServiceRole: true });
 
   // Source 1: agency PIX key

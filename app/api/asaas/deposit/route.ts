@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const customerId = (profile as Record<string, unknown>).asaas_customer_id as string | null;
   if (!customerId) {
     return NextResponse.json(
-      { error: "Crie seu cadastro Asaas antes de depositar." },
+      { error: "Complete seu CPF para continuar" },
       { status: 400 },
     );
   }

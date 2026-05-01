@@ -181,6 +181,22 @@ export default function AgencyFinances({
     setDepositError("");
     setDepositResult(null);
 
+    const customerRes = await fetch("/api/asaas/customer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const customerData = await customerRes.json().catch(() => ({})) as {
+      error?: string;
+      customerId?: string;
+    };
+
+    if (!customerRes.ok || !customerData.customerId) {
+      setDepositLoading(false);
+      setDepositError("Complete seu CPF para continuar");
+      return;
+    }
+
     const res = await fetch("/api/asaas/deposit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -197,7 +213,11 @@ export default function AgencyFinances({
     setDepositLoading(false);
 
     if (!res.ok || !data.paymentId) {
-      setDepositError(data.error ?? "Erro ao gerar cobrança PIX.");
+      setDepositError(
+        data.error === "Crie seu cadastro Asaas antes de depositar."
+          ? "Complete seu CPF para continuar"
+          : (data.error ?? "Erro ao gerar cobrança PIX."),
+      );
       return;
     }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createCustomer } from "@/lib/asaas";
+import { resolveDocument } from "@/lib/asaasCustomer";
 
 export async function POST(req: NextRequest) {
   const session = await createSessionClient();
@@ -10,10 +11,11 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({})) as { cpfCnpj?: string };
   const cpfCnpj = body.cpfCnpj?.replace(/\D/g, "") ?? "";
+  const resolvedCpfCnpj = cpfCnpj || await resolveDocument(user.id);
 
-  if (!cpfCnpj) {
+  if (!resolvedCpfCnpj) {
     return NextResponse.json(
-      { error: "Complete seu CPF/CNPJ para continuar." },
+      { error: "Complete seu CPF para continuar" },
       { status: 400 },
     );
   }
@@ -61,14 +63,14 @@ export async function POST(req: NextRequest) {
   // 3. Create Asaas customer
   let customerId: string;
   try {
-    const created = await createCustomer({ name, email, cpfCnpj });
+    const created = await createCustomer({ name, email, cpfCnpj: resolvedCpfCnpj });
     customerId = created.id;
     console.log("[asaas customer] created", { userId: user.id, customerId });
   } catch (err) {
     console.error("[asaas customer] failed", { userId: user.id, error: String(err) });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Falha ao criar cliente Asaas." },
-      { status: 502 },
+      { error: "Complete seu CPF para continuar" },
+      { status: 400 },
     );
   }
 
