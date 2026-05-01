@@ -7,6 +7,15 @@ function parseIds(value: unknown) {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
+function isAuthUserNotFound(error: unknown) {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+
+  return message.toLowerCase().includes("user not found");
+}
+
 async function deleteUserById(userId: string) {
   const supabase = createServerClient({ useServiceRole: true });
   const now = new Date().toISOString();
@@ -67,7 +76,9 @@ async function deleteUserById(userId: string) {
   if (profileResult.error) throw new Error(profileResult.error.message);
 
   const authResult = await supabase.auth.admin.deleteUser(userId);
-  if (authResult.error) throw new Error(authResult.error.message);
+  if (authResult.error && !isAuthUserNotFound(authResult.error)) {
+    throw new Error(`${authResult.error.message} (${userId})`);
+  }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -98,12 +109,17 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
+  const { userId: adminId } = auth;
 
   const body = await req.json().catch(() => ({})) as { ids?: unknown };
   const ids = parseIds(body.ids);
 
   if (ids.length === 0) {
     return NextResponse.json({ error: "Informe ao menos um usuario." }, { status: 400 });
+  }
+
+  if (ids.includes(adminId)) {
+    return NextResponse.json({ error: "Você não pode excluir sua própria conta." }, { status: 400 });
   }
 
   for (const id of ids) {

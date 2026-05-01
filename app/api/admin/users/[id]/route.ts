@@ -4,6 +4,15 @@ import { requireAdmin } from "@/lib/requireAdmin";
 
 type Params = { params: Promise<{ id: string }> };
 
+function isAuthUserNotFound(error: unknown) {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+
+  return message.toLowerCase().includes("user not found");
+}
+
 // ── PATCH — update role OR freeze/unfreeze ────────────────────────────────────
 export async function PATCH(req: NextRequest, { params }: Params) {
   const auth = await requireAdmin();
@@ -85,8 +94,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(req: NextRequest, { params }: Params) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
+  const { userId: adminId } = auth;
 
   const { id } = await params;
+  if (id === adminId) {
+    return NextResponse.json({ error: "Você não pode excluir sua própria conta." }, { status: 400 });
+  }
+
   const supabase = createServerClient({ useServiceRole: true });
   const now = new Date().toISOString();
 
@@ -141,8 +155,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   // 6. Hard-delete the profiles row and auth account (can't restore auth)
   await supabase.from("profiles").delete().eq("id", id);
   const { error: authErr } = await supabase.auth.admin.deleteUser(id);
-  if (authErr) {
-    return NextResponse.json({ error: authErr.message }, { status: 500 });
+  if (authErr && !isAuthUserNotFound(authErr)) {
+    return NextResponse.json({ error: `${authErr.message} (${id})` }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

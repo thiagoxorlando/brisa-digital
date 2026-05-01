@@ -256,6 +256,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
 
   async function handleBulkDelete() {
     if (selectedIds.size === 0) return;
+    if (!window.confirm(`Tem certeza que deseja excluir ${selectedIds.size} usuários selecionados?`)) return;
     setBulkBusy("delete");
     setError("");
 
