@@ -55,6 +55,27 @@ export type FinancesWithdrawal = {
   adminNote: string | null;
 };
 
+export type FinancesFundingSourceTrace = {
+  id: string;
+  createdAt: string;
+  stripeChargeId: string | null;
+  stripePaymentIntentId: string | null;
+  sourceType: string;
+  status: string;
+  originalAmount: number;
+  remainingAmount: number;
+  originalPayerName: string;
+  currentOwnerName: string;
+  relatedContractId: string | null;
+  relatedContractLabel: string | null;
+  sourceWalletTransactionId: string | null;
+  allocatedAmount: number;
+  withdrawalCount: number;
+  withdrawalStatus: string | null;
+  providerStatus: string | null;
+  needsAdminReview: boolean;
+};
+
 export type FinancesPlanPayment = {
   id: string;
   userId: string;
@@ -1307,6 +1328,99 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
   );
 }
 
+function fundingSourceTypeLabel(sourceType: string) {
+  if (sourceType === "wallet_deposit") return "Depósito";
+  if (sourceType === "contract_payment") return "Pagamento";
+  if (sourceType === "escrow") return "Escrow";
+  if (sourceType === "platform_fee") return "Receita";
+  return sourceType;
+}
+
+function FundingSourceTraceSection({ fundingSources }: { fundingSources: FinancesFundingSourceTrace[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleRows = expanded ? fundingSources : fundingSources.slice(0, 12);
+
+  return (
+    <Section
+      title="Rastreio de funding source"
+      subtitle="Payer → charge Stripe → dono atual → contrato/escrow → saque"
+    >
+      <TableCard>
+        <thead className="border-b border-[#DDE6E6] bg-[#F0F9F8]">
+          <tr>
+            <Th>Payer</Th>
+            <Th>Dono atual</Th>
+            <Th>Tipo</Th>
+            <Th>Contrato</Th>
+            <Th right>Original</Th>
+            <Th right>Restante</Th>
+            <Th right>Alocado</Th>
+            <Th>Status</Th>
+            <Th>Charge</Th>
+            <Th>Saque</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#EFF5F5] [&>tr:hover]:bg-[#F8FAFC]">
+          {visibleRows.map((source) => (
+            <tr key={source.id}>
+              <Td><span className="font-medium text-[#1F2D2E]">{source.originalPayerName}</span></Td>
+              <Td>{source.currentOwnerName}</Td>
+              <Td>
+                <Badge value={fundingSourceTypeLabel(source.sourceType)} tone="bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200" />
+              </Td>
+              <Td>
+                <div className="space-y-1">
+                  <p className="text-xs text-[#1F2D2E]">{source.relatedContractLabel ?? "—"}</p>
+                  {source.relatedContractId && (
+                    <p className="font-mono text-[10px] text-zinc-400">{source.relatedContractId.slice(0, 8)}</p>
+                  )}
+                </div>
+              </Td>
+              <Td right>{brl(source.originalAmount)}</Td>
+              <Td right>{brl(source.remainingAmount)}</Td>
+              <Td right>{source.allocatedAmount > 0 ? brl(source.allocatedAmount) : "—"}</Td>
+              <Td>
+                <div className="space-y-1">
+                  <Badge value={source.status} tone={source.needsAdminReview ? "bg-red-500/15 text-red-400 ring-1 ring-red-500/30" : "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"} />
+                  {source.needsAdminReview && (
+                    <p className="text-[10px] font-semibold text-red-400">needs_admin_review</p>
+                  )}
+                </div>
+              </Td>
+              <Td>
+                <div className="space-y-1">
+                  <p className="max-w-[140px] truncate font-mono text-[11px] text-[#647B7B]" title={source.stripeChargeId ?? "—"}>
+                    {source.stripeChargeId ?? "—"}
+                  </p>
+                  {source.stripePaymentIntentId && (
+                    <p className="max-w-[140px] truncate font-mono text-[10px] text-zinc-400" title={source.stripePaymentIntentId}>
+                      {source.stripePaymentIntentId}
+                    </p>
+                  )}
+                </div>
+              </Td>
+              <Td>
+                <div className="space-y-1">
+                  <p className="text-xs text-zinc-500">
+                    {source.withdrawalCount > 0 ? `${source.withdrawalCount} saque(s)` : "—"}
+                  </p>
+                  {source.withdrawalStatus && (
+                    <p className="text-[10px] text-zinc-400">
+                      {source.withdrawalStatus}
+                      {source.providerStatus ? ` · ${source.providerStatus}` : ""}
+                    </p>
+                  )}
+                </div>
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </TableCard>
+      <ShowMoreButton total={fundingSources.length} threshold={12} expanded={expanded} onToggle={() => setExpanded((current) => !current)} />
+    </Section>
+  );
+}
+
 // â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type PlatformBalanceState =
@@ -1324,6 +1438,7 @@ export default function AdminFinances({
   withdrawals = [],
   agencyWallets = [],
   talentWallets = [],
+  fundingSources = [],
 }: {
   summary: FinancesSummary;
   bookings: FinancesBooking[];
@@ -1333,6 +1448,7 @@ export default function AdminFinances({
   withdrawals?: FinancesWithdrawal[];
   agencyWallets?: FinancesWallet[];
   talentWallets?: FinancesWallet[];
+  fundingSources?: FinancesFundingSourceTrace[];
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("saques");
   const [platformBalance, setPlatformBalance] = useState<PlatformBalanceState>({ status: "loading" });
@@ -1448,6 +1564,8 @@ export default function AdminFinances({
         {/* Saques */}
         <div className={activeTab === "saques" ? "" : "hidden"}>
           <WithdrawalsSection withdrawals={withdrawals} />
+          <Divider />
+          <FundingSourceTraceSection fundingSources={fundingSources} />
         </div>
 
         {/* Carteiras */}

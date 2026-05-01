@@ -146,12 +146,16 @@ export default async function AgencyFinancesPage() {
 
   const completedTotal = completed.reduce((sum, t) => sum + t.amount, 0);
   const pendingTotal   = pending.reduce((sum, t) => sum + t.amount, 0);
+  const { data: autoWithdrawableBalanceRaw } = await supabase.rpc("get_auto_withdrawable_balance", {
+    p_user_id: user?.id ?? "",
+  });
 
   const summary: AgencyFinanceSummary = {
     totalSpent:        completedTotal + pendingTotal,
     pendingPayments:   pendingTotal,
     completedPayments: completedTotal,
     walletBalance:     profile?.wallet_balance ?? 0,
+    autoWithdrawableBalance: Number(autoWithdrawableBalanceRaw ?? 0),
   };
 
   const agencyPix = agencyRow?.pix_key_value

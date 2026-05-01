@@ -373,6 +373,7 @@ export default function TalentFinances() {
   const [paidContracts, setPaidContracts] = useState<PaidContract[]>([]);
   const [withdrawals, setWithdrawals]   = useState<TalentWithdrawal[]>([]);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [autoWithdrawableBalance, setAutoWithdrawableBalance] = useState(0);
   const [loading, setLoading]           = useState(true);
   const [withdrawState, setWithdrawState] = useState<WithdrawState>("idle");
   const [withdrawMsg, setWithdrawMsg]   = useState("");
@@ -398,6 +399,12 @@ export default function TalentFinances() {
       .single();
 
     setWalletBalance(Number(profileBalance?.wallet_balance ?? 0));
+
+    const { data: autoWithdrawable } = await supabase.rpc("get_auto_withdrawable_balance", {
+      p_user_id: user.id,
+    });
+
+    setAutoWithdrawableBalance(Number(autoWithdrawable ?? 0));
 
     const { data: withdrawalRows } = await supabase
       .from("wallet_transactions")
@@ -592,7 +599,7 @@ export default function TalentFinances() {
 
   // Available withdrawal money is the talent wallet balance. It includes both
   // contract payouts and referral commissions after they are credited.
-  const availableToWithdraw = Math.max(0, walletBalance);
+  const availableToWithdraw = Math.max(0, autoWithdrawableBalance);
   const withdrawAmountNum = Math.round(Number(withdrawAmount) * 100) / 100;
   const filteredPaidContracts = paidContracts.filter((c) => periodMatches(c.paid_at, period));
   const filteredPayments = payments.filter((p) => periodMatches(p.date, period));
@@ -646,9 +653,7 @@ export default function TalentFinances() {
       setWithdrawAmount("");
       setWithdrawMsg(
         withdrawData.message
-          ?? (withdrawData.provider === "stripe"
-            ? `Saque enviado pelo Stripe: ${brl(withdrawAmountNum)}. Acompanhe o status abaixo.`
-            : `Saque manual solicitado com sucesso: ${brl(withdrawAmountNum)}.`),
+          ?? `Saque automático enviado: ${brl(withdrawAmountNum)}. Acompanhe o status abaixo.`,
       );
       await load(false);
     } catch {
@@ -688,7 +693,7 @@ export default function TalentFinances() {
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard
               label="Total Ganho"
               value={brl(paidContractEarnings + referralEarnings)}
@@ -702,14 +707,20 @@ export default function TalentFinances() {
               stripe="from-amber-400 to-orange-500"
             />
             <StatCard
-              label="Disponível para Saque"
+              label="Saldo Total"
+              value={brl(walletBalance)}
+              sub="Saldo atual em carteira"
+              stripe="from-emerald-400 to-teal-500"
+            />
+            <StatCard
+              label="Saque Automático"
               value={brl(availableToWithdraw)}
               sub={
                 availableToWithdraw > 0
-                  ? `Carteira: ${brl(availableToWithdraw)}`
+                  ? `Lastreado por Stripe: ${brl(availableToWithdraw)}`
                   : "Nada pendente"
               }
-              stripe="from-emerald-400 to-teal-500"
+              stripe="from-cyan-400 to-sky-500"
             />
             <StatCard
               label="Indicações"
@@ -723,11 +734,12 @@ export default function TalentFinances() {
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Disponível para Saque</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Disponível para Saque Automático</p>
                 <p className="text-[1.75rem] font-semibold tracking-tighter text-zinc-900 leading-none">{brl(availableToWithdraw)}</p>
                 {alreadyWithdrawn > 0 && (
                   <p className="text-[12px] text-zinc-400 mt-1">{brl(alreadyWithdrawn)} já sacado</p>
                 )}
+                <p className="text-[12px] text-zinc-400 mt-1">Saldo total em carteira: {brl(walletBalance)}</p>
               </div>
             </div>
 

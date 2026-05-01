@@ -160,11 +160,9 @@ function normalizeAllocations(value: unknown): FundingAllocation[] {
 }
 
 async function getStripeFundedWithdrawableBalance(supabase: Supabase, userId: string) {
-  const { data, error } = await supabase
-    .from("wallet_funding_sources")
-    .select("remaining_amount")
-    .eq("user_id", userId)
-    .gt("remaining_amount", 0);
+  const { data, error } = await supabase.rpc("get_auto_withdrawable_balance", {
+    p_user_id: userId,
+  });
 
   if (error) {
     console.error("[withdrawal stripe] funding source lookup failed", {
@@ -180,7 +178,7 @@ async function getStripeFundedWithdrawableBalance(supabase: Supabase, userId: st
     });
   }
 
-  return (data ?? []).reduce((sum, row) => sum + Number(row.remaining_amount ?? 0), 0);
+  return Number(data ?? 0);
 }
 
 async function getOpenWithdrawalAllocations(supabase: Supabase, withdrawalTransactionId: string) {

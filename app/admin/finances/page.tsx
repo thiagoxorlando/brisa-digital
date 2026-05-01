@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AdminFinances, {
   type FinancesBooking,
   type FinancesContract,
+  type FinancesFundingSourceTrace,
   type FinancesPlanPayment,
   type FinancesSubscription,
   type FinancesSummary,
@@ -43,6 +44,29 @@ type AgencyPlanProfileRow = {
 type WithdrawalProfileRow = {
   id: string;
   role: string | null;
+};
+
+type FundingSourceRow = {
+  id: string;
+  stripe_charge_id: string | null;
+  stripe_payment_intent_id: string | null;
+  original_payer_user_id: string | null;
+  current_owner_user_id: string | null;
+  source_type: string | null;
+  original_amount: number | null;
+  remaining_amount: number | null;
+  status: string | null;
+  source_wallet_transaction_id: string | null;
+  related_contract_id: string | null;
+  created_at: string | null;
+};
+
+type FundingAllocationRow = {
+  funding_source_id: string;
+  withdrawal_transaction_id: string;
+  allocated_amount: number | null;
+  transfer_id: string | null;
+  restored_at: string | null;
 };
 
 async function fetchContracts(supabase: ReturnType<typeof createServerClient>) {
@@ -96,6 +120,7 @@ export default async function AdminFinancesPage() {
     contractsData,
     { data: withdrawalTxs },
     { data: talentWalletsData },
+    { data: fundingSourcesData },
   ] = await Promise.all([
     supabase
       .from("bookings")
@@ -135,10 +160,16 @@ export default async function AdminFinancesPage() {
       .eq("role", "talent")
       .gt("wallet_balance", 0)
       .order("wallet_balance", { ascending: false }),
+    supabase
+      .from("wallet_funding_sources")
+      .select("id, stripe_charge_id, stripe_payment_intent_id, original_payer_user_id, current_owner_user_id, source_type, original_amount, remaining_amount, status, source_wallet_transaction_id, related_contract_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
 
   const rows = bookingsData ?? [];
   const contractRows = contractsData ?? [];
+  const fundingSourceRows = (fundingSourcesData ?? []) as FundingSourceRow[];
 
   const typedAgencyPlanProfiles = (agencyPlanProfiles ?? []) as AgencyPlanProfileRow[];
 
@@ -153,6 +184,9 @@ export default async function AdminFinancesPage() {
   const contractAgencyIds = [...new Set(contractRows.map((contract) => contract.agency_id).filter(Boolean))] as string[];
   const contractJobIds = [...new Set(contractRows.map((contract) => contract.job_id).filter(Boolean))] as string[];
   const withdrawalUserIds = [...new Set((withdrawalTxs ?? []).map((withdrawal) => withdrawal.user_id).filter(Boolean))] as string[];
+  const fundingSourceUserIds = [...new Set(
+    fundingSourceRows.flatMap((source) => [source.original_payer_user_id, source.current_owner_user_id].filter(Boolean)),
+  )] as string[];
 
   const talentMap = new Map<string, string>();
   const talentWalletNameMap = new Map<string, string>();
@@ -163,6 +197,8 @@ export default async function AdminFinancesPage() {
   const contractTalentMap = new Map<string, string>();
   const contractAgencyMap = new Map<string, string>();
   const contractJobMap = new Map<string, string>();
+  const fundingUserRoleMap = new Map<string, string>();
+  const fundingTalentNameMap = new Map<string, string>();
 
   await Promise.all([
     talentIds.length
@@ -234,25 +270,27 @@ export default async function AdminFinancesPage() {
             }
           })
       : Promise.resolve(),
-    withdrawalUserIds.length
+    [...new Set([...withdrawalUserIds, ...fundingSourceUserIds])].length
       ? supabase
           .from("profiles")
           .select("id, role")
-          .in("id", withdrawalUserIds)
+          .in("id", [...new Set([...withdrawalUserIds, ...fundingSourceUserIds])])
           .then(({ data }) => {
             for (const profile of (data ?? []) as WithdrawalProfileRow[]) {
               withdrawalRoleMap.set(profile.id, profile.role ?? "unknown");
+              fundingUserRoleMap.set(profile.id, profile.role ?? "unknown");
             }
           })
       : Promise.resolve(),
-    withdrawalUserIds.length
+    [...new Set([...withdrawalUserIds, ...fundingSourceUserIds])].length
       ? supabase
           .from("talent_profiles")
           .select("id, full_name, pix_key_type, pix_key_value, pix_holder_name")
-          .in("id", withdrawalUserIds)
+          .in("id", [...new Set([...withdrawalUserIds, ...fundingSourceUserIds])])
           .then(({ data }) => {
             for (const profile of data ?? []) {
               withdrawalTalentNameMap.set(profile.id, profile.full_name ?? "Talento sem nome");
+              fundingTalentNameMap.set(profile.id, profile.full_name ?? "Talento sem nome");
               withdrawalTalentPixMap.set(profile.id, {
                 pix_key_type: profile.pix_key_type ?? null,
                 pix_key_value: profile.pix_key_value ?? null,
@@ -361,6 +399,34 @@ export default async function AdminFinancesPage() {
     });
   }
 
+  const fundingSourceIds = fundingSourceRows.map((source) => source.id);
+  const { data: fundingAllocationsData } = fundingSourceIds.length
+    ? await supabase
+        .from("wallet_withdrawal_source_allocations")
+        .select("funding_source_id, withdrawal_transaction_id, allocated_amount, transfer_id, restored_at")
+        .in("funding_source_id", fundingSourceIds)
+        .order("created_at", { ascending: false })
+    : { data: [] as FundingAllocationRow[] };
+
+  const allocationRows = (fundingAllocationsData ?? []) as FundingAllocationRow[];
+  const allocationWithdrawalIds = [...new Set(allocationRows.map((allocation) => allocation.withdrawal_transaction_id))];
+  const { data: fundingWithdrawalRows } = allocationWithdrawalIds.length
+    ? await supabase
+        .from("wallet_transactions")
+        .select("id, status, provider_status, needs_admin_review")
+        .in("id", allocationWithdrawalIds)
+    : { data: [] as Array<Record<string, unknown>> };
+
+  const fundingWithdrawalMap = new Map<string, { status: string | null; providerStatus: string | null; needsAdminReview: boolean }>();
+  for (const row of fundingWithdrawalRows ?? []) {
+    const raw = row as Record<string, unknown>;
+    fundingWithdrawalMap.set(String(raw.id), {
+      status: typeof raw.status === "string" ? raw.status : null,
+      providerStatus: typeof raw.provider_status === "string" ? raw.provider_status : null,
+      needsAdminReview: Boolean(raw.needs_admin_review),
+    });
+  }
+
   const agencyWalletList: FinancesWallet[] = (agencyWallets ?? [])
     .filter((w) => (w.wallet_balance ?? 0) > 0)
     .sort((a, b) => (b.wallet_balance ?? 0) - (a.wallet_balance ?? 0))
@@ -438,6 +504,59 @@ export default async function AdminFinancesPage() {
     };
   });
 
+  const allocationsBySource = new Map<string, FundingAllocationRow[]>();
+  for (const allocation of allocationRows) {
+    const current = allocationsBySource.get(allocation.funding_source_id) ?? [];
+    current.push(allocation);
+    allocationsBySource.set(allocation.funding_source_id, current);
+  }
+
+  function resolveFundingUserName(userId: string | null) {
+    if (!userId) return "Plataforma";
+    const role = fundingUserRoleMap.get(userId);
+    if (role === "agency") return allAgencyNameMap.get(userId) ?? "Agência sem nome";
+    if (role === "talent") return fundingTalentNameMap.get(userId) ?? "Talento sem nome";
+    return "Usuário desconhecido";
+  }
+
+  const fundingSourceTrace: FinancesFundingSourceTrace[] = fundingSourceRows.map((source) => {
+    const allocations = allocationsBySource.get(source.id) ?? [];
+    const allocationTotal = allocations.reduce((sum, allocation) => sum + Number(allocation.allocated_amount ?? 0), 0);
+    const withdrawalStatuses = allocations
+      .map((allocation) => fundingWithdrawalMap.get(allocation.withdrawal_transaction_id)?.status)
+      .filter((status): status is string => Boolean(status));
+    const providerStatuses = allocations
+      .map((allocation) => fundingWithdrawalMap.get(allocation.withdrawal_transaction_id)?.providerStatus)
+      .filter((status): status is string => Boolean(status));
+    const needsAdminReview = allocations.some((allocation) => fundingWithdrawalMap.get(allocation.withdrawal_transaction_id)?.needsAdminReview);
+    const contractLabel = source.related_contract_id
+      ? contractRows.find((contract) => contract.id === source.related_contract_id)?.job_id
+      : null;
+
+    return {
+      id: source.id,
+      createdAt: source.created_at ?? "",
+      stripeChargeId: source.stripe_charge_id,
+      stripePaymentIntentId: source.stripe_payment_intent_id,
+      sourceType: source.source_type ?? "wallet_deposit",
+      status: source.status ?? "available",
+      originalAmount: Number(source.original_amount ?? 0),
+      remainingAmount: Number(source.remaining_amount ?? 0),
+      originalPayerName: resolveFundingUserName(source.original_payer_user_id),
+      currentOwnerName: resolveFundingUserName(source.current_owner_user_id),
+      relatedContractId: source.related_contract_id,
+      relatedContractLabel: source.related_contract_id
+        ? contractJobMap.get(contractLabel ?? "") ?? source.related_contract_id
+        : null,
+      sourceWalletTransactionId: source.source_wallet_transaction_id,
+      allocatedAmount: allocationTotal,
+      withdrawalCount: allocations.length,
+      withdrawalStatus: withdrawalStatuses[0] ?? null,
+      providerStatus: providerStatuses[0] ?? null,
+      needsAdminReview,
+    };
+  });
+
   const summary: FinancesSummary = {
     totalGrossValue: totalGross,
     confirmedGrossValue: confirmedVal,
@@ -481,6 +600,7 @@ export default async function AdminFinancesPage() {
       withdrawals={withdrawals}
       agencyWallets={agencyWalletList}
       talentWallets={talentWalletList}
+      fundingSources={fundingSourceTrace}
     />
   );
 }

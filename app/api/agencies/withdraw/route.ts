@@ -13,6 +13,15 @@ export const runtime = "nodejs";
 
 const SUPPORT_MESSAGE = "Saque automático indisponível para este saldo. Entre em contato com o suporte.";
 
+function formatBrl(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export async function POST(req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user }, error: authError } = await session.auth.getUser();
@@ -32,8 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (requestedAmount < WITHDRAWAL_MIN_AMOUNT) {
-    const minFmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(WITHDRAWAL_MIN_AMOUNT);
-    return NextResponse.json({ error: `Valor mínimo para saque: ${minFmt}.` }, { status: 400 });
+    return NextResponse.json({ error: `Valor mínimo para saque: ${formatBrl(WITHDRAWAL_MIN_AMOUNT)}.` }, { status: 400 });
   }
 
   if (requestedAmount > 50_000) {
@@ -59,6 +67,11 @@ export async function POST(req: NextRequest) {
     });
 
     if (!readiness.ready || !readiness.stripeAccountId) {
+      const sourceFundsAvailable = Math.max(0, Number(readiness.sourceFundsAvailable ?? 0));
+      const publicError = sourceFundsAvailable > 0 && requestedAmount > sourceFundsAvailable
+        ? `Saque automático disponível até ${formatBrl(sourceFundsAvailable)}.`
+        : SUPPORT_MESSAGE;
+
       console.error("[withdrawal stripe] failed before deduction", {
         userId: user.id,
         role: "agency",
@@ -67,7 +80,7 @@ export async function POST(req: NextRequest) {
         readiness,
       });
 
-      return NextResponse.json({ error: SUPPORT_MESSAGE }, { status: 400 });
+      return NextResponse.json({ error: publicError }, { status: 400 });
     }
 
     const stripeResult = await createAutomaticStripeWithdrawal({
@@ -78,16 +91,9 @@ export async function POST(req: NextRequest) {
       stripeAccountId: readiness.stripeAccountId,
     });
 
-    const brl = new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(requestedAmount);
-
     await notifyAdmins(
       "payment",
-      `Saque Stripe iniciado - Agência: ${brl}`,
+      `Saque Stripe iniciado - Agência: ${formatBrl(requestedAmount)}`,
       "/admin/finances",
       `admin-withdrawal-request:${user.id}:${stripeResult.txId}`,
     );

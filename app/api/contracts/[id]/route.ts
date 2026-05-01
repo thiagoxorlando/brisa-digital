@@ -12,73 +12,6 @@ const ALLOWED_ACTIONS = [
 ];
 const REFERRAL_RATE = 0.02;
 
-async function registerStripeFundingSourceForTransaction({
-  supabase,
-  userId,
-  walletTransactionId,
-  stripeChargeId,
-  stripePaymentIntentId,
-  sourceType,
-  amount,
-}: {
-  supabase: ReturnType<typeof createServerClient>;
-  userId: string;
-  walletTransactionId: string;
-  stripeChargeId: string | null;
-  stripePaymentIntentId: string | null;
-  sourceType: "contract_payment" | "referral_commission";
-  amount: number;
-}) {
-  if (!stripeChargeId || amount <= 0) {
-    console.error("[withdrawal stripe] missing source charge", {
-      userId,
-      walletTransactionId,
-      stripePaymentIntentId,
-      sourceType,
-      amount,
-    });
-    return;
-  }
-
-  const { data, error } = await supabase.rpc("register_wallet_funding_source", {
-    p_user_id: userId,
-    p_source_wallet_transaction_id: walletTransactionId,
-    p_stripe_charge_id: stripeChargeId,
-    p_stripe_payment_intent_id: stripePaymentIntentId,
-    p_source_type: sourceType,
-    p_amount: amount,
-  });
-
-  if (error) {
-    console.error("[withdrawal stripe] funding source registration failed", {
-      userId,
-      walletTransactionId,
-      stripeChargeId,
-      stripePaymentIntentId,
-      sourceType,
-      amount,
-      error: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
-    return;
-  }
-
-  const payload = data as { ok?: boolean; error?: string } | null;
-  if (!payload?.ok) {
-    console.error("[withdrawal stripe] funding source registration not ok", {
-      userId,
-      walletTransactionId,
-      stripeChargeId,
-      stripePaymentIntentId,
-      sourceType,
-      amount,
-      payload,
-    });
-  }
-}
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -406,29 +339,6 @@ export async function PATCH(
     }
 
     // ── 4. Referral commission (always attempt — RPC is idempotent) ─────────
-    if (contract.payment_provider === "stripe" && contract.stripe_charge_id && talentPayout > 0) {
-      const { data: payoutTx } = await supabase
-        .from("wallet_transactions")
-        .select("id, amount")
-        .eq("user_id", contract.talent_id)
-        .eq("type", "payout")
-        .eq("reference_id", id)
-        .eq("idempotency_key", `payout_${id}`)
-        .maybeSingle();
-
-      if (payoutTx?.id) {
-        await registerStripeFundingSourceForTransaction({
-          supabase,
-          userId: contract.talent_id,
-          walletTransactionId: payoutTx.id,
-          stripeChargeId: contract.stripe_charge_id,
-          stripePaymentIntentId: contract.stripe_payment_intent_id,
-          sourceType: "contract_payment",
-          amount: Number(payoutTx.amount ?? talentPayout),
-        });
-      }
-    }
-
     if (referralInvite && referralCommission > 0) {
       console.log("[referral commission] commission calculated", {
         gross:       grossAmount,
@@ -476,29 +386,6 @@ export async function PATCH(
             contractId: id,
           });
         }
-        // Notify referrer — idempotent key prevents duplicate on retry
-        if (contract.payment_provider === "stripe" && contract.stripe_charge_id) {
-          const { data: referralTx } = await supabase
-            .from("wallet_transactions")
-            .select("id, amount")
-            .eq("user_id", referralInvite.referrer_id)
-            .eq("type", "referral_commission")
-            .eq("idempotency_key", `referral_commission:${referralInvite.id}:${id}`)
-            .maybeSingle();
-
-          if (referralTx?.id) {
-            await registerStripeFundingSourceForTransaction({
-              supabase,
-              userId: referralInvite.referrer_id,
-              walletTransactionId: referralTx.id,
-              stripeChargeId: contract.stripe_charge_id,
-              stripePaymentIntentId: contract.stripe_payment_intent_id,
-              sourceType: "referral_commission",
-              amount: Number(referralTx.amount ?? referralCommission),
-            });
-          }
-        }
-
         const commBrl = new Intl.NumberFormat("pt-BR", {
           style: "currency", currency: "BRL", maximumFractionDigits: 0,
         }).format(referralCommission);
@@ -509,6 +396,24 @@ export async function PATCH(
           "/talent/referrals",
           `notif_referral_comm_${referralInvite.id}_${id}`,
         );
+      }
+    }
+
+    if (contract.payment_provider === "stripe") {
+      const { data: finalizeResult, error: finalizeErr } = await supabase.rpc("finalize_contract_platform_revenue", {
+        p_contract_id: id,
+      });
+
+      if (finalizeErr) {
+        console.error("[contract funding] finalize platform revenue failed", {
+          contractId: id,
+          error: finalizeErr.message,
+        });
+      } else {
+        console.log("[contract funding] finalized platform revenue", {
+          contractId: id,
+          result: finalizeResult,
+        });
       }
     }
 

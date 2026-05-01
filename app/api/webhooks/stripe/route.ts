@@ -237,7 +237,7 @@ async function registerStripeFundingSource({
   walletTransactionId: string;
   stripeChargeId: string | null;
   stripePaymentIntentId: string | null;
-  sourceType: "deposit" | "contract_payment" | "referral_commission";
+  sourceType: "wallet_deposit" | "contract_payment";
   amount: number;
 }) {
   if (!stripeChargeId) {
@@ -516,7 +516,7 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
     walletTransactionId: payload.transaction_id ?? tx.id,
     stripeChargeId,
     stripePaymentIntentId: paymentIntentId,
-    sourceType: "deposit",
+    sourceType: "wallet_deposit",
     amount,
   });
 
