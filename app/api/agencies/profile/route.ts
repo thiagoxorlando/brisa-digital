@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
-import { digitsOnly } from "@/lib/cpf";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
 
 export async function PATCH(req: NextRequest) {
   const session = await createSessionClient();
@@ -12,10 +12,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { company_name, avatar_url, phone, address, cpf_cnpj } = await req.json();
-  const normalizedCpf = cpf_cnpj === undefined || cpf_cnpj === null ? undefined : digitsOnly(String(cpf_cnpj));
+  const normalizedCpf = cpf_cnpj === undefined || cpf_cnpj === null ? undefined : normalizeCpfCnpj(String(cpf_cnpj));
 
-  if (normalizedCpf !== undefined && normalizedCpf.length !== 11) {
-    return NextResponse.json({ error: "CPF inválido" }, { status: 400 });
+  if (normalizedCpf !== undefined && !isValidCpfCnpj(normalizedCpf)) {
+    return NextResponse.json({ error: "CPF/CNPJ inválido" }, { status: 400 });
   }
 
   const updates: Record<string, string | null> = {};

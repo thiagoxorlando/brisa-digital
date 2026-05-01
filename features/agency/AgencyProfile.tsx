@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { useSubscription } from "@/lib/SubscriptionContext";
-import { formatCpf, isValidCpf } from "@/lib/cpf";
+import { formatCpfCnpj, isValidCpfCnpj } from "@/lib/cpf";
 
 type Props = {
   userId: string;
@@ -15,7 +15,7 @@ type Props = {
   subscriptionStatus: string;
   phone: string;
   address: string;
-  cpf: string;
+  cpfCnpj: string;
 };
 
 export default function AgencyProfile({
@@ -27,7 +27,7 @@ export default function AgencyProfile({
   subscriptionStatus,
   phone: initialPhone,
   address: initialAddress,
-  cpf: initialCpf,
+  cpfCnpj: initialCpfCnpj,
 }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -38,7 +38,7 @@ export default function AgencyProfile({
   const [avatar, setAvatar]       = useState(avatarUrl ?? "");
   const [phone, setPhone]         = useState(initialPhone);
   const [address, setAddress]     = useState(initialAddress);
-  const [cpf, setCpf]             = useState(initialCpf);
+  const [cpfCnpj, setCpfCnpj]     = useState(initialCpfCnpj);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
   const [cpfError, setCpfError]   = useState("");
@@ -76,8 +76,8 @@ export default function AgencyProfile({
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValidCpf(cpf)) {
-      setCpfError("CPF inválido");
+    if (!isValidCpfCnpj(cpfCnpj)) {
+      setCpfError("CPF/CNPJ inválido");
       return;
     }
 
@@ -93,7 +93,7 @@ export default function AgencyProfile({
         avatar_url:    avatar || null,
         phone:         phone.trim() || null,
         address:       address.trim() || null,
-        cpf_cnpj:      cpf,
+        cpf_cnpj:      cpfCnpj,
       }),
     });
 
@@ -223,15 +223,15 @@ export default function AgencyProfile({
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">CPF</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">CPF ou CNPJ</label>
           <input
             type="text"
-            value={cpf}
+            value={cpfCnpj}
             onChange={(e) => {
-              setCpf(formatCpf(e.target.value));
+              setCpfCnpj(formatCpfCnpj(e.target.value));
               if (cpfError) setCpfError("");
             }}
-            placeholder="000.000.000-00"
+            placeholder="000.000.000-00 ou 00.000.000/0000-00"
             className={[
               "w-full px-4 py-3 text-[14px] rounded-xl border hover:border-zinc-300 focus:outline-none transition-colors",
               cpfError ? "border-rose-300 focus:border-rose-400" : "border-zinc-200 focus:border-zinc-900",

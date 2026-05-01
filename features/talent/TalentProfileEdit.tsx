@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabel } from "@/lib/talentCategories";
-import { digitsOnly, formatCpf, isValidCpf } from "@/lib/cpf";
+import { formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
 
 const TALENT_CATEGORIES = TALENT_CATEGORY_LABELS;
 
@@ -68,8 +68,8 @@ function validate(form: Form): FormErrors {
     e.xHandle = "Digite seu @ sem o símbolo ou espaços.";
   if (form.age && (isNaN(Number(form.age)) || Number(form.age) < 1 || Number(form.age) > 120))
     e.age = "Digite uma idade válida.";
-  if (!isValidCpf(form.cpf))
-    e.cpf = "CPF inválido";
+  if (!isValidCpfCnpj(form.cpf))
+    e.cpf = "CPF/CNPJ inválido";
   return e;
 }
 
@@ -128,12 +128,16 @@ export default function TalentProfileEdit() {
           .single(),
         supabase
           .from("profiles")
-          .select("cpf_cnpj")
+          .select("*")
           .eq("id", user.id)
           .maybeSingle(),
       ]);
 
       if (data) {
+        const profileCpfCnpj =
+          typeof (profile as Record<string, unknown> | null)?.cpf_cnpj === "string"
+            ? ((profile as Record<string, unknown>).cpf_cnpj as string)
+            : "";
         setForm({
           fullName:   data.full_name   ?? "",
           phone:      data.phone       ?? "",
@@ -143,7 +147,7 @@ export default function TalentProfileEdit() {
           categories: data.categories  ?? [],
           age:        data.age != null ? String(data.age) : "",
           gender:     normalizeGender(data.gender),
-          cpf:        formatCpf(profile?.cpf_cnpj ?? ""),
+          cpf:        formatCpfCnpj(profileCpfCnpj),
           instagram:  data.instagram   ?? "",
           tiktok:     data.tiktok      ?? "",
           youtube:    data.youtube     ?? "",
@@ -152,7 +156,11 @@ export default function TalentProfileEdit() {
         });
         if (data.avatar_url) setPreview(data.avatar_url);
       } else {
-        setForm((current) => ({ ...current, cpf: formatCpf(profile?.cpf_cnpj ?? "") }));
+        const profileCpfCnpj =
+          typeof (profile as Record<string, unknown> | null)?.cpf_cnpj === "string"
+            ? ((profile as Record<string, unknown>).cpf_cnpj as string)
+            : "";
+        setForm((current) => ({ ...current, cpf: formatCpfCnpj(profileCpfCnpj) }));
       }
       setLoading(false);
     }
@@ -200,7 +208,7 @@ export default function TalentProfileEdit() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setServerError("Não autenticado."); setSaving(false); return; }
 
-    const normalizedCpf = digitsOnly(form.cpf);
+    const normalizedCpf = normalizeCpfCnpj(form.cpf);
 
     let avatarUrl: string | undefined;
 
@@ -331,12 +339,12 @@ export default function TalentProfileEdit() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className={labelCls}>CPF</label>
+              <label className={labelCls}>CPF ou CNPJ</label>
               <input
                 className={inputCls(!!errors.cpf && !!touched.cpf)}
-                placeholder="000.000.000-00"
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
                 value={form.cpf}
-                onChange={(e) => set("cpf", formatCpf(e.target.value))}
+                onChange={(e) => set("cpf", formatCpfCnpj(e.target.value))}
               />
               {touched.cpf && <FieldError msg={errors.cpf} />}
             </div>

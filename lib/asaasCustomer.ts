@@ -1,6 +1,6 @@
 import { asaas, AsaasApiError } from "./asaasClient";
 import { createServerClient } from "./supabase";
-import { digitsOnly } from "./cpf";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "./cpf";
 
 interface AsaasCustomerRecord { id: string; cpfCnpj?: string | null }
 interface AsaasCustomerSearch { data: AsaasCustomerRecord[]; totalCount: number }
@@ -22,13 +22,18 @@ export async function resolveDocument(userId: string): Promise<string | null> {
   // Source 1: profile CPF
   const { data: profile } = await supabase
     .from("profiles")
-    .select("cpf_cnpj")
+    .select("*")
     .eq("id", userId)
     .maybeSingle();
 
-  if (profile?.cpf_cnpj) {
-    const digits = digitsOnly(profile.cpf_cnpj);
-    if (digits) return digits;
+  const profileCpfCnpj =
+    typeof (profile as Record<string, unknown> | null)?.cpf_cnpj === "string"
+      ? ((profile as Record<string, unknown>).cpf_cnpj as string)
+      : "";
+
+  if (profileCpfCnpj) {
+    const digits = normalizeCpfCnpj(profileCpfCnpj);
+    if (isValidCpfCnpj(digits)) return digits;
   }
 
   // Source 2: agency PIX key
@@ -39,8 +44,8 @@ export async function resolveDocument(userId: string): Promise<string | null> {
     .maybeSingle();
 
   if (agency?.pix_key_type === "cpf" || agency?.pix_key_type === "cnpj") {
-    const digits = digitsOnly(agency.pix_key_value);
-    if (digits) return digits;
+    const digits = normalizeCpfCnpj(agency.pix_key_value);
+    if (isValidCpfCnpj(digits)) return digits;
   }
 
   // Source 3: saved card document
@@ -54,7 +59,8 @@ export async function resolveDocument(userId: string): Promise<string | null> {
     .maybeSingle();
 
   if (card?.holder_document_number) {
-    return digitsOnly(card.holder_document_number);
+    const digits = normalizeCpfCnpj(card.holder_document_number);
+    if (isValidCpfCnpj(digits)) return digits;
   }
 
   return null;
@@ -111,7 +117,7 @@ export async function ensureAsaasCustomer(
 
   // Resolve document now — needed for both create and patch paths
   const resolvedDoc = cpfCnpj
-    ? digitsOnly(cpfCnpj)
+    ? normalizeCpfCnpj(cpfCnpj)
     : await resolveDocument(userId);
 
   // 1. Check profile cache

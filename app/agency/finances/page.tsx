@@ -29,7 +29,7 @@ export default async function AgencyFinancesPage() {
       .limit(100),
     supabase
       .from("profiles")
-      .select("wallet_balance")
+      .select("*")
       .eq("id", user?.id ?? "")
       .single(),
     supabase
@@ -168,6 +168,7 @@ export default async function AgencyFinancesPage() {
       transactions={transactions}
       agencyPix={agencyPix}
       withdrawalMinAmount={WITHDRAWAL_MIN_AMOUNT}
+      profileCpfCnpj={typeof (profile as Record<string, unknown> | null)?.cpf_cnpj === "string" ? ((profile as Record<string, unknown>).cpf_cnpj as string) : ""}
     />
   );
 }

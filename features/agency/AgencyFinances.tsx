@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
+import { formatCpfCnpj, isValidCpfCnpj } from "@/lib/cpf";
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -116,11 +117,13 @@ export default function AgencyFinances({
   transactions,
   agencyPix,
   withdrawalMinAmount,
+  profileCpfCnpj,
 }: {
   summary: AgencyFinanceSummary;
   transactions: AgencyTransaction[];
   agencyPix?: { pix_key_type: string | null; pix_key_value: string | null; pix_holder_name: string | null } | null;
   withdrawalMinAmount: number;
+  profileCpfCnpj: string;
 }) {
   const router = useRouter();
 
@@ -133,6 +136,7 @@ export default function AgencyFinances({
   );
 
   const [depositAmount, setDepositAmount] = useState("");
+  const [depositCpfCnpj, setDepositCpfCnpj] = useState(formatCpfCnpj(profileCpfCnpj));
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState("");
   const [depositResult, setDepositResult] = useState<{
@@ -176,6 +180,10 @@ export default function AgencyFinances({
     e.preventDefault();
     const amount = Number(depositAmount);
     if (!Number.isFinite(amount) || amount < 10) return;
+    if (!isValidCpfCnpj(depositCpfCnpj)) {
+      setDepositError("CPF/CNPJ inválido");
+      return;
+    }
 
     setDepositLoading(true);
     setDepositError("");
@@ -184,6 +192,7 @@ export default function AgencyFinances({
     const customerRes = await fetch("/api/asaas/customer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cpf_cnpj: depositCpfCnpj }),
     });
     const customerData = await customerRes.json().catch(() => ({})) as {
       error?: string;
@@ -192,7 +201,7 @@ export default function AgencyFinances({
 
     if (!customerRes.ok || !customerData.customerId) {
       setDepositLoading(false);
-      setDepositError("Complete seu CPF para continuar");
+      setDepositError(customerData.error ?? "CPF/CNPJ inválido");
       return;
     }
 
@@ -214,7 +223,7 @@ export default function AgencyFinances({
     if (!res.ok || !data.paymentId) {
       setDepositError(
         data.error === "Crie seu cadastro Asaas antes de depositar."
-          ? "Complete seu CPF para continuar"
+          ? "CPF/CNPJ inválido"
           : (data.error ?? "Erro ao gerar cobrança PIX."),
       );
       return;
@@ -416,6 +425,19 @@ export default function AgencyFinances({
               {depositError && (
                 <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{depositError}</p>
               )}
+              <div>
+                <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">CPF ou CNPJ</label>
+                <input
+                  type="text"
+                  value={depositCpfCnpj}
+                  onChange={(e) => {
+                    setDepositCpfCnpj(formatCpfCnpj(e.target.value));
+                    if (depositError) setDepositError("");
+                  }}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors"
+                />
+              </div>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>

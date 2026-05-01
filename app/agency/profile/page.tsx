@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import AgencyProfile from "@/features/agency/AgencyProfile";
-import { formatCpf } from "@/lib/cpf";
+import { formatCpfCnpj } from "@/lib/cpf";
 
 export const metadata: Metadata = { title: "Perfil — BrisaHub" };
 
@@ -20,7 +20,7 @@ export default async function AgencyProfilePage() {
       .single(),
     supabase
       .from("profiles")
-      .select("cpf_cnpj")
+      .select("*")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
   ]);
@@ -41,7 +41,7 @@ export default async function AgencyProfilePage() {
       subscriptionStatus={agency?.subscription_status ?? "active"}
       phone={agency?.phone ?? ""}
       address={agency?.address ?? ""}
-      cpf={formatCpf(profile?.cpf_cnpj ?? "")}
+      cpfCnpj={formatCpfCnpj(typeof (profile as Record<string, unknown> | null)?.cpf_cnpj === "string" ? ((profile as Record<string, unknown>).cpf_cnpj as string) : "")}
     />
   );
 }
