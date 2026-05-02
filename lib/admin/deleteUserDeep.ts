@@ -72,7 +72,19 @@ export async function deleteUserDeep(userId: string): Promise<void> {
     await supabase.from("jobs").update({ deleted_at: now }).in("id", jobIds);
   }
 
-  // ── 10. HARD-DELETE role rows (critical — blocks email/phone reuse if left) ─
+  // ── 10. Unlink FK columns that would block the hard-deletes below ────────────
+  // PostgreSQL FK default is RESTRICT — rows referencing agencies/talent_profiles
+  // must have their FK columns cleared before those tables can be hard-deleted.
+  // Soft-deleting (deleted_at) does NOT remove the FK reference.
+  if (jobIds.length > 0) {
+    await supabase.from("jobs").update({ agency_id: null }).in("id", jobIds);
+  }
+  await supabase.from("bookings").update({ agency_id: null }).in("agency_id", ids);
+  await supabase.from("bookings").update({ talent_user_id: null }).in("talent_user_id", ids);
+  await supabase.from("contracts").update({ agency_id: null }).in("agency_id", ids);
+  await supabase.from("contracts").update({ talent_id: null }).in("talent_id", ids);
+
+  // ── 11. HARD-DELETE role rows (critical — blocks email/phone reuse if left) ─
   // Delete by both id and user_id to catch any orphan rows with mismatched keys.
   await supabase.from("talent_profiles").delete().in("id", ids);
   await supabase.from("agencies").delete().in("id", ids);
@@ -80,13 +92,13 @@ export async function deleteUserDeep(userId: string): Promise<void> {
   await supabase.from("talent_profiles").delete().in("user_id", ids);
   await supabase.from("agencies").delete().in("user_id", ids);
 
-  // ── 11. HARD-DELETE profile row ──────────────────────────────────────────────
+  // ── 12. HARD-DELETE profile row ──────────────────────────────────────────────
   const { error: profileErr } = await supabase.from("profiles").delete().in("id", ids);
   if (profileErr) {
     throw new Error(`Não foi possível excluir o perfil: ${profileErr.message}`);
   }
 
-  // ── 12. Delete from Supabase Auth ────────────────────────────────────────────
+  // ── 13. Delete from Supabase Auth ────────────────────────────────────────────
   const authErrors: string[] = [];
 
   for (const id of ids) {

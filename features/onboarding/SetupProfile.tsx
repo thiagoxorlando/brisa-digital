@@ -623,16 +623,22 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
     };
     if (avatarUrl) talent.avatar_url = avatarUrl;
 
-    const res  = await fetch("/api/auth/setup-profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "talent", talent }),
-    });
-    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+    try {
+      const res  = await fetch("/api/auth/setup-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "talent", talent }),
+      });
+      const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
 
-    if (!res.ok) {
-      console.error("[setup-profile/talent]", json.error);
-      setError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
+      if (!res.ok) {
+        console.error("[setup-profile/talent]", json.error);
+        setError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError("Erro de conexão. Verifique sua internet e tente novamente.");
       setLoading(false);
       return;
     }
@@ -773,6 +779,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     const errs = validateAgency(form);
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
@@ -806,16 +813,22 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
     };
     if (logoUrl) agency.avatar_url = logoUrl;
 
-    const res  = await fetch("/api/auth/setup-profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role: "agency", agency }),
-    });
-    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+    try {
+      const res  = await fetch("/api/auth/setup-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "agency", agency }),
+      });
+      const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
 
-    if (!res.ok) {
-      console.error("[setup-profile/agency]", json.error);
-      setServerError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
+      if (!res.ok) {
+        console.error("[setup-profile/agency]", json.error);
+        setServerError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setServerError("Erro de conexão. Verifique sua internet e tente novamente.");
       setLoading(false);
       return;
     }
