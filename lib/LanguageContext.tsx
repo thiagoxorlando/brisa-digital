@@ -1,14 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { en } from "@/lib/translations/en";
+import { createContext, useContext, type ReactNode } from "react";
 import { pt } from "@/lib/translations/pt";
 
+// Platform is Portuguese-only. Lang type kept for TypeScript compatibility with
+// existing call sites that still read `lang` — they will always receive "pt".
 export type Lang = "en" | "pt";
 
-const dictionaries = { en, pt } as const;
-
-type TranslationKey = keyof typeof en;
+type TranslationKey = keyof typeof pt;
 
 interface LanguageContextValue {
   lang: Lang;
@@ -16,31 +15,21 @@ interface LanguageContextValue {
   t: (key: TranslationKey) => string;
 }
 
+const ptDict = pt as Record<string, string>;
+
+function translate(key: TranslationKey): string {
+  return ptDict[key] ?? key;
+}
+
 const LanguageContext = createContext<LanguageContextValue>({
   lang: "pt",
   setLang: () => {},
-  t: (key) => pt[key] ?? en[key] ?? key,
+  t: translate,
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("pt");
-
-  useEffect(() => {
-    const stored = localStorage.getItem("ucaslang") as Lang | null;
-    if (stored === "en" || stored === "pt") setLangState(stored);
-  }, []);
-
-  function setLang(l: Lang) {
-    setLangState(l);
-    localStorage.setItem("ucaslang", l);
-  }
-
-  function t(key: TranslationKey): string {
-    return (dictionaries[lang] as Record<string, string>)[key] ?? (dictionaries.en as Record<string, string>)[key] ?? key;
-  }
-
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang: "pt", setLang: () => {}, t: translate }}>
       {children}
     </LanguageContext.Provider>
   );

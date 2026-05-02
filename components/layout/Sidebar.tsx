@@ -315,7 +315,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { role } = useRole();
   const { displayName, agentName, email, initials, avatarUrl, loading } = useUserProfile();
   const [imgError, setImgError] = useState(false);
-  const { lang, setLang, t } = useT();
+  const { t } = useT();
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -443,35 +443,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </p>
               )}
             </div>
-          </div>
-
-          {/* Language toggle */}
-          <div className="flex items-center gap-1 px-3 py-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#647B7B] mr-auto">
-              {lang === "en" ? "Language" : "Idioma"}
-            </span>
-            <button
-              onClick={() => setLang("en")}
-              className={[
-                "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150",
-                lang === "en"
-                  ? "bg-[#E6F0F0] text-[#0E7C86] shadow-sm"
-                  : "text-[#647B7B] hover:text-[#1F2D2E]",
-              ].join(" ")}
-            >
-              EN
-            </button>
-            <button
-              onClick={() => setLang("pt")}
-              className={[
-                "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150",
-                lang === "pt"
-                  ? "bg-[#E6F0F0] text-[#0E7C86] shadow-sm"
-                  : "text-[#647B7B] hover:text-[#1F2D2E]",
-              ].join(" ")}
-            >
-              PT
-            </button>
           </div>
 
           <button

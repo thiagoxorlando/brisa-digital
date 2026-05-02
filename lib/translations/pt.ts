@@ -1,6 +1,4 @@
-import type { TranslationKey } from "./en";
-
-export const pt: Record<TranslationKey, string> = {
+export const pt: Record<string, string> = {
   // ── Navigation ──────────────────────────────────────────────────────────────
   nav_dashboard:   "Painel",
   nav_jobs:        "Vagas",
