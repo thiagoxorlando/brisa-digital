@@ -18,8 +18,8 @@ export default async function AdminUsersPage() {
   ] = await Promise.all([
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from("profiles").select("id, role, full_name, wallet_balance"),
-    supabase.from("talent_profiles").select("id, full_name").is("deleted_at", null),
-    supabase.from("agencies").select("id, company_name").is("deleted_at", null),
+    supabase.from("talent_profiles").select("id, user_id, full_name, deleted_at").is("deleted_at", null),
+    supabase.from("agencies").select("id, user_id, company_name, deleted_at").is("deleted_at", null),
     supabase.from("bookings").select("talent_user_id, agency_id, price, status"),
     supabase.from("profiles").select("id, is_frozen"),
   ]);
@@ -40,8 +40,10 @@ export default async function AdminUsersPage() {
   const walletMap = new Map<string, number>();
   const talentMap = new Map<string, string>();
   const agencyMap = new Map<string, string>();
+  const activeProfileIds = new Set<string>();
 
   for (const profile of profiles ?? []) {
+    activeProfileIds.add(profile.id);
     roleMap.set(profile.id, profile.role ?? "");
     if (profile.full_name) profileMap.set(profile.id, profile.full_name);
     walletMap.set(profile.id, Number((profile as { wallet_balance?: number | null }).wallet_balance ?? 0));
@@ -51,12 +53,18 @@ export default async function AdminUsersPage() {
     frozenMap.set(profile.id, (profile as { is_frozen?: boolean }).is_frozen ?? false);
   }
 
-  for (const talent of talentProfiles ?? []) {
-    talentMap.set(talent.id, talent.full_name ?? "");
+  for (const talent of (talentProfiles ?? []) as Array<{ id: string; user_id?: string | null; full_name?: string | null; deleted_at?: string | null }>) {
+    if (talent.deleted_at) continue;
+    const ownerId = talent.user_id ?? talent.id;
+    if (!ownerId || !activeProfileIds.has(ownerId)) continue;
+    talentMap.set(ownerId, talent.full_name ?? "");
   }
 
-  for (const agency of agencies ?? []) {
-    agencyMap.set(agency.id, agency.company_name ?? "");
+  for (const agency of (agencies ?? []) as Array<{ id: string; user_id?: string | null; company_name?: string | null; deleted_at?: string | null }>) {
+    if (agency.deleted_at) continue;
+    const ownerId = agency.user_id ?? agency.id;
+    if (!ownerId || !activeProfileIds.has(ownerId)) continue;
+    agencyMap.set(ownerId, agency.company_name ?? "");
   }
 
   const earnedMap = new Map<string, number>();
@@ -84,7 +92,9 @@ export default async function AdminUsersPage() {
     }
   }
 
-  const users = (authUsers ?? []).map((user) => {
+  const users = (authUsers ?? [])
+    .filter((user) => activeProfileIds.has(user.id))
+    .map((user) => {
     const role = roleMap.get(user.id) ?? "";
     const name =
       role === "agency"
@@ -106,7 +116,7 @@ export default async function AdminUsersPage() {
       walletBalance: walletMap.get(user.id) ?? 0,
       plan: planMap.get(user.id) ?? null,
     };
-  });
+    });
 
   return <AdminUsers users={users} />;
 }

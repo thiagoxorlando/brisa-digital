@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { Fragment, useEffect, useState } from "react";
+import type { MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   statusInfo,
@@ -87,9 +88,13 @@ function ConfirmDialog({
 function BookingRow({
   booking,
   onDelete,
+  selected,
+  onToggleSelected,
 }: {
   booking: AdminBooking;
   onDelete: (id: string) => void;
+  selected: boolean;
+  onToggleSelected: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -125,6 +130,11 @@ function BookingRow({
     setConfirm(false);
   }
 
+  function handleRowClick(event: MouseEvent<HTMLTableRowElement>) {
+    if ((event.target as HTMLElement).closest("button, input")) return;
+    if (!editing) setExpanded((current) => !current);
+  }
+
   return (
     <Fragment>
       {confirm ? (
@@ -135,10 +145,20 @@ function BookingRow({
         />
       ) : null}
 
-      <tr
-        onClick={() => !editing && setExpanded((current) => !current)}
-        className="cursor-pointer transition-colors hover:bg-zinc-50/60"
-      >
+      <tr onClick={handleRowClick} className="cursor-pointer transition-colors hover:bg-zinc-50/60">
+        <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              event.stopPropagation();
+              onToggleSelected(booking.id);
+            }}
+            aria-label={`Selecionar reserva ${local.jobTitle}`}
+            className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+          />
+        </td>
         <td className="px-6 py-4">
           <p className="max-w-[180px] truncate text-[13px] font-semibold text-zinc-900">{local.jobTitle || "-"}</p>
         </td>
@@ -187,7 +207,7 @@ function BookingRow({
 
       {expanded ? (
         <tr className="bg-zinc-50/80">
-          <td colSpan={8} className="px-6 py-5">
+          <td colSpan={9} className="px-6 py-5">
             {editing ? (
               <div className="max-w-sm space-y-4">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Editar reserva</p>
@@ -354,6 +374,9 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
   const [bookings, setBookings] = useState<AdminBooking[]>(initialBookings);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -367,6 +390,11 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
 
   function handleDelete(id: string) {
     setBookings((current) => current.filter((booking) => booking.id !== id));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
   }
 
   const filtered = bookings
@@ -385,6 +413,58 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
   const confirmedValue = filtered
     .filter((booking) => ["aguardando_pagamento", "pago"].includes(booking.derivedStatus))
     .reduce((sum, booking) => sum + (booking.contractAmount ?? booking.price), 0);
+  const filteredIds = filtered.map((booking) => booking.id);
+  const selectedCount = selectedIds.size;
+  const selectedFilteredCount = filteredIds.filter((id) => selectedIds.has(id)).length;
+  const allFilteredSelected = filteredIds.length > 0 && selectedFilteredCount === filteredIds.length;
+  const someFilteredSelected = selectedFilteredCount > 0 && !allFilteredSelected;
+
+  function toggleSelected(bookingId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(bookingId)) next.delete(bookingId);
+      else next.add(bookingId);
+      return next;
+    });
+  }
+
+  function toggleSelectAllFiltered() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) {
+        for (const id of filteredIds) next.delete(id);
+      } else {
+        for (const id of filteredIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (selectedCount === 0) return;
+    if (!window.confirm(`Tem certeza que deseja mover ${selectedCount} reservas selecionadas para a lixeira?`)) return;
+
+    setBulkDeleting(true);
+    setError("");
+    const ids = Array.from(selectedIds);
+
+    const response = await fetch("/api/admin/bookings/bulk", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (response.ok) {
+      const selected = new Set(ids);
+      setBookings((current) => current.filter((booking) => !selected.has(booking.id)));
+      setSelectedIds(new Set());
+    } else {
+      const payload = await response.json().catch(() => ({}));
+      setError(payload.error ?? "Falha ao mover as reservas selecionadas para a lixeira.");
+    }
+
+    setBulkDeleting(false);
+  }
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -401,6 +481,10 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
           ) : null}
         </div>
       </div>
+
+      {error ? (
+        <p className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">{error}</p>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         {[
@@ -471,11 +555,46 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
         </div>
       </div>
 
+      {selectedCount > 0 ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] font-semibold text-zinc-900">{selectedCount} reservas selecionadas</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="rounded-xl bg-rose-600 px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bulkDeleting ? "Movendo..." : "Mover selecionadas para lixeira"}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkDeleting}
+              className="rounded-xl px-3.5 py-2 text-[12px] font-medium text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Limpar seleção
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-100">
+                <th className="px-4 py-3.5">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    disabled={filteredIds.length === 0}
+                    ref={(node) => {
+                      if (node) node.indeterminate = someFilteredSelected;
+                    }}
+                    onChange={toggleSelectAllFiltered}
+                    aria-label="Selecionar reservas filtradas"
+                    className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </th>
                 <th className="px-6 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Vaga</th>
                 <th className="hidden px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 sm:table-cell">Talento</th>
                 <th className="hidden px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 md:table-cell">Agencia</th>
@@ -488,11 +607,17 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
             </thead>
             <tbody className="divide-y divide-zinc-50">
               {filtered.map((booking) => (
-                <BookingRow key={booking.id} booking={booking} onDelete={handleDelete} />
+                <BookingRow
+                  key={booking.id}
+                  booking={booking}
+                  onDelete={handleDelete}
+                  selected={selectedIds.has(booking.id)}
+                  onToggleSelected={toggleSelected}
+                />
               ))}
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center">
+                  <td colSpan={9} className="px-6 py-16 text-center">
                     <p className="text-[14px] font-medium text-zinc-500">Nenhuma reserva encontrada</p>
                   </td>
                 </tr>
@@ -501,7 +626,7 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
             {filtered.length > 0 ? (
               <tfoot>
                 <tr className="border-t-2 border-zinc-100 bg-zinc-50/80">
-                  <td colSpan={5} className="px-6 py-3.5">
+                  <td colSpan={6} className="px-6 py-3.5">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{filtered.length} reservas</p>
                   </td>
                   <td className="hidden px-4 py-3.5 text-right sm:table-cell">

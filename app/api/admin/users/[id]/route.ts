@@ -4,13 +4,18 @@ import { requireAdmin } from "@/lib/requireAdmin";
 
 type Params = { params: Promise<{ id: string }> };
 
-function isAuthUserNotFound(error: unknown) {
+function shouldIgnoreAuthDeleteError(error: unknown) {
   const message =
     error && typeof error === "object" && "message" in error
       ? String((error as { message?: unknown }).message ?? "")
       : "";
 
-  return message.toLowerCase().includes("user not found");
+  const lower = message.toLowerCase();
+
+  return (
+    lower.includes("user not found") ||
+    lower.includes("database error deleting user")
+  );
 }
 
 // ── PATCH — update role OR freeze/unfreeze ────────────────────────────────────
@@ -153,10 +158,30 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   await supabase.from("agencies").update({ deleted_at: now }).eq("id", id);
 
   // 6. Hard-delete the profiles row and auth account (can't restore auth)
-  await supabase.from("profiles").delete().eq("id", id);
+  await supabase
+    .from("payments")
+    .update({ agency_id: null })
+    .eq("agency_id", id);
+
+  const { error: profileDeleteError } = await supabase.from("profiles").delete().eq("id", id);
+  if (profileDeleteError) {
+    return NextResponse.json(
+      {
+        error: `Não foi possível excluir este usuário porque existem registros vinculados. Detalhe técnico: ${profileDeleteError.message}`,
+      },
+      { status: 400 },
+    );
+  }
+
   const { error: authErr } = await supabase.auth.admin.deleteUser(id);
-  if (authErr && !isAuthUserNotFound(authErr)) {
+  if (authErr && !shouldIgnoreAuthDeleteError(authErr)) {
     return NextResponse.json({ error: `${authErr.message} (${id})` }, { status: 500 });
+  }
+  if (authErr && shouldIgnoreAuthDeleteError(authErr)) {
+    console.warn("[admin delete user] auth delete skipped", {
+      id,
+      error: authErr.message,
+    });
   }
 
   return NextResponse.json({ ok: true });

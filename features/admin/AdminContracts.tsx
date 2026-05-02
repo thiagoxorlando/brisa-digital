@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import { Fragment, useState } from "react";
+import type { MouseEvent } from "react";
 
 export type AdminContractRow = {
   id: string;
@@ -179,9 +180,13 @@ function ConfirmDialog({
 function ContractRow({
   contract,
   onDelete,
+  selected,
+  onToggleSelected,
 }: {
   contract: AdminContractRow;
   onDelete: (id: string) => void;
+  selected: boolean;
+  onToggleSelected: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -227,6 +232,11 @@ function ContractRow({
     setConfirm(false);
   }
 
+  function handleRowClick(event: MouseEvent<HTMLTableRowElement>) {
+    if ((event.target as HTMLElement).closest("button, input, a")) return;
+    if (!editing) setExpanded((current) => !current);
+  }
+
   return (
     <Fragment>
       {confirm ? (
@@ -237,7 +247,20 @@ function ContractRow({
         />
       ) : null}
 
-      <tr onClick={() => !editing && setExpanded((current) => !current)} className="cursor-pointer transition-colors hover:bg-zinc-50/60">
+      <tr onClick={handleRowClick} className="cursor-pointer transition-colors hover:bg-zinc-50/60">
+        <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => {
+              event.stopPropagation();
+              onToggleSelected(contract.id);
+            }}
+            aria-label={`Selecionar contrato ${local.id}`}
+            className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
+          />
+        </td>
         <td className="px-6 py-4">
           <p className="text-[13px] font-semibold text-zinc-900">{local.talentName}</p>
         </td>
@@ -332,7 +355,7 @@ function ContractRow({
 
       {expanded ? (
         <tr className="bg-zinc-50/80">
-          <td colSpan={10} className="px-6 py-5">
+          <td colSpan={11} className="px-6 py-5">
             {editing && !isPaid ? (
               <div className="max-w-lg space-y-4">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Editar contrato</p>
@@ -509,9 +532,17 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
   const [dateField, setDateField] = useState<DateField>("createdAt");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [error, setError] = useState("");
 
   function handleDelete(id: string) {
     setContracts((current) => current.filter((contract) => contract.id !== id));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
   }
 
   const filtered = contracts
@@ -530,6 +561,58 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
   const totalConfirmed = filtered
     .filter((contract) => contract.status === "confirmed" || contract.status === "paid")
     .reduce((sum, contract) => sum + contract.paymentAmount, 0);
+  const filteredIds = filtered.map((contract) => contract.id);
+  const selectedCount = selectedIds.size;
+  const selectedFilteredCount = filteredIds.filter((id) => selectedIds.has(id)).length;
+  const allFilteredSelected = filteredIds.length > 0 && selectedFilteredCount === filteredIds.length;
+  const someFilteredSelected = selectedFilteredCount > 0 && !allFilteredSelected;
+
+  function toggleSelected(contractId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(contractId)) next.delete(contractId);
+      else next.add(contractId);
+      return next;
+    });
+  }
+
+  function toggleSelectAllFiltered() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) {
+        for (const id of filteredIds) next.delete(id);
+      } else {
+        for (const id of filteredIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (selectedCount === 0) return;
+    if (!window.confirm(`Tem certeza que deseja mover ${selectedCount} contratos selecionados para a lixeira?`)) return;
+
+    setBulkDeleting(true);
+    setError("");
+    const ids = Array.from(selectedIds);
+
+    const response = await fetch("/api/admin/contracts/bulk", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (response.ok) {
+      const selected = new Set(ids);
+      setContracts((current) => current.filter((contract) => !selected.has(contract.id)));
+      setSelectedIds(new Set());
+    } else {
+      const payload = await response.json().catch(() => ({}));
+      setError(payload.error ?? "Falha ao mover os contratos selecionados para a lixeira.");
+    }
+
+    setBulkDeleting(false);
+  }
 
   return (
     <div className="max-w-7xl space-y-6">
@@ -538,6 +621,10 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
         <h1 className="text-[1.75rem] font-semibold leading-tight tracking-tight text-zinc-900">Contratos</h1>
         <p className="mt-1 text-[13px] text-zinc-400">{contracts.length} contratos no total</p>
       </div>
+
+      {error ? (
+        <p className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">{error}</p>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
@@ -600,6 +687,28 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
         </div>
       </div>
 
+      {selectedCount > 0 ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[13px] font-semibold text-zinc-900">{selectedCount} contratos selecionados</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="rounded-xl bg-rose-600 px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bulkDeleting ? "Movendo..." : "Mover selecionados para lixeira"}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkDeleting}
+              className="rounded-xl px-3.5 py-2 text-[12px] font-medium text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Limpar seleção
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 rounded-2xl border border-zinc-100 bg-white p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,1fr)_auto]">
         <div>
           <label className="mb-1 block text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Filtrar por</label>
@@ -652,6 +761,19 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-100">
+                <th className="px-4 py-3.5">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    disabled={filteredIds.length === 0}
+                    ref={(node) => {
+                      if (node) node.indeterminate = someFilteredSelected;
+                    }}
+                    onChange={toggleSelectAllFiltered}
+                    aria-label="Selecionar contratos filtrados"
+                    className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </th>
                 <th className="px-6 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Talento</th>
                 <th className="hidden px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 sm:table-cell">Vaga</th>
                 <th className="hidden px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 sm:table-cell">Agencia</th>
@@ -666,11 +788,17 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
             </thead>
             <tbody className="divide-y divide-zinc-50">
               {filtered.map((contract) => (
-                <ContractRow key={contract.id} contract={contract} onDelete={handleDelete} />
+                <ContractRow
+                  key={contract.id}
+                  contract={contract}
+                  onDelete={handleDelete}
+                  selected={selectedIds.has(contract.id)}
+                  onToggleSelected={toggleSelected}
+                />
               ))}
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-16 text-center">
+                  <td colSpan={11} className="px-6 py-16 text-center">
                     <p className="text-[14px] font-medium text-zinc-500">Nenhum contrato encontrado</p>
                     <p className="mt-1 text-[13px] text-zinc-400">Tente ajustar a busca, o status ou o intervalo de datas.</p>
                   </td>
@@ -680,7 +808,7 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
             {filtered.length > 0 ? (
               <tfoot>
                 <tr className="border-t-2 border-zinc-100 bg-zinc-50/80">
-                  <td colSpan={6} className="px-6 py-3.5">
+                  <td colSpan={7} className="px-6 py-3.5">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{filtered.length} contratos</p>
                   </td>
                   <td className="hidden px-4 py-3.5 text-right sm:table-cell">
@@ -696,5 +824,3 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
     </div>
   );
 }
-
-

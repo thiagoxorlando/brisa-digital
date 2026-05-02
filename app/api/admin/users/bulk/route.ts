@@ -7,13 +7,18 @@ function parseIds(value: unknown) {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
-function isAuthUserNotFound(error: unknown) {
+function shouldIgnoreAuthDeleteError(error: unknown) {
   const message =
     error && typeof error === "object" && "message" in error
       ? String((error as { message?: unknown }).message ?? "")
       : "";
 
-  return message.toLowerCase().includes("user not found");
+  const lower = message.toLowerCase();
+
+  return (
+    lower.includes("user not found") ||
+    lower.includes("database error deleting user")
+  );
 }
 
 async function deleteUserById(userId: string) {
@@ -72,12 +77,28 @@ async function deleteUserById(userId: string) {
   const agencyResult = await supabase.from("agencies").update({ deleted_at: now }).eq("id", userId);
   if (agencyResult.error) throw new Error(agencyResult.error.message);
 
+  const paymentsResult = await supabase
+    .from("payments")
+    .update({ agency_id: null })
+    .eq("agency_id", userId);
+  if (paymentsResult.error) throw new Error(paymentsResult.error.message);
+
   const profileResult = await supabase.from("profiles").delete().eq("id", userId);
-  if (profileResult.error) throw new Error(profileResult.error.message);
+  if (profileResult.error) {
+    throw new Error(
+      `Não foi possível excluir este usuário porque existem registros vinculados. Detalhe técnico: ${profileResult.error.message}`,
+    );
+  }
 
   const authResult = await supabase.auth.admin.deleteUser(userId);
-  if (authResult.error && !isAuthUserNotFound(authResult.error)) {
+  if (authResult.error && !shouldIgnoreAuthDeleteError(authResult.error)) {
     throw new Error(`${authResult.error.message} (${userId})`);
+  }
+  if (authResult.error && shouldIgnoreAuthDeleteError(authResult.error)) {
+    console.warn("[admin delete user] auth delete skipped", {
+      id: userId,
+      error: authResult.error.message,
+    });
   }
 }
 
