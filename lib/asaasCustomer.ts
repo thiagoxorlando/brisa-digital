@@ -112,6 +112,7 @@ export async function ensureAsaasCustomer(
   name: string,
   email: string,
   cpfCnpj?: string,
+  mobilePhone?: string,
 ): Promise<string> {
   const supabase = createServerClient({ useServiceRole: true });
 
@@ -163,10 +164,12 @@ export async function ensureAsaasCustomer(
       externalReference: userId,
     };
     if (resolvedDoc) body.cpfCnpj = resolvedDoc;
+    if (mobilePhone) body.mobilePhone = mobilePhone;
 
     console.log("[ensureAsaasCustomer] creating customer", {
       name: body.name,
       hasCpfCnpj: !!resolvedDoc,
+      hasMobilePhone: !!mobilePhone,
     });
 
     try {
@@ -179,7 +182,23 @@ export async function ensureAsaasCustomer(
     } catch (err) {
       const msg = err instanceof AsaasApiError ? JSON.stringify(err.body) : String(err);
       console.error("[ensureAsaasCustomer] create failed:", msg);
-      throw new AsaasCustomerError("customer_create_failed", msg);
+
+      // Fallback: CPF/CNPJ may already belong to a different Asaas customer — find and reuse it
+      if (resolvedDoc) {
+        try {
+          const cpfSearch = await asaas<AsaasCustomerSearch>(
+            `/customers?cpfCnpj=${encodeURIComponent(resolvedDoc)}`,
+          );
+          if (cpfSearch.data?.[0]?.id) {
+            customerId = cpfSearch.data[0].id;
+            console.log("[ensureAsaasCustomer] found existing customer by cpfCnpj:", customerId);
+          }
+        } catch (searchErr) {
+          console.warn("[ensureAsaasCustomer] cpfCnpj fallback search failed:", String(searchErr));
+        }
+      }
+
+      if (!customerId) throw new AsaasCustomerError("customer_create_failed", msg);
     }
   } else {
     // Found an existing customer — ensure it has cpfCnpj

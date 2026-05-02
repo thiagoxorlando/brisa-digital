@@ -48,7 +48,7 @@ const PLANS = [
     key: "pro" as const,
     name: PLAN_DEFINITIONS.pro.label,
     price: PLAN_DEFINITIONS.pro.price,
-    priceLabel: "R$ 247",
+    priceLabel: "R$ 287",
     period: "/mes",
     badge: "POPULAR" as const,
     gradient: "from-indigo-500 to-violet-600",
@@ -65,8 +65,8 @@ const PLANS = [
     key: "premium" as const,
     name: PLAN_DEFINITIONS.premium.label,
     price: PLAN_DEFINITIONS.premium.price,
-    priceLabel: "R$ 297",
-    period: "/mes",
+    priceLabel: "Em breve",
+    period: "",
     badge: "EM BREVE" as const,
     gradient: "from-violet-500 to-purple-700",
     headline: "Operacao premium com cobranca recorrente",
@@ -146,24 +146,12 @@ interface ModalProps {
 
 function PlanChangeModal({
   plan,
-  currentPlanKey,
-  currentPrice,
-  planExpiresAt,
   onSuccess,
   onClose,
-}: ModalProps) {
-  const isFromFree = currentPlanKey === "free";
-  const isUpgrade = plan.price > currentPrice;
-  const isDowngrade = plan.price < currentPrice;
+}: Pick<ModalProps, "plan" | "onSuccess" | "onClose">) {
   const isToFree = plan.key === "free";
-  const forcedImmediate = !isToFree;
-  const [timing, setTiming] = useState<"immediate" | "next_cycle">(
-    forcedImmediate ? "immediate" : "next_cycle",
-  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const nextBillingLabel = planExpiresAt ? fmtDate(planExpiresAt) : "no proximo ciclo";
-  const needsStripeCheckout = timing === "immediate" && !isToFree;
 
   async function handleConfirm() {
     setSubmitting(true);
@@ -172,24 +160,13 @@ function PlanChangeModal({
     const res = await fetch("/api/agencies/plan-change", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        plan: plan.key,
-        chargeImmediately: needsStripeCheckout,
-      }),
+      body: JSON.stringify({ plan: plan.key, chargeImmediately: false }),
     });
     const data = await res.json().catch(() => ({})) as PlanChangeResponse & { error?: string };
 
     setSubmitting(false);
-    if (!res.ok) {
-      setError(data.error ?? "Erro ao alterar plano. Tente novamente.");
-      return;
-    }
-
-    if (data.url) {
-      window.location.assign(data.url);
-      return;
-    }
-
+    if (!res.ok) { setError(data.error ?? "Erro ao alterar plano. Tente novamente."); return; }
+    if (data.url) { window.location.assign(data.url); return; }
     onSuccess(plan.key, data);
   }
 
@@ -217,77 +194,13 @@ function PlanChangeModal({
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {forcedImmediate && !isToFree && (
-            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3.5">
-              <p className="text-[13px] text-amber-800">
-                Voce sera enviado ao Stripe para assinar <strong>{brl(plan.price)}/mes</strong>.
-              </p>
-            </div>
-          )}
-
           {isToFree && (
             <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3.5">
               <p className="text-[13px] text-zinc-700">
-                O cancelamento sera agendado no Stripe. Ate o fim do ciclo voce continua com acesso ao plano atual.
+                Seu acesso ao plano atual continuara ate o fim do ciclo de cobranca.
               </p>
             </div>
           )}
-
-          {isUpgrade && !isFromFree && !isToFree && !forcedImmediate && (
-            <div className="space-y-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Quando ativar?</p>
-              <label className={[
-                "flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors",
-                timing === "next_cycle" ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300",
-              ].join(" ")}>
-                <input
-                  type="radio"
-                  name="timing"
-                  value="next_cycle"
-                  checked={timing === "next_cycle"}
-                  onChange={() => setTiming("next_cycle")}
-                  className="mt-0.5 accent-zinc-900"
-                />
-                <div>
-                  <p className="text-[13px] font-semibold text-zinc-900">No proximo ciclo</p>
-                  <p className="text-[12px] text-zinc-400 mt-0.5">Sem cobranca hoje. Novo plano ativa em {nextBillingLabel}.</p>
-                </div>
-              </label>
-              <label className={[
-                "flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors",
-                timing === "immediate" ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300",
-              ].join(" ")}>
-                <input
-                  type="radio"
-                  name="timing"
-                  value="immediate"
-                  checked={timing === "immediate"}
-                  onChange={() => setTiming("immediate")}
-                  className="mt-0.5 accent-zinc-900"
-                />
-                <div>
-                  <p className="text-[13px] font-semibold text-zinc-900">Agora via Stripe</p>
-                  <p className="text-[12px] text-zinc-400 mt-0.5">Abre o Stripe Billing para confirmar a assinatura.</p>
-                </div>
-              </label>
-            </div>
-          )}
-
-          {isDowngrade && !isToFree && (
-            <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3.5">
-              <p className="text-[13px] text-zinc-700">
-                Mudancas de plano pago devem ser ajustadas no Stripe Billing. Esta acao abre o checkout quando houver cobranca imediata.
-              </p>
-            </div>
-          )}
-
-          {needsStripeCheckout && (
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Forma de pagamento</p>
-              <p className="text-[13px] text-zinc-700 mt-1">Stripe Billing</p>
-            </div>
-          )}
-
           {error && (
             <p className="text-[13px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
               {error}
@@ -296,10 +209,7 @@ function PlanChangeModal({
         </div>
 
         <div className="px-6 pb-6 pt-3 flex gap-3 border-t border-zinc-100">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer"
-          >
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer">
             Cancelar
           </button>
           <button
@@ -307,12 +217,12 @@ function PlanChangeModal({
             disabled={submitting}
             className={[
               "flex-1 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
-              isToFree || isDowngrade
+              isToFree
                 ? "bg-[#647B7B] hover:bg-[#4A6262]"
                 : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2]",
             ].join(" ")}
           >
-            {submitting ? "Processando..." : needsStripeCheckout ? "Continuar no Stripe" : "Confirmar"}
+            {submitting ? "Processando..." : "Confirmar"}
           </button>
         </div>
       </div>
@@ -338,6 +248,7 @@ export default function BillingDashboard({
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(getBillingReturnBanner);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [proLoading, setProLoading] = useState(false);
 
   const currentPlanDef = getPlanDef(activePlan);
   const hasExternalActiveSubscription = hasManagedStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus);
@@ -363,6 +274,22 @@ export default function BillingDashboard({
     setTimeout(() => setToast(null), 5000);
   }
 
+  async function handleProCheckout() {
+    setProLoading(true);
+    const res = await fetch("/api/asaas/plan/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
+    setProLoading(false);
+    if (!res.ok || !data.url) {
+      showToast(data.error ?? "Erro ao iniciar pagamento. Tente novamente.", false);
+      return;
+    }
+    window.location.assign(data.url);
+  }
+
   function handlePlanClick(p: PlanDef) {
     if ("available" in p && p.available === false) {
       showToast("Premium ainda nao esta disponivel.", false);
@@ -373,6 +300,7 @@ export default function BillingDashboard({
       return;
     }
     if (p.key === activePlan) return;
+    if (p.key === "pro") { void handleProCheckout(); return; }
     setChangingTo(p);
   }
 
@@ -470,9 +398,6 @@ export default function BillingDashboard({
       {changingTo && (
         <PlanChangeModal
           plan={changingTo}
-          currentPlanKey={activePlan}
-          currentPrice={currentPlanDef.price}
-          planExpiresAt={expiresAt}
           onSuccess={handleSuccess}
           onClose={() => setChangingTo(null)}
         />
@@ -617,10 +542,10 @@ export default function BillingDashboard({
                   {!isCurrent && !isPending && (
                     <button
                       onClick={() => handlePlanClick(p)}
-                      disabled={!isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading))}
+                      disabled={!isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading)}
                       className={[
                         "w-full mt-auto text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors",
-                        !isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading))
+                        !isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading)
                           ? "bg-zinc-300 cursor-not-allowed"
                           : isDowngrade
                           ? "bg-zinc-500 hover:bg-zinc-600"
@@ -635,6 +560,8 @@ export default function BillingDashboard({
                           ? portalLoading
                             ? "Abrindo..."
                             : "Gerenciar no Stripe"
+                        : p.key === "pro" && proLoading
+                          ? "Aguarde..."
                         : activePlan === "free"
                           ? `Assinar ${p.name}`
                           : isDowngrade

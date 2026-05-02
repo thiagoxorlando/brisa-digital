@@ -755,8 +755,8 @@ function validateAgency(form: AgencyForm): AgencyErrors {
   return e;
 }
 
-function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void }) {
-  const [form, setForm]       = useState<AgencyForm>(AGENCY_DEFAULTS);
+function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string; onDone: () => void; initialPlan?: AgencyPlan }) {
+  const [form, setForm]       = useState<AgencyForm>({ ...AGENCY_DEFAULTS, plan: initialPlan });
   const [errors, setErrors]   = useState<AgencyErrors>({});
   const [logo, setLogo]       = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -1021,7 +1021,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
 
 // ── Main shell ────────────────────────────────────────────────────────────────
 
-export default function SetupProfile({ nextPath = null }: { nextPath?: string | null }) {
+export default function SetupProfile({ nextPath = null, initialPlan = "free" }: { nextPath?: string | null; initialPlan?: "free" | "pro" }) {
   const router              = useRouter();
   const [role, setRole]     = useState<Role>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -1081,7 +1081,7 @@ export default function SetupProfile({ nextPath = null }: { nextPath?: string | 
           <TalentSetup userId={userId} onDone={handleDone} />
         )}
         {userId && role === "agency" && (
-          <AgencySetup userId={userId} onDone={handleDone} />
+          <AgencySetup userId={userId} onDone={handleDone} initialPlan={initialPlan} />
         )}
         {!role && (
           <div className="bg-white rounded-2xl border border-zinc-100 p-8 text-center">

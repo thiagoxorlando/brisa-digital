@@ -6,7 +6,7 @@ import SetupProfile from "@/features/onboarding/SetupProfile";
 
 export const metadata: Metadata = { title: "Configurar perfil — BrisaHub" };
 
-type Props = { searchParams: Promise<{ next?: string }> };
+type Props = { searchParams: Promise<{ next?: string; plan?: string }> };
 
 function safeNextPath(value?: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
@@ -14,7 +14,7 @@ function safeNextPath(value?: string) {
 }
 
 export default async function SetupProfilePage({ searchParams }: Props) {
-  const { next } = await searchParams;
+  const { next, plan } = await searchParams;
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
 
@@ -32,5 +32,5 @@ export default async function SetupProfilePage({ searchParams }: Props) {
     redirect(profile.role === "talent" && nextPath ? nextPath : `/${profile.role}/dashboard`);
   }
 
-  return <SetupProfile nextPath={safeNextPath(next)} />;
+  return <SetupProfile nextPath={safeNextPath(next)} initialPlan={plan === "pro" ? "pro" : "free"} />;
 }

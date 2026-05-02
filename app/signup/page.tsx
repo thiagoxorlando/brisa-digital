@@ -115,8 +115,12 @@ function SignupPageContent() {
       });
     }
 
-    // 5. Redirect to profile setup
-    router.push(nextPath ? `/setup-profile?next=${encodeURIComponent(nextPath)}` : "/setup-profile");
+    // 5. Redirect to profile setup — carry plan selection for agencies
+    const spParams = new URLSearchParams();
+    if (nextPath) spParams.set("next", nextPath);
+    if (role === "agency" && plan === "pro") spParams.set("plan", "pro");
+    const qs = spParams.toString();
+    router.push(qs ? `/setup-profile?${qs}` : "/setup-profile");
   }
 
   return (
