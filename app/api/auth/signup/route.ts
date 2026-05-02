@@ -40,29 +40,44 @@ export async function POST(req: NextRequest) {
     .upsert({ id: user.id, role }, { onConflict: "id" });
 
   if (error) {
-    console.error("[signup/route] profile insert failed:", error.message);
+    console.error("[signup/route] profile upsert failed:", error.message);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  // Create role-specific profile row so FK constraints are satisfied
   if (role === "agency") {
+    // Reactivate if soft-deleted, create if missing
+    const { data: existing } = await supabase
+      .from("agencies")
+      .select("id, subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const agencyPayload: Record<string, unknown> = {
+      id:                  user.id,
+      user_id:             user.id,
+      subscription_status: existing?.subscription_status ?? "inactive",
+      deleted_at:          null,
+    };
+
     const { error: agencyErr } = await supabase
       .from("agencies")
-      .upsert({ id: user.id, user_id: user.id, subscription_status: "inactive" }, { onConflict: "id" });
+      .upsert(agencyPayload, { onConflict: "id" });
 
     if (agencyErr) {
-      console.error("[signup/route] agency insert failed:", agencyErr.message);
-      // Non-fatal: profile was created, agency row can be created later
+      console.error("[signup/route] agency upsert failed:", agencyErr.message);
+      return NextResponse.json({ error: agencyErr.message }, { status: 400 });
     }
   }
 
   if (role === "talent") {
+    // Reactivate if soft-deleted, create if missing
     const { error: talentErr } = await supabase
       .from("talent_profiles")
-      .upsert({ id: user.id }, { onConflict: "id" });
+      .upsert({ id: user.id, deleted_at: null }, { onConflict: "id" });
 
     if (talentErr) {
-      console.error("[signup/route] talent_profile insert failed:", talentErr.message);
+      console.error("[signup/route] talent_profile upsert failed:", talentErr.message);
+      return NextResponse.json({ error: talentErr.message }, { status: 400 });
     }
   }
 

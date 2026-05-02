@@ -12,6 +12,47 @@ export async function POST(_req: NextRequest) {
 
   const supabase = createServerClient({ useServiceRole: true });
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) {
+    return NextResponse.json({ error: "Perfil não encontrado." }, { status: 404 });
+  }
+
+  // Verify the role-specific row exists before marking onboarding complete
+  if (profile.role === "talent") {
+    const { data: talentRow } = await supabase
+      .from("talent_profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!talentRow) {
+      return NextResponse.json(
+        { error: "Complete os dados do perfil antes de continuar." },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (profile.role === "agency") {
+    const { data: agencyRow } = await supabase
+      .from("agencies")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!agencyRow) {
+      return NextResponse.json(
+        { error: "Complete os dados do perfil antes de continuar." },
+        { status: 400 },
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({ onboarding_completed: true })

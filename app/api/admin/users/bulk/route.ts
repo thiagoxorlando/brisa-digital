@@ -1,105 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { deleteUserDeep } from "@/lib/admin/deleteUserDeep";
 
 function parseIds(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-}
-
-function shouldIgnoreAuthDeleteError(error: unknown) {
-  const message =
-    error && typeof error === "object" && "message" in error
-      ? String((error as { message?: unknown }).message ?? "")
-      : "";
-
-  const lower = message.toLowerCase();
-
-  return (
-    lower.includes("user not found") ||
-    lower.includes("database error deleting user")
-  );
-}
-
-async function deleteUserById(userId: string) {
-  const supabase = createServerClient({ useServiceRole: true });
-  const now = new Date().toISOString();
-
-  const submissionsResult = await supabase.from("submissions").delete().eq("talent_user_id", userId);
-  if (submissionsResult.error) throw new Error(submissionsResult.error.message);
-
-  const notificationsResult = await supabase.from("notifications").delete().eq("user_id", userId);
-  if (notificationsResult.error) throw new Error(notificationsResult.error.message);
-
-  const bookingsResult = await supabase
-    .from("bookings")
-    .update({ deleted_at: now })
-    .or(`talent_user_id.eq.${userId},agency_id.eq.${userId}`);
-  if (bookingsResult.error) throw new Error(bookingsResult.error.message);
-
-  const talentContractsResult = await supabase
-    .from("contracts")
-    .update({ deleted_at: now })
-    .eq("talent_id", userId)
-    .neq("status", "paid");
-  if (talentContractsResult.error) throw new Error(talentContractsResult.error.message);
-
-  const agencyContractsResult = await supabase
-    .from("contracts")
-    .update({ deleted_at: now })
-    .eq("agency_id", userId)
-    .neq("status", "paid");
-  if (agencyContractsResult.error) throw new Error(agencyContractsResult.error.message);
-
-  const jobsResult = await supabase.from("jobs").select("id").eq("agency_id", userId);
-  if (jobsResult.error) throw new Error(jobsResult.error.message);
-
-  if (jobsResult.data && jobsResult.data.length > 0) {
-    const jobIds = jobsResult.data.map((job) => job.id);
-
-    const jobContractsResult = await supabase
-      .from("contracts")
-      .update({ deleted_at: now })
-      .in("job_id", jobIds)
-      .neq("status", "paid");
-    if (jobContractsResult.error) throw new Error(jobContractsResult.error.message);
-
-    const jobSubmissionsResult = await supabase.from("submissions").delete().in("job_id", jobIds);
-    if (jobSubmissionsResult.error) throw new Error(jobSubmissionsResult.error.message);
-
-    const softDeleteJobsResult = await supabase.from("jobs").update({ deleted_at: now }).in("id", jobIds);
-    if (softDeleteJobsResult.error) throw new Error(softDeleteJobsResult.error.message);
-  }
-
-  const talentProfileResult = await supabase.from("talent_profiles").update({ deleted_at: now }).eq("id", userId);
-  if (talentProfileResult.error) throw new Error(talentProfileResult.error.message);
-
-  const agencyResult = await supabase.from("agencies").update({ deleted_at: now }).eq("id", userId);
-  if (agencyResult.error) throw new Error(agencyResult.error.message);
-
-  const paymentsResult = await supabase
-    .from("payments")
-    .update({ agency_id: null })
-    .eq("agency_id", userId);
-  if (paymentsResult.error) throw new Error(paymentsResult.error.message);
-
-  const profileResult = await supabase.from("profiles").delete().eq("id", userId);
-  if (profileResult.error) {
-    throw new Error(
-      `Não foi possível excluir este usuário porque existem registros vinculados. Detalhe técnico: ${profileResult.error.message}`,
-    );
-  }
-
-  const authResult = await supabase.auth.admin.deleteUser(userId);
-  if (authResult.error && !shouldIgnoreAuthDeleteError(authResult.error)) {
-    throw new Error(`${authResult.error.message} (${userId})`);
-  }
-  if (authResult.error && shouldIgnoreAuthDeleteError(authResult.error)) {
-    console.warn("[admin delete user] auth delete skipped", {
-      id: userId,
-      error: authResult.error.message,
-    });
-  }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -110,7 +16,7 @@ export async function PATCH(req: NextRequest) {
   const ids = parseIds(body.ids);
 
   if (ids.length === 0) {
-    return NextResponse.json({ error: "Informe ao menos um usuario." }, { status: 400 });
+    return NextResponse.json({ error: "Informe ao menos um usuário." }, { status: 400 });
   }
 
   if (body.action !== "freeze") {
@@ -136,26 +42,31 @@ export async function DELETE(req: NextRequest) {
   const ids = parseIds(body.ids);
 
   if (ids.length === 0) {
-    return NextResponse.json({ error: "Informe ao menos um usuario." }, { status: 400 });
+    return NextResponse.json({ error: "Informe ao menos um usuário." }, { status: 400 });
   }
 
   if (ids.includes(adminId)) {
     return NextResponse.json({ error: "Você não pode excluir sua própria conta." }, { status: 400 });
   }
 
+  const deletedIds: string[] = [];
+
   for (const id of ids) {
     try {
-      await deleteUserById(id);
-    } catch (error) {
+      await deleteUserDeep(id);
+      deletedIds.push(id);
+    } catch (err) {
+      console.error("[admin bulk delete user]", { id, error: String(err) });
       return NextResponse.json(
         {
-          error: error instanceof Error ? error.message : "Falha ao excluir usuario.",
+          error: err instanceof Error ? err.message : "Falha ao excluir usuário.",
           id,
+          deletedIds,
         },
         { status: 500 },
       );
     }
   }
 
-  return NextResponse.json({ ok: true, count: ids.length });
+  return NextResponse.json({ ok: true, deletedIds, count: deletedIds.length });
 }

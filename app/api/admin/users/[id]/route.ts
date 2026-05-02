@@ -1,22 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { deleteUserDeep } from "@/lib/admin/deleteUserDeep";
 
 type Params = { params: Promise<{ id: string }> };
-
-function shouldIgnoreAuthDeleteError(error: unknown) {
-  const message =
-    error && typeof error === "object" && "message" in error
-      ? String((error as { message?: unknown }).message ?? "")
-      : "";
-
-  const lower = message.toLowerCase();
-
-  return (
-    lower.includes("user not found") ||
-    lower.includes("database error deleting user")
-  );
-}
 
 // ── PATCH — update role OR freeze/unfreeze ────────────────────────────────────
 export async function PATCH(req: NextRequest, { params }: Params) {
@@ -85,17 +72,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json({ ok: true });
 }
 
-// ── DELETE — soft-delete user profile (moves to trash) ───────────────────────
-// Soft-deletes talent_profiles / agencies / jobs / contracts so they appear in
-// the trash page. Hard-deletes ephemeral rows (submissions, notifications,
-// bookings) and the auth account since those can't be meaningfully restored.
-// Order:
-//  1. Hard-delete submissions + notifications (ephemeral, not in trash)
-//  2. Hard-delete bookings (not tracked in trash)
-//  3. Soft-delete unpaid contracts (talent side + agency side)
-//  4. Soft-delete jobs posted by this agency + their unpaid contracts
-//  5. Soft-delete talent_profiles / agencies row
-//  6. Hard-delete profiles row + auth user (account is gone)
+// ── DELETE — permanently remove user account ─────────────────────────────────
 export async function DELETE(req: NextRequest, { params }: Params) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
@@ -106,83 +83,15 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Você não pode excluir sua própria conta." }, { status: 400 });
   }
 
-  const supabase = createServerClient({ useServiceRole: true });
-  const now = new Date().toISOString();
-
-  // 1. Hard-delete submissions + notifications
-  await supabase.from("submissions").delete().eq("talent_user_id", id);
-  await supabase.from("notifications").delete().eq("user_id", id);
-
-  // 2. Soft-delete bookings (appear in trash)
-  await supabase.from("bookings").update({ deleted_at: now }).or(`talent_user_id.eq.${id},agency_id.eq.${id}`);
-
-  // 3. Soft-delete unpaid contracts (talent side)
-  await supabase
-    .from("contracts")
-    .update({ deleted_at: now })
-    .eq("talent_id", id)
-    .neq("status", "paid");
-
-  // 3b. Soft-delete unpaid contracts (agency side)
-  await supabase
-    .from("contracts")
-    .update({ deleted_at: now })
-    .eq("agency_id", id)
-    .neq("status", "paid");
-
-  // 4. Jobs posted by this user (agency)
-  const { data: jobs } = await supabase
-    .from("jobs")
-    .select("id")
-    .eq("agency_id", id);
-
-  if (jobs && jobs.length > 0) {
-    const jobIds = jobs.map((j) => j.id);
-
-    // Soft-delete unpaid contracts for these jobs
-    await supabase
-      .from("contracts")
-      .update({ deleted_at: now })
-      .in("job_id", jobIds)
-      .neq("status", "paid");
-
-    // Hard-delete submissions for these jobs
-    await supabase.from("submissions").delete().in("job_id", jobIds);
-
-    // Soft-delete the jobs
-    await supabase.from("jobs").update({ deleted_at: now }).in("id", jobIds);
-  }
-
-  // 5. Soft-delete profile rows (appear in trash)
-  await supabase.from("talent_profiles").update({ deleted_at: now }).eq("id", id);
-  await supabase.from("agencies").update({ deleted_at: now }).eq("id", id);
-
-  // 6. Hard-delete the profiles row and auth account (can't restore auth)
-  await supabase
-    .from("payments")
-    .update({ agency_id: null })
-    .eq("agency_id", id);
-
-  const { error: profileDeleteError } = await supabase.from("profiles").delete().eq("id", id);
-  if (profileDeleteError) {
+  try {
+    await deleteUserDeep(id);
+  } catch (err) {
+    console.error("[admin delete user]", { id, error: String(err) });
     return NextResponse.json(
-      {
-        error: `Não foi possível excluir este usuário porque existem registros vinculados. Detalhe técnico: ${profileDeleteError.message}`,
-      },
-      { status: 400 },
+      { error: err instanceof Error ? err.message : "Falha ao excluir usuário." },
+      { status: 500 },
     );
   }
 
-  const { error: authErr } = await supabase.auth.admin.deleteUser(id);
-  if (authErr && !shouldIgnoreAuthDeleteError(authErr)) {
-    return NextResponse.json({ error: `${authErr.message} (${id})` }, { status: 500 });
-  }
-  if (authErr && shouldIgnoreAuthDeleteError(authErr)) {
-    console.warn("[admin delete user] auth delete skipped", {
-      id,
-      error: authErr.message,
-    });
-  }
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, deletedIds: [id], count: 1 });
 }

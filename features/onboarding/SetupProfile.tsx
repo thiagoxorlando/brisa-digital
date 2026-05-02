@@ -202,17 +202,18 @@ function validateStep1(form: TalentForm): Step1Errors {
   return e;
 }
 
+// Step1 receives errors from parent so field highlights are driven by parent validation
 function Step1({
-  form, onChange, avatar, preview, onAvatar,
+  form, onChange, avatar, preview, onAvatar, errors, clearError,
 }: {
   form: TalentForm;
   onChange: (k: keyof TalentForm, v: string) => void;
   avatar: File | null;
   preview: string | null;
   onAvatar: (f: File) => void;
+  errors: Step1Errors;
+  clearError: (k: keyof Step1Errors) => void;
 }) {
-  const [errors, setErrors] = useState<Step1Errors>({});
-  // expose validate to parent via event
   return (
     <div className="space-y-5" id="step1-form">
       <AvatarUpload label="Foto de Perfil" preview={preview} onChange={onAvatar} />
@@ -226,7 +227,7 @@ function Step1({
               value={form.fullName}
               onChange={(e) => {
                 onChange("fullName", e.target.value);
-                setErrors((prev) => ({ ...prev, fullName: undefined }));
+                clearError("fullName");
               }}
             />
           </Field>
@@ -236,7 +237,7 @@ function Step1({
             value={form.phone}
             onChange={(v) => {
               onChange("phone", v);
-              setErrors((prev) => ({ ...prev, phone: undefined }));
+              clearError("phone");
             }}
             hasError={!!errors.phone}
             required
@@ -250,7 +251,7 @@ function Step1({
             value={form.country}
             onChange={(e) => {
               onChange("country", e.target.value);
-              setErrors((prev) => ({ ...prev, country: undefined }));
+              clearError("country");
             }}
           />
         </Field>
@@ -261,7 +262,7 @@ function Step1({
             value={form.city}
             onChange={(e) => {
               onChange("city", e.target.value);
-              setErrors((prev) => ({ ...prev, city: undefined }));
+              clearError("city");
             }}
           />
         </Field>
@@ -543,15 +544,20 @@ function Step4({
 // ── Multi-step talent form ────────────────────────────────────────────────────
 
 function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void }) {
-  const [step, setStep]       = useState(0);
-  const [form, setForm]       = useState<TalentForm>(TALENT_DEFAULTS);
-  const [avatar, setAvatar]   = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [step, setStep]             = useState(0);
+  const [form, setForm]             = useState<TalentForm>(TALENT_DEFAULTS);
+  const [step1Errors, setStep1Errors] = useState<Step1Errors>({});
+  const [avatar, setAvatar]         = useState<File | null>(null);
+  const [preview, setPreview]       = useState<string | null>(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
 
   function update(k: keyof TalentForm, v: string | string[]) {
     setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  function clearStep1Error(k: keyof Step1Errors) {
+    setStep1Errors((prev) => ({ ...prev, [k]: undefined }));
   }
 
   function handleAvatar(file: File) {
@@ -559,29 +565,27 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
     setPreview(URL.createObjectURL(file));
   }
 
-  // Per-step validation before allowing Next
-  function canProceed(): { ok: boolean; msg: string } {
+  function handleNext() {
+    if (loading) return;
     if (step === 0) {
       const errs = validateStep1(form);
       if (Object.keys(errs).length > 0) {
-        const first = Object.values(errs)[0]!;
-        return { ok: false, msg: first };
+        setStep1Errors(errs);
+        setError("Preencha os campos obrigatórios antes de continuar.");
+        return;
       }
+      setStep1Errors({});
     }
     if (step === 1 && form.bio.length > BIO_MAX) {
-      return { ok: false, msg: `Bio deve ter no máximo ${BIO_MAX} caracteres.` };
+      setError(`Bio deve ter no máximo ${BIO_MAX} caracteres.`);
+      return;
     }
-    return { ok: true, msg: "" };
-  }
-
-  function handleNext() {
-    const { ok, msg } = canProceed();
-    if (!ok) { setError(msg); return; }
     setError("");
     setStep((s) => s + 1);
   }
 
   async function handleSubmit() {
+    if (loading) return;
     setLoading(true);
     setError("");
 
@@ -592,7 +596,7 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
       fd.append("file", avatar);
       fd.append("path", `avatars/${userId}.${ext}`);
       const res  = await fetch("/api/upload", { method: "POST", body: fd });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({})) as { error?: string; url?: string };
       if (!res.ok) {
         setError("Falha ao enviar foto: " + (json.error ?? "Erro desconhecido"));
         setLoading(false);
@@ -601,8 +605,7 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
       avatarUrl = json.url;
     }
 
-    const payload: Record<string, unknown> = {
-      id:         userId,
+    const talent: Record<string, unknown> = {
       full_name:  form.fullName.trim(),
       phone:      form.phone.trim(),
       country:    form.country.trim(),
@@ -616,22 +619,23 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
       youtube:    form.youtube.trim()   || null,
       linkedin:   form.linkedin.trim()  || null,
       website:    form.website.trim()   || null,
-      main_role:  form.main_role.trim()  || null,
+      main_role:  form.main_role.trim() || null,
     };
-    if (avatarUrl) payload.avatar_url = avatarUrl;
+    if (avatarUrl) talent.avatar_url = avatarUrl;
 
-    const { error: dbErr } = await supabase
-      .from("talent_profiles")
-      .upsert(payload, { onConflict: "id" });
+    const res  = await fetch("/api/auth/setup-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "talent", talent }),
+    });
+    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
 
-    if (dbErr) {
-      setError(dbErr.message);
+    if (!res.ok) {
+      console.error("[setup-profile/talent]", json.error);
+      setError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
       setLoading(false);
       return;
     }
-
-    // Mark onboarding complete
-    await fetch("/api/auth/complete-onboarding", { method: "POST" });
 
     onDone();
   }
@@ -653,7 +657,10 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
         </div>
 
         {step === 0 && (
-          <Step1 form={form} onChange={update} avatar={avatar} preview={preview} onAvatar={handleAvatar} />
+          <Step1
+            form={form} onChange={update} avatar={avatar} preview={preview} onAvatar={handleAvatar}
+            errors={step1Errors} clearError={clearStep1Error}
+          />
         )}
         {step === 1 && <Step2 form={form} onChange={update} />}
         {step === 2 && <Step3 form={form} onChange={update} />}
@@ -686,7 +693,8 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
           <button
             type="button"
             onClick={handleNext}
-            className="flex-1 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
+            disabled={loading}
+            className="flex-1 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3 rounded-xl transition-colors cursor-pointer"
           >
             Próximo
           </button>
@@ -787,8 +795,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
       logoUrl = json.url;
     }
 
-    const payload: Record<string, unknown> = {
-      id:           userId,
+    const agency: Record<string, unknown> = {
       company_name: form.companyName.trim(),
       contact_name: form.contactName.trim(),
       phone:        form.phone.trim(),
@@ -797,18 +804,22 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
       description:  form.description.trim(),
       website:      form.website.trim(),
     };
-    if (logoUrl) payload.avatar_url = logoUrl;
+    if (logoUrl) agency.avatar_url = logoUrl;
 
-    const { error: dbError } = await supabase.from("agencies").upsert(payload, { onConflict: "id" });
+    const res  = await fetch("/api/auth/setup-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "agency", agency }),
+    });
+    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
 
-    if (dbError) {
-      setServerError(dbError.message);
+    if (!res.ok) {
+      console.error("[setup-profile/agency]", json.error);
+      setServerError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
       setLoading(false);
       return;
     }
 
-    // Mark onboarding complete
-    await fetch("/api/auth/complete-onboarding", { method: "POST" });
     onDone();
   }
 
