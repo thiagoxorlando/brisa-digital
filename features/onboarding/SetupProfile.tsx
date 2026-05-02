@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabel } from "@/lib/talentCategories";
+import { formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
+import { PLAN_DEFINITIONS } from "@/lib/plans";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,8 @@ type TalentForm = {
   main_role:  string;
 };
 
+type AgencyPlan = "free" | "pro";
+
 type AgencyForm = {
   companyName:  string;
   contactName:  string;
@@ -35,6 +39,8 @@ type AgencyForm = {
   city:         string;
   description:  string;
   website:      string;
+  cpfCnpj:     string;
+  plan:         AgencyPlan;
 };
 
 type AgencyRow = {
@@ -64,6 +70,7 @@ const TALENT_DEFAULTS: TalentForm = {
 const AGENCY_DEFAULTS: AgencyForm = {
   companyName: "", contactName: "", phone: "",
   country: "", city: "", description: "", website: "",
+  cpfCnpj: "", plan: "free",
 };
 
 const STEPS = [
@@ -732,6 +739,11 @@ function validateAgency(form: AgencyForm): AgencyErrors {
   if (!form.country.trim()) e.country = "País é obrigatório.";
   if (!form.city.trim()) e.city = "Cidade é obrigatória.";
   if (form.description.length > 500) e.description = "Descrição deve ter no máximo 500 caracteres.";
+  if (!form.cpfCnpj.trim()) {
+    e.cpfCnpj = "CPF ou CNPJ é obrigatório.";
+  } else if (!isValidCpfCnpj(normalizeCpfCnpj(form.cpfCnpj))) {
+    e.cpfCnpj = "CPF (11 dígitos) ou CNPJ (14 dígitos) inválido.";
+  }
   return e;
 }
 
@@ -753,7 +765,8 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
       .then(({ data }) => {
         if (!data) return;
         const agency = data as AgencyRow;
-        setForm({
+        setForm((prev) => ({
+          ...prev,
           companyName:  agency.company_name ?? "",
           contactName:  agency.contact_name ?? "",
           phone:        agency.phone ?? "",
@@ -761,7 +774,7 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
           city:         agency.city ?? "",
           description:  agency.description ?? "",
           website:      agency.website ?? "",
-        });
+        }));
         if (agency.avatar_url) setPreview(agency.avatar_url);
       });
   }, [userId]);
@@ -786,34 +799,34 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
     setServerError("");
     setLoading(true);
 
-    let logoUrl: string | undefined;
-    if (logo) {
-      const ext = logo.name.split(".").pop();
-      const fd  = new FormData();
-      fd.append("file", logo);
-      fd.append("path", `agency-avatars/${userId}.${ext}`);
-      const res  = await fetch("/api/upload", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) {
-        setServerError("Falha ao enviar logo: " + (json.error ?? "Erro desconhecido"));
-        setLoading(false);
-        return;
-      }
-      logoUrl = json.url;
-    }
-
-    const agency: Record<string, unknown> = {
-      company_name: form.companyName.trim(),
-      contact_name: form.contactName.trim(),
-      phone:        form.phone.trim(),
-      country:      form.country.trim(),
-      city:         form.city.trim(),
-      description:  form.description.trim(),
-      website:      form.website.trim(),
-    };
-    if (logoUrl) agency.avatar_url = logoUrl;
-
     try {
+      let logoUrl: string | undefined;
+      if (logo) {
+        const ext = logo.name.split(".").pop();
+        const fd  = new FormData();
+        fd.append("file", logo);
+        fd.append("path", `agency-avatars/${userId}.${ext}`);
+        const uploadRes  = await fetch("/api/upload", { method: "POST", body: fd });
+        const uploadJson = await uploadRes.json().catch(() => ({}) as Record<string, unknown>);
+        if (!uploadRes.ok) {
+          setServerError("Falha ao enviar logo: " + ((uploadJson as { error?: string }).error ?? "Erro desconhecido"));
+          return;
+        }
+        logoUrl = (uploadJson as { url?: string }).url;
+      }
+
+      const agency: Record<string, unknown> = {
+        company_name: form.companyName.trim(),
+        contact_name: form.contactName.trim(),
+        phone:        form.phone.trim(),
+        country:      form.country.trim(),
+        city:         form.city.trim(),
+        description:  form.description.trim(),
+        website:      form.website.trim(),
+        cpf_cnpj:     normalizeCpfCnpj(form.cpfCnpj),
+      };
+      if (logoUrl) agency.avatar_url = logoUrl;
+
       const res  = await fetch("/api/auth/setup-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -824,16 +837,41 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
       if (!res.ok) {
         console.error("[setup-profile/agency]", json.error);
         setServerError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
-        setLoading(false);
         return;
       }
-    } catch {
-      setServerError("Erro de conexão. Verifique sua internet e tente novamente.");
-      setLoading(false);
-      return;
-    }
 
-    onDone();
+      // PRO plan: validate CPF/CNPJ locally then redirect to Asaas payment
+      if (form.plan === "pro") {
+        const cleanDoc = normalizeCpfCnpj(form.cpfCnpj);
+        if (!isValidCpfCnpj(cleanDoc)) {
+          setServerError("CPF/CNPJ inválido. Verifique os números e tente novamente.");
+          return;
+        }
+
+        const checkoutRes  = await fetch("/api/asaas/plan/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cpfCnpj: cleanDoc }),
+        });
+        const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
+
+        if (!checkoutRes.ok || !checkoutJson.url) {
+          console.error("[asaas/plan/checkout]", checkoutJson.error);
+          setServerError(checkoutJson.error ?? "Erro ao iniciar pagamento. Tente novamente.");
+          return;
+        }
+
+        window.location.assign(checkoutJson.url);
+        return;
+      }
+
+      onDone();
+    } catch (err) {
+      console.error("[setup-profile/agency] unexpected error:", err);
+      setServerError("Erro de conexão. Verifique sua internet e tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -861,6 +899,19 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
               required
             />
           </Field>
+          <Field label="CPF / CNPJ *" error={errors.cpfCnpj} hint="Necessário para emissão de cobranças">
+            <input
+              className={inputErrCls(!!errors.cpfCnpj)}
+              placeholder="000.000.000-00 ou 00.000.000/0001-00"
+              value={form.cpfCnpj}
+              onChange={(e) => {
+                const formatted = formatCpfCnpj(e.target.value);
+                set("cpfCnpj", formatted);
+              }}
+              inputMode="numeric"
+              maxLength={18}
+            />
+          </Field>
           <Field label="Website">
             <input className={inputCls} placeholder="https://sparkagency.com" value={form.website} onChange={(e) => set("website", e.target.value)} />
           </Field>
@@ -878,6 +929,65 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
         </Field>
       </div>
 
+      {/* Plan selection */}
+      <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-4">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Escolha seu Plano</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Free */}
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, plan: "free" }))}
+            className={[
+              "text-left rounded-2xl border p-4 transition-all",
+              form.plan === "free"
+                ? "border-zinc-900 bg-zinc-50 shadow-sm"
+                : "border-zinc-200 hover:border-zinc-300",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[14px] font-semibold text-zinc-900">{PLAN_DEFINITIONS.free.label}</span>
+              <span className="text-[13px] font-bold text-zinc-900">R$ 0</span>
+            </div>
+            <ul className="space-y-1">
+              {PLAN_DEFINITIONS.free.features.map((f) => (
+                <li key={f} className="text-[12px] text-zinc-500">· {f}</li>
+              ))}
+            </ul>
+            {form.plan === "free" && (
+              <p className="mt-3 text-[11px] font-semibold text-zinc-700">✓ Selecionado</p>
+            )}
+          </button>
+          {/* Pro */}
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, plan: "pro" }))}
+            className={[
+              "text-left rounded-2xl border p-4 transition-all relative",
+              form.plan === "pro"
+                ? "border-indigo-600 bg-indigo-50 shadow-sm"
+                : "border-zinc-200 hover:border-indigo-300",
+            ].join(" ")}
+          >
+            <span className="absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white tracking-wider">POPULAR</span>
+            <div className="flex items-center justify-between mb-2 pr-16">
+              <span className="text-[14px] font-semibold text-zinc-900">{PLAN_DEFINITIONS.pro.label}</span>
+              <span className="text-[13px] font-bold text-indigo-700">R$ {PLAN_DEFINITIONS.pro.price}/mês</span>
+            </div>
+            <ul className="space-y-1">
+              {PLAN_DEFINITIONS.pro.features.map((f) => (
+                <li key={f} className="text-[12px] text-zinc-500">· {f}</li>
+              ))}
+            </ul>
+            {form.plan === "pro" && (
+              <div className="mt-3 space-y-1">
+                <p className="text-[11px] font-semibold text-indigo-700">✓ Selecionado</p>
+                <p className="text-[11px] text-zinc-500">Pagamento via cartão de crédito. Você será redirecionado para concluir o pagamento após salvar o perfil.</p>
+              </div>
+            )}
+          </button>
+        </div>
+      </div>
+
       {serverError && (
         <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3.5">
           <svg className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -891,7 +1001,11 @@ function AgencySetup({ userId, onDone }: { userId: string; onDone: () => void })
         type="submit" disabled={loading}
         className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
       >
-        {loading ? "Salvando…" : "Salvar Perfil"}
+        {loading
+          ? (form.plan === "pro" ? "Redirecionando…" : "Salvando…")
+          : form.plan === "pro"
+            ? "Salvar e ir para pagamento"
+            : "Salvar Perfil"}
       </button>
     </form>
   );
