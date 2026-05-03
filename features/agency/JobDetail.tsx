@@ -7,7 +7,6 @@ import { useT } from "@/lib/LanguageContext";
 import { useRole } from "@/lib/RoleProvider";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import PaywallModal from "@/components/agency/PaywallModal";
-import SuggestedTalents from "@/components/agency/SuggestedTalents";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1166,11 +1165,6 @@ export default function JobDetail({
           />
         </div>
       </div>
-
-      {/* ── Suggested talents ── */}
-      {role === "agency" && agencyId && job.status === "open" && (
-        <SuggestedTalents jobId={job.id} agencyId={agencyId} />
-      )}
 
       {/* ── Bookings ── */}
       {bookings.length > 0 && (
