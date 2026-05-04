@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       type:        "deposit",
       status:      "pending",
       amount,
-      description: "Depósito via PIX Asaas (pendente)",
+      description: "Depósito via PIX Asaas",
       provider:    "asaas",
     })
     .select("id")

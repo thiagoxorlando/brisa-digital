@@ -95,7 +95,7 @@ export default async function AgencyFinancesPage() {
 
   const walletRows: AgencyTransaction[] = (walletTxs ?? []).map((w) => {
     let status = w.type ?? "payment";
-    let description = w.description ?? undefined;
+    let description = (w.description ?? "").replace(/ \(pendente\)/gi, "").trim() || undefined;
     let bookingId: string | null = null;
 
     if (w.type === "deposit") {

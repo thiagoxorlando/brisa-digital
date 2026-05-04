@@ -877,8 +877,11 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
   const pending = rows
     .filter((w) => w.status === "pending" || w.status === "processing")
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  const agencyPending = pending.filter((w) => w.userRole === "agency");
-  const talentPending = pending.filter((w) => w.userRole === "talent");
+  // processing = automated (Asaas/provider in flight) — no admin action needed
+  const processing = pending.filter((w) => w.status === "processing");
+  // manual = status pending only — admin must act
+  const agencyPending = pending.filter((w) => w.userRole === "agency" && w.status === "pending");
+  const talentPending = pending.filter((w) => w.userRole === "talent" && w.status === "pending");
   const visibleAgencyPending = expandedAgencyPending ? agencyPending : agencyPending.slice(0, 5);
   const visibleTalentPending = expandedTalentPending ? talentPending : talentPending.slice(0, 5);
   const history = rows
@@ -1204,8 +1207,8 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
         <div className="space-y-6">
           <PendingTable
             title="Saques em processamento"
-            subtitle={`${pending.filter((w) => w.status === "processing").length} solicitação(ões) aguardando confirmação do provedor`}
-            rows={pending.filter((w) => w.status === "processing")}
+            subtitle={`${processing.length} solicitação(ões) aguardando confirmação do provedor`}
+            rows={processing}
             showActions={false}
           />
 
