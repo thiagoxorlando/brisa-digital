@@ -6,7 +6,6 @@ import { useState } from "react";
 import { useT } from "@/lib/LanguageContext";
 import { useRole } from "@/lib/RoleProvider";
 import { useSubscription } from "@/lib/SubscriptionContext";
-import PaywallModal from "@/components/agency/PaywallModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -314,6 +313,17 @@ function ContractModal({
         })
       )
     );
+
+    for (const r of responses) {
+      if (r.status === 402) {
+        const body = await r.clone().json().catch(() => ({})) as { error?: string; message?: string };
+        if (body.error === "plan_limit") {
+          setError(body.message ?? "Limite de contratações atingido. Faça upgrade para contratar mais talentos.");
+          setSubmitting(false);
+          return;
+        }
+      }
+    }
 
     const failed = responses.filter((r) => !r.ok);
     if (failed.length > 0) {
@@ -625,8 +635,6 @@ function SubmissionCard({
   onDelete?: () => void;
 }) {
   const { t } = useT();
-  const { isPro } = useSubscription();
-  const [paywallOpen, setPaywallOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const statusCls = SUBMISSION_STATUS[submission.status] ?? SUBMISSION_STATUS["pending"];
   const hasMedia = !!(submission.photoFrontUrl || submission.photoLeftUrl || submission.photoRightUrl || submission.videoUrl);
@@ -731,25 +739,12 @@ function SubmissionCard({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!isPro) { setPaywallOpen(true); return; }
                     onSelect();
                   }}
-                  className={[
-                    "inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer",
-                    isPro
-                      ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white"
-                      : "bg-violet-600 hover:bg-violet-700 text-white",
-                  ].join(" ")}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white"
                 >
-                  {!isPro && (
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  )}
                   Contratar
                 </button>
-                {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
               </div>
             ) : null
           )}
@@ -976,8 +971,6 @@ export default function JobDetail({
 }) {
   const router = useRouter();
   const { role } = useRole();
-  const { isPro } = useSubscription();
-  const [paywallOpen, setPaywallOpen] = useState(false);
   const [contractModal, setContractModal] = useState<ContractTarget[] | null>(null);
   const [sentContracts, setSentContracts] = useState<Set<string>>(new Set());
   const [bookings, setBookings]           = useState<JobBooking[]>(initialBookings ?? []);
@@ -1205,36 +1198,21 @@ export default function JobDetail({
               </div>
             )}
             {role === "agency" && selected.size > 0 && (
-              <>
-                <button
-                  onClick={() => {
-                    if (!isPro) { setPaywallOpen(true); return; }
-                    openBulkContractModal();
-                  }}
-                  className={[
-                    "inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer",
-                    !isPro
-                      ? "bg-violet-600 hover:bg-violet-700 text-white"
-                      : selected.size >= numberOfTalentsRequired
-                        ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white"
-                        : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700",
-                  ].join(" ")}
-                >
-                  {!isPro ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  )}
-                  Enviar Contratos ({selected.size}/{numberOfTalentsRequired})
-                </button>
-                {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
-              </>
+              <button
+                onClick={() => openBulkContractModal()}
+                className={[
+                  "inline-flex items-center gap-2 text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer",
+                  selected.size >= numberOfTalentsRequired
+                    ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white"
+                    : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700",
+                ].join(" ")}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Enviar Contratos ({selected.size}/{numberOfTalentsRequired})
+              </button>
             )}
           </div>
         </div>

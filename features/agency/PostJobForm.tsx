@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useSubscription } from "@/lib/SubscriptionContext";
-import PaywallModal from "@/components/agency/PaywallModal";
 
 // ─── Types & constants ────────────────────────────────────────────────────────
 
@@ -354,7 +353,7 @@ export default function PostJobForm() {
   const [loading, setLoading]       = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [postedTitle, setPostedTitle] = useState("");
-  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [planLimitError, setPlanLimitError] = useState("");
 
   const errors    = validate(form);
   const hasErrors = Object.keys(errors).length > 0;
@@ -406,7 +405,7 @@ export default function PostJobForm() {
     if (!res.ok) {
       const body = await res.json();
       if (body.error === "plan_limit") {
-        setPaywallOpen(true);
+        setPlanLimitError(body.message ?? "O plano Free permite 1 vaga. Faça upgrade para publicar mais vagas.");
         return false;
       }
       setSubmitError(body.error ?? "Algo deu errado. Tente novamente.");
@@ -457,7 +456,17 @@ export default function PostJobForm() {
 
   return (
     <div className="max-w-5xl space-y-8">
-      {paywallOpen && <PaywallModal variant="limit" onClose={() => setPaywallOpen(false)} />}
+      {planLimitError && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <p className="text-[13px] text-amber-800">
+            {planLimitError}{" "}
+            <Link href="/agency/billing" className="font-semibold underline hover:text-amber-900">Fazer upgrade</Link>
+          </p>
+        </div>
+      )}
 
       {/* ── Page header ── */}
       <div>

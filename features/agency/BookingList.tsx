@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import { useT } from "@/lib/LanguageContext";
 import { unifiedStatusInfo, type UnifiedBookingStatus } from "@/lib/bookingStatus";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
-import { useSubscription } from "@/lib/SubscriptionContext";
-import PaywallModal from "@/components/agency/PaywallModal";
 
 export type Booking = {
   id:             string;
@@ -97,13 +95,11 @@ function BookingRow({
   focusBookingId?: string;
 }) {
   const { t } = useT();
-  const { isPro } = useSubscription();
   const [acting, setActing]             = useState<"confirm" | "pay" | "cancel" | null>(null);
   const [expanded, setExpanded]         = useState(booking.id === focusBookingId);
   const [balanceError, setBalanceError] = useState<{ required: number; available: number } | null>(null);
   const [earlyPayWarning, setEarlyPayWarning] = useState(false);
   const [apiError, setApiError]         = useState<string | null>(null);
-  const [paywallOpen, setPaywallOpen]   = useState(false);
 
   const unified        = booking.derivedStatus as UnifiedBookingStatus;
   const st             = unifiedStatusInfo(unified);
@@ -243,23 +239,11 @@ function BookingRow({
 
           {unified === "aguardando_deposito" && (
             <>
-              {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
               <button
                 onClick={handleConfirm}
                 disabled={acting !== null || !booking.contractId}
-                className={[
-                  "text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50",
-                  isPro
-                    ? "bg-violet-600 hover:bg-violet-700 text-white"
-                    : "bg-violet-600 hover:bg-violet-700 text-white",
-                ].join(" ")}
+                className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 bg-violet-600 hover:bg-violet-700 text-white"
               >
-                {!isPro && (
-                  <svg className="inline w-3 h-3 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                )}
                 {acting === "confirm" ? "Confirmando..." : "Confirmar reserva"}
               </button>
               {canCancelBooking && (
@@ -285,23 +269,11 @@ function BookingRow({
               </div>
             ) : (
               <>
-                {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
                 <button
                   onClick={handlePay}
                   disabled={acting !== null || !booking.contractId}
-                  className={[
-                    "text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50",
-                    isPro
-                      ? "bg-emerald-500 hover:bg-emerald-600 text-white"
-                      : "bg-violet-600 hover:bg-violet-700 text-white",
-                  ].join(" ")}
+                  className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 bg-emerald-500 hover:bg-emerald-600 text-white"
                 >
-                  {!isPro && (
-                    <svg className="inline w-3 h-3 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  )}
                   {acting === "pay" ? "…" : "Pagar Talento"}
                 </button>
                 {canCancelBooking && (

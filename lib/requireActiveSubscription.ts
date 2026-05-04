@@ -65,13 +65,12 @@ export async function requireJobLimit(agencyId: string): Promise<NextResponse | 
     .from("jobs")
     .select("id", { count: "exact", head: true })
     .eq("agency_id", agencyId)
-    .in("status", ["open", "draft"])
     .is("deleted_at", null);
 
   console.log("[plan] job_limit_check", {
     agencyId,
     plan,
-    currentActiveJobs: count ?? 0,
+    currentJobs: count ?? 0,
     maxActiveJobs: planDefinition.maxActiveJobs,
   });
 
@@ -79,6 +78,7 @@ export async function requireJobLimit(agencyId: string): Promise<NextResponse | 
     return NextResponse.json(
       {
         error: "plan_limit",
+        message: "O plano Free permite 1 vaga. Faça upgrade para publicar mais vagas.",
         limit: planDefinition.maxActiveJobs,
         resource: "jobs",
         plan,

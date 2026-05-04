@@ -1,6 +1,10 @@
+"use client";
+
+import { useState } from "react";
+
 type AvatarProps = {
   name: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 };
@@ -13,12 +17,13 @@ const sizeClasses = {
 };
 
 function getInitials(name: string) {
-  return name
-    .split(" ")
+  return (name || "?")
+    .trim()
+    .split(/\s+/)
     .map((n) => n[0])
     .slice(0, 2)
     .join("")
-    .toUpperCase();
+    .toUpperCase() || "?";
 }
 
 function getColor(name: string) {
@@ -30,19 +35,21 @@ function getColor(name: string) {
     "bg-rose-100 text-rose-700",
     "bg-indigo-100 text-indigo-700",
   ];
-  const index = name.charCodeAt(0) % colors.length;
-  return colors[index];
+  return colors[(name || "").charCodeAt(0) % colors.length];
 }
 
 export default function Avatar({ name, imageUrl, size = "md", className = "" }: AvatarProps) {
-  if (imageUrl) {
+  const [imgError, setImgError] = useState(false);
+
+  if (imageUrl && !imgError) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={imageUrl}
         alt={name}
+        onError={() => setImgError(true)}
         className={[
-          "rounded-full object-cover",
+          "rounded-full object-cover flex-shrink-0",
           sizeClasses[size],
           className,
         ].join(" ")}
@@ -55,11 +62,11 @@ export default function Avatar({ name, imageUrl, size = "md", className = "" }: 
       className={[
         "rounded-full flex items-center justify-center font-semibold flex-shrink-0",
         sizeClasses[size],
-        getColor(name),
+        getColor(name || ""),
         className,
       ].join(" ")}
     >
-      {getInitials(name)}
+      {getInitials(name || "")}
     </div>
   );
 }
