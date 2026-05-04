@@ -263,7 +263,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
 
   async function handleBulkDelete() {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Tem certeza que deseja excluir ${selectedIds.size} usuários selecionados?`)) return;
+    if (!window.confirm(`Mover ${selectedIds.size} usuário(s) selecionado(s) para a lixeira?`)) return;
     setBulkBusy("delete");
     setError("");
 
@@ -315,10 +315,10 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="mx-4 w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-xl">
             <p className="text-[14px] font-medium text-zinc-700">
-              Deletar permanentemente <strong>{userToDelete.name || userToDelete.email}</strong>?
+              Mover <strong>{userToDelete.name || userToDelete.email}</strong> para a lixeira?
             </p>
             <p className="text-[12px] text-zinc-400">
-              Isso remove os dados do usuario, mantendo apenas os registros financeiros que precisarem permanecer.
+              O usuário será congelado e movido para a lixeira. Você poderá restaurá-lo ou excluí-lo permanentemente a partir de <strong>/admin/lixeira</strong>.
             </p>
             <div className="flex gap-3">
               <button
@@ -330,9 +330,9 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
               <button
                 onClick={() => handleDelete(userToDelete)}
                 disabled={deleteLoading}
-                className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl bg-amber-600 px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {deleteLoading ? "Excluindo…" : "Excluir permanentemente"}
+                {deleteLoading ? "Movendo…" : "Mover para lixeira"}
               </button>
             </div>
           </div>
@@ -492,9 +492,9 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
             <button
               onClick={handleBulkDelete}
               disabled={bulkBusy !== null}
-              className="rounded-xl bg-rose-600 px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-amber-600 px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {bulkBusy === "delete" ? "Excluindo..." : "Excluir selecionados"}
+              {bulkBusy === "delete" ? "Movendo..." : "Mover para lixeira"}
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}
@@ -709,9 +709,9 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
 
                         <button
                           onClick={() => setDeleting(user.id)}
-                          className="rounded-lg px-2 py-1 text-[11px] font-medium text-rose-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                          className="rounded-lg px-2 py-1 text-[11px] font-medium text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-700"
                         >
-                          Deletar
+                          Lixeira
                         </button>
                       </div>
                     </td>

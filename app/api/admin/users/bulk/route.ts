@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
-import { deleteUserDeep } from "@/lib/admin/deleteUserDeep";
 
 function parseIds(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -33,6 +32,10 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true, count: ids.length });
 }
 
+// ── DELETE — soft-delete: move users to trash (lixeira) ──────────────────────
+//
+// For each user: freezes the profile and sets deleted_at on their role record.
+// Permanent deletion only happens from /admin/lixeira (calls deleteUserDeep).
 export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
@@ -49,24 +52,24 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Você não pode excluir sua própria conta." }, { status: 400 });
   }
 
-  const deletedIds: string[] = [];
+  const supabase = createServerClient({ useServiceRole: true });
+  const now = new Date().toISOString();
 
-  for (const id of ids) {
-    try {
-      await deleteUserDeep(id);
-      deletedIds.push(id);
-    } catch (err) {
-      console.error("[admin bulk delete user]", { id, error: String(err) });
-      return NextResponse.json(
-        {
-          error: err instanceof Error ? err.message : "Falha ao excluir usuário.",
-          id,
-          deletedIds,
-        },
-        { status: 500 },
-      );
-    }
-  }
+  // Freeze all accounts
+  await supabase.from("profiles").update({ is_frozen: true }).in("id", ids);
 
-  return NextResponse.json({ ok: true, deletedIds, count: deletedIds.length });
+  // Soft-delete role records
+  await supabase
+    .from("agencies")
+    .update({ deleted_at: now })
+    .in("user_id", ids)
+    .is("deleted_at", null);
+
+  await supabase
+    .from("talent_profiles")
+    .update({ deleted_at: now })
+    .in("id", ids)
+    .is("deleted_at", null);
+
+  return NextResponse.json({ ok: true, deletedIds: ids, count: ids.length });
 }

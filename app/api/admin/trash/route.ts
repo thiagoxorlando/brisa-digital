@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { deleteUserDeep } from "@/lib/admin/deleteUserDeep";
 
 const TABLES = ["jobs", "bookings", "contracts", "talent_profiles", "agencies"] as const;
 type TrashTable = (typeof TABLES)[number];
@@ -33,7 +34,11 @@ export async function GET() {
   });
 }
 
-// DELETE — permanently delete an item
+// DELETE — permanently delete item(s) from trash
+//
+// For agencies and talent_profiles, calls deleteUserDeep() which removes
+// the auth account, all linked records, and frees up the email for reuse.
+// For other types (jobs, bookings, contracts), performs a direct hard-delete.
 export async function DELETE(req: NextRequest) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
@@ -73,14 +78,57 @@ export async function DELETE(req: NextRequest) {
   }
 
   for (const [table, ids] of grouped) {
-    const { error } = await supabase.from(table).delete().in("id", ids);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    if (table === "agencies") {
+      // Permanent delete of an agency must go through deleteUserDeep so the
+      // auth account is removed and the email can be reused.
+      for (const id of ids) {
+        const { data: agency } = await supabase
+          .from("agencies")
+          .select("user_id")
+          .eq("id", id)
+          .maybeSingle();
+
+        const userId = (agency as Record<string, unknown> | null)?.user_id as string | undefined;
+        if (userId) {
+          try {
+            await deleteUserDeep(userId);
+          } catch (err) {
+            return NextResponse.json(
+              { error: err instanceof Error ? err.message : "Falha ao excluir agência." },
+              { status: 500 },
+            );
+          }
+        } else {
+          // Orphan row with no linked user — just hard-delete the row
+          await supabase.from("agencies").delete().eq("id", id);
+        }
+      }
+    } else if (table === "talent_profiles") {
+      // talent_profiles.id === Supabase Auth user id
+      for (const id of ids) {
+        try {
+          await deleteUserDeep(id);
+        } catch (err) {
+          return NextResponse.json(
+            { error: err instanceof Error ? err.message : "Falha ao excluir talento." },
+            { status: 500 },
+          );
+        }
+      }
+    } else {
+      // jobs, bookings, contracts — simple hard-delete
+      const { error } = await supabase.from(table).delete().in("id", ids);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    }
   }
 
   return NextResponse.json({ ok: true, count: items.length });
 }
 
 // POST — restore an item (clear deleted_at)
+//
+// For agencies and talent_profiles, also unfreezes the user account so
+// the user can log in again after being restored from trash.
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
@@ -95,11 +143,29 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createServerClient({ useServiceRole: true });
+
   const { error } = await supabase
     .from(table as TrashTable)
     .update({ deleted_at: null })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Unfreeze the linked user account so they can log in again
+  if (table === "agencies") {
+    const { data: agency } = await supabase
+      .from("agencies")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    const userId = (agency as Record<string, unknown> | null)?.user_id as string | undefined;
+    if (userId) {
+      await supabase.from("profiles").update({ is_frozen: false }).eq("id", userId);
+    }
+  } else if (table === "talent_profiles") {
+    await supabase.from("profiles").update({ is_frozen: false }).eq("id", id);
+  }
+
   return NextResponse.json({ ok: true });
 }
