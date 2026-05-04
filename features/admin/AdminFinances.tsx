@@ -98,6 +98,7 @@ export type FinancesSummary = {
   totalBookings: number;
   confirmedBookings: number;
   agencyWalletTotal: number;
+  talentWalletTotal: number;
   subscriptionRevenue: number;
   minimumRequired: number;
   planBreakdown: {
@@ -1385,7 +1386,7 @@ export default function AdminFinances({
           <KpiCard
             label="Obrigações totais"
             value={brl(summary.minimumRequired)}
-            sub="Escrow + talentos + carteiras"
+            sub="Escrow + carteiras agências + carteiras talentos"
             accent="amber"
           />
           <KpiCard

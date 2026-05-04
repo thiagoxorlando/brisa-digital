@@ -133,6 +133,9 @@ export default function AgencyFinances({
     () => router.refresh(),
   );
 
+  const [syncing, setSyncing] = useState(false);
+  const [syncDone, setSyncDone] = useState(false);
+
   const [depositAmount, setDepositAmount] = useState("");
   const [depositCpfCnpj, setDepositCpfCnpj] = useState(formatCpfCnpj(profileCpfCnpj));
   const [depositLoading, setDepositLoading] = useState(false);
@@ -234,6 +237,18 @@ export default function AgencyFinances({
       pixCopyPaste: data.pixCopyPaste ?? null,
     });
     setDepositAmount("");
+  }
+
+  async function handleSyncDeposit() {
+    setSyncing(true);
+    setSyncDone(false);
+    try {
+      await fetch("/api/asaas/deposit/sync", { method: "POST" });
+      setSyncDone(true);
+      router.refresh();
+    } finally {
+      setSyncing(false);
+    }
   }
 
   async function handleWithdraw() {
@@ -670,9 +685,19 @@ export default function AgencyFinances({
                           <p className="text-[14px] font-black tabular-nums text-zinc-950">{brl(Math.abs(transaction.amount))}</p>
                         </td>
                         <td className="px-4 py-4">
-                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[transaction.status] ?? "bg-zinc-100 text-zinc-500"}`}>
-                            {STATUS_LABEL[transaction.status] ?? transaction.status}
-                          </span>
+                          {transaction.kind === "wallet" && transaction.status === "pending" ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleSyncDeposit(); }}
+                              disabled={syncing}
+                              className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 ring-1 ring-teal-100 hover:bg-teal-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {syncing ? "Verificando..." : syncDone ? "Verificado" : "Verificar pagamento"}
+                            </button>
+                          ) : (
+                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[transaction.status] ?? "bg-zinc-100 text-zinc-500"}`}>
+                              {STATUS_LABEL[transaction.status] ?? transaction.status}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right hidden sm:table-cell">
                           <p className="text-[12px] text-zinc-400">

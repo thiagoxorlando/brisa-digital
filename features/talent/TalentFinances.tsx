@@ -852,8 +852,8 @@ export default function TalentFinances() {
                         Pago em {c.paid_at ? new Date(c.paid_at).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                       </p>
                     </div>
-                    <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-100 px-2.5 py-1 rounded-full flex-shrink-0">
-                      Creditado na carteira
+                    <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 px-2.5 py-1 rounded-full flex-shrink-0">
+                      Pago
                     </span>
                     <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">{brl(c.earnings)}</p>
                   </div>

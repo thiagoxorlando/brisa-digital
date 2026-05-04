@@ -407,7 +407,8 @@ export default async function AdminFinancesPage() {
   }));
 
   const totalSubscriptionRevenue = (planPaymentsData ?? []).reduce((sum, payment) => sum + Math.abs(payment.amount ?? 0), 0);
-  const minimumRequired = contractsEscrowValue + contractsAwaitingValue + totalAgencyWalletBalance;
+  const totalTalentWalletBalance = (talentWalletsData ?? []).reduce((sum, w) => sum + (w.wallet_balance ?? 0), 0);
+  const minimumRequired = contractsEscrowValue + totalAgencyWalletBalance + totalTalentWalletBalance;
 
   const withdrawals: FinancesWithdrawal[] = (withdrawalTxs ?? []).map((w) => {
     const rawRole = withdrawalRoleMap.get(w.user_id) ?? "unknown";
@@ -453,6 +454,7 @@ export default async function AdminFinancesPage() {
     totalBookings: bookings.length,
     confirmedBookings: confirmedBookings.length,
     agencyWalletTotal: totalAgencyWalletBalance,
+    talentWalletTotal: totalTalentWalletBalance,
     subscriptionRevenue: totalSubscriptionRevenue,
     minimumRequired,
     planBreakdown: {
