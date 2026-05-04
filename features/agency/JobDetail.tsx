@@ -300,7 +300,7 @@ function ContractModal({
       job_time:         form.job_time        || null,
       location:         form.location        || null,
       job_description:  form.job_description || null,
-      payment_amount:   Number(form.payment_amount),
+      payment_amount:   Number(String(form.payment_amount).replace(",", ".")),
       payment_method:   form.payment_method  || null,
       additional_notes: form.additional_notes || null,
     };
@@ -498,7 +498,7 @@ function ContractModal({
                       type="number"
                       required
                       min={0}
-                      step={1}
+                      step={0.01}
                       value={form.payment_amount}
                       onChange={(e) => set("payment_amount", e.target.value)}
                       className={inputCls}
