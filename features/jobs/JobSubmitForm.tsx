@@ -36,7 +36,7 @@ function stripe(cat: string) {
   return CATEGORY_STRIPES[cat] ?? "from-zinc-300 to-zinc-400";
 }
 function formatBudget(n: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 function formatDate(s: string) {
   return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });

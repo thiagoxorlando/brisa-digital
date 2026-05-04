@@ -24,7 +24,7 @@ export type TalentJobDetailProps = {
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", {
-    style: "currency", currency: "BRL", maximumFractionDigits: 0,
+    style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -889,9 +889,9 @@ export default function TalentJobDetail({
           {/* Financial breakdown */}
           {(() => {
             const planDef = PLAN_DEFINITIONS[parsePlan(job.agencyPlan)];
-            const platformFee = Math.round(job.budget * planDef.commissionRate);
+            const platformFee = Math.round(job.budget * planDef.commissionRate * 100) / 100;
             const talentGets  = job.budget - platformFee;
-            const referralFee = Math.round(job.budget * REFERRAL_RATE);
+            const referralFee = Math.round(job.budget * REFERRAL_RATE * 100) / 100;
             return (
               <div className="rounded-xl bg-zinc-50 border border-zinc-100 p-4 space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Seus ganhos</p>

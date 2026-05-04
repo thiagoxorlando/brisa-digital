@@ -50,7 +50,7 @@ const ALL_STATUSES = ["all", "sent", "signed", "confirmed", "paid", "rejected", 
 type FilterStatus = typeof ALL_STATUSES[number];
 
 function brl(n: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
 function fmtDate(s: string | null, lang = "pt") {

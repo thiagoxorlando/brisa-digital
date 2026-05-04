@@ -24,7 +24,7 @@ type Booking = {
 };
 
 function brl(n: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 function formatDate(s: string | null) {
   if (!s) return "—";
@@ -82,7 +82,7 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Valor do Acordo</p>
               <p className="text-zinc-700 font-semibold">{b.price > 0 ? brl(b.price) : "—"}</p>
-              <p className="text-zinc-400 mt-0.5">Você recebe {b.price > 0 ? brl(Math.round(b.price * 0.85)) : "—"}</p>
+              <p className="text-zinc-400 mt-0.5">Você recebe {b.price > 0 ? brl(Math.round(b.price * 0.85 * 100) / 100) : "—"}</p>
             </div>
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">Data da Vaga</p>

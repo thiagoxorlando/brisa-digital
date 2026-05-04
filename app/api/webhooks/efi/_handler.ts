@@ -212,7 +212,8 @@ async function handlePixOut(
   const brl = new Intl.NumberFormat("pt-BR", {
     style:                 "currency",
     currency:              "BRL",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(Number(tx.net_amount ?? valor));
 
   await notifyAdmins(
@@ -302,7 +303,8 @@ async function handlePixIn(
     const brl = new Intl.NumberFormat("pt-BR", {
       style:                 "currency",
       currency:              "BRL",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(creditAmount);
     await notifyAdmins(
       "payment",

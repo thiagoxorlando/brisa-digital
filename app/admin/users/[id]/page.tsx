@@ -11,7 +11,7 @@ const COMMISSION_RATE = 0.1;
 
 function usd(n: number) {
   if (n === 0) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 function fmt(s: string | null) {
   if (!s) return "—";
@@ -70,12 +70,12 @@ export default async function AdminUserProfilePage({ params }: Props) {
   // Financial summary — from real contract data
   const relevantContracts = isTalent ? (talentContracts ?? []) : (agencyContracts ?? []);
   const totalEarned = isTalent
-    ? relevantContracts.reduce((s, c) => s + Math.round((c.payment_amount ?? 0) * (1 - COMMISSION_RATE)), 0)
+    ? relevantContracts.reduce((s, c) => s + Math.round((c.payment_amount ?? 0) * (1 - COMMISSION_RATE) * 100) / 100, 0)
     : 0;
   const totalSpent  = isAgency
     ? relevantContracts.reduce((s, c) => s + (c.payment_amount ?? 0), 0)
     : 0;
-  const commission  = relevantContracts.reduce((s, c) => s + Math.round((c.payment_amount ?? 0) * COMMISSION_RATE), 0);
+  const commission  = relevantContracts.reduce((s, c) => s + Math.round((c.payment_amount ?? 0) * COMMISSION_RATE * 100) / 100, 0);
 
   const walletBalance = isAgency ? (profile?.wallet_balance ?? 0) : 0;
 

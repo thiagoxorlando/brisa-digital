@@ -180,7 +180,8 @@ export async function PATCH(
       const brl = new Intl.NumberFormat("pt-BR", {
         style: "currency",
         currency: "BRL",
-        maximumFractionDigits: 0,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       }).format(required);
       await notifyAdmins(
         "payment",
@@ -205,7 +206,7 @@ export async function PATCH(
 
     // Notify agency that escrow was locked successfully
     if (contract.agency_id) {
-      const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(required);
+      const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(required);
       await notify(
         contract.agency_id,
         "payment",
@@ -317,7 +318,7 @@ export async function PATCH(
     if (!r.already_processed) {
       await syncBooking(supabase, contract, "paid");
       const brl = new Intl.NumberFormat("pt-BR", {
-        style: "currency", currency: "BRL", maximumFractionDigits: 0,
+        style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
       }).format(talentPayout);
       await notifyAdmins(
         "payment",
@@ -377,7 +378,7 @@ export async function PATCH(
           });
         }
         const commBrl = new Intl.NumberFormat("pt-BR", {
-          style: "currency", currency: "BRL", maximumFractionDigits: 0,
+          style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
         }).format(referralCommission);
         await notify(
           referralInvite.referrer_id,

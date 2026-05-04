@@ -61,7 +61,7 @@ export default async function AdminReferralsPage() {
       submissionStatus: s.status ?? "pending",
       booked:           bookingValue > 0,
       bookingValue,
-      referralPayout:   bookingValue > 0 ? Math.round(bookingValue * REFERRAL_RATE) : 0,
+      referralPayout:   bookingValue > 0 ? Math.round(bookingValue * REFERRAL_RATE * 100) / 100 : 0,
       hasAccount:       !!s.talent_user_id,
       submissionId:     String(s.id),
       inviteId:         inviteBySubmission.get(s.id)?.id ?? null,

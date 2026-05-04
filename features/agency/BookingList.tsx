@@ -26,7 +26,7 @@ export type Booking = {
 };
 
 function brl(n: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 function formatDate(s: string | null) {
   if (!s) return "—";
@@ -391,7 +391,7 @@ function Section({ title, count, total, children, empty }: {
         </div>
         {total !== undefined && total > 0 && (
           <p className="text-[13px] font-semibold text-zinc-700 tabular-nums">
-            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(total)}
+            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(total)}
           </p>
         )}
       </div>

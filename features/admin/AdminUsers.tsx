@@ -31,7 +31,8 @@ function brl(value: number, options?: { zeroLabel?: string }) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -388,7 +389,8 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                     {new Intl.NumberFormat("pt-BR", {
                       style: "currency",
                       currency: "BRL",
-                      maximumFractionDigits: 0,
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
                     }).format(creditModal.balance + parseFloat(creditAmount.replace(",", ".")))}
                   </strong>
                 </p>

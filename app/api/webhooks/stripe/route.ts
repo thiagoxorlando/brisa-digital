@@ -523,7 +523,8 @@ async function handleWalletDeposit(supabase: Supabase, session: Stripe.Checkout.
   const brl = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 
   await notifyAdmins(
@@ -610,7 +611,8 @@ async function handleContractFunding(supabase: Supabase, session: Stripe.Checkou
   const brl = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 
   await notifyAdmins(

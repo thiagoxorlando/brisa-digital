@@ -310,7 +310,8 @@ export async function POST(req: NextRequest) {
       const brl = new Intl.NumberFormat("pt-BR", {
         style:                 "currency",
         currency:              "BRL",
-        maximumFractionDigits: 0,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       }).format(depositAmount);
       await notifyAdmins(
         "payment",

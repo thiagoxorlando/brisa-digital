@@ -95,18 +95,18 @@ export default async function TalentDashboardPage() {
     jobDate:    c.job_date   as string | null,
     jobTime:    c.job_time   as string | null,
     location:   c.location   as string | null,
-    amount:     Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE),
+    amount:     Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE * 100) / 100,
     status:     c.status     as string,
   }));
 
   const pendingPayments = (pendingContractsData ?? []).map((c) => ({
     id:     c.id,
     title:  c.job_description?.slice(0, 60) ?? "Contract",
-    amount: Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE),
+    amount: Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE * 100) / 100,
   }));
 
   const totalEarned     = (paidContractsData ?? [])
-    .reduce((sum, c) => sum + Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE), 0);
+    .reduce((sum, c) => sum + Math.round(Number(c.payment_amount ?? 0) * TALENT_RATE * 100) / 100, 0);
   const pendingWithdraw = Math.max(0, Number(profileData?.wallet_balance ?? 0));
 
   // Today's availability

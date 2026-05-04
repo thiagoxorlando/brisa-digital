@@ -45,7 +45,7 @@ const STATUS_FALLBACK = { label: "Em andamento", cls: "bg-zinc-100 text-zinc-500
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function brl(n: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 function fmtDate(s: string | null) {
   if (!s) return "—";
