@@ -8,7 +8,7 @@ const TALENT_RATE = 0.85; // 85% of deal value
 
 function brl(n: number) {
   return new Intl.NumberFormat("pt-BR", {
-    style: "currency", currency: "BRL", maximumFractionDigits: 0,
+    style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -436,14 +436,33 @@ export default function TalentFinances() {
       }
     }
 
+    // Fetch net_amount from contracts for each booking (reflects actual plan commission)
+    const bookingIds = (bookingsData ?? []).map((b) => b.id).filter(Boolean);
+    const netAmountMap = new Map<string, number>();
+    if (bookingIds.length) {
+      const { data: bookingContracts } = await supabase
+        .from("contracts")
+        .select("booking_id, net_amount")
+        .in("booking_id", bookingIds);
+      for (const c of bookingContracts ?? []) {
+        if (c.booking_id && c.net_amount != null) {
+          netAmountMap.set(c.booking_id, Number(c.net_amount));
+        }
+      }
+    }
+
     setPayments(
       (bookingsData ?? []).map((b) => {
         const req = b.job_id ? jobReqMap.get(b.job_id) : null;
+        const price = b.price ?? 0;
+        const earnings = netAmountMap.has(b.id)
+          ? netAmountMap.get(b.id)!
+          : Math.round(price * TALENT_RATE * 100) / 100;
         return {
           id:       b.id,
           job:      b.job_title ?? "Untitled job",
-          amount:   b.price ?? 0,
-          earnings: Math.round((b.price ?? 0) * TALENT_RATE),
+          amount:   price,
+          earnings,
           status:   b.status ?? "pending",
           date:     b.created_at,
           gender:   req?.gender ?? null,
@@ -493,7 +512,7 @@ export default function TalentFinances() {
         jobTitle:     c.job_id ? (contractJobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
         amount:       c.payment_amount ?? 0,
         // Use actual credited amount (falls back to estimate for pre-fix contracts)
-        earnings:     payoutTxMap.get(c.id) ?? Math.round((c.payment_amount ?? 0) * TALENT_RATE),
+        earnings:     payoutTxMap.get(c.id) ?? Math.round((c.payment_amount ?? 0) * TALENT_RATE * 100) / 100,
         paid_at:      c.paid_at      ?? null,
         withdrawn_at: c.withdrawn_at ?? null,
       }))

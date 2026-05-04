@@ -8,10 +8,8 @@ import { createServerClient } from "@/lib/supabase";
 //              If the row already exists with processed_at set, returns 200 immediately.
 //
 // Handled events:
-//   PAYMENT_RECEIVED → credit agency wallet (PIX deposit confirmed)
-//
-// NOT handled (intentionally):
-//   PAYMENT_CONFIRMED — do not credit yet; wait for PAYMENT_RECEIVED
+//   PAYMENT_RECEIVED  → credit agency wallet (PIX deposit settled)
+//   PAYMENT_CONFIRMED → credit agency wallet (PIX deposit confirmed; idempotent with RECEIVED)
 
 function log(level: "info" | "warn" | "error", msg: string, ctx?: Record<string, unknown>) {
   const entry = { ts: new Date().toISOString(), level, source: "webhook/asaas", msg, ...ctx };
@@ -90,12 +88,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── PAYMENT_RECEIVED → credit wallet ─────────────────────────────────────────
-  if (event === "PAYMENT_RECEIVED") {
+  // ── PAYMENT_RECEIVED / PAYMENT_CONFIRMED → credit wallet ─────────────────────
+  // Both events are handled identically. The wallet_transactions.status check
+  // makes this idempotent: whichever fires first credits the wallet, the second
+  // is ignored.
+  if (event === "PAYMENT_RECEIVED" || event === "PAYMENT_CONFIRMED") {
     const payment = body.payment;
 
     if (!payment?.id) {
-      log("warn", "[asaas webhook] ignored — PAYMENT_RECEIVED missing payment object", { eventId });
+      log("warn", "[asaas webhook] ignored — missing payment object", { event, eventId });
       return NextResponse.json({ ok: true });
     }
 
