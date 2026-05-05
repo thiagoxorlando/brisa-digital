@@ -91,27 +91,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erro ao obter link de pagamento." }, { status: 500 });
   }
 
-  // Store pending plan charge — marked paid by webhook on PAYMENT_CONFIRMED.
-  // Uses payment_id column (exists since 20260417 migration, has unique index).
-  // Avoids invoice_url / asaas_payment_id which may not exist in production yet.
-  const { error: chargeInsertErr } = await supabase.from("wallet_transactions").upsert({
+  // Store pending plan charge so billing history is visible immediately.
+  // Uses only columns confirmed to exist in production:
+  //   user_id, type, amount, description, payment_id — 20260417 migration
+  //   status, processed_at                           — 20260425 migration
+  //   provider                                       — 20260427 migration
+  //
+  // Uses INSERT (not upsert) because the unique index on payment_id is a
+  // PARTIAL index (WHERE payment_id IS NOT NULL), which PostgreSQL does not
+  // recognise in ON CONFLICT column-target syntax. 23505 = idempotent duplicate.
+  const { error: chargeInsertErr } = await supabase.from("wallet_transactions").insert({
     user_id:     user.id,
     type:        "plan_charge",
     amount:      planPrice,
-    description: `Plano ${planLabel} - BrisaHub`,
+    description: `Assinatura ${planLabel} - BrisaHub`,
     payment_id:  payment.id,
     provider:    "asaas",
     status:      "pending",
-  } as Record<string, unknown>, { onConflict: "payment_id", ignoreDuplicates: true });
+  } as Record<string, unknown>);
 
   if (chargeInsertErr) {
-    console.error("[asaas/plan/checkout] plan_charge insert failed (non-fatal)", {
-      userId: user.id, paymentId: payment.id, err: chargeInsertErr.message,
-    });
-  } else {
-    console.log("[asaas/plan/checkout] plan_charge row inserted", {
-      userId: user.id, paymentId: payment.id, plan: requestedPlan,
-    });
+    if (chargeInsertErr.code === "23505") {
+      console.log("[asaas/plan/checkout] plan_charge already exists — skipping insert", {
+        userId: user.id, paymentId: payment.id,
+      });
+    } else {
+      console.error("[asaas/plan/checkout] plan_charge insert failed (non-fatal)", {
+        userId: user.id, paymentId: payment.id, err: chargeInsertErr.message,
+      });
+    }
   }
 
   return NextResponse.json({ url: payment.invoiceUrl });

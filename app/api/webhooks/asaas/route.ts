@@ -200,22 +200,29 @@ export async function POST(req: NextRequest) {
               }
             }
           } else {
-            // Fallback: checkout didn't store the row (or pre-dates this fix) — insert now.
+            // Fallback: checkout row absent (pre-dates this fix) — insert now as paid.
+            // Columns used are all confirmed to exist in production (20260417 + 20260425 + 20260427).
             const planLabel = planKey === "premium" ? "Premium" : "PRO";
             const { error: insertErr } = await supabase.from("wallet_transactions").insert({
               user_id:      userId,
               type:         "plan_charge",
               amount:       payment.value,
-              description:  `Plano ${planLabel} - BrisaHub`,
+              description:  `Assinatura ${planLabel} - BrisaHub`,
               payment_id:   asaasPaymentId,
               provider:     "asaas",
               status:       "paid",
               processed_at: now,
             } as Record<string, unknown>);
             if (insertErr) {
-              log("warn", "[asaas webhook] plan_charge fallback insert failed (non-fatal)", {
-                userId, asaasPaymentId, err: insertErr.message,
-              });
+              if (insertErr.code === "23505") {
+                log("info", "[asaas webhook] plan_charge already exists — skipping fallback insert", {
+                  asaasPaymentId,
+                });
+              } else {
+                log("warn", "[asaas webhook] plan_charge fallback insert failed (non-fatal)", {
+                  userId, asaasPaymentId, err: insertErr.message,
+                });
+              }
             } else {
               log("info", "[asaas webhook] plan_charge inserted via fallback", { userId, asaasPaymentId });
             }
