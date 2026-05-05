@@ -91,5 +91,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erro ao obter link de pagamento." }, { status: 500 });
   }
 
+  // Store pending plan charge — marked paid by webhook on PAYMENT_CONFIRMED.
+  // ON CONFLICT on asaas_payment_id is a safety net against double-submission.
+  await supabase.from("wallet_transactions").upsert({
+    user_id:          user.id,
+    type:             "plan_charge",
+    amount:           planPrice,
+    description:      `Plano ${planLabel} - BrisaHub`,
+    asaas_payment_id: payment.id,
+    invoice_url:      payment.invoiceUrl,
+    provider:         "asaas",
+    status:           "pending",
+  } as Record<string, unknown>, { onConflict: "asaas_payment_id", ignoreDuplicates: true });
+
   return NextResponse.json({ url: payment.invoiceUrl });
 }

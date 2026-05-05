@@ -3,22 +3,24 @@
 import { useState } from "react";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 
-interface WalletTransaction {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface PlanCharge {
   id: string;
-  type: string;
   amount: number;
   description: string | null;
   created_at: string;
+  status: string | null;
+  asaas_payment_id: string | null;
+  invoice_url: string | null;
+  provider: string | null;
 }
 
 interface Props {
   plan: string;
   planStatus: string | null;
   planExpiresAt: string | null;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
-  stripeSubscriptionStatus: string | null;
-  transactions: WalletTransaction[];
+  planCharges: PlanCharge[];
 }
 
 type PlanChangeResponse = {
@@ -26,6 +28,8 @@ type PlanChangeResponse = {
   url?: string;
   provider?: string;
 };
+
+// ── Plan definitions (UI only) ────────────────────────────────────────────────
 
 const PLANS = [
   {
@@ -83,6 +87,8 @@ const PLANS = [
 type PlanKey = Plan;
 type PlanDef = typeof PLANS[number];
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function getBillingReturnBanner(): "success" | "canceled" | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
@@ -101,11 +107,8 @@ function fmtDate(s: string | Date) {
 
 function fmtDateTime(s: string | Date) {
   return new Date(s).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
   });
 }
 
@@ -113,26 +116,111 @@ function getPlanDef(planKey: PlanKey) {
   return PLANS.find((plan) => plan.key === planKey) ?? PLANS[0];
 }
 
-function hasManagedStripeSubscription(stripeSubscriptionId: string | null, stripeSubscriptionStatus: string | null) {
-  if (!stripeSubscriptionId) return false;
-  return ["active", "trialing", "past_due", "cancel_at_period_end"].includes(stripeSubscriptionStatus ?? "active");
+function chargeStatusLabel(status: string | null) {
+  switch (status) {
+    case "paid":      return "Pago";
+    case "pending":   return "Pendente";
+    case "failed":    return "Falhou";
+    case "cancelled": return "Cancelado";
+    default:          return status ?? "—";
+  }
 }
 
-function isPlanChargeTransaction(tx: WalletTransaction) {
-  const description = (tx.description ?? "").toLowerCase();
-  return tx.type === "payment" && (
-    description.includes("stripe billing") ||
-    description.includes("assinatura") ||
-    description.includes("plano ")
+function chargeStatusColor(status: string | null) {
+  switch (status) {
+    case "paid":    return "text-emerald-700 bg-emerald-50";
+    case "pending": return "text-amber-700 bg-amber-50";
+    default:        return "text-zinc-600 bg-zinc-100";
+  }
+}
+
+// ── Comprovante modal ─────────────────────────────────────────────────────────
+
+function ReceiptModal({ charge, onClose }: { charge: PlanCharge; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-violet-500 to-indigo-600 px-6 py-5 text-white">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold uppercase tracking-widest opacity-80">BrisaHub</span>
+            <button onClick={onClose} className="opacity-70 hover:opacity-100 transition-opacity cursor-pointer">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p className="text-[17px] font-semibold">Comprovante de assinatura</p>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-3">
+          <Row label="Plano" value={charge.description ?? "Assinatura BrisaHub"} />
+          <Row label="Valor" value={brl(charge.amount)} />
+          <Row
+            label="Status"
+            value={chargeStatusLabel(charge.status)}
+            valueClass={charge.status === "paid" ? "text-emerald-700 font-semibold" : "text-amber-700 font-semibold"}
+          />
+          <Row label="Data" value={fmtDateTime(charge.created_at)} />
+          {charge.asaas_payment_id && (
+            <Row label="ID Asaas" value={charge.asaas_payment_id} mono />
+          )}
+          <Row label="Provedor" value="Asaas" />
+        </div>
+
+        {/* Actions */}
+        <div className="px-6 pb-6 pt-2 flex gap-3">
+          {charge.invoice_url && (
+            <a
+              href={charge.invoice_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-[13px] font-semibold hover:opacity-90 transition-opacity"
+            >
+              Ver fatura Asaas
+            </a>
+          )}
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function getPlanChargeMethod(tx: WalletTransaction) {
-  const description = (tx.description ?? "").toLowerCase();
-  if (description.includes("stripe")) return "Stripe Billing";
-  if (description.includes("carteira")) return "Saldo da carteira";
-  return "Cobranca da plataforma";
+function Row({
+  label,
+  value,
+  mono = false,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 text-[13px]">
+      <span className="text-zinc-400 flex-shrink-0">{label}</span>
+      <span className={["text-zinc-800 text-right break-all", mono ? "font-mono text-[11px]" : "", valueClass ?? ""].join(" ")}>
+        {value}
+      </span>
+    </div>
+  );
 }
+
+// ── Plan change modal ─────────────────────────────────────────────────────────
 
 interface ModalProps {
   plan: PlanDef;
@@ -182,7 +270,7 @@ function PlanChangeModal({
               {isToFree ? "Cancelar assinatura" : `Mudar para o plano ${plan.name}`}
             </h2>
             <p className="text-[13px] text-zinc-400 mt-0.5">
-              {isToFree ? "Voce passara para o plano gratuito" : `${plan.priceLabel}${plan.period}`}
+              {"period" in plan && plan.period ? `${plan.priceLabel}${plan.period}` : plan.priceLabel}
             </p>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors mt-0.5 cursor-pointer">
@@ -229,14 +317,13 @@ function PlanChangeModal({
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function BillingDashboard({
   plan: initialPlan,
   planStatus,
   planExpiresAt,
-  stripeCustomerId,
-  stripeSubscriptionId,
-  stripeSubscriptionStatus,
-  transactions,
+  planCharges,
 }: Props) {
   const isActivePaid = initialPlan !== "free";
   const [activePlan, setActivePlan] = useState<PlanKey>((isActivePaid ? initialPlan : "free") as PlanKey);
@@ -246,28 +333,14 @@ export default function BillingDashboard({
   const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(getBillingReturnBanner);
-  const [portalLoading, setPortalLoading] = useState(false);
   const [proLoading, setProLoading] = useState(false);
   const [premiumLoading, setPremiumLoading] = useState(false);
+  const [receiptCharge, setReceiptCharge] = useState<PlanCharge | null>(null);
 
   const currentPlanDef = getPlanDef(activePlan);
-  const hasExternalActiveSubscription = hasManagedStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus);
   const isCancellationScheduled = activePlan !== "free" && activePlanStatus === "cancelling";
-  const planChargeTransactions = transactions.filter(isPlanChargeTransaction);
-  const latestPlanCharge = planChargeTransactions[0] ?? null;
-  const upcomingPlanKey = pendingChange?.plan ?? activePlan;
-  const upcomingPlanDef = getPlanDef(upcomingPlanKey);
-  const upcomingChargeDate = pendingChange?.effectiveAt ?? expiresAt;
-  const upcomingCharge = upcomingPlanKey !== "free"
-    && upcomingPlanDef.price > 0
-    && Boolean(upcomingChargeDate)
-    && activePlanStatus !== "past_due"
-      ? {
-          amount: upcomingPlanDef.price,
-          chargeAt: upcomingChargeDate!,
-          label: pendingChange ? `Mudanca para ${upcomingPlanDef.name}` : `Renovacao do plano ${upcomingPlanDef.name}`,
-        }
-      : null;
+  const latestCharge = planCharges[0] ?? null;
+  const paidCharges = planCharges.filter((c) => c.status === "paid");
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok });
@@ -296,28 +369,11 @@ export default function BillingDashboard({
   }
 
   function handlePlanClick(p: PlanDef) {
-    if (p.key === "free" && activePlan !== "free") {
-      void handleOpenBillingPortal();
-      return;
-    }
+    if (p.key === "free" && activePlan !== "free") { setChangingTo(p); return; }
     if (p.key === activePlan) return;
-    if (p.key === "pro") { void handleAsaasCheckout("pro"); return; }
-    if (p.key === "premium") { void handleAsaasCheckout("premium"); return; }
+    if (p.key === "pro")      { void handleAsaasCheckout("pro");     return; }
+    if (p.key === "premium")  { void handleAsaasCheckout("premium"); return; }
     setChangingTo(p);
-  }
-
-  async function handleOpenBillingPortal() {
-    setPortalLoading(true);
-    const res = await fetch("/api/agencies/billing-portal", { method: "POST" });
-    const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
-    setPortalLoading(false);
-
-    if (!res.ok || !data.url) {
-      showToast(data.error ?? "Nao foi possivel abrir o portal Stripe.", false);
-      return;
-    }
-
-    window.location.assign(data.url);
   }
 
   function handleSuccess(newPlan: PlanKey, result: PlanChangeResponse) {
@@ -333,7 +389,6 @@ export default function BillingDashboard({
       showToast(`Cancelamento agendado. Acesso ate ${fmtDate(effectiveAt)}.`, true);
       return;
     }
-
     setActivePlan(newPlan);
     setActivePlanStatus("active");
     setPendingChange(null);
@@ -343,19 +398,16 @@ export default function BillingDashboard({
 
   return (
     <div className="max-w-3xl space-y-8">
+      {/* Banners */}
       {(activePlanStatus === "past_due" || activePlanStatus === "unpaid") && (
         <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3.5">
           <svg className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-rose-800">
-              {activePlanStatus === "unpaid" ? "Assinatura vencida" : "Falha no pagamento"}
-            </p>
+            <p className="text-[13px] font-semibold text-rose-800">Falha no pagamento</p>
             <p className="text-[12px] text-rose-700 mt-0.5">
-              {activePlanStatus === "unpaid"
-                ? "Sua assinatura esta vencida. Acesse o portal do Stripe para regularizar o pagamento."
-                : "Houve uma falha no pagamento da sua assinatura. O Stripe tentara novamente em breve."}
+              Houve uma falha no pagamento da sua assinatura. Entre em contato com o suporte.
             </p>
           </div>
         </div>
@@ -366,8 +418,8 @@ export default function BillingDashboard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-emerald-800">Assinatura confirmada</p>
-            <p className="text-[12px] text-emerald-700 mt-0.5">Seu plano sera atualizado automaticamente apos confirmacao do Stripe.</p>
+            <p className="text-[13px] font-semibold text-emerald-800">Pagamento realizado</p>
+            <p className="text-[12px] text-emerald-700 mt-0.5">Seu plano sera ativado automaticamente apos confirmacao do pagamento.</p>
           </div>
           <button type="button" onClick={() => setReturnBanner(null)} className="text-emerald-500 hover:text-emerald-700 flex-shrink-0 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -397,6 +449,7 @@ export default function BillingDashboard({
         </div>
       )}
 
+      {/* Modals */}
       {changingTo && (
         <PlanChangeModal
           plan={changingTo}
@@ -404,50 +457,43 @@ export default function BillingDashboard({
           onClose={() => setChangingTo(null)}
         />
       )}
+      {receiptCharge && (
+        <ReceiptModal charge={receiptCharge} onClose={() => setReceiptCharge(null)} />
+      )}
 
+      {/* Page title */}
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agencia</p>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900">Plano & Cobranca</h1>
       </div>
 
+      {/* Current plan card */}
       <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Plano atual</p>
-            <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">
-              {currentPlanDef.name}
-            </p>
+            <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{currentPlanDef.name}</p>
             <p className="text-[13px] text-zinc-500">
               Status: <strong className="text-zinc-800">{activePlanStatus ?? "inactive"}</strong>
               {expiresAt && activePlan !== "free" ? ` · renova em ${fmtDate(expiresAt)}` : ""}
             </p>
-            <p className="text-[13px] text-zinc-600">
-              O cartão é salvo com segurança pela Stripe para cobranças mensais automáticas.
-            </p>
+            <p className="text-[13px] text-zinc-400">Pagamentos processados com segurança via Asaas.</p>
           </div>
-          <div className="flex flex-col gap-2 sm:items-end">
-            <button
-              type="button"
-              onClick={handleOpenBillingPortal}
-              disabled={portalLoading || !stripeCustomerId}
-              className="rounded-xl border border-zinc-200 px-4 py-2.5 text-[13px] font-semibold text-zinc-700 transition-colors hover:border-zinc-300 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {portalLoading ? "Abrindo..." : "Gerenciar/cancelar assinatura"}
-            </button>
-            <p className="text-[11px] text-zinc-400">
-              {stripeCustomerId
-                ? `Stripe Customer: ${stripeCustomerId.slice(0, 14)}...`
-                : "O portal Stripe sera habilitado apos a primeira assinatura paga."}
-            </p>
-            {stripeSubscriptionId && (
-              <p className="text-[11px] text-zinc-400">
-                Subscrição Stripe: {stripeSubscriptionStatus ?? "active"} · {stripeSubscriptionId.slice(0, 14)}...
-              </p>
-            )}
-          </div>
+          {activePlan !== "free" && (
+            <div className="flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => handlePlanClick(PLANS[0])}
+                className="rounded-xl border border-zinc-200 px-4 py-2.5 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 transition-colors cursor-pointer"
+              >
+                Cancelar assinatura
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Cancellation scheduled banner */}
       {isCancellationScheduled && expiresAt && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
           <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -462,17 +508,7 @@ export default function BillingDashboard({
         </div>
       )}
 
-      {pendingChange && (
-        <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3.5">
-          <svg className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-[13px] text-indigo-800">
-            Mudanca agendada: plano <strong>{pendingChange.plan.charAt(0).toUpperCase() + pendingChange.plan.slice(1)}</strong> em <strong>{fmtDate(pendingChange.effectiveAt)}</strong>.
-          </p>
-        </div>
-      )}
-
+      {/* Plans grid */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Planos</p>
@@ -482,11 +518,9 @@ export default function BillingDashboard({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {PLANS.map((p) => {
-            const isCurrent = activePlan === p.key;
+            const isCurrent  = activePlan === p.key;
             const isDowngrade = p.price < currentPlanDef.price;
-            const isPending = pendingChange?.plan === p.key;
-            const isDuplicateBlocked = p.key !== "free" && !isCurrent && hasExternalActiveSubscription;
-            const shouldManageInPortal = p.key === "free" && activePlan !== "free";
+            const isPending  = pendingChange?.plan === p.key;
             return (
               <div
                 key={p.key}
@@ -522,12 +556,10 @@ export default function BillingDashboard({
                     <span className="text-[1.75rem] font-bold tracking-tighter text-zinc-900">{p.priceLabel}</span>
                     {p.period && <span className="text-[12px] text-zinc-400 ml-1">{p.period}</span>}
                   </div>
-                  {p.key !== "premium" && (
-                    <p className={[
-                      "text-[11px] font-semibold mb-4",
-                      p.key === "free" ? "text-zinc-400" : "text-indigo-600",
-                    ].join(" ")}>{p.commission}</p>
-                  )}
+                  <p className={[
+                    "text-[11px] font-semibold mb-4",
+                    p.key === "free" ? "text-zinc-400" : "text-indigo-600",
+                  ].join(" ")}>{p.commission}</p>
                   <ul className="space-y-1.5 mb-5 flex-1">
                     {p.features.map((feature) => (
                       <li key={feature} className="flex items-center gap-2 text-[12px] text-zinc-600">
@@ -541,24 +573,18 @@ export default function BillingDashboard({
                   {!isCurrent && !isPending && (
                     <button
                       onClick={() => handlePlanClick(p)}
-                      disabled={isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)}
+                      disabled={(p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)}
                       className={[
                         "w-full mt-auto text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors",
-                        isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)
+                        (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)
                           ? "bg-zinc-300 cursor-not-allowed"
                           : isDowngrade
                           ? "bg-zinc-500 hover:bg-zinc-600"
                           : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] cursor-pointer",
                       ].join(" ")}
                     >
-                      {isDuplicateBlocked
-                          ? "Assinatura ativa"
-                        : shouldManageInPortal
-                          ? portalLoading
-                            ? "Abrindo..."
-                            : "Gerenciar no Stripe"
-                        : (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)
-                          ? "Aguarde..."
+                      {(p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)
+                        ? "Aguarde..."
                         : activePlan === "free"
                           ? `Assinar ${p.name}`
                           : isDowngrade
@@ -566,19 +592,9 @@ export default function BillingDashboard({
                             : `Fazer upgrade para ${p.name}`}
                     </button>
                   )}
-                  {isDuplicateBlocked && (
-                    <p className="mt-3 text-[11px] text-zinc-500 text-center">
-                      Voce ja possui uma assinatura ativa.
-                    </p>
-                  )}
                   {isPending && !isCurrent && (
                     <p className="text-[11px] text-indigo-600 text-center font-medium">
                       Ativara em {fmtDate(pendingChange!.effectiveAt)}
-                    </p>
-                  )}
-                  {shouldManageInPortal && !isPending && (
-                    <p className="mt-3 text-[11px] text-zinc-500 text-center">
-                      Cancelamentos da assinatura paga sao feitos no portal da Stripe.
                     </p>
                   )}
                 </div>
@@ -588,16 +604,32 @@ export default function BillingDashboard({
         </div>
       </div>
 
+      {/* Last charge + Next charge */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Ultima cobranca do plano</p>
-          {latestPlanCharge ? (
-            <div className="space-y-1">
-              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">
-                {brl(Math.abs(latestPlanCharge.amount))}
-              </p>
-              <p className="text-[13px] text-zinc-600">{latestPlanCharge.description ?? "Cobranca de plano"}</p>
-              <p className="text-[12px] text-zinc-400">{fmtDate(latestPlanCharge.created_at)}</p>
+          {latestCharge ? (
+            <div className="space-y-1.5">
+              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{brl(latestCharge.amount)}</p>
+              <p className="text-[13px] text-zinc-600">{latestCharge.description ?? "Assinatura BrisaHub"}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${chargeStatusColor(latestCharge.status)}`}>
+                  {chargeStatusLabel(latestCharge.status)}
+                </span>
+                <span className="text-[11px] text-zinc-400">{fmtDate(latestCharge.created_at)}</span>
+                {latestCharge.asaas_payment_id && (
+                  <span className="text-[11px] text-zinc-400 font-mono truncate max-w-[120px]" title={latestCharge.asaas_payment_id}>
+                    {latestCharge.asaas_payment_id.slice(0, 16)}…
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-400">Provedor: Asaas</p>
+              <button
+                onClick={() => setReceiptCharge(latestCharge)}
+                className="mt-1 text-[12px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+              >
+                Ver comprovante →
+              </button>
             </div>
           ) : (
             <p className="text-[13px] text-zinc-400">Nenhuma cobranca de plano registrada ainda.</p>
@@ -606,50 +638,60 @@ export default function BillingDashboard({
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Proxima cobranca</p>
-          {pendingChange?.plan === "free" ? (
+          {expiresAt && activePlan !== "free" ? (
             <div className="space-y-1">
-              <p className="text-[15px] font-semibold text-zinc-900">Sem nova cobranca agendada</p>
-              <p className="text-[13px] text-zinc-600">O plano atual sera encerrado no fim do ciclo.</p>
-              <p className="text-[12px] text-zinc-400">{fmtDate(pendingChange.effectiveAt)}</p>
-            </div>
-          ) : upcomingCharge ? (
-            <div className="space-y-1">
-              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{brl(upcomingCharge.amount)}</p>
-              <p className="text-[13px] text-zinc-600">{upcomingCharge.label}</p>
-              <p className="text-[12px] text-zinc-400">{fmtDate(upcomingCharge.chargeAt)}</p>
+              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{brl(currentPlanDef.price)}</p>
+              <p className="text-[13px] text-zinc-600">Renovacao do plano {currentPlanDef.name}</p>
+              <p className="text-[12px] text-zinc-400">{fmtDate(expiresAt)}</p>
             </div>
           ) : (
-            <p className="text-[13px] text-zinc-400">Sem cobranca futura disponivel no momento.</p>
+            <p className="text-[13px] text-zinc-400">Proxima cobranca ainda nao disponivel.</p>
           )}
         </div>
       </div>
 
+      {/* Charge history */}
       <div className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Historico de cobrancas</p>
-        {planChargeTransactions.length === 0 ? (
+        {planCharges.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-100 py-10 text-center">
             <p className="text-[13px] text-zinc-400">Nenhuma cobranca de plano ainda.</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
-            {planChargeTransactions.map((tx) => (
-              <div key={tx.id} className="flex items-center gap-4 px-5 py-4">
+            {planCharges.map((charge) => (
+              <div key={charge.id} className="flex items-center gap-4 px-5 py-4">
                 <div className="w-8 h-8 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20V4m-8 8l8-8 8 8" />
+                  <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-zinc-900 truncate leading-snug">
-                    {tx.description ?? "Cobranca de plano"}
+                    {charge.description ?? "Assinatura BrisaHub"}
                   </p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">
-                    {fmtDateTime(tx.created_at)} · {getPlanChargeMethod(tx)}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${chargeStatusColor(charge.status)}`}>
+                      {chargeStatusLabel(charge.status)}
+                    </span>
+                    <span className="text-[11px] text-zinc-400">{fmtDateTime(charge.created_at)}</span>
+                    {charge.asaas_payment_id && (
+                      <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline" title={charge.asaas_payment_id}>
+                        {charge.asaas_payment_id.slice(0, 12)}…
+                      </span>
+                    )}
+                    <span className="text-[11px] text-zinc-300">· Asaas</span>
+                  </div>
                 </div>
-                <p className="text-[14px] font-bold tabular-nums flex-shrink-0 text-rose-500">
-                  {brl(Math.abs(tx.amount))}
-                </p>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <p className="text-[14px] font-bold tabular-nums text-zinc-900">{brl(charge.amount)}</p>
+                  <button
+                    onClick={() => setReceiptCharge(charge)}
+                    className="text-[12px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    Comprovante
+                  </button>
+                </div>
               </div>
             ))}
           </div>

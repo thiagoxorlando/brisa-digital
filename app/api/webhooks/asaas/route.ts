@@ -169,6 +169,36 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Plan activation failed" }, { status: 500 });
           }
 
+          // Mark the plan_charge wallet_transaction as paid (created by checkout route).
+          // If not found (e.g. checkout pre-dates this fix), insert it now as a fallback.
+          const { data: existingCharge } = await supabase
+            .from("wallet_transactions")
+            .select("id, status")
+            .eq("asaas_payment_id", asaasPaymentId)
+            .maybeSingle();
+
+          if (existingCharge) {
+            if (existingCharge.status !== "paid") {
+              await supabase
+                .from("wallet_transactions")
+                .update({ status: "paid", asaas_status: asaasStatus, processed_at: now } as Record<string, unknown>)
+                .eq("id", existingCharge.id);
+            }
+          } else {
+            const planLabel = planKey === "premium" ? "Premium" : "PRO";
+            await supabase.from("wallet_transactions").insert({
+              user_id:          userId,
+              type:             "plan_charge",
+              amount:           payment.value,
+              description:      `Plano ${planLabel} - BrisaHub`,
+              asaas_payment_id: asaasPaymentId,
+              provider:         "asaas",
+              status:           "paid",
+              asaas_status:     asaasStatus,
+              processed_at:     now,
+            } as Record<string, unknown>);
+          }
+
           await supabase
             .from("asaas_webhook_events")
             .update({ processed_at: now } as Record<string, unknown>)

@@ -14,8 +14,8 @@ export default async function BillingPage() {
 
   const [
     { data: profile, error: profileError },
-    { data: stripeProfile, error: stripeProfileError },
-    { data: transactions },
+    { data: chargeRows },
+    { data: webhookEvents },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -23,18 +23,23 @@ export default async function BillingPage() {
       .eq("id", userId)
       .maybeSingle(),
 
-    supabase
-      .from("profiles")
-      .select("stripe_customer_id, stripe_subscription_id, stripe_subscription_status")
-      .eq("id", userId)
-      .maybeSingle(),
-
+    // Dedicated plan-charge rows written by checkout + webhook
     supabase
       .from("wallet_transactions")
-      .select("id, type, amount, description, created_at")
+      .select("id, amount, description, created_at, status, asaas_payment_id, invoice_url, provider")
       .eq("user_id", userId)
+      .eq("type", "plan_charge")
       .order("created_at", { ascending: false })
       .limit(50),
+
+    // Fallback: raw webhook events for PAYMENT_CONFIRMED with plan externalReference.
+    // Used to surface the charge that activated the plan before the wallet_transaction fix.
+    supabase
+      .from("asaas_webhook_events")
+      .select("raw_payload, created_at")
+      .eq("event_type", "PAYMENT_CONFIRMED")
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   if (profileError) {
@@ -44,22 +49,78 @@ export default async function BillingPage() {
     });
   }
 
-  if (stripeProfileError) {
-    console.warn("[agency billing] failed to load stripe profile fields", {
-      userId,
-      error: stripeProfileError.message,
+  // Build plan charge list: wallet_transactions are the primary source.
+  // Supplement with any confirmed webhook events for this user that aren't
+  // already represented (matched by asaas_payment_id).
+  const seenPaymentIds = new Set<string>(
+    (chargeRows ?? [])
+      .map((r) => (r as Record<string, unknown>).asaas_payment_id as string | null)
+      .filter((id): id is string => !!id),
+  );
+
+  type PlanCharge = {
+    id: string;
+    amount: number;
+    description: string | null;
+    created_at: string;
+    status: string | null;
+    asaas_payment_id: string | null;
+    invoice_url: string | null;
+    provider: string | null;
+  };
+
+  const charges: PlanCharge[] = (chargeRows ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      id:               String(row.id ?? ""),
+      amount:           Number(row.amount ?? 0),
+      description:      (row.description as string | null) ?? null,
+      created_at:       String(row.created_at ?? ""),
+      status:           (row.status as string | null) ?? null,
+      asaas_payment_id: (row.asaas_payment_id as string | null) ?? null,
+      invoice_url:      (row.invoice_url as string | null) ?? null,
+      provider:         (row.provider as string | null) ?? "asaas",
+    };
+  });
+
+  // Supplement from webhook events for charges that pre-date the wallet_transaction fix
+  for (const evt of webhookEvents ?? []) {
+    const payload = evt.raw_payload as Record<string, unknown> | null;
+    const paymentRaw = payload?.payment as Record<string, unknown> | null;
+    if (!paymentRaw) continue;
+
+    const extRef = String(paymentRaw.externalReference ?? "");
+    if (!extRef.startsWith(`plan:`) || !extRef.endsWith(`:${userId}`)) continue;
+
+    const pid = String(paymentRaw.id ?? "");
+    if (!pid || seenPaymentIds.has(pid)) continue;
+
+    const parts = extRef.split(":");
+    const planKey = parts[1] ?? "";
+    const planLabel = planKey === "premium" ? "Premium" : "PRO";
+
+    charges.push({
+      id:               `webhook:${pid}`,
+      amount:           Number(paymentRaw.value ?? 0),
+      description:      `Plano ${planLabel} - BrisaHub`,
+      created_at:       String(evt.created_at ?? ""),
+      status:           "paid",
+      asaas_payment_id: pid,
+      invoice_url:      null,
+      provider:         "asaas",
     });
+    seenPaymentIds.add(pid);
   }
+
+  // Keep most-recent first
+  charges.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
     <BillingDashboard
       plan={profile?.plan ?? "free"}
       planStatus={profile?.plan_status ?? null}
-      planExpiresAt={profile?.plan_expires_at ?? null}
-      stripeCustomerId={stripeProfile?.stripe_customer_id ?? null}
-      stripeSubscriptionId={stripeProfile?.stripe_subscription_id ?? null}
-      stripeSubscriptionStatus={stripeProfile?.stripe_subscription_status ?? null}
-      transactions={transactions ?? []}
+      planExpiresAt={(profile as Record<string, unknown> | null)?.plan_expires_at as string | null ?? null}
+      planCharges={charges}
     />
   );
 }
