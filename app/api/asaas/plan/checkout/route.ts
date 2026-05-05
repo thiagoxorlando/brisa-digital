@@ -61,6 +61,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Enforce plan price server-side — never trust the frontend value
+  const requestedPlan = (body.plan as string | undefined) === "premium" ? "premium" : "pro";
+  const planPrice     = requestedPlan === "premium" ? PLAN_DEFINITIONS.premium.price : PLAN_DEFINITIONS.pro.price;
+  const planLabel     = requestedPlan === "premium" ? "Premium" : "PRO";
+
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 1);
   const dueDateStr = dueDate.toISOString().slice(0, 10);
@@ -68,11 +73,12 @@ export async function POST(req: NextRequest) {
   let payment: { id: string; invoiceUrl?: string };
   try {
     payment = await createPayment({
-      customer:    customerId,
-      billingType: "CREDIT_CARD",
-      value:       PLAN_DEFINITIONS.pro.price,
-      dueDate:     dueDateStr,
-      description: "Plano PRO - BrisaHub",
+      customer:          customerId,
+      billingType:       "CREDIT_CARD",
+      value:             planPrice,
+      dueDate:           dueDateStr,
+      description:       `Plano ${planLabel} - BrisaHub`,
+      externalReference: `plan:${requestedPlan}:${user.id}`,
     });
   } catch (err) {
     const desc = extractAsaasError(err);

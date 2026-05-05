@@ -65,13 +65,12 @@ const PLANS = [
     key: "premium" as const,
     name: PLAN_DEFINITIONS.premium.label,
     price: PLAN_DEFINITIONS.premium.price,
-    priceLabel: "Em breve",
-    period: "",
-    badge: "EM BREVE" as const,
+    priceLabel: "R$ 5",
+    period: "/mes",
+    badge: "TESTE" as const,
     gradient: "from-violet-500 to-purple-700",
     headline: "Operacao premium com cobranca recorrente",
     commission: "10% de comissao",
-    available: false,
     features: [
       "Tudo do Pro",
       "Vagas fechadas",
@@ -249,6 +248,7 @@ export default function BillingDashboard({
   const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(getBillingReturnBanner);
   const [portalLoading, setPortalLoading] = useState(false);
   const [proLoading, setProLoading] = useState(false);
+  const [premiumLoading, setPremiumLoading] = useState(false);
 
   const currentPlanDef = getPlanDef(activePlan);
   const hasExternalActiveSubscription = hasManagedStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus);
@@ -274,15 +274,20 @@ export default function BillingDashboard({
     setTimeout(() => setToast(null), 5000);
   }
 
-  async function handleProCheckout() {
-    setProLoading(true);
+  async function handleAsaasCheckout(plan: "pro" | "premium") {
+    if (plan === "pro") setProLoading(true);
+    else setPremiumLoading(true);
+
     const res = await fetch("/api/asaas/plan/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ plan }),
     });
     const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
-    setProLoading(false);
+
+    if (plan === "pro") setProLoading(false);
+    else setPremiumLoading(false);
+
     if (!res.ok || !data.url) {
       showToast(data.error ?? "Erro ao iniciar pagamento. Tente novamente.", false);
       return;
@@ -291,16 +296,13 @@ export default function BillingDashboard({
   }
 
   function handlePlanClick(p: PlanDef) {
-    if ("available" in p && p.available === false) {
-      showToast("Premium ainda nao esta disponivel.", false);
-      return;
-    }
     if (p.key === "free" && activePlan !== "free") {
       void handleOpenBillingPortal();
       return;
     }
     if (p.key === activePlan) return;
-    if (p.key === "pro") { void handleProCheckout(); return; }
+    if (p.key === "pro") { void handleAsaasCheckout("pro"); return; }
+    if (p.key === "premium") { void handleAsaasCheckout("premium"); return; }
     setChangingTo(p);
   }
 
@@ -483,7 +485,6 @@ export default function BillingDashboard({
             const isCurrent = activePlan === p.key;
             const isDowngrade = p.price < currentPlanDef.price;
             const isPending = pendingChange?.plan === p.key;
-            const isAvailable = !("available" in p) || p.available !== false;
             const isDuplicateBlocked = p.key !== "free" && !isCurrent && hasExternalActiveSubscription;
             const shouldManageInPortal = p.key === "free" && activePlan !== "free";
             return (
@@ -493,9 +494,7 @@ export default function BillingDashboard({
                   "rounded-2xl border overflow-hidden flex flex-col transition-shadow",
                   isCurrent
                     ? "bg-white border-zinc-300 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.07)]"
-                    : isAvailable
-                      ? "bg-zinc-50 border-zinc-100"
-                      : "bg-zinc-50/70 border-zinc-200 opacity-80",
+                    : "bg-zinc-50 border-zinc-100",
                 ].join(" ")}
               >
                 <div className={`h-[3px] bg-gradient-to-r ${p.gradient}`} />
@@ -542,25 +541,23 @@ export default function BillingDashboard({
                   {!isCurrent && !isPending && (
                     <button
                       onClick={() => handlePlanClick(p)}
-                      disabled={!isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading)}
+                      disabled={isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)}
                       className={[
                         "w-full mt-auto text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors",
-                        !isAvailable || isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading)
+                        isDuplicateBlocked || (shouldManageInPortal && (!stripeCustomerId || portalLoading)) || (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)
                           ? "bg-zinc-300 cursor-not-allowed"
                           : isDowngrade
                           ? "bg-zinc-500 hover:bg-zinc-600"
                           : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] cursor-pointer",
                       ].join(" ")}
                     >
-                      {!isAvailable
-                        ? "Em breve"
-                        : isDuplicateBlocked
+                      {isDuplicateBlocked
                           ? "Assinatura ativa"
                         : shouldManageInPortal
                           ? portalLoading
                             ? "Abrindo..."
                             : "Gerenciar no Stripe"
-                        : p.key === "pro" && proLoading
+                        : (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading)
                           ? "Aguarde..."
                         : activePlan === "free"
                           ? `Assinar ${p.name}`
@@ -569,14 +566,9 @@ export default function BillingDashboard({
                             : `Fazer upgrade para ${p.name}`}
                     </button>
                   )}
-                  {!isAvailable && (
-                    <p className="mt-3 text-[11px] text-zinc-500 text-center">
-                      Premium ainda nao esta disponivel para novas assinaturas.
-                    </p>
-                  )}
                   {isDuplicateBlocked && (
                     <p className="mt-3 text-[11px] text-zinc-500 text-center">
-                      Voce ja possui uma assinatura ativa vinculada a este cliente Stripe.
+                      Voce ja possui uma assinatura ativa.
                     </p>
                   )}
                   {isPending && !isCurrent && (

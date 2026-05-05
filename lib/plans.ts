@@ -59,8 +59,8 @@ export const PLAN_DEFINITIONS: Record<Plan, PlanDefinition> = {
   premium: {
     key: "premium",
     label: "Premium",
-    price: 297,
-    priceLabel: "Sob consulta",
+    price: 5,
+    priceLabel: "R$5",
     maxActiveJobs: null,
     maxHiresPerJob: null,
     commissionRate: 0.1,

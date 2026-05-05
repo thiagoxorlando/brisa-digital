@@ -29,7 +29,7 @@ type TalentForm = {
   website:    string;
 };
 
-type AgencyPlan = "free" | "pro";
+type AgencyPlan = "free" | "pro" | "premium";
 
 type AgencyForm = {
   companyName:  string;
@@ -755,7 +755,7 @@ function validateAgency(form: AgencyForm): AgencyErrors {
   return e;
 }
 
-function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string; onDone: () => void; initialPlan?: AgencyPlan }) {
+function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string; onDone: () => void; initialPlan?: "free" | "pro" | "premium" }) {
   const [form, setForm]       = useState<AgencyForm>({ ...AGENCY_DEFAULTS, plan: initialPlan });
   const [errors, setErrors]   = useState<AgencyErrors>({});
   const [logo, setLogo]       = useState<File | null>(null);
@@ -848,8 +848,8 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
         return;
       }
 
-      // PRO plan: validate CPF/CNPJ locally then redirect to Asaas payment
-      if (form.plan === "pro") {
+      // PRO / PREMIUM plan: validate CPF/CNPJ locally then redirect to Asaas payment
+      if (form.plan === "pro" || form.plan === "premium") {
         const cleanDoc = normalizeCpfCnpj(form.cpfCnpj);
         if (!isValidCpfCnpj(cleanDoc)) {
           setServerError("CPF/CNPJ inválido. Verifique os números e tente novamente.");
@@ -859,7 +859,7 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
         const checkoutRes  = await fetch("/api/asaas/plan/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cpfCnpj: cleanDoc }),
+          body: JSON.stringify({ cpfCnpj: cleanDoc, plan: form.plan }),
         });
         const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
 
@@ -940,7 +940,7 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
       {/* Plan selection */}
       <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6 space-y-4">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Escolha seu Plano</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Free */}
           <button
             type="button"
@@ -993,6 +993,34 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
               </div>
             )}
           </button>
+          {/* Premium */}
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, plan: "premium" }))}
+            className={[
+              "text-left rounded-2xl border p-4 transition-all relative",
+              form.plan === "premium"
+                ? "border-violet-600 bg-violet-50 shadow-sm"
+                : "border-zinc-200 hover:border-violet-300",
+            ].join(" ")}
+          >
+            <span className="absolute top-3 right-3 text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-600 text-white tracking-wider">TESTE</span>
+            <div className="flex items-center justify-between mb-2 pr-16">
+              <span className="text-[14px] font-semibold text-zinc-900">{PLAN_DEFINITIONS.premium.label}</span>
+              <span className="text-[13px] font-bold text-violet-700">R$ {PLAN_DEFINITIONS.premium.price}/mês</span>
+            </div>
+            <ul className="space-y-1">
+              {PLAN_DEFINITIONS.premium.features.map((f) => (
+                <li key={f} className="text-[12px] text-zinc-500">· {f}</li>
+              ))}
+            </ul>
+            {form.plan === "premium" && (
+              <div className="mt-3 space-y-1">
+                <p className="text-[11px] font-semibold text-violet-700">✓ Selecionado</p>
+                <p className="text-[11px] text-zinc-500">Pagamento via cartão de crédito. Você será redirecionado para concluir o pagamento após salvar o perfil.</p>
+              </div>
+            )}
+          </button>
         </div>
       </div>
 
@@ -1010,8 +1038,8 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
         className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
       >
         {loading
-          ? (form.plan === "pro" ? "Redirecionando…" : "Salvando…")
-          : form.plan === "pro"
+          ? ((form.plan === "pro" || form.plan === "premium") ? "Redirecionando…" : "Salvando…")
+          : (form.plan === "pro" || form.plan === "premium")
             ? "Salvar e ir para pagamento"
             : "Salvar Perfil"}
       </button>
@@ -1021,7 +1049,7 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
 
 // ── Main shell ────────────────────────────────────────────────────────────────
 
-export default function SetupProfile({ nextPath = null, initialPlan = "free" }: { nextPath?: string | null; initialPlan?: "free" | "pro" }) {
+export default function SetupProfile({ nextPath = null, initialPlan = "free" }: { nextPath?: string | null; initialPlan?: "free" | "pro" | "premium" }) {
   const router              = useRouter();
   const [role, setRole]     = useState<Role>(null);
   const [userId, setUserId] = useState<string | null>(null);

@@ -149,6 +149,39 @@ export async function POST(req: NextRequest) {
     }
 
     if (!tx) {
+      // Check if this is a plan subscription payment (externalReference = "plan:{planKey}:{userId}")
+      const extRef = payment.externalReference ?? "";
+      if (extRef.startsWith("plan:")) {
+        const parts  = extRef.split(":");
+        const planKey = parts[1] ?? "";
+        const userId  = parts[2] ?? "";
+
+        if ((planKey === "pro" || planKey === "premium") && userId) {
+          const { error: planErr } = await supabase
+            .from("profiles")
+            .update({ plan: planKey, plan_status: "active" } as Record<string, unknown>)
+            .eq("id", userId);
+
+          if (planErr) {
+            log("error", "[asaas webhook] plan activation failed", {
+              userId, planKey, asaasPaymentId, err: planErr.message,
+            });
+            return NextResponse.json({ error: "Plan activation failed" }, { status: 500 });
+          }
+
+          await supabase
+            .from("asaas_webhook_events")
+            .update({ processed_at: now } as Record<string, unknown>)
+            .eq("event_id", eventId);
+
+          log("info", "[asaas webhook] plan activated", { userId, planKey, asaasPaymentId });
+        } else {
+          log("warn", "[asaas webhook] ignored — unrecognized plan ref", { extRef, asaasPaymentId });
+        }
+
+        return NextResponse.json({ ok: true });
+      }
+
       log("warn", "[asaas webhook] ignored — no matching wallet_transaction", { asaasPaymentId });
       return NextResponse.json({ ok: true });
     }

@@ -35,6 +35,7 @@ export type AsaasPaymentInput = {
   value: number;
   dueDate: string;
   description?: string;
+  externalReference?: string;
 };
 
 export type AsaasPixTransferInput = {
