@@ -21,6 +21,7 @@ interface Props {
   planStatus: string | null;
   planExpiresAt: string | null;
   planCharges: PlanCharge[];
+  nextChargeDate: string | null;
 }
 
 type PlanChangeResponse = {
@@ -324,6 +325,7 @@ export default function BillingDashboard({
   planStatus,
   planExpiresAt,
   planCharges,
+  nextChargeDate,
 }: Props) {
   const isActivePaid = initialPlan !== "free";
   const [activePlan, setActivePlan] = useState<PlanKey>((isActivePaid ? initialPlan : "free") as PlanKey);
@@ -638,11 +640,14 @@ export default function BillingDashboard({
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Proxima cobranca</p>
-          {expiresAt && activePlan !== "free" ? (
-            <div className="space-y-1">
+          {(expiresAt || nextChargeDate) && activePlan !== "free" ? (
+            <div className="space-y-1.5">
               <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{brl(currentPlanDef.price)}</p>
               <p className="text-[13px] text-zinc-600">Renovacao do plano {currentPlanDef.name}</p>
-              <p className="text-[12px] text-zinc-400">{fmtDate(expiresAt)}</p>
+              <p className="text-[12px] text-zinc-400">{fmtDate((expiresAt ?? nextChargeDate)!)}</p>
+              <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                {expiresAt ? "Agendada" : "Prevista"}
+              </span>
             </div>
           ) : (
             <p className="text-[13px] text-zinc-400">Proxima cobranca ainda nao disponivel.</p>

@@ -139,12 +139,30 @@ export default async function BillingPage() {
   // Most-recent first, deduped
   charges.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
+  // Next charge date:
+  //   1. Use plan_expires_at if set (authoritative).
+  //   2. Otherwise derive from the latest paid charge: same day + 1 month.
+  //   3. Only for active paid plans — free plan has no next charge.
+  const planExpiresAt = profileRow?.plan_expires_at as string | null ?? null;
+  const planKey       = profileRow?.plan as string ?? "free";
+
+  let nextChargeDate: string | null = null;
+  if (planKey !== "free" && !planExpiresAt) {
+    const latestPaid = charges.find((c) => c.status === "paid");
+    if (latestPaid) {
+      const base = new Date(latestPaid.created_at);
+      base.setMonth(base.getMonth() + 1);
+      nextChargeDate = base.toISOString();
+    }
+  }
+
   return (
     <BillingDashboard
-      plan={profileRow?.plan as string ?? "free"}
+      plan={planKey}
       planStatus={profileRow?.plan_status as string | null ?? null}
-      planExpiresAt={profileRow?.plan_expires_at as string | null ?? null}
+      planExpiresAt={planExpiresAt}
       planCharges={charges}
+      nextChargeDate={nextChargeDate}
     />
   );
 }
