@@ -849,6 +849,14 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
     setServerError("");
     setLoading(true);
 
+    // Open a blank tab synchronously NOW — before any await — so browsers treat
+    // it as a direct user gesture and don't block it as a popup.
+    // We'll set its URL to the Asaas checkout link once we have it.
+    let paymentWindow: Window | null = null;
+    if (form.plan === "pro" || form.plan === "premium") {
+      paymentWindow = window.open("", "_blank", "noopener,noreferrer");
+    }
+
     try {
       let logoUrl: string | undefined;
       if (logo) {
@@ -859,6 +867,7 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
         const uploadRes  = await fetch("/api/upload", { method: "POST", body: fd });
         const uploadJson = await uploadRes.json().catch(() => ({}) as Record<string, unknown>);
         if (!uploadRes.ok) {
+          paymentWindow?.close();
           setServerError("Falha ao enviar logo: " + ((uploadJson as { error?: string }).error ?? "Erro desconhecido"));
           return;
         }
@@ -885,15 +894,17 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
       const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
 
       if (!res.ok) {
+        paymentWindow?.close();
         console.error("[setup-profile/agency]", json.error);
         setServerError(json.error ?? "Erro ao salvar perfil. Tente novamente.");
         return;
       }
 
-      // PRO / PREMIUM plan: validate CPF/CNPJ locally then redirect to Asaas payment
+      // PRO / PREMIUM plan: call checkout and redirect the pre-opened blank tab
       if (form.plan === "pro" || form.plan === "premium") {
         const cleanDoc = normalizeCpfCnpj(form.cpfCnpj);
         if (!isValidCpfCnpj(cleanDoc)) {
+          paymentWindow?.close();
           setServerError("CPF/CNPJ inválido. Verifique os números e tente novamente.");
           return;
         }
@@ -906,19 +917,28 @@ function AgencySetup({ userId, onDone, initialPlan = "free" }: { userId: string;
         const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
 
         if (!checkoutRes.ok || !checkoutJson.url) {
+          paymentWindow?.close();
           console.error("[asaas/plan/checkout]", checkoutJson.error);
           setServerError(checkoutJson.error ?? "Erro ao iniciar pagamento. Tente novamente.");
           return;
         }
 
+        // Navigate the pre-opened blank tab to the Asaas URL — never the current tab.
+        if (paymentWindow) {
+          paymentWindow.location.href = checkoutJson.url;
+        } else {
+          // Blank tab was blocked — surface the manual-open button
+          setPopupBlocked(true);
+        }
+
         setPaymentUrl(checkoutJson.url);
         setWaitingForPayment(true);
-        openPaymentTab(checkoutJson.url);
         return;
       }
 
       onDone();
     } catch (err) {
+      paymentWindow?.close();
       console.error("[setup-profile/agency] unexpected error:", err);
       setServerError("Erro de conexão. Verifique sua internet e tente novamente.");
     } finally {
