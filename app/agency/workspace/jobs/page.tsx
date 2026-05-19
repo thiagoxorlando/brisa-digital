@@ -90,6 +90,8 @@ export default async function WorkspaceJobsPage() {
       jobs={workspaceJobs}
       userId={context.userId}
       isOwner={context.isOwner}
+      brandPrimary={context.workspace.brandPrimaryColor ?? "#1ABC9C"}
+      brandAccent={context.workspace.brandAccentColor ?? "#27C1D6"}
     />
   );
 }

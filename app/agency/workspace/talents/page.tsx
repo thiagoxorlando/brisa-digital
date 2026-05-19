@@ -340,5 +340,12 @@ export default async function WorkspaceTalentsPage() {
       return left.name.localeCompare(right.name);
     });
 
-  return <WorkspaceTalentsBoard talents={talents} workspaceSlug={context.workspace.slug} />;
+  return (
+    <WorkspaceTalentsBoard
+      talents={talents}
+      workspaceSlug={context.workspace.slug}
+      brandPrimary={context.workspace.brandPrimaryColor ?? "#0E7C86"}
+      brandAccent={context.workspace.brandAccentColor ?? "#1ABC9C"}
+    />
+  );
 }

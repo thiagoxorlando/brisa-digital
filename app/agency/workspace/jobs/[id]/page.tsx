@@ -320,6 +320,8 @@ export default async function WorkspaceJobDetailPage({ params }: Props) {
       userId={user.id}
       isOwner={isWorkspaceOwner}
       readOnly={readOnly}
+      brandPrimary={workspaceAccess.workspace.brandPrimaryColor ?? "#1ABC9C"}
+      brandAccent={workspaceAccess.workspace.brandAccentColor ?? "#27C1D6"}
     />
   );
 }

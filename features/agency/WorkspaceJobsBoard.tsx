@@ -114,24 +114,6 @@ function groupJobs(jobs: WorkspaceJob[], userId: string): Section[] {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function initials(name: string): string {
-  return name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-}
-
-function avatarColor(str: string): string {
-  const palette = [
-    "from-[#1ABC9C] to-[#27C1D6]",
-    "from-violet-500 to-purple-600",
-    "from-amber-400 to-orange-500",
-    "from-pink-500 to-rose-500",
-    "from-sky-500 to-blue-600",
-    "from-teal-500 to-cyan-600",
-  ];
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0xffff;
-  return palette[h % palette.length];
-}
-
 function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null;
   const d = new Date(`${dateStr}T00:00:00`);
@@ -149,10 +131,14 @@ export default function WorkspaceJobsBoard({
   jobs: initialJobs,
   userId,
   isOwner,
+  brandPrimary = "#1ABC9C",
+  brandAccent  = "#27C1D6",
 }: {
   jobs: WorkspaceJob[];
   userId: string;
   isOwner: boolean;
+  brandPrimary?: string;
+  brandAccent?: string;
 }) {
   const [jobs, setJobs]           = useState<WorkspaceJob[]>(initialJobs);
   const [activeTab, setActiveTab] = useState<TabId>("all");
@@ -241,7 +227,8 @@ export default function WorkspaceJobsBoard({
         </div>
         <Link
           href="/agency/workspace/jobs/new"
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-5 py-3 text-[14px] font-semibold text-white shadow-[0_14px_28px_rgba(26,188,156,0.24)] hover:from-[#17A58A] hover:to-[#22B5C2] transition-all flex-shrink-0"
+          style={{ background: `linear-gradient(135deg, ${brandPrimary}, ${brandAccent})` }}
+          className="inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-[14px] font-semibold text-white shadow-[0_14px_28px_rgba(26,188,156,0.24)] transition-all flex-shrink-0"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -260,10 +247,11 @@ export default function WorkspaceJobsBoard({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                style={active ? { borderBottomColor: brandPrimary, color: "inherit" } : undefined}
                 className={[
                   "inline-flex items-center gap-1.5 px-3.5 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors whitespace-nowrap cursor-pointer",
                   active
-                    ? "border-[#1ABC9C] text-zinc-900"
+                    ? "text-zinc-900"
                     : "border-transparent text-zinc-500 hover:text-zinc-800 hover:border-zinc-200",
                 ].join(" ")}
               >
@@ -271,7 +259,7 @@ export default function WorkspaceJobsBoard({
                 {count > 0 && (
                   <span className={[
                     "rounded-full px-1.5 py-px text-[10px] font-bold leading-none",
-                    active ? "bg-[#1ABC9C]/15 text-[#1ABC9C]" : "bg-zinc-100 text-zinc-500",
+                    active ? "bg-zinc-100 text-zinc-700" : "bg-zinc-100 text-zinc-500",
                   ].join(" ")}>
                     {count}
                   </span>
@@ -381,6 +369,7 @@ export default function WorkspaceJobsBoard({
                     job={job}
                     userId={userId}
                     isOwner={isOwner}
+                    brandPrimary={brandPrimary}
                     statusChanging={statusChanging === job.id}
                     onStatusChange={(next) => handleStatusChange(job, next)}
                   />
@@ -398,6 +387,7 @@ export default function WorkspaceJobsBoard({
               job={job}
               userId={userId}
               isOwner={isOwner}
+              brandPrimary={brandPrimary}
               statusChanging={statusChanging === job.id}
               onStatusChange={(next) => handleStatusChange(job, next)}
             />
@@ -414,232 +404,118 @@ function JobCard({
   job,
   userId,
   isOwner,
+  brandPrimary = "#1ABC9C",
   statusChanging,
   onStatusChange,
 }: {
   job: WorkspaceJob;
   userId: string;
   isOwner: boolean;
+  brandPrimary?: string;
   statusChanging: boolean;
   onStatusChange: (next: "open" | "paused" | "closed") => void;
 }) {
-  const isCreator  = job.createdByUserId === userId;
-  const canManage  = isOwner || isCreator;
+  const isCreator = job.createdByUserId === userId;
+  const canManage = isOwner || isCreator;
   const activeContracts = job.contractCounts.sent + job.contractCounts.signed + job.contractCounts.confirmed + job.contractCounts.paid;
   const hasPaidContracts = job.contractCounts.paid > 0;
   const isFilled = activeContracts >= Math.max(1, Number(job.talentsRequired ?? 1) || 1);
-  const canEdit = canManage && !["closed", "inactive"].includes(job.status);
-  const canPause = canManage && job.status === "open";
-  const canClose = canManage && !["closed", "inactive"].includes(job.status);
+  const canPause  = canManage && job.status === "open";
   const canResume = canManage && ["paused", "closed"].includes(job.status) && !hasPaidContracts && !isFilled;
-  const canInvite  = canManage;
-  const days    = daysUntil(job.jobDate);
-  const urgent  = days !== null && days >= 0 && days <= 7;
-  const past    = days !== null && days < 0;
-  const manageReason = !canManage
-    ? "Somente o owner ou o agente criador pode gerenciar esta vaga."
-    : hasPaidContracts
-      ? "Esta vaga já possui reserva paga e não pode ser reaberta."
-      : isFilled
-        ? "A vaga já preencheu o número de talentos necessários."
-        : null;
+  const days  = daysUntil(job.jobDate);
+  const urgent = days !== null && days >= 0 && days <= 7;
+  const past  = days !== null && days < 0;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all">
-      <div className="flex items-start gap-3">
+    <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all">
 
-        {/* Creator avatar */}
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br ${avatarColor(job.createdByName)} flex items-center justify-center text-[10px] font-bold text-white mt-0.5`}>
-          {initials(job.createdByName)}
-        </div>
+      {/* Row 1: title + status + key meta */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-1">
+        <Link
+          href={`/agency/workspace/jobs/${job.id}`}
+          className="text-[14px] font-semibold text-zinc-900 hover:underline leading-snug"
+        >
+          {job.title}
+        </Link>
+        <span className={`rounded-full px-2 py-px text-[10px] font-semibold ${jobStatusTone(job.status)}`}>
+          {jobStatusLabel(job.status)}
+        </span>
+        {job.budget != null && (
+          <span className="rounded-full bg-zinc-100 px-2 py-px text-[10px] font-semibold text-zinc-600">
+            {brl(job.budget)}/talento
+          </span>
+        )}
+        {job.jobDate && !past && (
+          <Chip tone={urgent ? "rose" : "zinc"} icon={<CalIcon />}>
+            {urgent ? `${days}d restantes` : shortDate(job.jobDate)}
+          </Chip>
+        )}
+      </div>
 
-        <div className="flex-1 min-w-0">
-
-          {/* Title + status badges */}
-          <div className="flex flex-wrap items-center gap-1.5 mb-1">
-            <Link
-              href={`/agency/workspace/jobs/${job.id}`}
-              className="text-[14px] font-semibold text-zinc-900 hover:text-[#1ABC9C] transition-colors leading-snug"
-            >
-              {job.title}
-            </Link>
-            <span className={`rounded-full px-2 py-px text-[10px] font-semibold ${jobStatusTone(job.status)}`}>
-              {jobStatusLabel(job.status)}
-            </span>
-            {job.visibility === "private_invite" ? (
-              <span className="rounded-full border border-violet-200 bg-violet-50 px-2 py-px text-[10px] font-semibold text-violet-700">
-                Privada
-              </span>
-            ) : (
-              <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-px text-[10px] font-semibold text-sky-700">
-                Pública
-              </span>
-            )}
-            {isCreator && (
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-px text-[10px] font-semibold text-emerald-700">
-                Minha
-              </span>
-            )}
-          </div>
-
-          {/* Creator + meta row */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-zinc-500 mb-2">
-            <span>
-              <span className="font-medium text-zinc-700">{job.createdByName}</span>
-              <span className="ml-1 text-zinc-400">
-                {job.createdByRole === "owner" ? "· Proprietário" : "· Agente"}
-              </span>
-            </span>
-            {job.budget != null && (
-              <span className="font-semibold text-zinc-800">
-                {brl(job.budget)}<span className="font-normal text-zinc-400">/talento</span>
-              </span>
-            )}
-            {job.category && <span className="text-zinc-400">{job.category}</span>}
-            {job.location && (
-              <span className="flex items-center gap-0.5 text-zinc-400">
-                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {job.location}
-              </span>
-            )}
-          </div>
-
-          {/* Operational indicators */}
-          <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
-            {/* Candidates */}
-            <Chip
-              tone={job.submissionCount > 0 ? "zinc" : "muted"}
-              icon={<PeopleIcon />}
-            >
+      {/* Row 2: activity chips — only shown if there is activity */}
+      {(job.submissionCount > 0 || activeContracts > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5 mt-2 mb-2.5">
+          {job.submissionCount > 0 && (
+            <Chip tone={job.pendingCount > 0 ? "amber" : "zinc"} icon={<PeopleIcon />}>
               {job.submissionCount} candidato{job.submissionCount !== 1 ? "s" : ""}
+              {job.pendingCount > 0 ? ` · ${job.pendingCount} pendente${job.pendingCount !== 1 ? "s" : ""}` : ""}
             </Chip>
-
-            {/* Pending submissions — needs attention */}
-            {job.pendingCount > 0 && (
-              <Chip tone="amber" icon={<ClockIcon />}>
-                {job.pendingCount} pendente{job.pendingCount !== 1 ? "s" : ""}
-              </Chip>
-            )}
-
-            {/* Contracts awaiting signature */}
-            {job.contractCounts.signed > 0 && (
-              <Chip tone="amber" icon={<PenIcon />}>
-                {job.contractCounts.signed} aguard. assinatura
-              </Chip>
-            )}
-
-            {/* Contracts sent (talent hasn't acted yet) */}
-            {job.contractCounts.sent > 0 && (
-              <Chip tone="zinc" icon={<DocIcon />}>
-                {job.contractCounts.sent} enviado{job.contractCounts.sent !== 1 ? "s" : ""}
-              </Chip>
-            )}
-
-            {/* In escrow */}
-            {job.contractCounts.confirmed > 0 && (
-              <Chip tone="indigo" icon={<LockIcon />}>
-                {job.contractCounts.confirmed} em custódia
-              </Chip>
-            )}
-
-            {/* Paid */}
-            {job.contractCounts.paid > 0 && (
-              <Chip tone="emerald" icon={<CheckIcon />}>
-                {job.contractCounts.paid} pago{job.contractCounts.paid !== 1 ? "s" : ""}
-              </Chip>
-            )}
-
-            {/* Work date */}
-            {job.jobDate && (
-              <Chip tone={urgent ? "rose" : past ? "muted" : "zinc"} icon={<CalIcon />}>
-                {urgent
-                  ? `${days}d restantes`
-                  : past
-                    ? "Data passou"
-                    : shortDate(job.jobDate)}
-                {job.jobTime && !past ? ` · ${job.jobTime}` : ""}
-              </Chip>
-            )}
-          </div>
-
-          {/* Quick actions */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Link
-              href={`/agency/workspace/jobs/${job.id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
-            >
-              Ver candidatos
-              {job.pendingCount > 0 && (
-                <span className="rounded-full bg-amber-500 px-1.5 py-px text-[9px] font-bold text-white leading-none">
-                  {job.pendingCount}
-                </span>
-              )}
-            </Link>
-
-            {canEdit ? (
-              <Link
-                href={`/agency/workspace/jobs/${job.id}/edit`}
-                className="inline-flex items-center rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
-              >
-                Editar
-              </Link>
-            ) : (
-              <span
-                title={manageReason ?? "A vaga fechada não pode ser editada."}
-                className="inline-flex items-center rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-400"
-              >
-                Editar
-              </span>
-            )}
-
-            <button
-              type="button"
-              onClick={() => onStatusChange("paused")}
-              disabled={!canPause || statusChanging}
-              title={!canPause ? (manageReason ?? "Apenas vagas abertas podem ser pausadas.") : undefined}
-              className="inline-flex items-center rounded-lg border border-blue-200 px-2.5 py-1.5 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-white"
-            >
-              {statusChanging && job.status === "open" ? "..." : "Pausar"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onStatusChange("open")}
-              disabled={!canResume || statusChanging}
-              title={!canResume ? (manageReason ?? "A vaga não pode ser reaberta agora.") : undefined}
-              className="inline-flex items-center rounded-lg border border-emerald-200 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-white"
-            >
-              {statusChanging && ["paused", "closed"].includes(job.status) ? "..." : "Reabrir"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onStatusChange("closed")}
-              disabled={!canClose || statusChanging}
-              title={!canClose ? (manageReason ?? "A vaga já está fechada.") : undefined}
-              className="inline-flex items-center rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400 disabled:hover:bg-white"
-            >
-              {statusChanging && !["closed", "inactive"].includes(job.status) ? "..." : "Fechar vaga"}
-            </button>
-
-            {canInvite ? (
-              <WorkspacePrivateInviteButton jobId={job.id} />
-            ) : (
-              <span
-                title={job.visibility !== "private_invite" ? "Esta vaga não usa convite privado." : (manageReason ?? undefined)}
-                className="inline-flex items-center rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-400"
-              >
-                Copiar convite
-              </span>
-            )}
-          </div>
-          {manageReason && (
-            <p className="mt-2 text-[11px] text-zinc-400">{manageReason}</p>
+          )}
+          {(job.contractCounts.sent + job.contractCounts.signed) > 0 && (
+            <Chip tone="amber" icon={<DocIcon />}>
+              {job.contractCounts.sent + job.contractCounts.signed} aguardando
+            </Chip>
+          )}
+          {job.contractCounts.confirmed > 0 && (
+            <Chip tone="indigo" icon={<LockIcon />}>
+              {job.contractCounts.confirmed} em custódia
+            </Chip>
+          )}
+          {job.contractCounts.paid > 0 && (
+            <Chip tone="emerald" icon={<CheckIcon />}>
+              {job.contractCounts.paid} pago{job.contractCounts.paid !== 1 ? "s" : ""}
+            </Chip>
           )}
         </div>
+      )}
+
+      {/* Row 3: actions */}
+      <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+        <Link
+          href={`/agency/workspace/jobs/${job.id}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
+        >
+          Ver candidatos
+          {job.pendingCount > 0 && (
+            <span className="rounded-full bg-amber-500 px-1.5 py-px text-[9px] font-bold text-white leading-none">
+              {job.pendingCount}
+            </span>
+          )}
+        </Link>
+
+        {canManage && <WorkspacePrivateInviteButton jobId={job.id} />}
+
+        {canPause && (
+          <button
+            type="button"
+            onClick={() => onStatusChange("paused")}
+            disabled={statusChanging}
+            className="inline-flex items-center rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+          >
+            {statusChanging ? "..." : "Pausar"}
+          </button>
+        )}
+
+        {canResume && (
+          <button
+            type="button"
+            onClick={() => onStatusChange("open")}
+            disabled={statusChanging}
+            className="inline-flex items-center rounded-lg border border-emerald-200 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+          >
+            {statusChanging ? "..." : "Reabrir"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { brl } from "@/lib/brl";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
 import CreatePresentationModal from "@/features/agency/CreatePresentationModal";
+import WorkspacePrivateInviteButton from "@/features/agency/WorkspacePrivateInviteButton";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -247,13 +248,6 @@ function JobOverviewSection({
     video: "Vídeo", curriculum: "Currículo", portfolio: "Portfólio",
   };
 
-  function copyInviteLink() {
-    const url = typeof window !== "undefined"
-      ? `${window.location.origin}/jobs/${job.id}/apply`
-      : `/jobs/${job.id}/apply`;
-    void navigator.clipboard.writeText(url);
-  }
-
   return (
     <div className="space-y-4">
       {/* Back link */}
@@ -349,17 +343,19 @@ function JobOverviewSection({
             )}
 
             {/* Copy invite */}
-            <button
-              onClick={copyInviteLink}
-              disabled={!canManage}
-              title={!canManage ? (manageReason ?? undefined) : undefined}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-[12px] font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:cursor-not-allowed disabled:text-zinc-400 disabled:hover:bg-white"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Copiar convite
-            </button>
+            {canManage ? (
+              <WorkspacePrivateInviteButton jobId={job.id} />
+            ) : (
+              <span
+                title={manageReason ?? undefined}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-[12px] font-semibold text-zinc-400"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copiar convite
+              </span>
+            )}
           </div>
         </div>
 
@@ -453,6 +449,8 @@ export default function WorkspacePipelineBoard({
   userId,
   isOwner,
   readOnly,
+  brandPrimary = "#1ABC9C",
+  brandAccent  = "#27C1D6",
 }: {
   job: PipelineJob;
   candidates: PipelineCandidate[];
@@ -460,6 +458,8 @@ export default function WorkspacePipelineBoard({
   userId: string;
   isOwner: boolean;
   readOnly: boolean;
+  brandPrimary?: string;
+  brandAccent?: string;
 }) {
   const router = useRouter();
   const [candidates, setCandidates] = useState<PipelineCandidate[]>(initial);
@@ -688,10 +688,11 @@ export default function WorkspacePipelineBoard({
               <button
                 key={tab.id}
                 onClick={() => setActiveStage(tab.id)}
+                style={active ? { borderBottomColor: brandPrimary } : undefined}
                 className={[
                   "inline-flex items-center gap-1.5 px-3.5 py-2.5 text-[12px] font-medium border-b-2 -mb-px transition-colors whitespace-nowrap cursor-pointer",
                   active
-                    ? "border-[#1ABC9C] text-zinc-900"
+                    ? "text-zinc-900"
                     : "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-200",
                 ].join(" ")}
               >
@@ -699,7 +700,7 @@ export default function WorkspacePipelineBoard({
                 {tab.count > 0 && (
                   <span className={[
                     "rounded-full px-1.5 py-px text-[10px] font-bold leading-none",
-                    active ? "bg-[#1ABC9C]/15 text-[#1ABC9C]" : "bg-zinc-100 text-zinc-500",
+                    active ? "bg-zinc-100 text-zinc-700" : "bg-zinc-100 text-zinc-500",
                   ].join(" ")}>
                     {tab.count}
                   </span>

@@ -478,11 +478,20 @@ export default async function WorkspaceWalletPage() {
     );
   }
 
-  const [summary, members, ledgerMap, rows] = await Promise.all([
+  const supabase = createServerClient({ useServiceRole: true });
+
+  const [summary, members, ledgerMap, rows, walletTxsResult] = await Promise.all([
     getOwnerAllocationSummary(context.workspace.id, context.workspace.ownerUserId),
     getWorkspaceMembers(context.workspace.id),
     getWorkspaceAgentLedgerBalances(context.workspace.id),
     buildLedgerRows(context.workspace.id, 250, statusLang, t("workspace_private_job"), t("workspace_role_agent"), undefined, context.workspace.ownerUserId),
+    supabase
+      .from("wallet_transactions")
+      .select("id, type, amount, description, status, provider_status, created_at, processed_at, admin_note")
+      .eq("user_id", context.workspace.ownerUserId)
+      .in("type", ["deposit", "withdrawal"])
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   const agents = members.filter((member) => member.role === "agent");
@@ -550,6 +559,70 @@ export default async function WorkspaceWalletPage() {
         t={t}
         locale={locale}
       />
+
+      {/* Main wallet history: deposits and withdrawals */}
+      {(walletTxsResult.data ?? []).length > 0 && (
+        <section className="rounded-[28px] border border-zinc-200 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.05)]">
+          <div className="border-b border-zinc-100 px-6 py-5">
+            <h2 className="text-[16px] font-semibold text-zinc-900">Histórico da carteira principal</h2>
+            <p className="mt-1 text-[13px] text-zinc-500">Depósitos e saques processados na conta principal do workspace.</p>
+          </div>
+          <ul className="divide-y divide-zinc-100">
+            {(walletTxsResult.data ?? []).map((tx) => {
+              const isDeposit = tx.type === "deposit";
+              const isWithdrawal = tx.type === "withdrawal";
+              const statusNorm = (tx.status ?? "").toLowerCase();
+              const isPending = statusNorm === "pending" || tx.provider_status === "pending_checkout";
+              const isFailed  = statusNorm === "failed" || statusNorm === "cancelled";
+              const amount = Math.abs(Number(tx.amount ?? 0));
+
+              const typePill = isDeposit
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-zinc-200 bg-zinc-100 text-zinc-600";
+              const typeLabel = isDeposit ? "Depósito" : "Saque";
+              const amtColor  = isDeposit ? "text-emerald-700" : "text-rose-600";
+              const amtPrefix = isDeposit ? "+" : "−";
+
+              const statusPill = isPending
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : isFailed
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700";
+              const statusLabel = isPending ? "Pendente" : isFailed ? "Falhou" : "Confirmado";
+
+              return (
+                <li key={tx.id} className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${typePill}`}>
+                      {typeLabel}
+                    </span>
+                    <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusPill}`}>
+                      {statusLabel}
+                    </span>
+                    {tx.description && (
+                      <span className="text-[12px] text-zinc-500">{tx.description}</span>
+                    )}
+                    <span className="text-[11px] text-zinc-400">
+                      {formatDateTime(tx.created_at, locale)}
+                    </span>
+                    {isWithdrawal && tx.processed_at && (
+                      <span className="text-[11px] text-zinc-400">
+                        Processado em {formatDateTime(tx.processed_at as string | null, locale)}
+                      </span>
+                    )}
+                    {tx.admin_note && (
+                      <span className="text-[11px] text-zinc-500 italic">{tx.admin_note as string}</span>
+                    )}
+                  </div>
+                  <p className={`text-[1rem] font-bold tabular-nums ${amtColor}`}>
+                    {amtPrefix}{brl(amount)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

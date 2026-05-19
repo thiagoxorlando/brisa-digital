@@ -40,6 +40,8 @@ export type WorkspaceTalentCard = {
 type Props = {
   talents: WorkspaceTalentCard[];
   workspaceSlug: string | null;
+  brandPrimary?: string;
+  brandAccent?: string;
 };
 
 type FilterKey = "all" | "members" | "candidates" | "contracted";
@@ -167,7 +169,7 @@ function HistoryEmptyState() {
   );
 }
 
-export default function WorkspaceTalentsBoard({ talents, workspaceSlug }: Props) {
+export default function WorkspaceTalentsBoard({ talents, workspaceSlug, brandPrimary = "#0E7C86", brandAccent = "#1ABC9C" }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [copied, setCopied] = useState(false);
@@ -230,7 +232,10 @@ export default function WorkspaceTalentsBoard({ talents, workspaceSlug }: Props)
   return (
     <div className="space-y-8">
       <section className="overflow-hidden rounded-[32px] border border-zinc-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-        <div className="bg-[radial-gradient(circle_at_top_left,rgba(26,188,156,0.24),transparent_35%),linear-gradient(135deg,#082326_0%,#0D3035_48%,#14444A_100%)] px-6 py-6 text-white sm:px-8 sm:py-8">
+        <div
+          className="px-6 py-6 text-white sm:px-8 sm:py-8"
+          style={{ background: `radial-gradient(circle at top left, ${brandPrimary}40, transparent 35%), linear-gradient(135deg, ${brandPrimary} 0%, ${brandAccent} 100%)` }}
+        >
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
@@ -256,8 +261,9 @@ export default function WorkspaceTalentsBoard({ talents, workspaceSlug }: Props)
                 </button>
               ) : null}
               <Link
-                href="/agency/post-job"
-                className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold text-[#173033] shadow-[0_14px_28px_rgba(8,35,38,0.18)]"
+                href="/agency/workspace/jobs/new"
+                className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold shadow-[0_14px_28px_rgba(8,35,38,0.18)]"
+                style={{ color: brandPrimary }}
               >
                 Criar vaga privada
               </Link>
@@ -337,7 +343,10 @@ export default function WorkspaceTalentsBoard({ talents, workspaceSlug }: Props)
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={talent.avatarUrl} alt={talent.name} className="h-14 w-14 rounded-[18px] object-cover ring-1 ring-zinc-200" />
                       ) : (
-                        <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#0E7C86] to-[#1ABC9C] text-[15px] font-bold text-white shadow-[0_12px_28px_rgba(14,124,134,0.18)]">
+                        <div
+                          className="flex h-14 w-14 items-center justify-center rounded-[18px] text-[15px] font-bold text-white"
+                          style={{ background: `linear-gradient(135deg, ${brandPrimary}, ${brandAccent})` }}
+                        >
                           {initials(talent.name)}
                         </div>
                       )}
