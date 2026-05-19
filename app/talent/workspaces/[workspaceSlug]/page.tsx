@@ -140,7 +140,6 @@ export default async function TalentWorkspaceDashboard({ params }: Props) {
     payment_amount: number | null;
     net_amount: number | null;
     commission_amount: number | null;
-    commission_percent: number | null;
     paid_at: string | null;
     job_date: string | null;
     created_at: string;
@@ -156,7 +155,7 @@ export default async function TalentWorkspaceDashboard({ params }: Props) {
         .order("created_at", { ascending: false }),
       supabase
         .from("contracts")
-        .select("id, job_id, status, payment_amount, net_amount, commission_amount, commission_percent, paid_at, job_date, created_at")
+        .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at, job_date, created_at")
         .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
         .in("job_id", allJobIds)
         .order("created_at", { ascending: false }),

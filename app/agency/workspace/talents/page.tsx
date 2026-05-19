@@ -43,7 +43,6 @@ type WorkspaceContractRow = {
   payment_amount: number | null;
   commission_amount: number | null;
   net_amount: number | null;
-  commission_percent: number | null;
   paid_at: string | null;
   created_at: string;
 };
@@ -161,7 +160,7 @@ export default async function WorkspaceTalentsPage() {
     jobIds.length > 0
       ? supabase
           .from("contracts")
-          .select("id, talent_id, talent_user_id, job_id, status, payment_amount, commission_amount, net_amount, commission_percent, paid_at, created_at")
+          .select("id, talent_id, talent_user_id, job_id, status, payment_amount, commission_amount, net_amount, paid_at, created_at")
           .in("job_id", jobIds)
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
     supabase.auth.admin.listUsers({ perPage: 1000 }),

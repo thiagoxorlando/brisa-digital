@@ -88,12 +88,12 @@ const STATUS_LABEL: Record<string, string> = {
   pending_payment: "Aguardando pagamento",
   pending: "Pendente",
   cancelled: "Cancelado",
-  deposit: "Deposito",
+  deposit: "Depósito",
   payment: "Pagamento",
   withdrawal: "Saque",
-  escrow_lock: "Custodia",
-  escrow_released: "Liberado",
-  escrow_refunded: "Estornado",
+  escrow_lock: "Custódia bloqueada",
+  escrow_released: "Pago ao talento",
+  escrow_refunded: "Custódia estornada",
   refund: "Reembolso",
   agent_allocation: "Alocação a agente",
   agent_allocation_reversal: "Retorno de agente",
@@ -631,23 +631,23 @@ export default function AgencyFinances({
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard label="Saldo Total" value={brl(walletBalance)} sub="Saldo bruto em carteira" stripe="from-indigo-500 to-violet-500" />
         <StatCard label="Disponível para Saque" value={brl(availableBalance)} sub={allocatedToAgents > 0 ? `${brl(allocatedToAgents)} alocado a agentes` : "Saldo disponível em carteira"} stripe="from-emerald-400 to-teal-500" />
-        <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Aguardando confirmacao" stripe="from-amber-400 to-orange-500" />
+        <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Aguardando confirmação" stripe="from-amber-400 to-orange-500" />
         <StatCard label="Pagamentos Realizados" value={brl(summary.completedPayments)} sub="Reservas confirmadas" stripe="from-cyan-400 to-sky-500" />
       </div>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Transacoes</p>
-            <p className="text-[12px] text-zinc-400 mt-1">Depositos, custodia, pagamentos e movimentacoes da carteira.</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Transações</p>
+            <p className="text-[12px] text-zinc-400 mt-1">Depósitos, custódia, pagamentos e movimentações da carteira.</p>
           </div>
           <span className="text-[12px] font-semibold text-zinc-400">{transactions.length} itens</span>
         </div>
 
         {transactions.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center">
-            <p className="text-[14px] font-medium text-zinc-500">Nenhuma transacao ainda</p>
-            <p className="text-[13px] text-zinc-400 mt-1">Reservas e movimentacoes da carteira aparecerao aqui.</p>
+            <p className="text-[14px] font-medium text-zinc-500">Nenhuma transação ainda</p>
+            <p className="text-[13px] text-zinc-400 mt-1">Reservas e movimentações da carteira aparecerão aqui.</p>
           </div>
         ) : (
           <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
@@ -655,7 +655,7 @@ export default function AgencyFinances({
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-zinc-100">
-                    <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Descricao</th>
+                    <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Descrição</th>
                     <th className="text-right px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Valor</th>
                     <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Tipo</th>
                     <th className="text-right px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Data</th>

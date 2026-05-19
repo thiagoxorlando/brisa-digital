@@ -54,24 +54,43 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
   const primary = (workspace.brand_primary_color as string | null) ?? "#1ABC9C";
   const accent  = (workspace.brand_accent_color  as string | null) ?? "#27C1D6";
 
-  const { data: allJobs } = await supabase
-    .from("jobs")
-    .select("id, title")
-    .eq("workspace_id", workspace.id);
+  // Query contracts by workspace_id directly (most reliable) AND by job_id for legacy rows
+  const [{ data: allJobs }, { data: contractsByWorkspace }] = await Promise.all([
+    supabase.from("jobs").select("id, title").eq("workspace_id", workspace.id),
+    supabase
+      .from("contracts")
+      .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at")
+      .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
+      .eq("workspace_id", workspace.id)
+      .order("paid_at", { ascending: false }),
+  ]);
 
   const workspaceJobIds = (allJobs ?? []).map((j) => j.id);
   const jobMap = new Map((allJobs ?? []).map((j) => [String(j.id), String(j.title ?? "Vaga")]));
 
-  const { data: contractRows } = workspaceJobIds.length
+  // Also fetch contracts linked via job_id for rows that predate the workspace_id column
+  const { data: contractsByJob } = workspaceJobIds.length
     ? await supabase
         .from("contracts")
-        .select("id, job_id, status, payment_amount, net_amount, commission_amount, commission_percent, paid_at")
+        .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at")
         .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
         .in("job_id", workspaceJobIds)
         .order("paid_at", { ascending: false })
     : { data: [] };
 
-  const contracts = contractRows ?? [];
+  // Merge and deduplicate by contract id
+  const contractMap = new Map<string, typeof contractsByWorkspace extends (infer R)[] | null ? R : never>();
+  for (const c of [...(contractsByWorkspace ?? []), ...(contractsByJob ?? [])]) {
+    if (c && !contractMap.has(String(c.id))) contractMap.set(String(c.id), c);
+  }
+  const contractRows = [...contractMap.values()]
+    .sort((a, b) => {
+      const da = a.paid_at ? new Date(a.paid_at).getTime() : 0;
+      const db = b.paid_at ? new Date(b.paid_at).getTime() : 0;
+      return db - da;
+    });
+
+  const contracts = contractRows;
   const paidContracts    = contracts.filter((c) => c.status === "paid");
   const pendingContracts = contracts.filter(
     (c) => c.status !== "paid" && c.status !== "cancelled" && c.status !== "rejected",
@@ -138,7 +157,7 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
         <StatCard
           label="Saldo disponível para saque"
           value={brl(walletBalance)}
-          sub="Disponível via PIX"
+          sub="Saldo total da plataforma · disponível via PIX"
           accent={walletBalance > 0 ? "emerald" : undefined}
         />
       </div>
