@@ -93,7 +93,7 @@ const STATUS_LABEL: Record<string, string> = {
   withdrawal: "Saque",
   escrow_lock: "Custódia bloqueada",
   escrow_released: "Pago ao talento",
-  escrow_refunded: "Custódia estornada",
+  escrow_refunded: "Reembolsado",
   refund: "Reembolso",
   agent_allocation: "Alocação a agente",
   agent_allocation_reversal: "Retorno de agente",

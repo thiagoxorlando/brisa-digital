@@ -94,7 +94,9 @@ export default async function AgencyFinancesPage() {
     date:   b.created_at,
   }));
 
-  const contractRows = openContracts;
+  // Use ALL contracts (open space + workspace) for escrow matching so that
+  // Premium workspace paid/cancelled contracts are also resolved correctly.
+  const contractRows = contracts ?? [];
   const contractByEscrowKey = new Map(contractRows.map((c) => [`escrow_${c.id}`, c]));
   const fallbackMatchedContracts = new Set<string>();
 
@@ -140,10 +142,10 @@ export default async function AgencyFinancesPage() {
       bookingId = contract?.booking_id ?? null;
       if (contract?.status === "paid") {
         status = "escrow_released";
-        description = "Custódia liberada após pagamento";
+        description = "Pagamento ao talento";
       } else if (contract?.status === "cancelled") {
         status = "escrow_refunded";
-        description = "Custódia estornada após cancelamento";
+        description = "Estorno · reembolso";
       }
     }
 
