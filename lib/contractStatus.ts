@@ -70,6 +70,27 @@ export function contractStatusTone(status: ContractPaymentStatus): string {
   return STATUS_TONES[status];
 }
 
+export type ContractLifecycleState =
+  | "pending"
+  | "signed"
+  | "escrowed"
+  | "paid"
+  | "cancelled"
+  | "rejected";
+
+const LIFECYCLE_MAP: Record<string, ContractLifecycleState> = {
+  sent:      "pending",
+  signed:    "signed",
+  confirmed: "escrowed",
+  paid:      "paid",
+  cancelled: "cancelled",
+  rejected:  "rejected",
+};
+
+export function getContractLifecycleState(contract: { status: string }): ContractLifecycleState {
+  return LIFECYCLE_MAP[contract.status] ?? "pending";
+}
+
 export function resolveContractAmounts(c: {
   payment_amount?: number | null;
   amount?: number | null;

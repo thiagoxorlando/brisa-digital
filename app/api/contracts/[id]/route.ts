@@ -565,6 +565,64 @@ export async function PATCH(
     if (contractTalentUserId) {
       await notify(contractTalentUserId, "contract", "Agência cancelou o contrato", talentContractsHref);
     }
+
+    // Release committed agent allocation when a workspace contract is cancelled
+    // Mirrors job_settlement on pay — prevents the committed amount from staying
+    // locked in activelyAllocated / agent ledger after the job is gone.
+    if (contract.job_id) {
+      const { data: jobRow } = await supabase
+        .from("jobs")
+        .select("workspace_id, created_by_user_id, agency_id")
+        .eq("id", contract.job_id)
+        .maybeSingle();
+
+      const jobWorkspaceId = (jobRow as { workspace_id?: string | null } | null)?.workspace_id ?? null;
+      const jobCreatorId   = (jobRow as { created_by_user_id?: string | null } | null)?.created_by_user_id ?? null;
+
+      if (jobWorkspaceId && jobCreatorId && jobCreatorId !== (jobRow as { agency_id?: string | null } | null)?.agency_id) {
+        const releaseAmount = Number(contract.payment_amount ?? 0);
+        if (releaseAmount > 0) {
+          const { data: existingRelease } = await supabase
+            .from("premium_agent_wallet_transactions")
+            .select("id")
+            .eq("related_contract_id", id)
+            .eq("type", "job_release")
+            .maybeSingle();
+
+          if (!existingRelease) {
+            const { data: wsRow } = await supabase
+              .from("premium_workspaces")
+              .select("owner_user_id")
+              .eq("id", jobWorkspaceId)
+              .maybeSingle();
+
+            const { data: memberRow } = await supabase
+              .from("premium_workspace_members")
+              .select("role")
+              .eq("workspace_id", jobWorkspaceId)
+              .eq("user_id", jobCreatorId)
+              .eq("status", "active")
+              .maybeSingle();
+
+            if (wsRow && memberRow?.role === "agent") {
+              await supabase.from("premium_agent_wallet_transactions").insert({
+                workspace_id:        jobWorkspaceId,
+                agent_user_id:       jobCreatorId,
+                owner_user_id:       wsRow.owner_user_id,
+                type:                "job_release",
+                amount:              releaseAmount,
+                status:              "completed",
+                related_job_id:      contract.job_id,
+                related_contract_id: id,
+                created_by:          contract.agency_id,
+                note:                "Contrato cancelado.",
+              });
+            }
+          }
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true, status: "cancelled", derived_status: getUnifiedBookingStatus("cancelled", "cancelled") });
   }
 

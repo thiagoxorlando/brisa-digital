@@ -394,12 +394,21 @@ async function buildLedgerRows(
     }
   }
 
+  // Map contract ID → raw status for escrow filtering
+  const contractRawStatusMap = new Map<string, string>();
+  for (const contract of (contractsResult.data ?? []) as WorkspaceLedgerContractRow[]) {
+    contractRawStatusMap.set(String(contract.id), contract.status);
+  }
+
   // Build escrow_lock LedgerRows from wallet_transactions (owner money locked for workspace contracts)
-  const escrowRows: LedgerRow[] = (escrowTxsResult.data ?? []).map((tx) => {
+  // Skip entries for cancelled/rejected/paid contracts — escrow was refunded or already shown via job_settlement
+  const escrowRows: LedgerRow[] = (escrowTxsResult.data ?? []).flatMap((tx) => {
     const key = String((tx as Record<string, unknown>).idempotency_key ?? "");
     const contractId = key.startsWith("escrow_") ? key.slice("escrow_".length) : key;
+    const rawStatus = contractRawStatusMap.get(contractId) ?? "";
+    if (["cancelled", "rejected", "paid"].includes(rawStatus)) return [];
     const jobId = contractJobMap.get(contractId) ?? null;
-    return {
+    return [{
       id: String((tx as Record<string, unknown>).id),
       type: "escrow_lock",
       amount: Math.abs(Number((tx as Record<string, unknown>).amount ?? 0)),
@@ -412,7 +421,7 @@ async function buildLedgerRows(
       agentName: null,
       jobTitle: jobId ? (jobTitleMap.get(jobId) ?? null) : null,
       contract: contractMap.get(contractId) ?? null,
-    };
+    }];
   });
 
   const mappedRows: LedgerRow[] = rows.map((row) => ({

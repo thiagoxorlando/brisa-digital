@@ -202,15 +202,24 @@ function ContractCard({
           </button>
         )}
 
-        {/* Cancel only after escrow is funded */}
+        {/* Pay talent + Cancel for confirmed contracts */}
         {!isPaid && c.status === "confirmed" && (
-          <button
-            onClick={() => callAction("cancel_job", "cancelled", {})}
-            disabled={acting !== null}
-            className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
-          >
-            {acting === "cancel_job" ? "…" : "Cancelar"}
-          </button>
+          <>
+            <button
+              onClick={() => callAction("pay", "paid", { paidAt: new Date().toISOString() })}
+              disabled={acting !== null}
+              className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {acting === "pay" ? "Pagando..." : "Pagar talento"}
+            </button>
+            <button
+              onClick={() => callAction("cancel_job", "cancelled", {})}
+              disabled={acting !== null}
+              className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {acting === "cancel_job" ? "…" : "Cancelar"}
+            </button>
+          </>
         )}
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -284,7 +293,7 @@ function ContractCard({
               {[
                 { label: t("contracts_sent"),         date: fmtDate(c.createdAt, lang),              done: true              },
                 { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt        },
-                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt   },
+                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt || ["confirmed", "paid"].includes(c.status) },
                 { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast },
                 { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt          },
               ].map((step, i) => (

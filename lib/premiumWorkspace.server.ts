@@ -758,7 +758,7 @@ export async function getOwnerTotalActiveAllocations(ownerUserId: string): Promi
     .eq("owner_user_id", ownerUserId)
     .eq("status", "completed")
     .is("reversed_at", null)
-    .in("type", ["allocation", "allocation_reversal", "job_settlement"]);
+    .in("type", ["allocation", "allocation_reversal", "job_settlement", "job_release"]);
 
   let totalAllocated = 0;
   let totalSettled = 0;
@@ -767,6 +767,7 @@ export async function getOwnerTotalActiveAllocations(ownerUserId: string): Promi
     if (tx.type === "allocation")               totalAllocated += amt;
     else if (tx.type === "allocation_reversal") totalAllocated -= amt;
     else if (tx.type === "job_settlement")      totalSettled   += amt;
+    else if (tx.type === "job_release")         totalSettled   += amt;
   }
   return Math.max(0, totalAllocated - totalSettled);
 }

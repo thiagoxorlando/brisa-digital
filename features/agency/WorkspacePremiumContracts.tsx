@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
 import {
@@ -118,7 +122,9 @@ function ContractProgress({
   );
 }
 
-function ContractCard({ contract, locale, lang }: { contract: PremiumContract; locale: string; lang: string }) {
+function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumContract; locale: string; lang: string; onPaid: (id: string) => void }) {
+  const [paying, setPaying] = useState(false);
+
   const ps    = getContractPaymentStatus({ status: contract.status, paid_at: contract.paidAt });
   const label = contractStatusLabel(ps, lang === "en" ? "en" : "pt-BR");
   const tone  = contractStatusTone(ps);
@@ -131,6 +137,17 @@ function ContractCard({ contract, locale, lang }: { contract: PremiumContract; l
   const isPaid      = contract.status === "paid";
   const isActive    = ["sent", "signed", "confirmed"].includes(contract.status);
   const isCancelled = ["cancelled", "rejected"].includes(contract.status);
+
+  async function handlePay() {
+    setPaying(true);
+    const res = await fetch(`/api/contracts/${contract.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "pay" }),
+    });
+    if (res.ok) onPaid(contract.id);
+    setPaying(false);
+  }
 
   const borderCls  = isPaid ? "border-emerald-200" : isActive ? "border-amber-200" : "border-zinc-200";
   const topBarCls  = isPaid
@@ -214,7 +231,16 @@ function ContractCard({ contract, locale, lang }: { contract: PremiumContract; l
               <span>Criado em {fmt(contract.createdAt, locale)}</span>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {contract.status === "confirmed" && (
+              <button
+                onClick={handlePay}
+                disabled={paying}
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {paying ? "Pagando..." : "Pagar talento"}
+              </button>
+            )}
             {contract.jobId && (
               <Link
                 href={`/agency/workspace/jobs/${contract.jobId}`}
@@ -240,11 +266,19 @@ function ContractCard({ contract, locale, lang }: { contract: PremiumContract; l
 }
 
 export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }: Props) {
+  const router = useRouter();
   const locale = lang === "en" ? "en-US" : "pt-BR";
+  const [paidIds, setPaidIds] = useState<Set<string>>(new Set());
 
-  const active   = contracts.filter((c) => ["sent", "signed", "confirmed"].includes(c.status));
-  const paid     = contracts.filter((c) => c.status === "paid");
-  const inactive = contracts.filter((c) => ["cancelled", "rejected"].includes(c.status));
+  function handlePaid(id: string) {
+    setPaidIds((prev) => new Set([...prev, id]));
+    router.refresh();
+  }
+
+  const resolvedContracts = contracts.map((c) => paidIds.has(c.id) ? { ...c, status: "paid" } : c);
+  const active   = resolvedContracts.filter((c) => ["sent", "signed", "confirmed"].includes(c.status));
+  const paid     = resolvedContracts.filter((c) => c.status === "paid");
+  const inactive = resolvedContracts.filter((c) => ["cancelled", "rejected"].includes(c.status));
 
   const totalPaidNet = paid.reduce((sum, c) => {
     const { net } = resolveContractAmounts({
@@ -302,7 +336,7 @@ export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }:
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Em andamento</p>
           <div className="flex flex-col gap-3">
-            {active.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} />)}
+            {active.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} />)}
           </div>
         </section>
       )}
@@ -311,7 +345,7 @@ export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }:
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Concluídos</p>
           <div className="flex flex-col gap-3">
-            {paid.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} />)}
+            {paid.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} />)}
           </div>
         </section>
       )}
@@ -320,7 +354,7 @@ export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }:
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Cancelados / Rejeitados</p>
           <div className="flex flex-col gap-3">
-            {inactive.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} />)}
+            {inactive.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} />)}
           </div>
         </section>
       )}
