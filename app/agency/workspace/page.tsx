@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { brl } from "@/lib/brl";
@@ -426,6 +427,11 @@ export default async function WorkspacePage() {
     redirect("/agency/dashboard");
   }
 
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "brisahub.com";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const portalBaseUrl = `${proto}://${host}`;
+
   const premiumPlan = await getLivePlanSetting("premium");
   let workspaceAccess = await getUserPremiumWorkspace(user.id);
 
@@ -672,7 +678,7 @@ export default async function WorkspacePage() {
             {workspace.slug ? (
               <p className="mt-1 text-[12px] text-zinc-500">
                 {t("workspace_identity_portal_url")}{" "}
-                <span className="font-mono text-zinc-700">/{workspace.slug}</span>
+                <span className="font-mono text-zinc-700">{portalBaseUrl}/{workspace.slug}</span>
               </p>
             ) : (
               <p className="mt-1 text-[12px] text-zinc-400">{t("workspace_identity_portal_url_missing")}</p>

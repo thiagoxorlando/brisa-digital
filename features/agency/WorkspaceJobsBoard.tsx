@@ -427,7 +427,7 @@ function JobCard({
   const past  = days !== null && days < 0;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-zinc-300 hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all">
+    <div className={`rounded-2xl border px-4 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all ${isCreator ? "bg-[#F5FCFB] border-[#C8E8E3] hover:border-[#A8D9D2]" : "bg-white border-zinc-200 hover:border-zinc-300"}`}>
 
       {/* Row 1: title + status + key meta */}
       <div className="flex flex-wrap items-center gap-1.5 mb-1">

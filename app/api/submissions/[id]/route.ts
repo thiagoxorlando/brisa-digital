@@ -98,6 +98,22 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Talent cancelling their own submission → soft-cancel so it stays visible
+  if (submission.talent_user_id === user.id && talentCanDelete) {
+    const { error } = await supabase
+      .from("submissions")
+      .update({ status: "cancelled" })
+      .eq("id", id);
+
+    if (error) {
+      console.error("[DELETE /api/submissions/[id]] soft-cancel", error);
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // Agency / admin / referrer → hard delete
   const { error } = await supabase
     .from("submissions")
     .delete()

@@ -7,7 +7,7 @@ import WorkspaceApplicationsClient, {
   type WorkspaceApplicationItem,
 } from "@/features/talent/WorkspaceApplicationsClient";
 
-export const metadata: Metadata = { title: "Candidaturas — BrisaHub" };
+export const metadata: Metadata = { title: "Reservas — BrisaHub" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 
@@ -16,6 +16,7 @@ const STATUS_ORDER: Record<string, number> = {
   pending: 1,
   in_review: 1,
   rejected: 2,
+  cancelled: 3,
 };
 
 export default async function WorkspaceApplicationsPage({ params }: Props) {

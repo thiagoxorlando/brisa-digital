@@ -46,6 +46,7 @@ export default function WorkspaceApplicationsClient({
   const pending = items.filter((item) => item.status === "pending" || item.status === "in_review");
   const approved = items.filter((item) => item.status === "approved");
   const rejected = items.filter((item) => item.status === "rejected");
+  const cancelled = items.filter((item) => item.status === "cancelled");
 
   async function handleCancel(item: WorkspaceApplicationItem) {
     if (!item.canCancel || busyId) return;
@@ -59,16 +60,20 @@ export default function WorkspaceApplicationsClient({
       if (!res.ok) {
         setFeedback((current) => ({
           ...current,
-          [item.id]: data.error ?? "Não foi possível cancelar esta candidatura.",
+          [item.id]: data.error ?? "Não foi possível cancelar esta reserva.",
         }));
         return;
       }
 
-      setItems((current) => current.filter((entry) => entry.id !== item.id));
+      setItems((current) =>
+        current.map((entry) =>
+          entry.id === item.id ? { ...entry, status: "cancelled", canCancel: false } : entry
+        )
+      );
     } catch {
       setFeedback((current) => ({
         ...current,
-        [item.id]: "Não foi possível cancelar esta candidatura.",
+        [item.id]: "Não foi possível cancelar esta reserva.",
       }));
     } finally {
       setBusyId(null);
@@ -97,7 +102,7 @@ export default function WorkspaceApplicationsClient({
           <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-zinc-400">
             {workspaceName}
           </p>
-          <h1 className="text-[1.3rem] font-bold leading-tight text-zinc-950">Candidaturas</h1>
+          <h1 className="text-[1.3rem] font-bold leading-tight text-zinc-950">Reservas</h1>
         </div>
       </div>
 
@@ -121,6 +126,11 @@ export default function WorkspaceApplicationsClient({
               {rejected.length} não selecionada{rejected.length !== 1 ? "s" : ""}
             </span>
           )}
+          {cancelled.length > 0 && (
+            <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[12px] font-medium text-zinc-400">
+              {cancelled.length} cancelada{cancelled.length !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
       )}
 
@@ -134,7 +144,7 @@ export default function WorkspaceApplicationsClient({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-[14px] font-semibold text-zinc-600">Nenhuma candidatura ainda.</p>
+          <p className="text-[14px] font-semibold text-zinc-600">Nenhuma reserva ainda.</p>
           <p className="mt-1 text-[13px] text-zinc-400">
             Candidate-se às{" "}
             <Link href={`/talent/workspaces/${workspaceSlug}/jobs`} className="font-medium text-zinc-700 underline-offset-2 hover:underline">
@@ -152,12 +162,13 @@ export default function WorkspaceApplicationsClient({
             const tone = submissionStatusTone(item.status);
             const isPending = item.status === "pending" || item.status === "in_review";
             const isApproved = item.status === "approved";
-            const disableReason = item.canCancel ? null : (item.cancelReason ?? "Esta candidatura não pode mais ser cancelada.");
+            const isCancelled = item.status === "cancelled";
+            const disableReason = item.canCancel ? null : (item.cancelReason ?? "Esta reserva não pode mais ser cancelada.");
 
             return (
               <li key={item.id}>
                 <div className={`overflow-hidden rounded-[20px] border bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)] ${
-                  isApproved ? "border-emerald-200" : "border-zinc-200"
+                  isApproved ? "border-emerald-200" : isCancelled ? "border-zinc-100 opacity-60" : "border-zinc-200"
                 }`}>
                   {isApproved && (
                     <div className="h-[3px]" style={{ background: `linear-gradient(to right, ${primary}, ${accent})` }} />
@@ -195,7 +206,7 @@ export default function WorkspaceApplicationsClient({
                         </span>
                       )}
                       <span className="text-zinc-400">
-                        Candidatou-se em{" "}
+                        Reservado em{" "}
                         {new Date(item.createdAt).toLocaleDateString(locale, {
                           day: "numeric", month: "short", year: "numeric",
                         })}
@@ -205,7 +216,7 @@ export default function WorkspaceApplicationsClient({
                     {isPending && (
                       <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
                         <p className="text-[12px] leading-relaxed text-amber-700">
-                          Sua candidatura está em análise. Você pode cancelar enquanto não houver contrato enviado.
+                          Sua reserva está em análise. Você pode cancelar enquanto não houver contrato enviado.
                         </p>
                       </div>
                     )}
@@ -213,7 +224,15 @@ export default function WorkspaceApplicationsClient({
                     {isApproved && (
                       <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
                         <p className="text-[12px] leading-relaxed text-emerald-700">
-                          Candidatura aprovada. Aguarde o envio do contrato pela agência.
+                          Reserva aprovada. Aguarde o envio do contrato pela agência.
+                        </p>
+                      </div>
+                    )}
+
+                    {isCancelled && (
+                      <div className="mt-3 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5">
+                        <p className="text-[12px] leading-relaxed text-zinc-500">
+                          Reserva cancelada por você.
                         </p>
                       </div>
                     )}
@@ -225,15 +244,17 @@ export default function WorkspaceApplicationsClient({
                     )}
 
                     <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleCancel(item)}
-                        disabled={!item.canCancel || busyId === item.id}
-                        title={disableReason ?? undefined}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 py-2 text-[12px] font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-white"
-                      >
-                        {busyId === item.id ? "Cancelando..." : "Cancelar candidatura"}
-                      </button>
+                      {!isCancelled && (
+                        <button
+                          type="button"
+                          onClick={() => void handleCancel(item)}
+                          disabled={!item.canCancel || busyId === item.id}
+                          title={disableReason ?? undefined}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 py-2 text-[12px] font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:text-zinc-400 disabled:hover:bg-white"
+                        >
+                          {busyId === item.id ? "Cancelando..." : "Cancelar reserva"}
+                        </button>
+                      )}
                       {item.jobId && (
                         <Link
                           href={`/talent/workspaces/${workspaceSlug}/jobs/${item.jobId}`}
