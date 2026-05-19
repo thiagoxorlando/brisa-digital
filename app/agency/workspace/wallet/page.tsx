@@ -89,14 +89,16 @@ function StatCard({
 
 function txLabel(type: string, t: TFn): string {
   const map: Record<string, string> = {
-    allocation: t("workspace_wallet_tx_allocation"),
-    allocation_reversal: t("workspace_wallet_tx_allocation_reversal"),
-    job_commitment: t("workspace_wallet_tx_job_commitment"),
-    job_release: t("workspace_wallet_tx_job_release"),
-    job_settlement: t("workspace_wallet_tx_job_settlement"),
-    refund: t("workspace_wallet_tx_refund"),
-    adjustment: t("workspace_wallet_tx_adjustment"),
-    escrow_lock: t("workspace_wallet_tx_escrow_lock"),
+    allocation:           t("workspace_wallet_tx_allocation"),
+    allocation_reversal:  t("workspace_wallet_tx_allocation_reversal"),
+    job_commitment:       t("workspace_wallet_tx_job_commitment"),
+    job_release:          t("workspace_wallet_tx_job_release"),
+    job_settlement:       t("workspace_wallet_tx_job_settlement"),
+    refund:               t("workspace_wallet_tx_refund"),
+    adjustment:           t("workspace_wallet_tx_adjustment"),
+    escrow_lock:          t("workspace_wallet_tx_escrow_lock"),
+    escrow_released:      "Pagamento ao talento",
+    escrow_refunded:      "Estorno · reembolso",
   };
 
   return map[type] ?? type;
@@ -104,32 +106,36 @@ function txLabel(type: string, t: TFn): string {
 
 function txTypeTone(type: string): string {
   const map: Record<string, string> = {
-    allocation: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    allocation:          "border-emerald-200 bg-emerald-50 text-emerald-700",
     allocation_reversal: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    job_commitment: "border-amber-200 bg-amber-50 text-amber-700",
-    job_release: "border-sky-200 bg-sky-50 text-sky-700",
-    job_settlement: "border-rose-200 bg-rose-50 text-rose-700",
-    refund: "border-zinc-200 bg-zinc-100 text-zinc-700",
-    adjustment: "border-zinc-200 bg-zinc-100 text-zinc-700",
-    escrow_lock: "border-amber-200 bg-amber-50 text-amber-700",
+    job_commitment:      "border-amber-200 bg-amber-50 text-amber-700",
+    job_release:         "border-sky-200 bg-sky-50 text-sky-700",
+    job_settlement:      "border-rose-200 bg-rose-50 text-rose-700",
+    refund:              "border-zinc-200 bg-zinc-100 text-zinc-700",
+    adjustment:          "border-zinc-200 bg-zinc-100 text-zinc-700",
+    escrow_lock:         "border-amber-200 bg-amber-50 text-amber-700",
+    escrow_released:     "border-rose-200 bg-rose-50 text-rose-700",
+    escrow_refunded:     "border-sky-200 bg-sky-50 text-sky-700",
   };
 
   return map[type] ?? "border-zinc-200 bg-zinc-100 text-zinc-700";
 }
 
 function txAmountTone(type: string): string {
-  if (type === "job_settlement") return "text-rose-600";
-  if (type === "job_commitment") return "text-amber-700";
-  if (type === "escrow_lock") return "text-amber-700";
+  if (type === "job_settlement")      return "text-rose-600";
+  if (type === "escrow_released")     return "text-rose-600";
+  if (type === "job_commitment")      return "text-amber-700";
+  if (type === "escrow_lock")         return "text-amber-700";
   if (type === "allocation_reversal") return "text-indigo-700";
-  if (type === "job_release") return "text-sky-700";
-  if (type === "allocation") return "text-emerald-700";
+  if (type === "job_release")         return "text-sky-700";
+  if (type === "escrow_refunded")     return "text-sky-700";
+  if (type === "allocation")          return "text-emerald-700";
   return "text-zinc-700";
 }
 
 function txAmountPrefix(type: string): string {
-  if (["job_commitment", "job_settlement", "allocation_reversal", "escrow_lock"].includes(type)) return "-";
-  if (["allocation", "job_release", "refund"].includes(type)) return "+";
+  if (["job_commitment", "job_settlement", "allocation_reversal", "escrow_lock", "escrow_released"].includes(type)) return "−";
+  if (["allocation", "job_release", "refund", "escrow_refunded"].includes(type)) return "+";
   return "";
 }
 
@@ -400,17 +406,23 @@ async function buildLedgerRows(
     contractRawStatusMap.set(String(contract.id), contract.status);
   }
 
-  // Build escrow_lock LedgerRows from wallet_transactions (owner money locked for workspace contracts)
-  // Skip entries for cancelled/rejected/paid contracts — escrow was refunded or already shown via job_settlement
-  const escrowRows: LedgerRow[] = (escrowTxsResult.data ?? []).flatMap((tx) => {
+  // Build escrow LedgerRows from wallet_transactions for all workspace contracts.
+  // Resolve the type based on the contract's final status so the ledger shows
+  // every financial interaction: lock → released (paid to talent) or refunded.
+  const escrowRows: LedgerRow[] = (escrowTxsResult.data ?? []).map((tx) => {
     const key = String((tx as Record<string, unknown>).idempotency_key ?? "");
     const contractId = key.startsWith("escrow_") ? key.slice("escrow_".length) : key;
     const rawStatus = contractRawStatusMap.get(contractId) ?? "";
-    if (["cancelled", "rejected", "paid"].includes(rawStatus)) return [];
     const jobId = contractJobMap.get(contractId) ?? null;
-    return [{
+
+    const resolvedType =
+      rawStatus === "paid"                              ? "escrow_released"
+      : (rawStatus === "cancelled" || rawStatus === "rejected") ? "escrow_refunded"
+      : "escrow_lock";
+
+    return {
       id: String((tx as Record<string, unknown>).id),
-      type: "escrow_lock",
+      type: resolvedType,
       amount: Math.abs(Number((tx as Record<string, unknown>).amount ?? 0)),
       status: String((tx as Record<string, unknown>).status ?? "completed"),
       note: null,
@@ -421,7 +433,7 @@ async function buildLedgerRows(
       agentName: null,
       jobTitle: jobId ? (jobTitleMap.get(jobId) ?? null) : null,
       contract: contractMap.get(contractId) ?? null,
-    }];
+    };
   });
 
   const mappedRows: LedgerRow[] = rows.map((row) => ({
