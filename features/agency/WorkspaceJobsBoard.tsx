@@ -432,7 +432,7 @@ function JobCard({
   const canPause = canManage && job.status === "open";
   const canClose = canManage && !["closed", "inactive"].includes(job.status);
   const canResume = canManage && ["paused", "closed"].includes(job.status) && !hasPaidContracts && !isFilled;
-  const canInvite  = canManage && job.visibility === "private_invite";
+  const canInvite  = canManage;
   const days    = daysUntil(job.jobDate);
   const urgent  = days !== null && days >= 0 && days <= 7;
   const past    = days !== null && days < 0;

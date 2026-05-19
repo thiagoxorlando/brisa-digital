@@ -498,7 +498,7 @@ export default async function WorkspacePage() {
   }));
 
   const myJobs = workspaceJobs.filter((job) => job.createdByUserId === user.id);
-  const privateJobs = workspaceJobs.filter((job) => job.visibility === "private_invite");
+  const privateJobs = workspaceJobs;
   const walletBalance = Number(ownerProfile.data?.wallet_balance ?? 0);
   const seatLimitReached = isOwner && seatUsage.remaining === 0;
   const activeAgents = members.filter((member) => member.role === "agent" && member.status === "active");

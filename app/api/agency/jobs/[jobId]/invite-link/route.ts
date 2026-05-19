@@ -36,13 +36,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Sem permissão para esta vaga." }, { status: 403 });
   }
 
-  if (job.visibility !== "private_invite" && !job.invite_only) {
-    return NextResponse.json(
-      { error: "Esta vaga não é privada por convite." },
-      { status: 400 }
-    );
-  }
-
   if (job.deleted_at || job.status === "inactive" || job.status === "cancelled") {
     return NextResponse.json({ error: "Esta vaga não está disponível." }, { status: 409 });
   }
