@@ -105,3 +105,7 @@ export function talentWorkspaceJobDetailHref(
   if (!jobId) return talentWorkspaceJobsHref(workspaceSlug);
   return workspaceSlug ? `/talent/workspaces/${workspaceSlug}/jobs/${jobId}` : `/talent/jobs/${jobId}`;
 }
+
+export function talentWorkspaceFinancesHref(workspaceSlug: string | null | undefined) {
+  return workspaceSlug ? `/talent/workspaces/${workspaceSlug}/finances` : "/talent/finances";
+}
