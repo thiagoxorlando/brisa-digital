@@ -237,7 +237,8 @@ export default async function WorkspaceWalletPage() {
 
   const agents = members.filter((member) => member.role === "agent");
   const ledgerBalances = Array.from(ledgerMap.values());
-  const totalAgentAvailable = ledgerBalances.reduce((sum, ledger) => sum + ledger.availableAmount, 0);
+  const totalAgentAvailable   = ledgerBalances.reduce((sum, ledger) => sum + ledger.availableAmount, 0);
+  const totalAgentCommitted   = ledgerBalances.reduce((sum, ledger) => sum + ledger.committedAmount, 0);
   const availableToAllocateOrReclaim = summary.ownerUnallocatedAvailable + totalAgentAvailable;
 
   return (
@@ -247,7 +248,7 @@ export default async function WorkspaceWalletPage() {
         <p className="mt-1 text-[14px] text-zinc-500">{t("workspace_wallet_owner_page_description")}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label={t("workspace_wallet_owner_balance_label")}
           value={brl(summary.ownerUnallocatedAvailable)}
@@ -260,10 +261,16 @@ export default async function WorkspaceWalletPage() {
           accent="indigo"
         />
         <StatCard
+          label={t("workspace_wallet_agent_job_reservations")}
+          value={brl(totalAgentCommitted)}
+          hint={t("workspace_wallet_agent_job_reservations_hint")}
+          accent="amber"
+        />
+        <StatCard
           label={t("workspace_wallet_committed_escrow")}
           value={brl(escrowSummary.activeEscrow)}
           hint={t("workspace_wallet_committed_escrow_hint")}
-          accent="amber"
+          accent="sky"
         />
         <StatCard
           label={t("workspace_wallet_paid_talents")}

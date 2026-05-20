@@ -106,7 +106,7 @@ export async function PATCH(
   if (typeof update.status === "string") {
     const normalizedStatus = JOB_STATUS_ALIASES[String(update.status).trim().toLowerCase()];
     if (!normalizedStatus) {
-      return NextResponse.json({ error: "Status invÃ¡lido." }, { status: 400 });
+      return NextResponse.json({ error: "Status inválido." }, { status: 400 });
     }
     update.status = normalizedStatus;
   }
@@ -118,8 +118,82 @@ export async function PATCH(
     return NextResponse.json({ error: "Vagas privadas estão disponíveis apenas no Premium." }, { status: 403 });
   }
 
-  // No ledger re-check on edit — commitment was set at creation.
-  // A future task can add delta-check if needed.
+  // Delta-commitment: when an agent edits budget or number_of_talents_required on a
+  // workspace job, adjust the virtual ledger so the committed amount stays in sync.
+  // We do this BEFORE the DB update so we can validate available balance on increases.
+  const isAgentEdit =
+    belongsToWorkspace && !isWorkspaceOwner && isWorkspaceCreator && !!workspaceId;
+  const budgetChanging = "budget" in update;
+  const talentsChanging = "number_of_talents_required" in update;
+
+  if (isAgentEdit && (budgetChanging || talentsChanging)) {
+    const newBudget = Number(update.budget ?? existingJob.budget ?? 0);
+    const newTalents = Number(update.number_of_talents_required ?? existingJob.number_of_talents_required ?? 1);
+    const newTotal = newBudget * newTalents;
+
+    const { data: wsRow } = await supabase
+      .from("premium_workspaces").select("owner_user_id").eq("id", workspaceId).maybeSingle();
+
+    if (wsRow) {
+      // Sum all job_commitment rows for this job (there may be multiple from previous deltas)
+      const { data: commitRows } = await supabase
+        .from("premium_agent_wallet_transactions")
+        .select("amount")
+        .eq("related_job_id", id)
+        .eq("type", "job_commitment")
+        .eq("status", "completed")
+        .is("reversed_at", null);
+
+      const { data: releaseRows } = await supabase
+        .from("premium_agent_wallet_transactions")
+        .select("amount")
+        .eq("related_job_id", id)
+        .eq("type", "job_release")
+        .eq("status", "completed")
+        .is("reversed_at", null);
+
+      const totalCommitted = (commitRows ?? []).reduce((s, tx) => s + Number(tx.amount), 0);
+      const totalReleased  = (releaseRows ?? []).reduce((s, tx) => s + Number(tx.amount), 0);
+      const netCommitment  = totalCommitted - totalReleased;
+      const delta          = newTotal - netCommitment;
+
+      if (delta > 0) {
+        // Increase: validate agent has enough available balance
+        const { getAgentLedgerBalance } = await import("@/lib/premiumWorkspace.server");
+        const ledger = await getAgentLedgerBalance(workspaceId, user.id);
+        if (delta > ledger.availableAmount) {
+          return NextResponse.json(
+            { error: "Saldo alocado insuficiente para esta alteração. Solicite mais saldo ao proprietário." },
+            { status: 403 }
+          );
+        }
+        await supabase.from("premium_agent_wallet_transactions").insert({
+          workspace_id:   workspaceId,
+          agent_user_id:  user.id,
+          owner_user_id:  wsRow.owner_user_id,
+          type:           "job_commitment",
+          amount:         delta,
+          status:         "completed",
+          related_job_id: id,
+          created_by:     user.id,
+          note:           "Ajuste de comprometimento ao editar orçamento/talentos.",
+        });
+      } else if (delta < 0) {
+        // Decrease: release the surplus back to agent's available balance
+        await supabase.from("premium_agent_wallet_transactions").insert({
+          workspace_id:   workspaceId,
+          agent_user_id:  user.id,
+          owner_user_id:  wsRow.owner_user_id,
+          type:           "job_release",
+          amount:         Math.abs(delta),
+          status:         "completed",
+          related_job_id: id,
+          created_by:     user.id,
+          note:           "Alocação parcialmente liberada ao reduzir orçamento/talentos.",
+        });
+      }
+    }
+  }
 
   const ownerAgencyId = workspaceId ? existingJob.agency_id : user.id;
   const effectivePlan = (workspaceId && belongsToWorkspace ? "premium" : (caller.plan ?? "free")) as Plan;

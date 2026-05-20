@@ -1198,6 +1198,8 @@
   workspace_wallet_owner_balance_hint: "Saldo disponível após alocações aos agentes",
   workspace_wallet_allocated_to_agents: "Alocado aos agentes",
   workspace_wallet_allocated_to_agents_hint: "Ainda reservado na operação dos agentes",
+  workspace_wallet_agent_job_reservations: "Reservado em vagas (agentes)",
+  workspace_wallet_agent_job_reservations_hint: "Comprometido pelos agentes em vagas abertas — ledger virtual",
   workspace_wallet_committed_escrow: "Comprometido / escrow",
   workspace_wallet_committed_escrow_hint: "Travado em vagas ainda abertas",
   workspace_wallet_paid_talents: "Pago a talentos",
