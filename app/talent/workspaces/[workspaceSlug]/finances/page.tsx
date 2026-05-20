@@ -3,7 +3,12 @@ import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { brl } from "@/lib/brl";
-import { resolveContractAmounts } from "@/lib/contractStatus";
+import {
+  getContractPaymentStatus,
+  contractStatusLabel,
+  contractStatusTone,
+  resolveContractAmounts,
+} from "@/lib/contractStatus";
 import WorkspaceFinancesClient from "@/features/talent/WorkspaceFinancesClient";
 
 export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
@@ -59,10 +64,10 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
     supabase.from("jobs").select("id, title").eq("workspace_id", workspace.id),
     supabase
       .from("contracts")
-      .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at")
+      .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at, job_date, signed_at, created_at")
       .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
       .eq("workspace_id", workspace.id)
-      .order("paid_at", { ascending: false }),
+      .order("created_at", { ascending: false }),
   ]);
 
   const workspaceJobIds = (allJobs ?? []).map((j) => j.id);
@@ -72,10 +77,10 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
   const { data: contractsByJob } = workspaceJobIds.length
     ? await supabase
         .from("contracts")
-        .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at")
+        .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at, job_date, signed_at, created_at")
         .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
         .in("job_id", workspaceJobIds)
-        .order("paid_at", { ascending: false })
+        .order("created_at", { ascending: false })
     : { data: [] };
 
   // Merge and deduplicate by contract id
@@ -85,9 +90,9 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
   }
   const contractRows = [...contractMap.values()]
     .sort((a, b) => {
-      const da = a.paid_at ? new Date(a.paid_at).getTime() : 0;
-      const db = b.paid_at ? new Date(b.paid_at).getTime() : 0;
-      return db - da;
+      const aTime = a.paid_at ?? (a as { created_at?: string | null }).created_at ?? "";
+      const bTime = b.paid_at ?? (b as { created_at?: string | null }).created_at ?? "";
+      return bTime.localeCompare(aTime);
     });
 
   const contracts = contractRows;
@@ -161,6 +166,54 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
           accent={walletBalance > 0 ? "emerald" : undefined}
         />
       </div>
+
+      {/* Pending receivables */}
+      {pendingContracts.length > 0 && (
+        <section className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
+            Valores a receber
+          </p>
+          <div className="overflow-hidden rounded-[22px] border border-amber-100 bg-amber-50/40 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
+            <ul className="divide-y divide-amber-100/60">
+              {pendingContracts.map((contract) => {
+                const { net, gross, commissionPct } = resolveContractAmounts(
+                  contract as Parameters<typeof resolveContractAmounts>[0],
+                );
+                const ps = getContractPaymentStatus(contract as { status: string; paid_at?: string | null });
+                const statusLabel = contractStatusLabel(ps);
+                const statusTone  = contractStatusTone(ps);
+                const jobDate = (contract as { job_date?: string | null }).job_date;
+                return (
+                  <li key={contract.id} className="flex items-center gap-4 px-5 py-4">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                      <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold text-zinc-900">
+                        {jobMap.get(String(contract.job_id)) ?? "Vaga"}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-zinc-500">
+                        Bruto {brl(gross)} · Comissão {commissionPct}%
+                        {jobDate && (
+                          <> · Trabalho em {new Date(jobDate).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}</>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                      <p className="text-[16px] font-semibold tabular-nums text-amber-700">{brl(net)}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusTone}`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* Paid contracts history */}
       {paidContracts.length > 0 && (

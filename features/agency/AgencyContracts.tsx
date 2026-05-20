@@ -233,7 +233,11 @@ function ContractCard({
           />
           <ContractFileButton
             label="Assinado"
-            missingLabel="Aguardando assinatura"
+            missingLabel={
+              !c.signedContractUrl && (c.signedAt || ["signed", "confirmed", "paid"].includes(c.status))
+                ? "Aceito digitalmente"
+                : "Aguardando assinatura"
+            }
             url={c.signedContractUrl}
             tone="success"
           />
