@@ -21,6 +21,7 @@ import {
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import WorkspaceOnboardingChecklist from "@/features/agency/WorkspaceOnboardingChecklist";
+import { buildWorkspaceDashboardCounts } from "@/lib/readModels/workspaceDashboard";
 
 export const metadata: Metadata = { title: "Espaco Premium - BrisaHub" };
 
@@ -503,8 +504,16 @@ export default async function WorkspacePage() {
     createdByUserId: row.created_by_user_id ?? null,
   }));
 
+  const dashCounts = buildWorkspaceDashboardCounts(
+    workspaceJobs.map((j) => ({
+      id: j.id,
+      status: j.status,
+      createdByUserId: j.createdByUserId,
+      applicants: j.applicants,
+    })),
+    user.id,
+  );
   const myJobs = workspaceJobs.filter((job) => job.createdByUserId === user.id);
-  const privateJobs = workspaceJobs;
   const walletBalance = Number(ownerProfile.data?.wallet_balance ?? 0);
   const seatLimitReached = isOwner && seatUsage.remaining === 0;
   const activeAgents = members.filter((member) => member.role === "agent" && member.status === "active");
@@ -546,7 +555,7 @@ export default async function WorkspacePage() {
           label: lang === "en" ? "Create your first private job" : "Criar primeira vaga privada",
           hint: lang === "en" ? "Post a private job visible only to invited talent." : "Publique uma vaga privada visível apenas para talentos convidados.",
           href: "/agency/workspace/jobs",
-          done: privateJobs.length > 0,
+          done: dashCounts.totalJobs > 0,
         },
       ]
     : [];
@@ -580,13 +589,13 @@ export default async function WorkspacePage() {
           />
           <SummaryCard
             label={t("workspace_private_job")}
-            value={String(privateJobs.length)}
+            value={String(dashCounts.totalJobs)}
             hint={t("workspace_summary_private_jobs_hint")}
           />
           <SummaryCard
             label={t("workspace_jobs_team_title")}
-            value={String(workspaceJobs.length)}
-            hint={t("workspace_summary_all_workspace_jobs")}
+            value={String(dashCounts.totalJobs)}
+            hint={`${dashCounts.openJobs} ${t("workspace_available_plural").toLowerCase()}`}
           />
           <SummaryCard
             label={t("nav_workspace_wallet")}

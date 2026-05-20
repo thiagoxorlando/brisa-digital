@@ -39,17 +39,12 @@ export async function notify(
     ...(idempotencyKey && ids.length === 1 ? { idempotency_key: idempotencyKey } : {}),
   }));
 
-  console.log("[notify] inserting:", rows.map((r) => ({ user_id: r.user_id, type: r.type, idempotency_key: (r as Record<string, unknown>).idempotency_key ?? null })));
-
-  const { data: inserted, error } = await supabase
+  const { error } = await supabase
     .from("notifications")
-    .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true })
-    .select("id, user_id, type");
+    .upsert(rows, { onConflict: "idempotency_key", ignoreDuplicates: true });
 
   if (error) {
-    console.error("[notify] insert failed:", error.message, { type, message, ids });
-  } else {
-    console.log("[notify] inserted ok:", inserted);
+    console.error("[notify] insert failed:", error.message, { type, ids });
   }
 }
 

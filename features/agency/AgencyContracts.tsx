@@ -126,9 +126,11 @@ function Field({ label, value }: { label: string; value: string }) {
 function ContractCard({
   contract: c,
   onUpdate,
+  showPaymentActions = true,
 }: {
   contract: AgencyContract;
   onUpdate: (id: string, updates: Partial<AgencyContract>) => void;
+  showPaymentActions?: boolean;
 }) {
   const [expanded,         setExpanded]         = useState(false);
   const [acting,           setActing]           = useState<string | null>(null);
@@ -192,7 +194,7 @@ function ContractCard({
           {stLabel}
         </span>
 
-        {c.status === "signed" && (
+        {showPaymentActions && c.status === "signed" && (
           <button
             onClick={handleConfirmEscrow}
             disabled={acting !== null}
@@ -203,7 +205,7 @@ function ContractCard({
         )}
 
         {/* Pay talent + Cancel for confirmed contracts */}
-        {!isPaid && c.status === "confirmed" && (
+        {showPaymentActions && !isPaid && c.status === "confirmed" && (
           <>
             <button
               onClick={() => callAction("pay", "paid", { paidAt: new Date().toISOString() })}
@@ -344,12 +346,14 @@ function JobGroup({
   contracts,
   onUpdate,
   bookingsHref,
+  showPaymentActions = true,
 }: {
   jobTitle: string;
   jobId: string | null;
   contracts: AgencyContract[];
   onUpdate: (id: string, updates: Partial<AgencyContract>) => void;
   bookingsHref: string;
+  showPaymentActions?: boolean;
 }) {
   const pendingDeposit = contracts.filter((c) => c.status === "signed").length;
   const confirmed      = contracts.filter((c) => c.status === "confirmed" || c.status === "paid").length;
@@ -409,7 +413,7 @@ function JobGroup({
       {/* Contract rows */}
       <div className="divide-y divide-zinc-50">
         {contracts.map((c) => (
-          <ContractCard key={c.id} contract={c} onUpdate={onUpdate} />
+          <ContractCard key={c.id} contract={c} onUpdate={onUpdate} showPaymentActions={showPaymentActions} />
         ))}
       </div>
     </div>
@@ -421,9 +425,11 @@ function JobGroup({
 export default function AgencyContracts({
   contracts: initialContracts,
   bookingsHref = "/agency/bookings",
+  showPaymentActions = true,
 }: {
   contracts: AgencyContract[];
   bookingsHref?: string;
+  showPaymentActions?: boolean;
 }) {
   const [contracts,    setContracts]    = useState<AgencyContract[]>(initialContracts);
   const [filter,       setFilter]       = useState<FilterStatus>("all");
@@ -583,6 +589,7 @@ export default function AgencyContracts({
                 contracts={group}
                 onUpdate={handleUpdate}
                 bookingsHref={bookingsHref}
+                showPaymentActions={showPaymentActions}
               />
             );
           })}

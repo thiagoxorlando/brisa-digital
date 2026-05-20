@@ -2,12 +2,6 @@ import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { brl } from "@/lib/brl";
 import {
-  contractStatusLabel,
-  contractStatusTone,
-  getContractPaymentStatus,
-  resolveContractAmounts,
-} from "@/lib/contractStatus";
-import {
   getAgentLedgerBalance,
   getOwnerAllocationSummary,
   getWorkspaceAgentLedgerBalances,
@@ -16,48 +10,20 @@ import {
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 import { getServerLang, getServerT } from "@/lib/i18n/server";
 import WorkspaceWalletAllocator from "@/features/agency/WorkspaceWalletAllocator";
+import {
+  buildWorkspaceLedgerRows,
+  buildWorkspaceEscrowSummary,
+  txLabel,
+  txTypeTone,
+  txAmountTone,
+  txAmountPrefix,
+  txStatusTone,
+  txStatusLabel,
+  type WorkspaceLedgerRow,
+  type TFn,
+} from "@/lib/readModels/workspaceLedger";
 
 export const metadata: Metadata = { title: "Carteira Premium - BrisaHub" };
-
-type LedgerTxBase = {
-  id: string;
-  type: string;
-  amount: number;
-  status: string;
-  note: string | null;
-  created_at: string;
-  related_job_id: string | null;
-  related_contract_id: string | null;
-  agent_user_id: string;
-};
-
-type ContractLedgerRow = {
-  id: string;
-  label: string;
-  tone: string;
-  gross: number;
-  commission: number;
-  net: number;
-  paidAt: string | null;
-};
-
-type WorkspaceLedgerContractRow = {
-  id: string;
-  job_id: string | null;
-  payment_amount: number | null;
-  commission_amount: number | null;
-  net_amount: number | null;
-  status: string;
-  paid_at: string | null;
-};
-
-type LedgerRow = LedgerTxBase & {
-  agentName: string | null;
-  jobTitle: string | null;
-  contract: ContractLedgerRow | null;
-};
-
-type TFn = (key: string) => string;
 
 function StatCard({
   label,
@@ -87,71 +53,6 @@ function StatCard({
   );
 }
 
-function txLabel(type: string, t: TFn): string {
-  const map: Record<string, string> = {
-    allocation:           t("workspace_wallet_tx_allocation"),
-    allocation_reversal:  t("workspace_wallet_tx_allocation_reversal"),
-    job_commitment:       t("workspace_wallet_tx_job_commitment"),
-    job_release:          t("workspace_wallet_tx_job_release"),
-    job_settlement:       t("workspace_wallet_tx_job_settlement"),
-    refund:               t("workspace_wallet_tx_refund"),
-    adjustment:           t("workspace_wallet_tx_adjustment"),
-    escrow_lock:          t("workspace_wallet_tx_escrow_lock"),
-    escrow_released:      "Pagamento ao talento",
-    escrow_refunded:      "Estorno · reembolso",
-  };
-
-  return map[type] ?? type;
-}
-
-function txTypeTone(type: string): string {
-  const map: Record<string, string> = {
-    allocation:          "border-emerald-200 bg-emerald-50 text-emerald-700",
-    allocation_reversal: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    job_commitment:      "border-amber-200 bg-amber-50 text-amber-700",
-    job_release:         "border-sky-200 bg-sky-50 text-sky-700",
-    job_settlement:      "border-rose-200 bg-rose-50 text-rose-700",
-    refund:              "border-zinc-200 bg-zinc-100 text-zinc-700",
-    adjustment:          "border-zinc-200 bg-zinc-100 text-zinc-700",
-    escrow_lock:         "border-amber-200 bg-amber-50 text-amber-700",
-    escrow_released:     "border-rose-200 bg-rose-50 text-rose-700",
-    escrow_refunded:     "border-sky-200 bg-sky-50 text-sky-700",
-  };
-
-  return map[type] ?? "border-zinc-200 bg-zinc-100 text-zinc-700";
-}
-
-function txAmountTone(type: string): string {
-  if (type === "job_settlement")      return "text-rose-600";
-  if (type === "escrow_released")     return "text-rose-600";
-  if (type === "job_commitment")      return "text-amber-700";
-  if (type === "escrow_lock")         return "text-amber-700";
-  if (type === "allocation_reversal") return "text-indigo-700";
-  if (type === "job_release")         return "text-sky-700";
-  if (type === "escrow_refunded")     return "text-sky-700";
-  if (type === "allocation")          return "text-emerald-700";
-  return "text-zinc-700";
-}
-
-function txAmountPrefix(type: string): string {
-  if (["job_commitment", "job_settlement", "allocation_reversal", "escrow_lock", "escrow_released"].includes(type)) return "−";
-  if (["allocation", "job_release", "refund", "escrow_refunded"].includes(type)) return "+";
-  return "";
-}
-
-function txStatusTone(status: string): string {
-  const normalized = status.toLowerCase();
-  if (normalized === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (normalized === "pending") return "border-amber-200 bg-amber-50 text-amber-700";
-  return "border-zinc-200 bg-zinc-100 text-zinc-700";
-}
-
-function txStatusLabel(status: string, t: TFn): string {
-  const normalized = status.toLowerCase();
-  if (normalized === "completed") return t("status_completed");
-  if (normalized === "pending") return t("status_pending");
-  return status;
-}
 
 function formatDateTime(value: string | null, locale: string): string {
   if (!value) return "-";
@@ -177,7 +78,7 @@ function TimelineCard({
 }: {
   title: string;
   description: string;
-  rows: LedgerRow[];
+  rows: WorkspaceLedgerRow[];
   t: TFn;
   locale: string;
 }) {
@@ -275,179 +176,6 @@ function TimelineCard({
   );
 }
 
-async function buildLedgerRows(
-  workspaceId: string,
-  limit: number,
-  statusLang: "pt-BR" | "en",
-  privateJobLabel: string,
-  unknownAgentLabel: string,
-  agentUserId?: string,
-  ownerUserId?: string,
-): Promise<LedgerRow[]> {
-  const supabase = createServerClient({ useServiceRole: true });
-
-  // Round 1: agent virtual ledger + workspace contract IDs for escrow lookup
-  let query = supabase
-    .from("premium_agent_wallet_transactions")
-    .select("id, type, amount, status, note, created_at, related_job_id, related_contract_id, agent_user_id")
-    .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (agentUserId) query = query.eq("agent_user_id", agentUserId);
-
-  const [{ data }, wsContractIdsResult] = await Promise.all([
-    query,
-    // Only needed for owner view to surface escrow_lock entries from wallet_transactions
-    ownerUserId
-      ? supabase.from("contracts").select("id").eq("workspace_id", workspaceId)
-      : Promise.resolve({ data: [] as Array<{ id: string }> }),
-  ]);
-
-  const rows: LedgerTxBase[] = (data ?? []).map((row) => ({
-    id: String(row.id),
-    type: String(row.type),
-    amount: Number(row.amount ?? 0),
-    status: String(row.status ?? "completed"),
-    note: row.note ?? null,
-    created_at: String(row.created_at),
-    related_job_id: row.related_job_id ?? null,
-    related_contract_id: row.related_contract_id ?? null,
-    agent_user_id: String(row.agent_user_id),
-  }));
-
-  const wsContractIds = (wsContractIdsResult.data ?? []).map((c) => c.id);
-  const escrowKeys = wsContractIds.map((id) => `escrow_${id}`);
-
-  if (rows.length === 0 && wsContractIds.length === 0) return [];
-
-  // Merge contract IDs from agent txs + all workspace contracts so enrichment covers both
-  const contractIdsFromTxs = [...new Set(rows.map((row) => row.related_contract_id).filter((v): v is string => Boolean(v)))];
-  const allContractIds = [...new Set([...contractIdsFromTxs, ...wsContractIds])];
-  const jobIds = [...new Set(rows.map((row) => row.related_job_id).filter((v): v is string => Boolean(v)))];
-
-  // Round 2: enrichment data + escrow wallet_transactions for workspace contracts
-  const [jobsResult, contractsResult, payoutResult, membersResult, escrowTxsResult] = await Promise.all([
-    jobIds.length > 0
-      ? supabase.from("jobs").select("id, title").in("id", jobIds)
-      : Promise.resolve({ data: [] as Array<{ id: string; title: string | null }> }),
-    allContractIds.length > 0
-      ? supabase
-          .from("contracts")
-          .select("id, job_id, payment_amount, commission_amount, net_amount, status, paid_at")
-          .in("id", allContractIds)
-      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
-    allContractIds.length > 0
-      ? supabase
-          .from("wallet_transactions")
-          .select("reference_id, amount")
-          .eq("type", "payout")
-          .in("reference_id", allContractIds)
-      : Promise.resolve({ data: [] as Array<{ reference_id: string | null; amount: number | null }> }),
-    getWorkspaceMembers(workspaceId),
-    // Fetch actual escrow_lock entries from wallet_transactions for workspace contracts (owner view only)
-    escrowKeys.length > 0
-      ? supabase
-          .from("wallet_transactions")
-          .select("id, amount, status, created_at, idempotency_key")
-          .in("idempotency_key", escrowKeys)
-          .eq("type", "escrow_lock")
-      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
-  ]);
-
-  const jobTitleMap = new Map<string, string>();
-  for (const job of jobsResult.data ?? []) {
-    jobTitleMap.set(String(job.id), job.title ?? privateJobLabel);
-  }
-
-  const payoutMap = new Map<string, number>();
-  for (const payout of payoutResult.data ?? []) {
-    if (!payout.reference_id) continue;
-    payoutMap.set(String(payout.reference_id), Number(payout.amount ?? 0));
-  }
-
-  const memberNameMap = new Map<string, string>();
-  for (const member of membersResult) {
-    memberNameMap.set(member.userId, member.displayName || member.email || unknownAgentLabel);
-  }
-
-  // contract.job_id lookup for escrow row enrichment
-  const contractJobMap = new Map<string, string | null>();
-
-  const contractMap = new Map<string, ContractLedgerRow>();
-  for (const contract of (contractsResult.data ?? []) as (WorkspaceLedgerContractRow & { job_id: string | null })[]) {
-    const paymentStatus = getContractPaymentStatus(contract);
-    const { gross, commission, net } = resolveContractAmounts(contract);
-    const paidToTalent =
-      payoutMap.get(String(contract.id))
-      ?? (contract.net_amount != null ? Number(contract.net_amount) : null)
-      ?? Math.max(0, gross - commission);
-
-    contractMap.set(String(contract.id), {
-      id: String(contract.id),
-      label: contractStatusLabel(paymentStatus, statusLang),
-      tone: contractStatusTone(paymentStatus),
-      gross,
-      commission,
-      net: paidToTalent ?? net,
-      paidAt: (contract.paid_at as string | null) ?? null,
-    });
-
-    contractJobMap.set(String(contract.id), contract.job_id ?? null);
-
-    if (contract.job_id && !jobTitleMap.has(String(contract.job_id))) {
-      jobTitleMap.set(String(contract.job_id), privateJobLabel);
-    }
-  }
-
-  // Map contract ID → raw status for escrow filtering
-  const contractRawStatusMap = new Map<string, string>();
-  for (const contract of (contractsResult.data ?? []) as WorkspaceLedgerContractRow[]) {
-    contractRawStatusMap.set(String(contract.id), contract.status);
-  }
-
-  // Build escrow LedgerRows from wallet_transactions for all workspace contracts.
-  // Resolve the type based on the contract's final status so the ledger shows
-  // every financial interaction: lock → released (paid to talent) or refunded.
-  const escrowRows: LedgerRow[] = (escrowTxsResult.data ?? []).map((tx) => {
-    const key = String((tx as Record<string, unknown>).idempotency_key ?? "");
-    const contractId = key.startsWith("escrow_") ? key.slice("escrow_".length) : key;
-    const rawStatus = contractRawStatusMap.get(contractId) ?? "";
-    const jobId = contractJobMap.get(contractId) ?? null;
-
-    const resolvedType =
-      rawStatus === "paid"                              ? "escrow_released"
-      : (rawStatus === "cancelled" || rawStatus === "rejected") ? "escrow_refunded"
-      : "escrow_lock";
-
-    return {
-      id: String((tx as Record<string, unknown>).id),
-      type: resolvedType,
-      amount: Math.abs(Number((tx as Record<string, unknown>).amount ?? 0)),
-      status: String((tx as Record<string, unknown>).status ?? "completed"),
-      note: null,
-      created_at: String((tx as Record<string, unknown>).created_at),
-      related_job_id: jobId,
-      related_contract_id: contractId,
-      agent_user_id: ownerUserId ?? "",
-      agentName: null,
-      jobTitle: jobId ? (jobTitleMap.get(jobId) ?? null) : null,
-      contract: contractMap.get(contractId) ?? null,
-    };
-  });
-
-  const mappedRows: LedgerRow[] = rows.map((row) => ({
-    ...row,
-    agentName: memberNameMap.get(row.agent_user_id) ?? null,
-    jobTitle: row.related_job_id ? jobTitleMap.get(row.related_job_id) ?? null : null,
-    contract: row.related_contract_id ? contractMap.get(row.related_contract_id) ?? null : null,
-  }));
-
-  return [...mappedRows, ...escrowRows].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  );
-}
-
 export default async function WorkspaceWalletPage() {
   const [t, lang] = await Promise.all([getServerT(), getServerLang()]);
   const locale = lang === "en" ? "en-US" : "pt-BR";
@@ -457,7 +185,7 @@ export default async function WorkspaceWalletPage() {
   if (!context.isOwner) {
     const [ledger, rows] = await Promise.all([
       getAgentLedgerBalance(context.workspace.id, context.userId),
-      buildLedgerRows(context.workspace.id, 120, statusLang, t("workspace_private_job"), t("workspace_role_agent"), context.userId),
+      buildWorkspaceLedgerRows(context.workspace.id, 120, statusLang, t("workspace_private_job"), t("workspace_role_agent"), context.userId),
     ]);
 
     return (
@@ -492,11 +220,11 @@ export default async function WorkspaceWalletPage() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const [summary, members, ledgerMap, rows, walletTxsResult] = await Promise.all([
+  const [summary, members, ledgerMap, rows, walletTxsResult, escrowSummary] = await Promise.all([
     getOwnerAllocationSummary(context.workspace.id, context.workspace.ownerUserId),
     getWorkspaceMembers(context.workspace.id),
     getWorkspaceAgentLedgerBalances(context.workspace.id),
-    buildLedgerRows(context.workspace.id, 250, statusLang, t("workspace_private_job"), t("workspace_role_agent"), undefined, context.workspace.ownerUserId),
+    buildWorkspaceLedgerRows(context.workspace.id, 250, statusLang, t("workspace_private_job"), t("workspace_role_agent"), undefined, context.workspace.ownerUserId),
     supabase
       .from("wallet_transactions")
       .select("id, type, amount, description, status, provider_status, created_at, processed_at, admin_note")
@@ -504,12 +232,11 @@ export default async function WorkspaceWalletPage() {
       .in("type", ["deposit", "withdrawal"])
       .order("created_at", { ascending: false })
       .limit(50),
+    buildWorkspaceEscrowSummary(context.workspace.id),
   ]);
 
   const agents = members.filter((member) => member.role === "agent");
   const ledgerBalances = Array.from(ledgerMap.values());
-  const totalCommitted = ledgerBalances.reduce((sum, ledger) => sum + ledger.committedAmount, 0);
-  const totalSettled = ledgerBalances.reduce((sum, ledger) => sum + ledger.spentAmount, 0);
   const totalAgentAvailable = ledgerBalances.reduce((sum, ledger) => sum + ledger.availableAmount, 0);
   const availableToAllocateOrReclaim = summary.ownerUnallocatedAvailable + totalAgentAvailable;
 
@@ -534,13 +261,13 @@ export default async function WorkspaceWalletPage() {
         />
         <StatCard
           label={t("workspace_wallet_committed_escrow")}
-          value={brl(totalCommitted)}
+          value={brl(escrowSummary.activeEscrow)}
           hint={t("workspace_wallet_committed_escrow_hint")}
           accent="amber"
         />
         <StatCard
           label={t("workspace_wallet_paid_talents")}
-          value={brl(totalSettled)}
+          value={brl(escrowSummary.paidToTalents)}
           hint={t("workspace_wallet_settled_paid_contracts")}
           accent="rose"
         />

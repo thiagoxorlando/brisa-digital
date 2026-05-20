@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import AgencyFinances from "@/features/agency/AgencyFinances";
-import type { AgencyTransaction, AgencyFinanceSummary } from "@/features/agency/AgencyFinances";
+import type { AgencyFinanceSummary } from "@/features/agency/AgencyFinances";
 import { WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
 import { getOwnerTotalActiveAllocations } from "@/lib/premiumWorkspace.server";
+import { buildAgencyWalletLedgerRows, type AgencyLedgerRow } from "@/lib/readModels/agencyLedger";
 
 export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
-
-const ESCROW_MATCH_WINDOW_MS = 5 * 60 * 1000;
 
 export default async function AgencyFinancesPage() {
   const session = await createSessionClient();
@@ -84,7 +83,7 @@ export default async function AgencyFinancesPage() {
     for (const p of profiles ?? []) nameMap.set(p.id, p.full_name ?? "Sem nome");
   }
 
-  const bookingTxs: AgencyTransaction[] = openBookings.map((b) => ({
+  const bookingTxs: AgencyLedgerRow[] = openBookings.map((b) => ({
     id:     b.id,
     kind:   "booking" as const,
     talent: nameMap.get(b.talent_user_id) ?? "Sem nome",
@@ -95,95 +94,12 @@ export default async function AgencyFinancesPage() {
   }));
 
   // Use ALL contracts (open space + workspace) for escrow matching so that
-  // Premium workspace paid/cancelled contracts are also resolved correctly.
-  const contractRows = contracts ?? [];
-  const contractByEscrowKey = new Map(contractRows.map((c) => [`escrow_${c.id}`, c]));
-  const fallbackMatchedContracts = new Set<string>();
-
-  function findEscrowContract(w: { amount: number | null; created_at: string; idempotency_key?: string | null }) {
-    const keyed = w.idempotency_key ? contractByEscrowKey.get(w.idempotency_key) : null;
-    if (keyed) return keyed;
-
-    const txTime = new Date(w.created_at).getTime();
-    const matches = contractRows.filter((c) => {
-      if (fallbackMatchedContracts.has(c.id)) return false;
-      if (Math.abs(Number(c.payment_amount ?? 0) - Number(w.amount ?? 0)) > 0.01) return false;
-
-      const lockDate = c.confirmed_at ?? c.deposit_paid_at ?? c.agency_signed_at;
-      if (!lockDate) return false;
-
-      return Math.abs(new Date(lockDate).getTime() - txTime) <= ESCROW_MATCH_WINDOW_MS;
-    });
-
-    if (matches.length !== 1) return null;
-    fallbackMatchedContracts.add(matches[0].id);
-    return matches[0];
-  }
-
-  const walletRows: AgencyTransaction[] = (walletTxs ?? [])
-    .map((w) => {
-    let status = w.type ?? "payment";
-    let description = (w.description ?? "").replace(/ \(pendente\)/gi, "").trim() || undefined;
-    let bookingId: string | null = null;
-
-    if (w.type === "deposit") {
-      const normalized = (w.status ?? "").toLowerCase();
-      if (normalized === "paid" || normalized === "completed" || normalized === "confirmed") {
-        status = normalized;
-      } else if (normalized === "pending" || w.provider_status === "pending_checkout") {
-        status = "pending";
-      } else {
-        status = "deposit";
-      }
-    }
-
-    if (status === "escrow_lock") {
-      const contract = findEscrowContract(w);
-      bookingId = contract?.booking_id ?? null;
-      if (contract?.status === "paid") {
-        status = "escrow_released";
-        description = "Pagamento ao talento";
-      } else if (contract?.status === "cancelled") {
-        status = "escrow_refunded";
-        description = "Estorno · reembolso";
-      }
-    }
-
-    return {
-      id:              w.id,
-      kind:            "wallet" as const,
-      talent:          "",
-      job:             "",
-      amount:          w.amount ?? 0,
-      status,
-      date:            w.created_at,
-      description,
-      bookingId,
-      href:            bookingId ? `/agency/bookings?booking_id=${bookingId}` : undefined,
-      withdrawalStatus: w.type === "withdrawal" ? (w.status ?? null) : undefined,
-      adminNote:        w.type === "withdrawal" ? ((w as Record<string, unknown>).admin_note    as string | null ?? null) : undefined,
-      processedAt:      w.type === "withdrawal" ? ((w as Record<string, unknown>).processed_at as string | null ?? null) : undefined,
-      provider:         w.provider ?? null,
-      providerStatus:   w.provider_status ?? null,
-    };
-  });
-
-  // Agent allocation/reclaim entries for the transaction ledger
-  const allocationRows: AgencyTransaction[] = (agentAllocTxs ?? []).map((tx) => ({
-    id:          tx.id,
-    kind:        "wallet" as const,
-    talent:      "",
-    job:         "",
-    amount:      Number(tx.amount),
-    status:      tx.type === "allocation" ? "agent_allocation" : "agent_allocation_reversal",
-    date:        tx.created_at,
-    description: tx.type === "allocation"
-      ? (tx.note ? `Alocação para agente · ${tx.note}` : "Alocação para agente")
-      : (tx.note ? `Retorno de saldo do agente · ${tx.note}` : "Retorno de saldo do agente"),
-  }));
-
-  const transactions: AgencyTransaction[] = [...walletRows, ...allocationRows]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Premium workspace paid/cancelled/rejected contracts resolve correctly.
+  const transactions: AgencyLedgerRow[] = buildAgencyWalletLedgerRows(
+    walletTxs ?? [],
+    contracts ?? [],
+    agentAllocTxs ?? [],
+  );
 
   const completed = bookingTxs.filter((t) => t.status === "paid" || t.status === "confirmed");
   const pending   = bookingTxs.filter((t) => t.status === "pending" || t.status === "pending_payment");

@@ -7,6 +7,7 @@ import { formatCpfCnpj, isValidCpfCnpj } from "@/lib/cpf";
 import { generateReceiptPdf } from "@/lib/generateReceiptPdf";
 import { brl } from "@/lib/brl";
 import { withdrawalStatusLabel } from "@/lib/withdrawalStatus";
+import type { AgencyLedgerRow } from "@/lib/readModels/agencyLedger";
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -28,23 +29,8 @@ function fmtDateTime(value: string | null | undefined) {
   });
 }
 
-export type AgencyTransaction = {
-  id: string;
-  kind?: "booking" | "wallet";
-  bookingId?: string | null;
-  href?: string;
-  talent: string;
-  job: string;
-  amount: number;
-  status: string;
-  date: string;
-  description?: string;
-  withdrawalStatus?: string | null;
-  adminNote?: string | null;
-  processedAt?: string | null;
-  provider?: string | null;
-  providerStatus?: string | null;
-};
+/** AgencyTransaction is the canonical AgencyLedgerRow from the read model. */
+export type AgencyTransaction = AgencyLedgerRow;
 
 export type AgencyFinanceSummary = {
   totalSpent: number;

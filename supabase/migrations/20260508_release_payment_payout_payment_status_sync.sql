@@ -70,7 +70,7 @@ BEGIN
   IF v_talent_id IS NOT NULL THEN
     INSERT INTO notifications (user_id, type, message, link, is_read, idempotency_key)
     VALUES (
-      v_talent_id, 'payment', 'AgÃªncia liberou seu pagamento â€” a caminho!',
+      v_talent_id, 'payment', 'Agência liberou seu pagamento — a caminho!',
       '/talent/finances', false, 'notif_payout_talent_' || p_contract_id
     )
     ON CONFLICT (idempotency_key) DO NOTHING;

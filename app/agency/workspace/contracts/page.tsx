@@ -68,14 +68,7 @@ export default async function WorkspaceContractsPage() {
       return bTime - aTime;
     });
 
-  console.log("[workspace contracts]", {
-    workspaceId: context.workspace.id,
-    userId: context.userId,
-    rawContractsByWorkspaceId: rawWorkspaceContracts.length,
-    rawContractsByJobJoin: rawJobJoinContracts.length,
-    filteredContractsRendered: contractsData.length,
-  });
-  const talentIds = [...new Set(
+const talentIds = [...new Set(
     contractsData
       .map((contract) => contract.talent_user_id ?? contract.talent_id)
       .filter((id): id is string => !!id),
@@ -122,7 +115,7 @@ export default async function WorkspaceContractsPage() {
       };
     });
 
-    return <AgencyContracts contracts={contracts} bookingsHref="/agency/workspace/bookings" />;
+    return <AgencyContracts contracts={contracts} bookingsHref="/agency/workspace/bookings" showPaymentActions={false} />;
   }
 
   const premiumContracts: PremiumContract[] = contractsData.map((contract) => {
