@@ -55,7 +55,7 @@ export default async function AdminBookingsPage() {
   const bookingWorkspaceIds = [...new Set([...jobWorkspaceIdMap.values()].filter((id): id is string => Boolean(id)))];
   const bookingWorkspaceNameMap = new Map<string, string>();
   if (bookingWorkspaceIds.length) {
-    const { data: workspaces } = await supabase.from("premium_workspaces").select("id, name").in("id", bookingWorkspaceIds);
+    const { data: workspaces } = await supabase.from("premium_workspaces").select("id, name").in("id", bookingWorkspaceIds).is("deleted_at", null);
     for (const workspace of workspaces ?? []) bookingWorkspaceNameMap.set(workspace.id, workspace.name ?? "Workspace órfão");
   }
 

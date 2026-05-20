@@ -41,7 +41,7 @@ export default async function AdminJobsPage() {
 
   const workspaceNameMap = new Map<string, string>();
   if (premiumWorkspaceIds.length) {
-    const { data: workspaces } = await supabase.from("premium_workspaces").select("id, name").in("id", premiumWorkspaceIds);
+    const { data: workspaces } = await supabase.from("premium_workspaces").select("id, name").in("id", premiumWorkspaceIds).is("deleted_at", null);
     for (const workspace of workspaces ?? []) workspaceNameMap.set(workspace.id, workspace.name ?? "Premium");
   }
 

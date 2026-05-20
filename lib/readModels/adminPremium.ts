@@ -95,12 +95,14 @@ export type AdminPremiumData = {
 export async function loadAdminPremiumData(): Promise<AdminPremiumData> {
   const supabase = createServerClient({ useServiceRole: true });
 
-  // ── 1. Fetch all workspaces (any status) ──────────────────────────────────
+  // ── 1. Fetch active workspaces only (exclude soft-deleted) ───────────────
   const { data: workspaces } = await supabase
     .from("premium_workspaces")
     .select(
       "id, owner_user_id, agency_id, name, slug, logo_url, brand_primary_color, brand_accent_color, welcome_message, status, included_agent_seats, extra_agent_seats, created_at, deleted_at"
     )
+    .is("deleted_at", null)
+    .eq("status", "active")
     .order("created_at", { ascending: false });
 
   if (!workspaces || workspaces.length === 0) {
@@ -135,7 +137,8 @@ export async function loadAdminPremiumData(): Promise<AdminPremiumData> {
     supabase
       .from("premium_workspace_members")
       .select("id, workspace_id, user_id, role, status, spending_limit, created_at")
-      .in("workspace_id", workspaceIds),
+      .in("workspace_id", workspaceIds)
+      .eq("status", "active"),
     supabase
       .from("premium_agent_invites")
       .select("id, workspace_id, invited_email, status, expires_at, created_at, spending_limit")

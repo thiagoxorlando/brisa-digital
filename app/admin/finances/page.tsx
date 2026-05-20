@@ -337,7 +337,8 @@ export default async function AdminFinancesPage() {
     const { data: wsData } = await supabase
       .from("premium_workspaces")
       .select("id, name")
-      .in("id", allFinancesWsIds);
+      .in("id", allFinancesWsIds)
+      .is("deleted_at", null);
     for (const ws of wsData ?? []) financesWorkspaceNameMap.set(ws.id, ws.name ?? "Premium");
   }
 

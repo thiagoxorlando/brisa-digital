@@ -49,7 +49,7 @@ export default async function AdminContractsPage() {
   const contractWorkspaceIds = [...new Set([...contractJobWorkspaceIdMap.values()].filter((id): id is string => Boolean(id)))];
   const contractWorkspaceNameMap = new Map<string, string>();
   if (contractWorkspaceIds.length) {
-    const { data: workspaces } = await supabase.from("premium_workspaces").select("id, name").in("id", contractWorkspaceIds);
+    const { data: workspaces } = await supabase.from("premium_workspaces").select("id, name").in("id", contractWorkspaceIds).is("deleted_at", null);
     for (const workspace of workspaces ?? []) contractWorkspaceNameMap.set(workspace.id, workspace.name ?? "Workspace órfão");
   }
 

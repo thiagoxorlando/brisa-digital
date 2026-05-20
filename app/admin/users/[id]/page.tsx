@@ -62,7 +62,7 @@ export default async function AdminUserProfilePage({ params }: Props) {
     supabase.from("contracts").select("payment_amount, commission_amount, net_amount, status").eq("agency_id", id).in("status", ["signed", "confirmed", "paid"]),
     supabase.from("terms_acceptances").select("accepted_at").eq("user_id", id).order("accepted_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("premium_workspaces").select("id, name").eq("owner_user_id", id).is("deleted_at", null).maybeSingle(),
-    supabase.from("premium_workspace_members").select("id, role").eq("user_id", id).limit(1).maybeSingle(),
+    supabase.from("premium_workspace_members").select("id, role").eq("user_id", id).eq("status", "active").limit(1).maybeSingle(),
     supabase.from("premium_workspace_talents").select("id").eq("talent_user_id", id).is("removed_at", null).maybeSingle(),
   ]);
 

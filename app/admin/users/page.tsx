@@ -31,8 +31,8 @@ export default async function AdminUsersPage() {
     supabase.from("profiles").select("id, is_frozen"),
     supabase.from("jobs").select("agency_id").eq("status", "open").is("deleted_at", null),
     supabase.from("premium_workspaces").select("owner_user_id").is("deleted_at", null),
-    supabase.from("premium_workspace_members").select("user_id"),
-    supabase.from("premium_workspace_talents").select("talent_user_id"),
+    supabase.from("premium_workspace_members").select("user_id").eq("status", "active"),
+    supabase.from("premium_workspace_talents").select("talent_user_id").eq("status", "active").is("removed_at", null),
   ]);
 
   const planMap = new Map<string, string>();
