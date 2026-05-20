@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
     }
   } else if (isWorkspacePortalJobVisibility(job.visibility) && !workspaceMemberAccess) {
     return NextResponse.json(
-      { error: "VocÃª precisa entrar no portal desta agÃªncia para acessar esta vaga." },
+      { error: "Você precisa entrar no portal desta agência para acessar esta vaga." },
       { status: 403 }
     );
   }

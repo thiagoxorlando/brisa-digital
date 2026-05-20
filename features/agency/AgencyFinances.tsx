@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,7 @@ function fmtDate(value: string | null | undefined) {
 }
 
 function fmtDateTime(value: string | null | undefined) {
-  if (!value) return "â€”";
+  if (!value) return "—";
   return new Date(value).toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
