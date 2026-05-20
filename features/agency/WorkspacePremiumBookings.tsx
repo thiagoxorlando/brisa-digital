@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { brl } from "@/lib/brl";
 import { unifiedStatusInfo } from "@/lib/bookingStatus";
+import AgentBookingActions from "@/features/agency/AgentBookingActions";
 
 export type PremiumBooking = {
   id: string;
@@ -158,6 +159,16 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
             )}
           </div>
         </div>
+
+        {/* Agent-pay actions island — only when agent-reserved and still awaiting payment */}
+        {isAgentDeposit && booking.contractId && (
+          <AgentBookingActions
+            contractId={booking.contractId}
+            talentName={booking.talentName}
+            totalValue={booking.totalValue}
+            jobDate={booking.jobDate}
+          />
+        )}
       </div>
     </div>
   );

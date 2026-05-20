@@ -96,6 +96,23 @@ export default async function WorkspaceContractsPage({ params }: Props) {
   }
 
   const agencyName = agencyResult.data?.company_name ?? workspace.name;
+
+  const allContractJobIds = [...new Set(
+    [...contractMap.values()].map((c) => c.job_id).filter((id): id is string => !!id)
+  )];
+  const agentBackedJobIds = new Set<string>();
+  if (allContractJobIds.length) {
+    const { data: commitRows } = await supabase
+      .from("premium_agent_wallet_transactions")
+      .select("related_job_id")
+      .in("related_job_id", allContractJobIds)
+      .eq("type", "job_commitment")
+      .eq("status", "completed");
+    for (const r of commitRows ?? []) {
+      if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
+    }
+  }
+
   const contracts: WorkspaceTalentContract[] = [...contractMap.values()]
     .sort((a, b) => {
       const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -120,6 +137,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
       paidAt: contract.paid_at ?? null,
       contractFileUrl: contract.contract_file_url ? buildContractFileAccessUrl(contract.id, "original") : null,
       signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
+      isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
     }));
 
   const primary = workspace.brand_primary_color ?? "#1ABC9C";

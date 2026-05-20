@@ -29,6 +29,7 @@ export type WorkspaceTalentContract = {
   paidAt: string | null;
   contractFileUrl: string | null;
   signedContractUrl: string | null;
+  isAgentJobBacked?: boolean;
 };
 
 type Props = {
@@ -503,8 +504,10 @@ function ContractCard({
   const status       = mapStatus(contract.status);
   const isActionable = ACTIONABLE_STATUSES.has(status);
   const paymentStatus = getContractPaymentStatus({ status, paid_at: contract.paidAt });
-  const label = contractStatusLabel(paymentStatus, "pt-BR");
-  const tone  = contractStatusTone(paymentStatus);
+  // Agent-backed signed contracts: funds are already reserved — show "Em custódia" instead of "Aguardando depósito"
+  const effectivePaymentStatus = (contract.isAgentJobBacked && paymentStatus === "signed") ? "escrow" : paymentStatus;
+  const label = contractStatusLabel(effectivePaymentStatus, "pt-BR");
+  const tone  = contractStatusTone(effectivePaymentStatus);
   const { gross, net } = resolveContractAmounts({ payment_amount: contract.paymentAmount });
 
   return (

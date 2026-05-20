@@ -88,7 +88,7 @@ function BookingRow({
   financesHref: string;
 }) {
   const { t } = useT();
-  const [acting, setActing]             = useState<"confirm" | "pay" | "cancel" | null>(null);
+  const [acting, setActing]             = useState<"confirm" | "pay" | "agent_pay" | "cancel" | null>(null);
   const [expanded, setExpanded]         = useState(booking.id === focusBookingId);
   const [balanceError, setBalanceError] = useState<{ required: number; available: number } | null>(null);
   const [earlyPayWarning, setEarlyPayWarning] = useState(false);
@@ -169,6 +169,28 @@ function BookingRow({
     setActing(null);
   }
 
+  function handleAgentPay() {
+    const jobPast = booking.jobDate
+      ? new Date(booking.jobDate + "T23:59:59") < new Date()
+      : true;
+    if (!jobPast) { setEarlyPayWarning(true); return; }
+    executeAgentPay();
+  }
+
+  async function executeAgentPay() {
+    setEarlyPayWarning(false);
+    setApiError(null);
+    setActing("agent_pay");
+    const res = await callContract("agent_pay");
+    const d = await res?.json().catch(() => ({})) ?? {};
+    if (res?.ok) {
+      onStatusChange(booking.id, d.derived_status ?? "pago");
+    } else if (res) {
+      setApiError(d.error ?? "Erro ao liberar pagamento. Tente novamente.");
+    }
+    setActing(null);
+  }
+
   async function handleCancel() {
     if (!booking.contractId) return;
     const confirmed = window.confirm(
@@ -230,23 +252,55 @@ function BookingRow({
 
           {unified === "aguardando_deposito" && (
             <>
-              {booking.isAgentJobBacked && (
-                <span className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-[11px] font-semibold text-teal-700">
-                  Agente reservou {brl(booking.totalValue)}
-                </span>
-              )}
-              <button
-                onClick={handleConfirm}
-                disabled={acting !== null || !booking.contractId || (booking.hasContractFile && !booking.hasSignedContract)}
-                title={booking.hasContractFile && !booking.hasSignedContract ? "Aguarde o talento enviar o contrato assinado." : undefined}
-                className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white"
-              >
-                {acting === "confirm" ? "Confirmando..." : "Confirmar reserva"}
-              </button>
-              {canCancelBooking && (
-                <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
-                  {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
-                </button>
+              {booking.isAgentJobBacked ? (
+                // Agent-backed: skip deposit step, pay directly from agent commitment
+                earlyPayWarning ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[12px] text-amber-700 font-medium">Trabalho ainda não realizado. Pagar assim mesmo?</span>
+                    <button onClick={executeAgentPay} disabled={acting !== null}
+                      className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer disabled:opacity-60">
+                      {acting === "agent_pay" ? "…" : "Sim, pagar"}
+                    </button>
+                    <button onClick={() => setEarlyPayWarning(false)}
+                      className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors cursor-pointer">
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-[11px] font-semibold text-teal-700">
+                      Agente reservou {brl(booking.totalValue)}
+                    </span>
+                    <button
+                      onClick={handleAgentPay}
+                      disabled={acting !== null || !booking.contractId}
+                      className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-600 text-white"
+                    >
+                      {acting === "agent_pay" ? "Pagando..." : "Pagar Talento"}
+                    </button>
+                    {canCancelBooking && (
+                      <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
+                        {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                      </button>
+                    )}
+                  </>
+                )
+              ) : (
+                <>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={acting !== null || !booking.contractId || (booking.hasContractFile && !booking.hasSignedContract)}
+                    title={booking.hasContractFile && !booking.hasSignedContract ? "Aguarde o talento enviar o contrato assinado." : undefined}
+                    className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white"
+                  >
+                    {acting === "confirm" ? "Confirmando..." : "Confirmar reserva"}
+                  </button>
+                  {canCancelBooking && (
+                    <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
+                      {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                    </button>
+                  )}
+                </>
               )}
             </>
           )}
