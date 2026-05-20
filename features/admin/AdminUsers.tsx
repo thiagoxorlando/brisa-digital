@@ -46,15 +46,6 @@ function formatDate(value: string) {
   });
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase() || "?";
-}
-
 function primaryFinancialValue(user: AdminUser) {
   return user.walletBalance;
 }

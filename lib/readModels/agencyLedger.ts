@@ -179,3 +179,51 @@ export function buildAgencyWalletLedgerRows(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 }
+
+// ── Display helpers ────────────────────────────────────────────────────────────
+// Single source of truth for transaction type/status labels and badge tones
+// consumed by AgencyFinances and any future ledger views.
+
+const LEDGER_LABEL: Record<string, string> = {
+  paid:                      "Pago",
+  completed:                 "Pago",
+  confirmed:                 "Reservado",
+  pending_payment:           "Aguardando pagamento",
+  pending:                   "Pendente",
+  cancelled:                 "Cancelado",
+  deposit:                   "Depósito",
+  payment:                   "Pagamento",
+  withdrawal:                "Saque",
+  escrow_lock:               "Custódia bloqueada",
+  escrow_released:           "Pago ao talento",
+  escrow_refunded:           "Reembolsado",
+  refund:                    "Reembolso",
+  agent_allocation:          "Alocação a agente",
+  agent_allocation_reversal: "Retorno de agente",
+};
+
+const LEDGER_TONE: Record<string, string> = {
+  paid:                      "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  completed:                 "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  confirmed:                 "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  pending_payment:           "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  pending:                   "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  cancelled:                 "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
+  deposit:                   "bg-teal-50    text-teal-700    ring-1 ring-teal-100",
+  payment:                   "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
+  withdrawal:                "bg-blue-50    text-blue-700    ring-1 ring-blue-100",
+  escrow_lock:               "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  escrow_released:           "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  escrow_refunded:           "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
+  refund:                    "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
+  agent_allocation:          "bg-indigo-50  text-indigo-700  ring-1 ring-indigo-100",
+  agent_allocation_reversal: "bg-teal-50    text-teal-700    ring-1 ring-teal-100",
+};
+
+export function ledgerEntryLabel(key: string): string {
+  return LEDGER_LABEL[key] ?? key;
+}
+
+export function ledgerEntryTone(key: string): string {
+  return LEDGER_TONE[key] ?? "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
+}

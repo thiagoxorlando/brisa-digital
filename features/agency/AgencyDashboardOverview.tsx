@@ -6,6 +6,7 @@ import Badge from "@/components/ui/Badge";
 import { useT } from "@/lib/LanguageContext";
 import { talentCategoryLabel } from "@/lib/talentCategories";
 import { brl } from "@/lib/brl";
+import { avatarGradient, initials } from "@/lib/talentDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,20 +94,6 @@ function fmtJobDate(s: string | null, lang: string) {
   if (!s) return null;
   const locale = lang === "pt-BR" ? "pt-BR" : "en-US";
   return new Date(s + "T00:00:00").toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
-}
-
-const GRADIENTS = [
-  "from-violet-400 to-indigo-600", "from-rose-400 to-pink-600",
-  "from-amber-400 to-orange-500",  "from-emerald-400 to-teal-600",
-  "from-sky-400 to-blue-600",
-];
-
-function avatarGradient(name: string) {
-  return GRADIENTS[(name.charCodeAt(0) ?? 0) % GRADIENTS.length];
-}
-
-function initials(name: string) {
-  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────

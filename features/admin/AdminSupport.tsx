@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/LanguageContext";
+import { supportStatusLabel, supportStatusTone, supportPriorityLabel, supportPriorityTone } from "@/lib/supportStatus";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,34 +31,6 @@ type Message = {
 };
 
 // ── Labels ────────────────────────────────────────────────────────────────────
-
-const STATUS_LABEL: Record<string, string> = {
-  open:          "Aberta",
-  waiting_admin: "Aguardando suporte",
-  waiting_user:  "Aguardando usuário",
-  closed:        "Encerrada",
-};
-
-const STATUS_CLS: Record<string, string> = {
-  open:          "bg-emerald-50  text-emerald-700  ring-1 ring-emerald-100",
-  waiting_admin: "bg-amber-50    text-amber-700    ring-1 ring-amber-100",
-  waiting_user:  "bg-teal-50     text-teal-700     ring-1 ring-teal-100",
-  closed:        "bg-zinc-100    text-zinc-500     ring-1 ring-zinc-200",
-};
-
-const PRIORITY_LABEL: Record<string, string> = {
-  low:    "Baixa",
-  normal: "Normal",
-  high:   "Alta",
-  urgent: "Urgente",
-};
-
-const PRIORITY_CLS: Record<string, string> = {
-  low:    "bg-zinc-100   text-zinc-500",
-  normal: "bg-zinc-100   text-zinc-600",
-  high:   "bg-orange-50  text-orange-600",
-  urgent: "bg-rose-50    text-rose-600",
-};
 
 const ROLE_LABEL: Record<string, string> = {
   agency:  "Agência",
@@ -252,8 +225,8 @@ export default function AdminSupport({
             Voltar
           </button>
           <h2 className="text-[15px] font-semibold text-zinc-900 flex-1 min-w-0 truncate">{selectedConv.subject}</h2>
-          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${STATUS_CLS[selectedConv.status] ?? STATUS_CLS.open}`}>
-            {STATUS_LABEL[selectedConv.status] ?? selectedConv.status}
+          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${supportStatusTone(selectedConv.status)}`}>
+            {supportStatusLabel(selectedConv.status)}
           </span>
         </div>
 
@@ -412,8 +385,8 @@ export default function AdminSupport({
               </div>
               <div>
                 <p className="text-[11px] text-zinc-400">Prioridade</p>
-                <span className={`inline-block mt-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${PRIORITY_CLS[selectedConv.priority] ?? PRIORITY_CLS.normal}`}>
-                  {PRIORITY_LABEL[selectedConv.priority] ?? selectedConv.priority}
+                <span className={`inline-block mt-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${supportPriorityTone(selectedConv.priority)}`}>
+                  {supportPriorityLabel(selectedConv.priority)}
                 </span>
               </div>
             </div>
@@ -547,13 +520,13 @@ export default function AdminSupport({
                       </div>
                     </td>
                     <td className="px-4 py-4 hidden lg:table-cell cursor-pointer" onClick={() => openConversation(conv)}>
-                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[conv.status] ?? STATUS_CLS.open}`}>
-                        {STATUS_LABEL[conv.status] ?? conv.status}
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${supportStatusTone(conv.status)}`}>
+                        {supportStatusLabel(conv.status)}
                       </span>
                     </td>
                     <td className="px-4 py-4 hidden lg:table-cell cursor-pointer" onClick={() => openConversation(conv)}>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PRIORITY_CLS[conv.priority] ?? PRIORITY_CLS.normal}`}>
-                        {PRIORITY_LABEL[conv.priority] ?? conv.priority}
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${supportPriorityTone(conv.priority)}`}>
+                        {supportPriorityLabel(conv.priority)}
                       </span>
                     </td>
                     <td className="px-4 py-4 text-right hidden sm:table-cell cursor-pointer" onClick={() => openConversation(conv)}>

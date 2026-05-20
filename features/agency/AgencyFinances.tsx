@@ -7,7 +7,7 @@ import { formatCpfCnpj, isValidCpfCnpj } from "@/lib/cpf";
 import { generateReceiptPdf } from "@/lib/generateReceiptPdf";
 import { brl } from "@/lib/brl";
 import { withdrawalStatusLabel } from "@/lib/withdrawalStatus";
-import type { AgencyLedgerRow } from "@/lib/readModels/agencyLedger";
+import { ledgerEntryLabel, ledgerEntryTone, type AgencyLedgerRow } from "@/lib/readModels/agencyLedger";
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -47,42 +47,6 @@ const PIX_TYPE_LABELS: Record<string, string> = {
   email: "E-mail",
   phone: "Telefone",
   random: "Chave aleatoria",
-};
-
-const STATUS_CLS: Record<string, string> = {
-  paid: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  completed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  confirmed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  pending_payment: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
-  pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
-  cancelled: "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
-  deposit: "bg-teal-50 text-teal-700 ring-1 ring-teal-100",
-  payment: "bg-violet-50 text-violet-700 ring-1 ring-violet-100",
-  withdrawal: "bg-blue-50 text-blue-700 ring-1 ring-blue-100",
-  escrow_lock: "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
-  escrow_released: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  escrow_refunded: "bg-rose-50 text-rose-700 ring-1 ring-rose-100",
-  refund: "bg-rose-50 text-rose-700 ring-1 ring-rose-100",
-  agent_allocation: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100",
-  agent_allocation_reversal: "bg-teal-50 text-teal-700 ring-1 ring-teal-100",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  paid: "Pago",
-  completed: "Pago",
-  confirmed: "Reservado",
-  pending_payment: "Aguardando pagamento",
-  pending: "Pendente",
-  cancelled: "Cancelado",
-  deposit: "Depósito",
-  payment: "Pagamento",
-  withdrawal: "Saque",
-  escrow_lock: "Custódia bloqueada",
-  escrow_released: "Pago ao talento",
-  escrow_refunded: "Reembolsado",
-  refund: "Reembolso",
-  agent_allocation: "Alocação a agente",
-  agent_allocation_reversal: "Retorno de agente",
 };
 
 
@@ -651,7 +615,7 @@ export default function AgencyFinances({
                   {transactions.map((transaction) => {
                     const isWithdrawal = transaction.status === "withdrawal";
                     const label = transaction.kind === "wallet"
-                      ? transaction.description ?? STATUS_LABEL[transaction.status] ?? transaction.status
+                      ? transaction.description ?? ledgerEntryLabel(transaction.status)
                       : transaction.talent || transaction.description || "Reserva";
                     const isExpanded = expandedTransactionId === transaction.id;
                     const receiptAvailable = Boolean(transaction.id && transaction.date && transaction.amount !== undefined);
@@ -695,8 +659,8 @@ export default function AgencyFinances({
                             <p className="text-[14px] font-black tabular-nums text-zinc-950">{brl(Math.abs(transaction.amount))}</p>
                           </td>
                           <td className="px-4 py-4">
-                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[transaction.status] ?? "bg-zinc-100 text-zinc-500"}`}>
-                              {STATUS_LABEL[transaction.status] ?? transaction.status}
+                            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${ledgerEntryTone(transaction.status)}`}>
+                              {ledgerEntryLabel(transaction.status)}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right hidden sm:table-cell">
@@ -715,7 +679,7 @@ export default function AgencyFinances({
                                     <p><strong>ID:</strong> {transaction.id}</p>
                                     <p><strong>Data e hora:</strong> {fmtDateTime(transaction.processedAt ?? transaction.date)}</p>
                                     <p><strong>Valor:</strong> {brl(Math.abs(transaction.amount))}</p>
-                                    <p><strong>Status:</strong> {transaction.withdrawalStatus ? withdrawalStatusLabel(transaction.withdrawalStatus) : (STATUS_LABEL[transaction.status] ?? transaction.status)}</p>
+                                    <p><strong>Status:</strong> {transaction.withdrawalStatus ? withdrawalStatusLabel(transaction.withdrawalStatus) : ledgerEntryLabel(transaction.status)}</p>
                                     <p><strong>Provedor:</strong> {transaction.provider ?? "BrisaHub"}</p>
                                     {transaction.providerStatus && <p><strong>Status do provedor:</strong> {transaction.providerStatus}</p>}
                                   </div>

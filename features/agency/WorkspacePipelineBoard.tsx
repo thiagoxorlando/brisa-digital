@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { brl } from "@/lib/brl";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
+import { initials } from "@/lib/talentDisplay";
 import CreatePresentationModal from "@/features/agency/CreatePresentationModal";
 import WorkspacePrivateInviteButton from "@/features/agency/WorkspacePrivateInviteButton";
 
@@ -159,10 +160,6 @@ function effectiveStage(c: PipelineCandidate): StageId {
   if (bs === "confirmed") return "confirmado";
   if (bs && !["cancelled", "rejected"].includes(bs)) return "contrato_enviado";
   return (c.pipelineStatus as StageId) || "novo";
-}
-
-function initials(name: string): string {
-  return name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
 }
 
 function avatarGrad(str: string): string {

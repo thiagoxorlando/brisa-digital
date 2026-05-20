@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
+import { initials } from "@/lib/talentDisplay";
 
 export type WorkspaceTalentContractHistory = {
   id: string;
@@ -52,14 +53,6 @@ const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: "candidates", label: "Candidatos" },
   { key: "contracted", label: "Contratados" },
 ];
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("") || "?";
-}
 
 function formatDate(value: string) {
   if (!value) return "-";

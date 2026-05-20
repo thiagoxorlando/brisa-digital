@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import { talentCategoryLabel } from "@/lib/talentCategories";
+import { avatarGradient, initials } from "@/lib/talentDisplay";
 
 type TalentRow = {
   id: string;
@@ -27,20 +28,6 @@ type TalentRow = {
 };
 
 type Job = { id: string; title: string };
-
-const GRADIENTS = [
-  "from-violet-500 to-indigo-600", "from-rose-400 to-pink-600",
-  "from-amber-400 to-orange-500", "from-emerald-400 to-teal-600",
-  "from-sky-400 to-blue-600",
-];
-
-function avatarGradient(name: string) {
-  return GRADIENTS[(name.charCodeAt(0) ?? 0) % GRADIENTS.length];
-}
-
-function initials(name: string) {
-  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-}
 
 export default function AgencyTalentProfile({
   talent,

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabel } from "@/lib/talentCategories";
+import { avatarGradient, initials } from "@/lib/talentDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,24 +63,7 @@ const CATEGORY_STRIPES: Record<string, string> = {
   "Outro":            "from-zinc-300 via-zinc-400 to-zinc-500",
 };
 
-const AVATAR_GRADIENTS = [
-  "from-violet-500 to-indigo-600",
-  "from-rose-400 to-pink-600",
-  "from-amber-400 to-orange-500",
-  "from-emerald-400 to-teal-600",
-  "from-sky-400 to-blue-600",
-  "from-fuchsia-400 to-purple-600",
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function avatarGradient(name: string) {
-  return AVATAR_GRADIENTS[(name.charCodeAt(0) || 0) % AVATAR_GRADIENTS.length];
-}
-
-function initials(name: string) {
-  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
-}
 
 function stripeFor(categories: string[]) {
   const first = talentCategoryLabel(categories[0]);

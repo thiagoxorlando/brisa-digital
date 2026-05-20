@@ -7,6 +7,7 @@ import {
   talentCategoryLabel,
   talentCategoryMatches,
 } from "@/lib/talentCategories";
+import { avatarGradient, initials } from "@/lib/talentDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,22 +36,6 @@ const GENDERS: { label: string; value: string }[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const GRADIENTS = [
-  "from-violet-400 to-indigo-600",
-  "from-rose-400 to-pink-600",
-  "from-amber-400 to-orange-500",
-  "from-emerald-400 to-teal-600",
-  "from-sky-400 to-blue-600",
-  "from-fuchsia-400 to-purple-600",
-];
-
-function gradient(name: string) {
-  return GRADIENTS[(name.charCodeAt(0) ?? 0) % GRADIENTS.length];
-}
-
-function initials(name: string) {
-  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-}
 
 // ─── Pill ─────────────────────────────────────────────────────────────────────
 
@@ -92,7 +77,7 @@ function TalentCard({ talent, onClick }: { talent: Talent; onClick: () => void }
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className={`w-full h-full bg-gradient-to-br ${gradient(name)} flex items-center justify-center`}>
+          <div className={`w-full h-full bg-gradient-to-br ${avatarGradient(name)} flex items-center justify-center`}>
             <span className="text-[2rem] font-bold text-white/90">{initials(name)}</span>
           </div>
         )}

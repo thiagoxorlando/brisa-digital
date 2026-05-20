@@ -12,6 +12,7 @@ import { brl } from "@/lib/brl";
 import { jobStatusTone } from "@/lib/jobStatus";
 import { statusInfo, normaliseStatus } from "@/lib/bookingStatus";
 import { submissionStatusTone } from "@/lib/submissionStatus";
+import { avatarGradient, initials } from "@/lib/talentDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,10 +96,6 @@ function daysUntil(raw: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-function initials(name: string) {
-  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-}
-
 function normalizePublicBaseUrl(rawUrl: string) {
   const base = new URL(rawUrl);
   if (base.hostname === "brisahub.com.br") {
@@ -133,21 +130,8 @@ const CATEGORY_STRIPES: Record<string, string> = {
   "Other":               "from-zinc-300 via-zinc-400 to-zinc-500",
 };
 
-const AVATAR_GRADIENTS = [
-  "from-violet-500 to-indigo-600",
-  "from-rose-400 to-pink-600",
-  "from-amber-400 to-orange-500",
-  "from-emerald-400 to-teal-600",
-  "from-sky-400 to-blue-600",
-  "from-fuchsia-400 to-purple-600",
-];
-
 function stripe(category: string) {
   return CATEGORY_STRIPES[category] ?? CATEGORY_STRIPES["Other"];
-}
-
-function avatarGradient(name: string) {
-  return AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
 }
 
 // ─── Detail row ───────────────────────────────────────────────────────────────

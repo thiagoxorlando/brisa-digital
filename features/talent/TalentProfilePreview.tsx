@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { talentCategoryLabel } from "@/lib/talentCategories";
+import { avatarGradient, initials } from "@/lib/talentDisplay";
 
 type TalentProfile = {
   id: string;
@@ -21,21 +22,7 @@ type TalentProfile = {
   photo_right_url: string | null;
 };
 
-const GRADIENTS = [
-  "from-violet-500 to-indigo-600", "from-rose-400 to-pink-600",
-  "from-amber-400 to-orange-500",  "from-emerald-400 to-teal-600",
-  "from-sky-400 to-blue-600",      "from-fuchsia-400 to-purple-600",
-];
-
-function avatarGradient(name: string) {
-  return GRADIENTS[(name.charCodeAt(0) ?? 0) % GRADIENTS.length];
-}
-
-function initials(name: string) {
-  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-}
-
-const card = "bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]";
+const card ="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]";
 
 export default function TalentProfilePreview({ talent }: { talent: TalentProfile }) {
   const name   = talent.full_name ?? "Sem nome";

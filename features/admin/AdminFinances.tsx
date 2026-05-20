@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { REFERRAL_RATE } from "@/lib/plans";
 import { getContractPaymentStatus, contractStatusLabel, contractStatusTone } from "@/lib/contractStatus";
+import { depositStatusLabel, depositStatusTone } from "@/lib/depositStatus";
 import { useT } from "@/lib/LanguageContext";
 import { brl } from "@/lib/brl";
 
@@ -1345,20 +1346,6 @@ function WithdrawalsSection({ withdrawals }: { withdrawals: FinancesWithdrawal[]
 
 // -- Section: Deposits -------------------------------------------------------
 
-const DEPOSIT_STATUS_LABELS: Record<string, string> = {
-  paid:       "Confirmado",
-  pending:    "Pendente",
-  processing: "Processando",
-  failed:     "Falhou",
-  cancelled:  "Cancelado",
-};
-const DEPOSIT_STATUS_TONES: Record<string, string> = {
-  paid:       "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  pending:    "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
-  processing: "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100",
-  failed:     "bg-red-50 text-red-600 ring-1 ring-red-100",
-  cancelled:  "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
-};
 
 function DepositsSection({ deposits }: { deposits: FinancesDeposit[] }) {
   const [expanded, setExpanded] = useState(false);
@@ -1409,8 +1396,8 @@ function DepositsSection({ deposits }: { deposits: FinancesDeposit[] }) {
                   <Td right><strong className="text-[#1F2D2E]">{brl(d.amount)}</strong></Td>
                   <Td>
                     <Badge
-                      value={DEPOSIT_STATUS_LABELS[d.status] ?? d.status}
-                      tone={DEPOSIT_STATUS_TONES[d.status] ?? DEPOSIT_STATUS_TONES.cancelled}
+                      value={depositStatusLabel(d.status)}
+                      tone={depositStatusTone(d.status)}
                     />
                   </Td>
                   <Td>

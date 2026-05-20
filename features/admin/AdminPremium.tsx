@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
+import { jobStatusLabel, jobStatusTone } from "@/lib/jobStatus";
+import { workspaceStatusLabel, workspaceStatusTone, agentStatusLabel, agentStatusTone } from "@/lib/workspaceStatus";
 import type {
   AdminPremiumData,
   AdminPremiumSummary,
@@ -24,20 +26,8 @@ function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function statusLabel(s: string) {
-  const map: Record<string, string> = { active: "Ativo", suspended: "Suspenso", cancelled: "Cancelado", deleted: "Excluído" };
-  return map[s] ?? s;
-}
-
 function statusBadge(s: string) {
-  const colors: Record<string, string> = {
-    active: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    suspended: "bg-amber-50 text-amber-700 border-amber-100",
-    cancelled: "bg-zinc-100 text-zinc-500 border-zinc-200",
-    deleted: "bg-red-50 text-red-600 border-red-100",
-  };
-  const cls = colors[s] ?? "bg-zinc-100 text-zinc-500 border-zinc-200";
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>{statusLabel(s)}</span>;
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${workspaceStatusTone(s)}`}>{workspaceStatusLabel(s)}</span>;
 }
 
 function visibilityBadge(v: string) {
@@ -48,27 +38,11 @@ function visibilityBadge(v: string) {
 }
 
 function jobStatusBadge(s: string) {
-  const colors: Record<string, string> = {
-    open: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    closed: "bg-zinc-100 text-zinc-500 border-zinc-200",
-    draft: "bg-amber-50 text-amber-700 border-amber-100",
-    inactive: "bg-red-50 text-red-600 border-red-100",
-  };
-  const labels: Record<string, string> = { open: "Aberta", closed: "Fechada", draft: "Rascunho", inactive: "Inativa", paused: "Pausada" };
-  const cls = colors[s] ?? "bg-zinc-100 text-zinc-500 border-zinc-200";
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>{labels[s] ?? s}</span>;
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${jobStatusTone(s)}`}>{jobStatusLabel(s)}</span>;
 }
 
 function agentStatusBadge(s: string) {
-  const colors: Record<string, string> = {
-    active: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    suspended: "bg-amber-50 text-amber-700 border-amber-100",
-    removed: "bg-zinc-100 text-zinc-500 border-zinc-200",
-    owner: "bg-amber-50 text-amber-600 border-amber-100",
-  };
-  const cls = colors[s] ?? "bg-zinc-100 text-zinc-500 border-zinc-200";
-  const label = s === "active" ? "Ativo" : s === "suspended" ? "Suspenso" : s === "removed" ? "Removido" : s;
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>{label}</span>;
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${agentStatusTone(s)}`}>{agentStatusLabel(s)}</span>;
 }
 
 // ── Summary cards ─────────────────────────────────────────────────────────────

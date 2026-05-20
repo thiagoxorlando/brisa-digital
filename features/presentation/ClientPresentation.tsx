@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { initials } from "@/lib/talentDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,10 +75,6 @@ function saveIdentity(id: ViewerIdentity) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function initials(name: string): string {
-  return name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-}
 
 function genderLabel(g: string | null): string | null {
   if (!g) return null;

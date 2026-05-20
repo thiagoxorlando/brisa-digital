@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { supportStatusLabel, supportStatusTone } from "@/lib/supportStatus";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,21 +24,6 @@ type Message = {
   created_at: string;
 };
 
-// ── Status helpers ────────────────────────────────────────────────────────────
-
-const STATUS_LABEL: Record<string, string> = {
-  open:           "Aberta",
-  waiting_admin:  "Aguardando suporte",
-  waiting_user:   "Aguardando você",
-  closed:         "Encerrada",
-};
-
-const STATUS_CLS: Record<string, string> = {
-  open:           "bg-emerald-50  text-emerald-700  ring-1 ring-emerald-100",
-  waiting_admin:  "bg-amber-50    text-amber-700    ring-1 ring-amber-100",
-  waiting_user:   "bg-teal-50     text-teal-700     ring-1 ring-teal-100",
-  closed:         "bg-zinc-100    text-zinc-500     ring-1 ring-zinc-200",
-};
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
@@ -247,8 +233,8 @@ export default function SupportPage() {
             Voltar
           </button>
           <h2 className="text-[15px] font-semibold text-zinc-900 flex-1 min-w-0 truncate">{selectedConv.subject}</h2>
-          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${STATUS_CLS[selectedConv.status] ?? STATUS_CLS.open}`}>
-            {STATUS_LABEL[selectedConv.status] ?? selectedConv.status}
+          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${supportStatusTone(selectedConv.status)}`}>
+            {supportStatusLabel(selectedConv.status, "user")}
           </span>
         </div>
 
@@ -382,8 +368,8 @@ export default function SupportPage() {
                 <p className="text-[14px] font-semibold text-zinc-900 truncate">{conv.subject}</p>
                 <p className="text-[12px] text-zinc-400 mt-0.5">{fmtDate(conv.last_message_at)}</p>
               </div>
-              <span className={`flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_CLS[conv.status] ?? STATUS_CLS.open}`}>
-                {STATUS_LABEL[conv.status] ?? conv.status}
+              <span className={`flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${supportStatusTone(conv.status)}`}>
+                {supportStatusLabel(conv.status, "user")}
               </span>
               <svg className="w-4 h-4 text-zinc-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

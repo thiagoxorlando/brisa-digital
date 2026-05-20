@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { avatarGradient, initials } from "@/lib/talentDisplay";
 
 export type SubmissionEntry = {
   id: string;
@@ -27,20 +28,6 @@ const SUB_STATUS_CLS: Record<string, string> = {
   approved: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
   rejected: "bg-rose-50   text-rose-600   ring-1 ring-rose-100",
 };
-
-const AVATAR_GRADIENTS = [
-  "from-violet-500 to-indigo-600", "from-rose-400 to-pink-600",
-  "from-amber-400 to-orange-500",  "from-emerald-400 to-teal-600",
-  "from-sky-400 to-blue-600",      "from-fuchsia-400 to-purple-600",
-];
-
-function avatarGradient(name: string) {
-  return AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
-}
-
-function initials(name: string) {
-  return name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-}
 
 function formatDate(s: string) {
   if (!s) return "—";

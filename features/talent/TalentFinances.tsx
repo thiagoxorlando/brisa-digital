@@ -107,23 +107,6 @@ type Referral = {
   date: string;
 };
 
-const STATUS_CLS: Record<string, string> = {
-  paid:            "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
-  confirmed:       "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100", // legacy
-  pending_payment: "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
-  pending:         "bg-zinc-100   text-zinc-400    ring-1 ring-zinc-200",
-  cancelled:       "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  paid:            "Pago",
-  confirmed:       "Pago",
-  pending_payment: "Aguardando Pagamento",
-  pending:         "Pendente",
-  cancelled:       "Cancelado",
-};
-
-
 function StatCard({ label, value, sub, stripe }: { label: string; value: string; sub?: string; stripe: string }) {
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_2px_8px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col">
