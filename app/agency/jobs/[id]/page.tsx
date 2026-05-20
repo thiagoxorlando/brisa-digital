@@ -76,16 +76,17 @@ export default async function JobDetailPage({ params }: Props) {
     ),
   ];
 
-  const profileMap = new Map<string, { full_name: string; avatar_url: string | null }>();
+  const profileMap = new Map<string, { full_name: string; avatar_url: string | null; bio: string | null }>();
   if (talentIds.length) {
     const { data: profiles } = await supabase
       .from("talent_profiles")
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, avatar_url, bio")
       .in("id", talentIds);
     for (const profile of profiles ?? []) {
       profileMap.set(profile.id, {
         full_name: profile.full_name ?? "",
         avatar_url: profile.avatar_url ?? null,
+        bio: (profile as { bio?: string | null }).bio ?? null,
       });
     }
   }
@@ -116,7 +117,7 @@ export default async function JobDetailPage({ params }: Props) {
       talentId: submission.talent_user_id ?? null,
       talentName: profile?.full_name ?? submission.talent_name ?? "",
       avatarUrl: profile?.avatar_url ?? null,
-      bio: submission.bio ?? "",
+      bio: submission.bio || profile?.bio || "",
       status: submission.status ?? "pending",
       mode: submission.mode ?? "other",
       isReferral: Boolean(submission.referrer_id),

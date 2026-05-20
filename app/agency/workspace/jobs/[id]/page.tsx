@@ -96,9 +96,9 @@ export default async function WorkspaceJobDetailPage({ params }: Props) {
     talentIds.length
       ? supabase
           .from("talent_profiles")
-          .select("id, full_name, avatar_url, age, city, gender")
+          .select("id, full_name, avatar_url, age, city, gender, bio")
           .in("id", talentIds)
-      : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null; avatar_url: string | null; age: number | null; city: string | null; gender: string | null }> }),
+      : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null; avatar_url: string | null; age: number | null; city: string | null; gender: string | null; bio: string | null }> }),
     submissionIds.length
       ? supabase
           .from("submission_pipeline_notes")
@@ -138,7 +138,7 @@ export default async function WorkspaceJobDetailPage({ params }: Props) {
       : Promise.resolve({ data: [] as Array<{ submission_id: string; vote: string }> }),
   ]);
 
-  const profileMap = new Map<string, { full_name: string; avatar_url: string | null; age: number | null; city: string | null; gender: string | null }>();
+  const profileMap = new Map<string, { full_name: string; avatar_url: string | null; age: number | null; city: string | null; gender: string | null; bio: string | null }>();
   for (const p of profilesResult.data ?? []) {
     profileMap.set(p.id, {
       full_name:  p.full_name  ?? "",
@@ -146,6 +146,7 @@ export default async function WorkspaceJobDetailPage({ params }: Props) {
       age:        p.age        ?? null,
       city:       p.city       ?? null,
       gender:     p.gender     ?? null,
+      bio:        (p as { bio?: string | null }).bio ?? null,
     });
   }
 
@@ -216,7 +217,7 @@ export default async function WorkspaceJobDetailPage({ params }: Props) {
       city:          profile?.city   ?? null,
       country:       null,
       gender:        profile?.gender ?? null,
-      bio:           s.bio ?? "",
+      bio:           s.bio || profile?.bio || "",
       // Use pipeline_status if set; fall back to mapping from legacy submission.status
       pipelineStatus: rawPipelineStatus ?? legacyStatusToStage(s.status),
       submittedAt:   s.created_at ?? "",

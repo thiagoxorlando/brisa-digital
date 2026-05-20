@@ -94,9 +94,9 @@ export async function GET(
   const { data: profiles } = talentIds.length
     ? await supabase
         .from("talent_profiles")
-        .select("id, full_name, avatar_url, age, city, gender")
+        .select("id, full_name, avatar_url, age, city, gender, bio")
         .in("id", talentIds)
-    : { data: [] as Array<{ id: string; full_name: string | null; avatar_url: string | null; age: number | null; city: string | null; gender: string | null }> };
+    : { data: [] as Array<{ id: string; full_name: string | null; avatar_url: string | null; age: number | null; city: string | null; gender: string | null; bio: string | null }> };
 
   const profileMap = new Map(
     (profiles ?? []).map((p) => [p.id, p])
@@ -115,7 +115,7 @@ export async function GET(
         age:           profile?.age        ?? null,
         city:          profile?.city       ?? null,
         gender:        profile?.gender     ?? null,
-        bio:           s.bio               ?? "",
+        bio:           s.bio || (profile as { bio?: string | null } | null)?.bio || "",
         photoFrontUrl: s.photo_front_url   ?? null,
         photoLeftUrl:  s.photo_left_url    ?? null,
         photoRightUrl: s.photo_right_url   ?? null,
