@@ -17,6 +17,7 @@ export type PremiumBooking = {
   location: string | null;
   paidAt: string | null;
   contractId: string | null;
+  isAgentJobBacked: boolean;
 };
 
 type Props = { bookings: PremiumBooking[] };
@@ -47,16 +48,26 @@ function Initials({ name, avatarUrl }: { name: string; avatarUrl: string | null 
   );
 }
 
+// When the job was created by an agent, the job_commitment already reserves the funds.
+// Override the "Aguardando Depósito" label to reflect that the budget is already held.
+const AGENT_ESCROW_STATUS = {
+  label: "Reservado pelo agente",
+  badge: "bg-teal-50 text-teal-700 ring-1 ring-teal-100",
+};
+
 function BookingCard({ booking }: { booking: PremiumBooking }) {
-  const si         = unifiedStatusInfo(booking.derivedStatus);
+  const isAgentDeposit = booking.derivedStatus === "aguardando_deposito" && booking.isAgentJobBacked;
+  const si         = isAgentDeposit ? AGENT_ESCROW_STATUS : unifiedStatusInfo(booking.derivedStatus);
   const isPaid     = booking.derivedStatus === "pago";
   const isCanceled = booking.derivedStatus === "cancelado";
 
-  const borderCls  = isPaid ? "border-emerald-200" : isCanceled ? "border-zinc-200" : "border-violet-200";
+  const borderCls  = isPaid ? "border-emerald-200" : isCanceled ? "border-zinc-200" : isAgentDeposit ? "border-teal-200" : "border-violet-200";
   const topBarCls  = isPaid
     ? "bg-gradient-to-r from-emerald-400 to-teal-400"
     : isCanceled
     ? "bg-zinc-200"
+    : isAgentDeposit
+    ? "bg-gradient-to-r from-teal-400 to-cyan-400"
     : "bg-gradient-to-r from-violet-400 to-indigo-400";
 
   // Status hint line
@@ -67,6 +78,10 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
     pago:                  "Pagamento concluído.",
     cancelado:             "Esta reserva foi cancelada.",
   };
+  // Agent-backed: funds already reserved from agent budget — no deposit action needed.
+  const effectiveHint = isAgentDeposit
+    ? "Fundos reservados do seu orçamento. Aguardando confirmação do portal para liberar pagamento."
+    : hint[booking.derivedStatus];
 
   return (
     <div className={`overflow-hidden rounded-[22px] border bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)] ${borderCls} ${isCanceled ? "opacity-70" : ""}`}>
@@ -111,9 +126,9 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
         )}
 
         {/* Status hint */}
-        {hint[booking.derivedStatus] && (
-          <p className={`mt-3 text-[12px] ${isPaid ? "text-emerald-600" : isCanceled ? "text-zinc-400" : "text-violet-600"}`}>
-            {hint[booking.derivedStatus]}
+        {effectiveHint && (
+          <p className={`mt-3 text-[12px] ${isPaid ? "text-emerald-600" : isCanceled ? "text-zinc-400" : isAgentDeposit ? "text-teal-600" : "text-violet-600"}`}>
+            {effectiveHint}
           </p>
         )}
 

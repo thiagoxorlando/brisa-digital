@@ -26,6 +26,7 @@ export type Booking = {
   paidAt:            string | null;
   hasContractFile:   boolean;
   hasSignedContract: boolean;
+  isAgentJobBacked:  boolean;
 };
 
 function formatDate(s: string | null) {
@@ -229,6 +230,11 @@ function BookingRow({
 
           {unified === "aguardando_deposito" && (
             <>
+              {booking.isAgentJobBacked && (
+                <span className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-[11px] font-semibold text-teal-700">
+                  Agente reservou {brl(booking.totalValue)}
+                </span>
+              )}
               <button
                 onClick={handleConfirm}
                 disabled={acting !== null || !booking.contractId || (booking.hasContractFile && !booking.hasSignedContract)}

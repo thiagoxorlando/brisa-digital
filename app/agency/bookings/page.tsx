@@ -83,6 +83,7 @@ export default async function BookingsPage({
       paidAt:             contract?.paid_at ?? null,
       hasContractFile:    !!(contract?.contract_file_url),
       hasSignedContract:  !!(contract?.signed_contract_url),
+      isAgentJobBacked:   false,
     };
   });
 

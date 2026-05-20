@@ -44,6 +44,22 @@ export default async function WorkspaceBookingsPage() {
     .in("job_id", jobIds)
     .order("created_at", { ascending: false });
 
+  // Detect which jobs are backed by an agent virtual job_commitment so the
+  // booking display can reflect "funds already reserved" instead of "awaiting deposit".
+  const bookingJobIds = [...new Set((rows ?? []).map((r) => r.job_id).filter((id): id is string => !!id))];
+  const agentBackedJobIds = new Set<string>();
+  if (bookingJobIds.length) {
+    const { data: commitRows } = await supabase
+      .from("premium_agent_wallet_transactions")
+      .select("related_job_id")
+      .in("related_job_id", bookingJobIds)
+      .eq("type", "job_commitment")
+      .eq("status", "completed");
+    for (const r of commitRows ?? []) {
+      if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
+    }
+  }
+
   const talentIds = [...new Set((rows ?? []).map((r) => r.talent_user_id).filter((id): id is string => !!id))];
   const { data: profiles } = talentIds.length
     ? await supabase.from("talent_profiles").select("id, full_name, avatar_url").in("id", talentIds)
@@ -79,6 +95,7 @@ export default async function WorkspaceBookingsPage() {
         paidAt:           contract?.paid_at ? String(contract.paid_at) : null,
         hasContractFile:  !!contract?.contract_file_url,
         hasSignedContract: !!contract?.signed_contract_url,
+        isAgentJobBacked: row.job_id ? agentBackedJobIds.has(String(row.job_id)) : false,
       };
     });
     return <BookingList bookings={bookings} financesHref="/agency/workspace/wallet" />;
@@ -102,9 +119,10 @@ export default async function WorkspaceBookingsPage() {
       totalValue:     Number(row.price ?? 0),
       createdAt:      String(row.created_at ?? ""),
       jobDate:        contract?.job_date ? String(contract.job_date) : null,
-      location:       contract?.location ? String(contract.location) : null,
-      paidAt:         contract?.paid_at ? String(contract.paid_at) : null,
-      contractId:     contract?.id ? String(contract.id) : null,
+      location:         contract?.location ? String(contract.location) : null,
+      paidAt:           contract?.paid_at ? String(contract.paid_at) : null,
+      contractId:       contract?.id ? String(contract.id) : null,
+      isAgentJobBacked: row.job_id ? agentBackedJobIds.has(String(row.job_id)) : false,
     };
   });
 
