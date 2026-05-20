@@ -1,50 +1,48 @@
 -- Fix corrupted UTF-8 notification messages and links.
 --
--- Root cause: migration 20260508 SQL file was saved with wrong charset encoding,
--- causing Postgres to store mojibake characters in existing notification rows.
+-- Root cause: migration 20260508 SQL file was saved with wrong charset encoding.
+-- The `ê` in "Agência" (UTF-8: C3 AA) was misread byte-by-byte as Latin-1,
+-- yielding Ã (C3→U+00C3) + ª (AA→U+00AA), storing "AgÃªncia" in the DB.
+-- The em dash — (UTF-8: E2 80 94) was likewise stored as â€" (Windows-1252
+-- re-encoding of those three bytes: â + € + " right-quote U+201D).
 -- Migration 20260513 fixed the Postgres function for future inserts, but
--- ON CONFLICT (idempotency_key) DO NOTHING prevented re-insertion, so
--- existing rows still have the wrong message AND wrong link.
+-- ON CONFLICT (idempotency_key) DO NOTHING prevented re-insertion,
+-- so existing rows still carry the wrong message and link.
 --
--- Why previous exact-match SQL failed:
---   The em dash — (U+2014, UTF-8: E2 80 94) was stored as the Windows-1252
---   re-encoding of those bytes: â (U+00E2) + € (U+20AC) + " (U+201D).
---   The WHERE clause used a plain " (U+0022) which silently matched nothing.
---
--- Fix strategy: use LIKE patterns on ASCII-only invariant substrings for
--- matching (encoding-safe), and correct UTF-8 literals for the SET values.
+-- Why the previous LIKE pattern '%gncia liberou seu pagamento%' failed:
+--   "Agência" → mojibake "AgÃªncia": chars between g and n are now Ã + ª
+--   (two non-ASCII chars), making "gncia" non-contiguous — the LIKE never
+--   matched. The fix is to use a pure-ASCII substring that IS contiguous in
+--   both the correct and the mojibake form.
 
--- ── 1. Fix payout notification messages ──────────────────────────────────────
--- Old (mojibake): 'AgÃªncia liberou seu pagamento â€" a caminho!'
--- New (correct):  'Agência liberou seu pagamento — a caminho!'
+-- ── 1. Fix payout notification messages (type = 'payment') ───────────────────
+-- Only 20260508 had bad file encoding; it stored the payout notification.
+-- 'liberou seu pagamento' is pure ASCII and contiguous in both versions.
 UPDATE notifications
 SET message = 'Agência liberou seu pagamento — a caminho!'
 WHERE type = 'payment'
-  AND message LIKE '%gncia liberou seu pagamento%';
+  AND message LIKE '%liberou seu pagamento%'
+  AND message <> 'Agência liberou seu pagamento — a caminho!';
 
--- ── 2. Fix escrow/contract notification messages ──────────────────────────────
--- Old (mojibake, if any): 'Ag?ncia confirmou o contrato e realizou o dep?sito'
--- New (correct):          'Agência confirmou o contrato e realizou o depósito'
--- (20260417/20260501/20260502 all had correct encoding; this is a safety net)
+-- ── 2. Fix escrow/contract notification messages (safety net) ─────────────────
+-- All migrations that created these notifications had correct UTF-8 encoding,
+-- but this guard repairs them if any row was somehow affected.
 UPDATE notifications
 SET message = 'Agência confirmou o contrato e realizou o depósito'
 WHERE type = 'contract'
-  AND message LIKE '%confirmou o contrato%'
-  AND message NOT LIKE '%Ag_ncia confirmou%';
+  AND message LIKE '%confirmou o contrato e realizou%'
+  AND message <> 'Agência confirmou o contrato e realizou o depósito';
 
--- ── 3. Fix agency booking notification messages ───────────────────────────────
--- Old (mojibake, if any): 'Reserva confirmada ? fundos em cust?dia'
--- New (correct):          'Reserva confirmada — fundos em custódia'
+-- ── 3. Fix agency booking notification messages (safety net) ─────────────────
 UPDATE notifications
 SET message = 'Reserva confirmada — fundos em custódia'
 WHERE type = 'booking'
-  AND message LIKE '%Reserva confirmada%'
-  AND message NOT LIKE '%cust_dia%';
+  AND message LIKE '%Reserva confirmada%fundos em%'
+  AND message <> 'Reserva confirmada — fundos em custódia';
 
 -- ── 4. Fix payout notification links for Premium workspace talent ─────────────
--- Old: '/talent/finances'  (hardcoded by RPC versions 20260503 and 20260508)
--- New: '/talent/workspaces/<slug>/finances'
--- Matching is done via idempotency_key → contract → job → workspace slug.
+-- Older RPC versions (20260503, 20260508) hardcoded '/talent/finances'.
+-- Match via idempotency_key → contract → job → workspace slug.
 UPDATE notifications n
 SET link = '/talent/workspaces/' || pw.slug || '/finances'
 FROM contracts c
@@ -56,8 +54,7 @@ WHERE n.idempotency_key = 'notif_payout_talent_' || c.id::text
   AND n.link = '/talent/finances';
 
 -- ── 5. Fix escrow/contract notification links for Premium workspace talent ────
--- Old: '/talent/contracts' or '/talent/finances'
--- New: '/talent/workspaces/<slug>/contracts'
+-- Older RPC versions stored '/talent/contracts' instead of workspace-scoped link.
 UPDATE notifications n
 SET link = '/talent/workspaces/' || pw.slug || '/contracts'
 FROM contracts c
