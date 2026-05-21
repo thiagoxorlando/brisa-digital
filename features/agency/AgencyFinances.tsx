@@ -35,7 +35,6 @@ function fmtDateTime(value: string | null | undefined) {
 export type AgencyTransaction = AgencyLedgerRow;
 
 export type AgencyFinanceSummary = {
-  totalSpent: number;
   pendingPayments: number;
   completedPayments: number;
   walletBalance?: number;
@@ -605,8 +604,8 @@ export default function AgencyFinances({
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <StatCard label="Saldo Total" value={brl(walletBalance)} sub="Saldo bruto em carteira" stripe="from-indigo-500 to-violet-500" />
         <StatCard label="Disponível para Saque" value={brl(availableBalance)} sub={allocatedToAgents > 0 ? `${brl(allocatedToAgents)} alocado a agentes` : "Saldo disponível em carteira"} stripe="from-emerald-400 to-teal-500" />
-        <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Aguardando confirmação" stripe="from-amber-400 to-orange-500" />
-        <StatCard label="Pagamentos Realizados" value={brl(summary.completedPayments)} sub="Reservas confirmadas" stripe="from-cyan-400 to-sky-500" />
+        <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Em custódia" stripe="from-amber-400 to-orange-500" />
+        <StatCard label="Pagamentos Realizados" value={brl(summary.completedPayments)} sub="Pagos ao talento" stripe="from-cyan-400 to-sky-500" />
       </div>
 
       <div className="space-y-4">
