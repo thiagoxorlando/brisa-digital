@@ -283,6 +283,26 @@ function SignupPageContent() {
     }).catch(() => undefined);
   }, []);
 
+  const [referredEmail, setReferredEmail] = useState<string | null>(null);
+  useEffect(() => {
+    if (!refToken || account.role !== "talent") return;
+    void fetch(`/api/referrals/info?token=${encodeURIComponent(refToken)}`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json() as { referred_email?: string | null };
+        if (data.referred_email) setReferredEmail(data.referred_email.trim().toLowerCase());
+      })
+      .catch(() => undefined);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refToken, account.role]);
+
+  useEffect(() => {
+    if (referredEmail && !account.email) {
+      setAccount((prev) => ({ ...prev, email: referredEmail }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referredEmail]);
+
   const roleCopyMap = {
     agency: { title: t("signup_agency_title"), subtitle: t("signup_agency_subtitle"), cta: t("signup_agency_cta") },
     talent: { title: t("signup_talent_title"), subtitle: t("signup_talent_subtitle"), cta: t("signup_talent_cta") },
@@ -292,6 +312,11 @@ function SignupPageContent() {
 
   const formatPlanLine = (plan: PublicPlanSetting) =>
     plan.is_available ? formatPlanMonthlyPrice(plan.price, lang) : t("plan_coming_soon");
+
+  const emailMatchesReferral: boolean | null =
+    referredEmail && account.email.trim()
+      ? account.email.trim().toLowerCase() === referredEmail
+      : null;
 
   function setAccountField<K extends keyof AccountForm>(key: K, value: AccountForm[K]) {
     setAccount((current) => ({ ...current, [key]: value }));
@@ -697,12 +722,25 @@ function SignupPageContent() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                  {referredEmail && account.role === "talent" && (
+                    <div className="flex items-start gap-3 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3">
+                      <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-[13px] text-teal-700">Você recebeu um convite de indicação. Complete o cadastro com o e-mail indicado para que a indicação seja aplicada.</p>
+                    </div>
+                  )}
                   <SectionCard eyebrow={t("signup_creds_eyebrow")} title={t("signup_creds_title")}>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="sm:col-span-2">
                         <LabeledInput label={t("signup_email_label")} error={errors.email}>
                           <input type="email" required value={account.email} onChange={(event) => setAccountField("email", event.target.value)} placeholder="voce@empresa.com" className={inputClass(!!errors.email)} />
                         </LabeledInput>
+                        {referredEmail && account.email.trim() && (
+                          emailMatchesReferral
+                            ? <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-emerald-600"><span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />Indicação será aplicada a este e-mail.</p>
+                            : <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-amber-600"><span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-500" />Este convite foi enviado para {referredEmail}. Se continuar com outro e-mail, a indicação não será aplicada.</p>
+                        )}
                       </div>
                       <div className="sm:col-span-2">
                         <LabeledInput label={t("signup_password_label")} error={errors.password}>

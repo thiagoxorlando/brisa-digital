@@ -87,7 +87,14 @@ export async function POST(req: NextRequest) {
     user.email &&
     invite.referred_email.toLowerCase() !== user.email.toLowerCase()
   ) {
-    return NextResponse.json({ error: "Este convite pertence a outro email" }, { status: 403 });
+    // Soft skip: allow signup but do not attach referral commission.
+    // Record the actual email used so admins can audit mismatches.
+    await supabase
+      .from("referral_invites")
+      .update({ signup_email: user.email, skip_reason: "email_mismatch" })
+      .eq("id", invite.id);
+
+    return NextResponse.json({ ok: true, skipped: true, reason: "email_mismatch" });
   }
 
   if (invite.job_id) {
