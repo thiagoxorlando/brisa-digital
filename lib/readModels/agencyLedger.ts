@@ -135,10 +135,17 @@ export function buildAgencyWalletLedgerRows(
       bookingId = contract?.booking_id ?? null;
       if (contract) {
         const resolved = resolveEscrowTxType(contract.status);
-        if (resolved !== "escrow_lock") {
-          status = resolved;
-          description = resolved === "escrow_released" ? "Pagamento ao talento" : "Estorno · reembolso";
+        if (resolved === "escrow_released") {
+          status = "escrow_released";
+          description = "Pagamento ao talento";
+        } else if (resolved === "escrow_refunded") {
+          // The actual refund is a separate wallet_transaction of type="refund"
+          // written atomically by cancel_contract_safe. This entry is the original
+          // escrow being reversed — showing it as a refund would duplicate the real one.
+          status = "escrow_cancelled";
+          description = "Custódia cancelada";
         }
+        // else: stays escrow_lock (active escrow)
       }
     }
 
@@ -196,6 +203,7 @@ const LEDGER_LABEL: Record<string, string> = {
   withdrawal:                "Saque",
   escrow_lock:               "Custódia bloqueada",
   escrow_released:           "Pago ao talento",
+  escrow_cancelled:          "Custódia cancelada",
   escrow_refunded:           "Reembolsado",
   refund:                    "Reembolso",
   agent_allocation:          "Alocação a agente",
@@ -214,6 +222,7 @@ const LEDGER_TONE: Record<string, string> = {
   withdrawal:                "bg-blue-50    text-blue-700    ring-1 ring-blue-100",
   escrow_lock:               "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
   escrow_released:           "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  escrow_cancelled:          "bg-zinc-100   text-zinc-500    ring-1 ring-zinc-200",
   escrow_refunded:           "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
   refund:                    "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
   agent_allocation:          "bg-indigo-50  text-indigo-700  ring-1 ring-indigo-100",
