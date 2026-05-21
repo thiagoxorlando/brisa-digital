@@ -87,14 +87,16 @@ export async function POST(req: NextRequest) {
     user.email &&
     invite.referred_email.toLowerCase() !== user.email.toLowerCase()
   ) {
-    // Soft skip: allow signup but do not attach referral commission.
-    // Record the actual email used so admins can audit mismatches.
+    // Record for admin audit visibility even on rejection.
     await supabase
       .from("referral_invites")
       .update({ signup_email: user.email, skip_reason: "email_mismatch" })
       .eq("id", invite.id);
 
-    return NextResponse.json({ ok: true, skipped: true, reason: "email_mismatch" });
+    return NextResponse.json(
+      { error: `Este convite só pode ser usado com o e-mail ${invite.referred_email}.` },
+      { status: 403 },
+    );
   }
 
   if (invite.job_id) {

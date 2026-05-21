@@ -143,7 +143,8 @@ function FieldError({ error }: { error?: string }) {
   return <p className="mt-1.5 text-[12px] text-rose-500">{error}</p>;
 }
 
-function inputClass(hasError = false) {
+function inputClass(hasError = false, locked = false) {
+  if (locked) return "w-full rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-[14px] text-teal-900 cursor-not-allowed outline-none";
   return `w-full rounded-2xl border px-4 py-3 text-[14px] outline-none transition-colors ${hasError ? "border-rose-300 focus:border-rose-400" : "border-[#DDE6E6] focus:border-[#0E7C86]"}`;
 }
 
@@ -313,10 +314,7 @@ function SignupPageContent() {
   const formatPlanLine = (plan: PublicPlanSetting) =>
     plan.is_available ? formatPlanMonthlyPrice(plan.price, lang) : t("plan_coming_soon");
 
-  const emailMatchesReferral: boolean | null =
-    referredEmail && account.email.trim()
-      ? account.email.trim().toLowerCase() === referredEmail
-      : null;
+  const isEmailLocked = !!(referredEmail && account.role === "talent");
 
   function setAccountField<K extends keyof AccountForm>(key: K, value: AccountForm[K]) {
     setAccount((current) => ({ ...current, [key]: value }));
@@ -437,6 +435,12 @@ function SignupPageContent() {
     }
 
     setLoading(true);
+
+    if (refToken && referredEmail && account.role === "talent" && account.email.trim().toLowerCase() !== referredEmail) {
+      setServerError(`Este convite só pode ser usado com o e-mail ${referredEmail}.`);
+      setLoading(false);
+      return;
+    }
 
     let paymentWindow: Window | null = null;
     if (account.role === "agency" && selectedPlan.price > 0) {
@@ -727,19 +731,20 @@ function SignupPageContent() {
                       <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <p className="text-[13px] text-teal-700">Você recebeu um convite de indicação. Complete o cadastro com o e-mail indicado para que a indicação seja aplicada.</p>
+                      <p className="text-[13px] text-teal-700">Este convite está vinculado ao e-mail <strong>{referredEmail}</strong>. O cadastro deve ser feito com esse e-mail.</p>
                     </div>
                   )}
                   <SectionCard eyebrow={t("signup_creds_eyebrow")} title={t("signup_creds_title")}>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="sm:col-span-2">
                         <LabeledInput label={t("signup_email_label")} error={errors.email}>
-                          <input type="email" required value={account.email} onChange={(event) => setAccountField("email", event.target.value)} placeholder="voce@empresa.com" className={inputClass(!!errors.email)} />
+                          <input type="email" required value={account.email} onChange={isEmailLocked ? undefined : (event) => setAccountField("email", event.target.value)} readOnly={isEmailLocked} placeholder="voce@empresa.com" className={inputClass(!!errors.email, isEmailLocked)} />
                         </LabeledInput>
-                        {referredEmail && account.email.trim() && (
-                          emailMatchesReferral
-                            ? <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-emerald-600"><span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />Indicação será aplicada a este e-mail.</p>
-                            : <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-amber-600"><span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-500" />Este convite foi enviado para {referredEmail}. Se continuar com outro e-mail, a indicação não será aplicada.</p>
+                        {isEmailLocked && (
+                          <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-teal-600">
+                            <svg className="h-3 w-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                            E-mail vinculado ao convite. Não pode ser alterado.
+                          </p>
                         )}
                       </div>
                       <div className="sm:col-span-2">

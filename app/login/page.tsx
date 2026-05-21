@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getAgencyLanding } from "@/lib/getAgencyLanding";
@@ -40,6 +40,18 @@ function LoginPageContent() {
   const [error,          setError]          = useState("");
   const [loading,        setLoading]        = useState(false);
   const [showRoleChoice, setShowRoleChoice] = useState(false);
+  const [referredEmail,  setReferredEmail]  = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!refToken) return;
+    void fetch(`/api/referrals/info?token=${encodeURIComponent(refToken)}`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json() as { referred_email?: string | null };
+        if (data.referred_email) setReferredEmail(data.referred_email.trim().toLowerCase());
+      })
+      .catch(() => undefined);
+  }, [refToken]);
 
   function talentSignupHref() {
     const params = new URLSearchParams({ role: "talent" });
@@ -49,14 +61,14 @@ function LoginPageContent() {
     return `/signup?${params.toString()}`;
   }
 
-  async function linkReferral(userId: string) {
-    if (!refToken) return;
-
-    await fetch("/api/referrals/link", {
+  async function linkReferral(userId: string): Promise<{ mismatch: boolean }> {
+    if (!refToken) return { mismatch: false };
+    const res = await fetch("/api/referrals/link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token: refToken, user_id: userId }),
     });
+    return { mismatch: res.status === 403 };
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -87,7 +99,12 @@ function LoginPageContent() {
         destination = nextPath ?? await getAgencyLanding(data.user.id);
       }
     } else if (profile?.role === "talent") {
-      await linkReferral(data.user.id);
+      const linkResult = await linkReferral(data.user.id);
+      if (linkResult.mismatch) {
+        setError(`Este convite só pode ser usado com o e-mail ${referredEmail ?? "indicado"}. Faça login com esse e-mail.`);
+        setLoading(false);
+        return;
+      }
       // Portal-only talents (marketplace_visible=false) land directly on their
       // workspace portal, avoiding the double redirect via /talent/dashboard.
       destination = profile.onboarding_completed === false
@@ -180,6 +197,14 @@ function LoginPageContent() {
                 {t("login_subtitle")}
               </p>
 
+              {referredEmail && (
+                <div className="mb-4 flex items-start gap-3 rounded-xl border border-teal-500/20 bg-teal-500/10 px-4 py-3">
+                  <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-[13px] text-teal-200">Este convite está vinculado ao e-mail <strong className="text-white">{referredEmail}</strong>. Faça login com esse e-mail.</p>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-[12px] font-semibold text-white/50 uppercase tracking-widest mb-2">
