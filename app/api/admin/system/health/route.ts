@@ -19,7 +19,6 @@ const ENV_VARS = [
   "ASAAS_API_KEY",
   "ASAAS_API_URL",
   "ASAAS_WEBHOOK_TOKEN",
-  "EFI_WEBHOOK_TOKEN",
 ];
 
 export async function GET() {
