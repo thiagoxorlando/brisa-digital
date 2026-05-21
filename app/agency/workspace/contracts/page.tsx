@@ -130,7 +130,7 @@ const talentIds = [...new Set(
     const talentId = contract.talent_user_id ?? contract.talent_id ?? null;
     const release = checkPaymentReleaseEligibility(
       { status: contract.status ?? "", job_date: contract.job_date ?? null },
-      { now: new Date() },
+      { now: new Date(), isInvitedAgent: true },
     );
     return {
       id: contract.id,
@@ -150,7 +150,7 @@ const talentIds = [...new Set(
       contractFileUrl: contract.contract_file_url ? buildContractFileAccessUrl(contract.id, "original") : null,
       signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
       isPaymentEligible: release.eligible,
-      paymentBlockReason: release.eligible ? null : (contract.job_date ? "Pagamento disponível após a data da vaga." : null),
+      paymentBlockReason: release.eligible ? null : "Pagamento antecipado precisa ser liberado pelo proprietário do workspace.",
     };
   });
 

@@ -266,10 +266,11 @@ export async function PATCH(
     // Determine whether the caller is the workspace owner (for workspace
     // contracts) or admin. Open Space agency contracts: the agency itself IS
     // the owner, so isAgencyOwner already suffices.
+    const contractWorkspaceId =
+      (contract as { workspace_id?: string | null }).workspace_id ?? null;
+
     let isWorkspaceOwnerOrAdmin = caller?.role === "admin";
     if (!isWorkspaceOwnerOrAdmin && caller?.role === "agency") {
-      const contractWorkspaceId =
-        (contract as { workspace_id?: string | null }).workspace_id ?? null;
       if (!contractWorkspaceId) {
         // Open Space — agency owner equals workspace owner conceptually.
         isWorkspaceOwnerOrAdmin = isAgencyOwner;
@@ -282,6 +283,9 @@ export async function PATCH(
         isWorkspaceOwnerOrAdmin = !!ws && ws.owner_user_id === user.id;
       }
     }
+
+    // Invited workspace agents are gated by job date; everyone else can pay early.
+    const isInvitedAgent = caller?.role === "agency" && !!contractWorkspaceId && !isWorkspaceOwnerOrAdmin;
 
     if (manualOverride) {
       if (!isWorkspaceOwnerOrAdmin) {
@@ -318,7 +322,7 @@ export async function PATCH(
         job_date: (contract as { job_date?: string | null }).job_date ?? null,
         confirmed_at: (contract as { confirmed_at?: string | null }).confirmed_at ?? null,
       },
-      { manualOverride },
+      { manualOverride, isInvitedAgent },
     );
     if (!release.eligible) {
       return NextResponse.json(
@@ -741,21 +745,24 @@ export async function PATCH(
     const agentManualOverride = body?.manual_override === true;
     const agentOverrideReason = typeof body?.override_reason === "string" ? body.override_reason.trim() : "";
 
+    const agentContractWorkspaceId =
+      (contract as { workspace_id?: string | null }).workspace_id ?? null;
+
     let agentIsOwnerOrAdmin = caller?.role === "admin";
     if (!agentIsOwnerOrAdmin && caller?.role === "agency") {
-      const contractWorkspaceId =
-        (contract as { workspace_id?: string | null }).workspace_id ?? null;
-      if (!contractWorkspaceId) {
+      if (!agentContractWorkspaceId) {
         agentIsOwnerOrAdmin = isAgencyOwner;
       } else {
         const { data: ws } = await supabase
           .from("premium_workspaces")
           .select("owner_user_id")
-          .eq("id", contractWorkspaceId)
+          .eq("id", agentContractWorkspaceId)
           .maybeSingle();
         agentIsOwnerOrAdmin = !!ws && ws.owner_user_id === user.id;
       }
     }
+
+    const isInvitedAgentCaller = caller?.role === "agency" && !!agentContractWorkspaceId && !agentIsOwnerOrAdmin;
 
     if (agentManualOverride) {
       if (!agentIsOwnerOrAdmin) {
@@ -794,7 +801,7 @@ export async function PATCH(
         job_date: (contract as { job_date?: string | null }).job_date ?? null,
         confirmed_at: (contract as { confirmed_at?: string | null }).confirmed_at ?? null,
       },
-      { manualOverride: agentManualOverride },
+      { manualOverride: agentManualOverride, isInvitedAgent: isInvitedAgentCaller },
     );
     if (!agentRelease.eligible) {
       return NextResponse.json(

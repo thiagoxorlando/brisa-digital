@@ -2,17 +2,13 @@
  * Canonical payment release eligibility for confirmed (escrowed) contracts.
  *
  * Rule:
- *   A contract is eligible for payment release ("pay" action) when:
- *     - status === "confirmed" (escrow is locked), AND
- *     - either:
- *         * job_date is null (no scheduled date — release any time), OR
- *         * job_date <= today (work date has arrived/passed), OR
- *         * the caller is the agency owner manually overriding the gate
- *           (the API route may pass `manualOverride: true` once the agency
- *            explicitly confirms early release in the UI).
+ *   Everyone (open-space agencies, workspace owners, admins) can release early.
+ *   EXCEPTION: invited workspace agents (premium workspace members who are not
+ *   the workspace owner) are gated by job_date and require the owner to use
+ *   the manual override to release before the work date.
  *
- * Pure function — no DB calls. Wire into the contract `pay` action so the
- * gating logic lives in exactly one place.
+ * Pass `isInvitedAgent: true` only for callers identified as workspace agents.
+ * Pure function — no DB calls.
  */
 
 export type PaymentReleaseCheck = {
@@ -28,7 +24,7 @@ export type PaymentReleaseContext = {
 
 export function checkPaymentReleaseEligibility(
   contract: PaymentReleaseContext,
-  options: { manualOverride?: boolean; now?: Date } = {},
+  options: { manualOverride?: boolean; now?: Date; isInvitedAgent?: boolean } = {},
 ): PaymentReleaseCheck {
   if (contract.status !== "confirmed") {
     return {
@@ -41,16 +37,20 @@ export function checkPaymentReleaseEligibility(
     return { eligible: true };
   }
 
+  // Only invited workspace agents are gated by job date.
+  // Open-space agencies, workspace owners, and admins can always release early.
+  if (!options.isInvitedAgent) {
+    return { eligible: true };
+  }
+
   const jobDateRaw = contract.job_date;
   if (!jobDateRaw) {
-    // No scheduled date — release is allowed any time.
     return { eligible: true };
   }
 
   const now = options.now ?? new Date();
   const jobDate = new Date(jobDateRaw);
   if (!Number.isFinite(jobDate.getTime())) {
-    // Invalid stored date — fall back to allowing release rather than blocking.
     return { eligible: true };
   }
 
@@ -72,7 +72,7 @@ export function checkPaymentReleaseEligibility(
 
   return {
     eligible: false,
-    reason: "Job date has not arrived yet. Release manually if you wish to pay early.",
+    reason: "Pagamento antecipado precisa ser liberado pelo proprietário do workspace.",
   };
 }
 
