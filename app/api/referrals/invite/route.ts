@@ -6,12 +6,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { buildRateLimitKey, checkRateLimit, getRequestIp } from "@/lib/rateLimit";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { buildReferralEmail, buildReferralJobUrl, getAppUrl } from "@/lib/referralEmail";
 import { sendEmail, validateEmailConfig } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { agencyWorkspaceJobDetailHref, resolveWorkspaceLifecycleByJobId } from "@/lib/workspaceLifecycle";
+import { getFeatureFlag } from "@/lib/featureFlags.server";
 
 type ExistingReferralInvite = {
   id: string;
@@ -22,6 +24,14 @@ type ExistingReferralInvite = {
 };
 
 export async function POST(req: NextRequest) {
+  const referralsEnabled = await getFeatureFlag("referrals_enabled");
+  if (!referralsEnabled) {
+    return NextResponse.json(
+      { error: "O programa de indicações está desativado no momento." },
+      { status: 403 },
+    );
+  }
+
   const body = await req.json();
   const { job_id, referrer_id, referred_email, referred_name, bio, video_url } = body;
   const normalizedEmail = typeof referred_email === "string" ? referred_email.trim().toLowerCase() : "";
@@ -40,6 +50,14 @@ export async function POST(req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const referralRateLimit = checkRateLimit({
+    key: buildRateLimitKey("referral-invite", getRequestIp(req), user.id),
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+    message: "Muitas indicações enviadas em pouco tempo. Tente novamente mais tarde.",
+  });
+  if (referralRateLimit) return referralRateLimit;
 
   if (user.email?.toLowerCase() === normalizedEmail) {
     return NextResponse.json({ error: "Você não pode indicar o próprio email" }, { status: 400 });

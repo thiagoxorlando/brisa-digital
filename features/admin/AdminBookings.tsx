@@ -11,6 +11,7 @@ import {
 import { useT } from "@/lib/LanguageContext";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { brl } from "@/lib/brl";
+import { type SpaceFilter, SPACE_FILTER_LABELS, matchesSpaceFilter } from "@/lib/spaceFilter";
 
 export type AdminBooking = {
   id: string;
@@ -389,6 +390,7 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
   const { t, lang } = useT();
   const statusLang = lang === "en" ? "en" : "pt-BR" as const;
   const [bookings, setBookings] = useState<AdminBooking[]>(initialBookings);
+  const [spaceFilter, setSpaceFilter] = useState<SpaceFilter>("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -415,6 +417,7 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
   }
 
   const filtered = bookings
+    .filter((booking) => matchesSpaceFilter(booking.workspaceId, spaceFilter))
     .filter((booking) => (statusFilter === "all" ? true : booking.derivedStatus === statusFilter))
     .filter((booking) => {
       if (!search) return true;
@@ -533,6 +536,22 @@ export default function AdminBookings({ bookings: initialBookings }: { bookings:
               <p className="text-[1.5rem] font-semibold leading-none tracking-tighter text-zinc-900">{stat.value}</p>
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* Space filter — Open Space vs Premium */}
+      <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 self-start">
+        {(["all", "open", "premium"] as const).map((sf) => (
+          <button
+            key={sf}
+            onClick={() => setSpaceFilter(sf)}
+            className={[
+              "whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all",
+              spaceFilter === sf ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700",
+            ].join(" ")}
+          >
+            {SPACE_FILTER_LABELS[sf]}
+          </button>
         ))}
       </div>
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildRateLimitKey, checkRateLimit, getRequestIp } from "@/lib/rateLimit";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { isValidCpf, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
@@ -6,15 +7,6 @@ import { isValidCpf, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
 const VALID_ROLES = ["agency", "talent"] as const;
 const TERMS_VERSION = "terms_v1_2026_05";
 const TERMS_ERROR = "Você precisa aceitar os Termos de Uso para continuar.";
-
-function getIpAddress(req: NextRequest) {
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0]?.trim() ?? null;
-  }
-
-  return req.headers.get("x-real-ip");
-}
 
 export async function POST(req: NextRequest) {
   const { user_id, role, termsAccepted, agency, talent, marketplaceVisible } = await req.json();
@@ -34,6 +26,14 @@ export async function POST(req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const signupRateLimit = checkRateLimit({
+    key: buildRateLimitKey("signup", getRequestIp(req), user.id),
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    message: "Muitas tentativas de cadastro. Tente novamente em alguns minutos.",
+  });
+  if (signupRateLimit) return signupRateLimit;
 
   if (user_id !== user.id) {
     return NextResponse.json({ error: "Cannot create profile for another user" }, { status: 403 });
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         terms_version: TERMS_VERSION,
         accepted_at: new Date().toISOString(),
-        ip_address: getIpAddress(req),
+        ip_address: getRequestIp(req),
         user_agent: req.headers.get("user-agent"),
       },
       { onConflict: "user_id,terms_version" },

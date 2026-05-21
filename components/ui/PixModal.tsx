@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { brl } from "@/lib/brl";
 
 export interface PixPaymentData {
   payment_id: number;
@@ -15,10 +16,6 @@ interface PixModalProps {
   data: PixPaymentData;
   onConfirmed: () => void;
   onClose: () => void;
-}
-
-function brl(n: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
 }
 
 type ModalStatus = "pending" | "confirmed" | "expired";

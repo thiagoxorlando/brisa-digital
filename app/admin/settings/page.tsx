@@ -20,6 +20,12 @@ const DEFAULTS: PlatformSettings = {
   max_withdrawals_per_day:             3,
   maintenance_mode_enabled:            false,
   require_terms_acceptance:            true,
+  withdrawal_fee_percent:              0,
+  withdrawal_min_fee:                  0,
+  withdrawal_min_amount_agency:        100,
+  payout_delay_days:                   0,
+  escrow_timeout_days:                 0,
+  upload_max_mb:                       20,
 };
 
 export default async function AdminSettingsPage() {
@@ -42,6 +48,12 @@ export default async function AdminSettingsPage() {
     max_withdrawals_per_day:          Number(raw["max_withdrawals_per_day"] ?? DEFAULTS.max_withdrawals_per_day),
     maintenance_mode_enabled:         Boolean(raw["maintenance_mode_enabled"] ?? DEFAULTS.maintenance_mode_enabled),
     require_terms_acceptance:         Boolean(raw["require_terms_acceptance"] ?? DEFAULTS.require_terms_acceptance),
+    withdrawal_fee_percent:           Number(raw["withdrawal_fee_percent"] ?? DEFAULTS.withdrawal_fee_percent),
+    withdrawal_min_fee:               Number(raw["withdrawal_min_fee"] ?? DEFAULTS.withdrawal_min_fee),
+    withdrawal_min_amount_agency:     Number(raw["withdrawal_min_amount_agency"] ?? DEFAULTS.withdrawal_min_amount_agency),
+    payout_delay_days:                Number(raw["payout_delay_days"] ?? DEFAULTS.payout_delay_days),
+    escrow_timeout_days:              Number(raw["escrow_timeout_days"] ?? DEFAULTS.escrow_timeout_days),
+    upload_max_mb:                    Number(raw["upload_max_mb"] ?? DEFAULTS.upload_max_mb),
   };
 
   return (

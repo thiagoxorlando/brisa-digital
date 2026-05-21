@@ -4,6 +4,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import AgencyContracts from "@/features/agency/AgencyContracts";
 import type { AgencyContract } from "@/features/agency/AgencyContracts";
+import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
 
@@ -47,7 +48,12 @@ export default async function AgencyContractsPage() {
 
   const contracts: AgencyContract[] = contracts_data
     .filter((c) => !c.job_id || jobMap.has(c.job_id))
-    .map((c) => ({
+    .map((c) => {
+      const release = checkPaymentReleaseEligibility(
+        { status: c.status ?? "", job_date: c.job_date ?? null },
+        { now: new Date() },
+      );
+      return ({
     id:              c.id,
     jobId:           c.job_id          ?? null,
     jobTitle:        c.job_id ? (jobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
@@ -69,7 +75,12 @@ export default async function AgencyContractsPage() {
     paidAt:          c.paid_at           ?? null,
     contractFileUrl:       c.contract_file_url ? buildContractFileAccessUrl(c.id, "original") : null,
     signedContractUrl:     (c as any).signed_contract_url ? buildContractFileAccessUrl(c.id, "signed") : null,
-  }));
+    isPaymentEligible:     release.eligible,
+    paymentBlockReason:    release.eligible ? null : (c.job_date ? "Pagamento disponível após a data da vaga." : null),
+    // Open Space: the agency IS the owner, so they can manually override.
+    canManualOverride:     true,
+  });
+  });
 
   return <AgencyContracts contracts={contracts} />;
 }

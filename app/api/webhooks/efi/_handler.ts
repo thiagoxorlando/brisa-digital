@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
+import { brl } from "@/lib/brl";
 
 // Shared handler for:
 //   POST /api/webhooks/efi
@@ -79,8 +80,7 @@ export async function handleEfiWebhook(req: NextRequest): Promise<Response> {
 
   // ── Token validation ──────────────────────────────────────────────────────────
   // Efí may send the token via pix-token header, x-pix-token header, or ?token
-  // query param — check all three. Only reject when a token IS received and does
-  // NOT match; a missing token is allowed (endpoint URL acts as the secret).
+  // query param — check all three.
   const expectedToken = process.env.EFI_WEBHOOK_TOKEN;
   const receivedToken =
     req.headers.get("pix-token") ??
@@ -89,13 +89,19 @@ export async function handleEfiWebhook(req: NextRequest): Promise<Response> {
 
   console.log("[EFI WEBHOOK HEADERS]", Object.fromEntries(req.headers.entries()));
 
-  if (expectedToken && receivedToken && receivedToken !== expectedToken) {
+  if (!expectedToken) {
+    if (process.env.NODE_ENV === "production") {
+      log("warn", "Efí webhook token missing in production — rejecting");
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    log("warn", "Efí webhook token missing in development — accepting request for local testing");
+  } else if (!receivedToken) {
+    log("warn", "Efí webhook token missing from request — rejecting");
+    return new Response("Unauthorized", { status: 401 });
+  } else if (receivedToken !== expectedToken) {
     log("warn", "Efí webhook token mismatch — rejecting", { tokenPrefix: receivedToken.slice(0, 6) });
     return new Response("Unauthorized", { status: 401 });
-  }
-
-  if (!receivedToken) {
-    log("info", "Efí webhook — no token received; relying on endpoint secrecy");
   }
 
   const supabase = createServerClient({ useServiceRole: true });
@@ -209,16 +215,9 @@ async function handlePixOut(
     idEnvio,
   });
 
-  const brl = new Intl.NumberFormat("pt-BR", {
-    style:                 "currency",
-    currency:              "BRL",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(tx.net_amount ?? valor));
-
   await notifyAdmins(
     "payment",
-    `Saque confirmado (Efí PIX): ${brl}`,
+    `Saque confirmado (Efí PIX): ${brl(Number(tx.net_amount ?? valor))}`,
     "/admin/finances",
     `admin-withdrawal-confirmed-efi:${idEnvio}`,
   );
@@ -300,15 +299,9 @@ async function handlePixIn(
       amount: creditAmount,
       txid,
     });
-    const brl = new Intl.NumberFormat("pt-BR", {
-      style:                 "currency",
-      currency:              "BRL",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(creditAmount);
     await notifyAdmins(
       "payment",
-      `Depósito de carteira confirmado (Efí PIX): ${brl}`,
+      `Depósito de carteira confirmado (Efí PIX): ${brl(creditAmount)}`,
       "/admin/finances",
       `admin-wallet-deposit-efi:${txid}`,
     );

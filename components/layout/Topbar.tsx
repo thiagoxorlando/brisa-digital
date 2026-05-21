@@ -67,7 +67,13 @@ const pageMeta: Record<string, MetaEntry> = {
   "/admin/audit":         { titleKey: "topbar_admin_audit_title",         descKey: "topbar_admin_audit_desc"         },
   "/admin/system":        { titleKey: "topbar_admin_system_title",        descKey: "topbar_admin_system_desc"        },
   "/admin/settings":      { titleKey: "topbar_admin_settings_title",      descKey: "topbar_admin_settings_desc"      },
-  "/admin/notifications": { titleKey: "topbar_admin_notifications_title", descKey: "topbar_admin_notifications_desc" },
+  "/admin/notifications":   { titleKey: "topbar_admin_notifications_title",   descKey: "topbar_admin_notifications_desc"   },
+  "/admin/control-center": { titleKey: "topbar_admin_control_center_title", descKey: "topbar_admin_control_center_desc" },
+  "/admin/escrow":         { titleKey: "topbar_admin_escrow_title",         descKey: "topbar_admin_escrow_desc"         },
+  "/admin/payouts":        { titleKey: "topbar_admin_payouts_title",        descKey: "topbar_admin_payouts_desc"        },
+  "/admin/withdrawals":    { titleKey: "topbar_admin_withdrawals_title",    descKey: "topbar_admin_withdrawals_desc"    },
+  "/admin/disputes":       { titleKey: "topbar_admin_disputes_title",       descKey: "topbar_admin_disputes_desc"       },
+  "/admin/analytics":      { titleKey: "topbar_admin_analytics_title",      descKey: "topbar_admin_analytics_desc"      },
   "/admin/profile":       { titleKey: "topbar_admin_profile_title",       descKey: "topbar_admin_profile_desc"       },
 };
 

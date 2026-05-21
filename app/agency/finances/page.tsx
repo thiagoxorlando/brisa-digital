@@ -4,6 +4,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import AgencyFinances from "@/features/agency/AgencyFinances";
 import type { AgencyFinanceSummary } from "@/features/agency/AgencyFinances";
 import { WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
+import { getPlatformSettings } from "@/lib/platformSettings.server";
 import { getOwnerTotalActiveAllocations } from "@/lib/premiumWorkspace.server";
 import { buildAgencyWalletLedgerRows, type AgencyLedgerRow } from "@/lib/readModels/agencyLedger";
 
@@ -115,6 +116,19 @@ export default async function AgencyFinancesPage() {
     allocatedToAgents: activelyAllocated,
   };
 
+  // Policy 1 — agency withdrawal fee settings (preview only; server is the
+  // authoritative calculator). Defaults to 0 so the UI degrades gracefully.
+  const feeSettings = await getPlatformSettings([
+    "withdrawal_fee_percent",
+    "withdrawal_min_fee",
+    "withdrawal_min_amount_agency",
+  ]);
+  const withdrawalFeePercent = Number(feeSettings.withdrawal_fee_percent ?? 0) || 0;
+  const withdrawalMinFee = Number(feeSettings.withdrawal_min_fee ?? 0) || 0;
+  const agencyMinRaw = Number(feeSettings.withdrawal_min_amount_agency ?? 100);
+  const agencyMinWithdrawal = Number.isFinite(agencyMinRaw) && agencyMinRaw > 0 ? agencyMinRaw : 100;
+  const effectiveMinWithdrawal = Math.max(WITHDRAWAL_MIN_AMOUNT, agencyMinWithdrawal);
+
   const agencyPix = agencyRow?.pix_key_value
     ? { pix_key_type: agencyRow.pix_key_type ?? null, pix_key_value: agencyRow.pix_key_value, pix_holder_name: agencyRow.pix_holder_name ?? null }
     : null;
@@ -124,7 +138,9 @@ export default async function AgencyFinancesPage() {
       summary={summary}
       transactions={transactions}
       agencyPix={agencyPix}
-      withdrawalMinAmount={WITHDRAWAL_MIN_AMOUNT}
+      withdrawalMinAmount={effectiveMinWithdrawal}
+      withdrawalFeePercent={withdrawalFeePercent}
+      withdrawalMinFee={withdrawalMinFee}
       profileCpfCnpj={typeof (profile as Record<string, unknown> | null)?.cpf_cnpj === "string" ? ((profile as Record<string, unknown>).cpf_cnpj as string) : ""}
     />
   );

@@ -23,6 +23,7 @@ const ENV_VARS = [
   "ASAAS_API_KEY",
   "ASAAS_API_URL",
   "ASAAS_WEBHOOK_TOKEN",
+  "EFI_WEBHOOK_TOKEN",
 ];
 
 export default async function AdminSystemPage() {
@@ -86,6 +87,7 @@ export default async function AdminSystemPage() {
     if (!exists) warnings.push(`Bucket "${name}" não encontrado`);
   }
   if (!envChecks["ASAAS_WEBHOOK_TOKEN"]) warnings.push("ASAAS_WEBHOOK_TOKEN ausente");
+  if (!envChecks["EFI_WEBHOOK_TOKEN"]) warnings.push("EFI_WEBHOOK_TOKEN ausente");
   if (!latestWebhookAt) warnings.push("Nenhum webhook Asaas processado ainda");
   if (failedWebhookCount > 0) warnings.push(`${failedWebhookCount} webhook(s) com falha ou não processados`);
   try {

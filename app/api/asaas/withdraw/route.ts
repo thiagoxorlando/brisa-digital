@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPixTransfer } from "@/lib/asaas";
+import { buildRateLimitKey, checkRateLimit, getRequestIp } from "@/lib/rateLimit";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { notifyAdmins } from "@/lib/notify";
 import { getOwnerTotalActiveAllocations } from "@/lib/premiumWorkspace.server";
+import { getPlatformSetting } from "@/lib/platformSettings.server";
+import { getWithdrawalFee, WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
+import { brl } from "@/lib/brl";
+import {
+  isPayoutDelayApplicable,
+  isWithdrawalFeeApplicable,
+  type WithdrawalUserRole,
+} from "@/lib/withdrawalPolicy";
 
 export const runtime = "nodejs";
 
@@ -75,6 +84,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const withdrawRateLimit = checkRateLimit({
+    key: buildRateLimitKey("withdraw", getRequestIp(req), user.id),
+    limit: 6,
+    windowMs: 15 * 60 * 1000,
+    message: "Muitas solicitações de saque. Aguarde alguns minutos e tente novamente.",
+  });
+  if (withdrawRateLimit) return withdrawRateLimit;
+
   const body = await req.json().catch(() => ({})) as { amount?: unknown };
   const amount = Number(body.amount);
 
@@ -134,6 +151,79 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Saldo insuficiente." }, { status: 400 });
   }
 
+  // Role-aware withdrawal policy (see lib/withdrawalPolicy.ts).
+  // Talents withdraw immediately with no fee; agencies pay a fee and may be
+  // subject to a configurable payout delay.
+  const userRole: WithdrawalUserRole =
+    profile.role === "agency" || profile.role === "talent"
+      ? profile.role
+      : "unknown";
+
+  // Minimum withdrawal amount — agencies use a platform-configurable floor
+  // (default 100), talents continue with the env-based WITHDRAWAL_MIN_AMOUNT.
+  if (userRole === "agency") {
+    const minAgency = await getPlatformSetting<number>("withdrawal_min_amount_agency", 100);
+    const min = Number.isFinite(minAgency) && minAgency > 0 ? minAgency : 100;
+    if (roundedAmount < min) {
+      return NextResponse.json(
+        { error: `Valor mínimo para saque de agências é ${brl(min)}.` },
+        { status: 400 },
+      );
+    }
+  } else if (userRole === "talent") {
+    if (roundedAmount < WITHDRAWAL_MIN_AMOUNT) {
+      return NextResponse.json(
+        { error: `Valor mínimo para saque é ${brl(WITHDRAWAL_MIN_AMOUNT)}.` },
+        { status: 400 },
+      );
+    }
+  }
+
+  // Payout delay: if payout_delay_days > 0, the most recent payout must be
+  // older than that many days before a withdrawal is allowed.
+  // Talents are NEVER delayed (Policy 2). Agencies can be optionally delayed.
+  const payoutDelayDays = isPayoutDelayApplicable(userRole)
+    ? await getPlatformSetting<number>("payout_delay_days", 0)
+    : 0;
+  if (payoutDelayDays > 0) {
+    const { data: latestPayout } = await supabase
+      .from("wallet_transactions")
+      .select("created_at")
+      .eq("user_id", user.id)
+      .eq("type", "payout")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestPayout?.created_at) {
+      const payoutDate = new Date(latestPayout.created_at as string);
+      const availableAt = new Date(payoutDate.getTime() + payoutDelayDays * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      if (now < availableAt) {
+        const msRemaining = availableAt.getTime() - now.getTime();
+        const daysRemaining = Math.ceil(msRemaining / (24 * 60 * 60 * 1000));
+        return NextResponse.json(
+          { error: `Seu saldo estará disponível para saque em ${daysRemaining} dia${daysRemaining !== 1 ? "s" : ""}.` },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
+  // Withdrawal fee (Policy 1): agencies pay platform fee; talents pay nothing.
+  // Formula encapsulated in lib/withdrawal-fee.ts; role gating in lib/withdrawalPolicy.ts.
+  const feeAmount = isWithdrawalFeeApplicable(userRole)
+    ? Number((await getWithdrawalFee(roundedAmount)).toFixed(2))
+    : 0;
+  const netAmount = Number(Math.max(0, roundedAmount - feeAmount).toFixed(2));
+
+  if (netAmount <= 0) {
+    return NextResponse.json(
+      { error: "Valor de saque inferior à taxa mínima." },
+      { status: 400 },
+    );
+  }
+
   const { data: tx, error: txError } = await supabase
     .from("wallet_transactions")
     .insert({
@@ -141,11 +231,13 @@ export async function POST(req: NextRequest) {
       type: "withdrawal",
       provider: "asaas",
       amount: roundedAmount,
-      net_amount: roundedAmount,
-      fee_amount: 0,
+      net_amount: netAmount,
+      fee_amount: feeAmount,
       status: "processing",
       provider_status: "processing",
-      description: "Saque BrisaHub",
+      description: feeAmount > 0
+        ? `Saque BrisaHub (taxa ${feeAmount.toFixed(2)})`
+        : "Saque BrisaHub",
     } as Record<string, unknown>)
     .select("id")
     .single();
@@ -178,7 +270,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const transfer = await createPixTransfer({
-      value: roundedAmount,
+      value: netAmount,
       pixAddressKey: pixKey,
       pixAddressKeyType: pixKeyType,
       description: "Saque BrisaHub",

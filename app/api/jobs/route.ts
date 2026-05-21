@@ -11,6 +11,7 @@ import {
   getUserPremiumWorkspace,
 } from "@/lib/premiumWorkspace.server";
 import { resolveWorkspaceLifecycleByJobId, talentWorkspaceJobDetailHref } from "@/lib/workspaceLifecycle";
+import { calculateJobReservation } from "@/lib/jobReservationPolicy";
 
 function mapJobCreationError(message: string) {
   const normalized = message.toLowerCase();
@@ -130,7 +131,11 @@ export async function POST(req: NextRequest) {
 
   if (isWorkspaceMember && workspaceAccess?.membership.role === "agent" && workspaceId) {
     const ledger = await getAgentLedgerBalance(workspaceId, actorUserId);
-    const jobEstimate = Number(budget ?? 0) * (Number(number_of_talents_required) || 1);
+    // Policy 3: canonical reservation formula lives in lib/jobReservationPolicy.ts.
+    const jobEstimate = calculateJobReservation(
+      Number(budget ?? 0),
+      Number(number_of_talents_required) || 1,
+    );
     if (jobEstimate > ledger.availableAmount) {
       return NextResponse.json(
         { error: "Saldo alocado insuficiente. Solicite mais saldo ao proprietário." },
@@ -200,7 +205,11 @@ export async function POST(req: NextRequest) {
 
   // Record internal allocation commitment for agent-created workspace jobs
   if (isWorkspaceMember && workspaceAccess?.membership.role === "agent" && workspaceId && data?.id) {
-    const jobEstimate = Number(budget ?? 0) * (Number(number_of_talents_required) || 1);
+    // Policy 3: same canonical formula as the ledger-balance pre-check above.
+    const jobEstimate = calculateJobReservation(
+      Number(budget ?? 0),
+      Number(number_of_talents_required) || 1,
+    );
     if (jobEstimate > 0) {
       await supabase
         .from("premium_agent_wallet_transactions")

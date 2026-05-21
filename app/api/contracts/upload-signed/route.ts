@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CONTRACTS_BUCKET, sanitizeContractFileName } from "@/lib/contractFiles";
+import { buildRateLimitKey, checkRateLimit, getRequestIp } from "@/lib/rateLimit";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
-
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+import { getPlatformSetting } from "@/lib/platformSettings.server";
 
 // POST /api/contracts/upload-signed
 //
@@ -15,6 +15,14 @@ export async function POST(req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const signedUploadRateLimit = checkRateLimit({
+    key: buildRateLimitKey("signed-contract-upload", getRequestIp(req), user.id),
+    limit: 20,
+    windowMs: 60 * 60 * 1000,
+    message: "Muitos pedidos de upload de contrato assinado. Aguarde um pouco e tente novamente.",
+  });
+  if (signedUploadRateLimit) return signedUploadRateLimit;
 
   let body: Record<string, unknown>;
   try {
@@ -31,12 +39,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "contract_id e filename sao obrigatorios." }, { status: 400 });
   }
 
+  const uploadMaxMb = await getPlatformSetting<number>("upload_max_mb", 20);
+  const maxFileSize = uploadMaxMb * 1024 * 1024;
+
   if (!/\.pdf$/i.test(filename)) {
-    return NextResponse.json({ error: "Envie um arquivo PDF valido de ate 20MB." }, { status: 400 });
+    return NextResponse.json({ error: `Envie um arquivo PDF valido de ate ${uploadMaxMb}MB.` }, { status: 400 });
   }
 
-  if (filesize <= 0 || filesize > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: "Arquivo muito grande. Envie um PDF de ate 20MB." }, { status: 400 });
+  if (filesize <= 0 || filesize > maxFileSize) {
+    return NextResponse.json({ error: `Arquivo muito grande. Envie um PDF de ate ${uploadMaxMb}MB.` }, { status: 400 });
   }
 
   const supabase = createServerClient({ useServiceRole: true });

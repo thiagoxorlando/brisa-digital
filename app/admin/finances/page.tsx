@@ -139,6 +139,7 @@ export default async function AdminFinancesPage() {
       .eq("type", "deposit")
       .order("created_at", { ascending: false }),
     getLivePlanSettings(),
+    // TODO: paginate auth users for platforms with >1000 users
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from("profiles").select("id").is("deleted_at", null),
   ]);

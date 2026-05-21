@@ -67,7 +67,14 @@ export async function POST(req: NextRequest) {
   const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
   const incoming = req.headers.get("asaas-access-token") ?? "";
 
-  if (!webhookToken || incoming !== webhookToken) {
+  if (!webhookToken) {
+    if (process.env.NODE_ENV === "production") {
+      log("warn", "[asaas webhook] ASAAS_WEBHOOK_TOKEN missing in production");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    log("warn", "[asaas webhook] ASAAS_WEBHOOK_TOKEN missing in development; accepting request for local testing");
+  } else if (incoming !== webhookToken) {
     log("warn", "[asaas webhook] invalid or missing token");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

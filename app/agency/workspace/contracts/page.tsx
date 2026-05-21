@@ -4,6 +4,7 @@ import WorkspacePremiumContracts, { type PremiumContract } from "@/features/agen
 import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 import { createServerClient } from "@/lib/supabase";
+import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
 
 export const metadata: Metadata = { title: "Contratos Premium - BrisaHub" };
 
@@ -90,6 +91,10 @@ const talentIds = [...new Set(
   if (context.isOwner) {
     const contracts: AgencyContract[] = contractsData.map((contract) => {
       const talentId = contract.talent_user_id ?? contract.talent_id ?? null;
+      const release = checkPaymentReleaseEligibility(
+        { status: contract.status ?? "", job_date: contract.job_date ?? null },
+        { now: new Date() },
+      );
       return {
         id: contract.id,
         jobId: contract.job_id ?? null,
@@ -112,6 +117,9 @@ const talentIds = [...new Set(
         paidAt: contract.paid_at ?? null,
         contractFileUrl: contract.contract_file_url ? buildContractFileAccessUrl(contract.id, "original") : null,
         signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
+        isPaymentEligible: release.eligible,
+        paymentBlockReason: release.eligible ? null : (contract.job_date ? "Pagamento disponível após a data da vaga." : null),
+        canManualOverride: context.isOwner,
       };
     });
 
@@ -120,6 +128,10 @@ const talentIds = [...new Set(
 
   const premiumContracts: PremiumContract[] = contractsData.map((contract) => {
     const talentId = contract.talent_user_id ?? contract.talent_id ?? null;
+    const release = checkPaymentReleaseEligibility(
+      { status: contract.status ?? "", job_date: contract.job_date ?? null },
+      { now: new Date() },
+    );
     return {
       id: contract.id,
       jobId: contract.job_id ?? null,
@@ -137,6 +149,8 @@ const talentIds = [...new Set(
       paidAt: contract.paid_at ?? null,
       contractFileUrl: contract.contract_file_url ? buildContractFileAccessUrl(contract.id, "original") : null,
       signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
+      isPaymentEligible: release.eligible,
+      paymentBlockReason: release.eligible ? null : (contract.job_date ? "Pagamento disponível após a data da vaga." : null),
     };
   });
 

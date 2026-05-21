@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
-import { brl as fmtBrl } from "@/lib/brl";
+import { brl } from "@/lib/brl";
 import {
   getContractPaymentStatus,
   contractStatusTone,
@@ -32,6 +32,12 @@ export type AgencyContract = {
   paidAt: string | null;
   contractFileUrl: string | null;
   signedContractUrl: string | null;
+  /** Server-computed eligibility for payment release. */
+  isPaymentEligible?: boolean;
+  /** Reason payment is blocked (already translated). null when eligible. */
+  paymentBlockReason?: string | null;
+  /** Whether the current caller can manually override the date gate. */
+  canManualOverride?: boolean;
 };
 
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -45,8 +51,6 @@ const STATUS_LABEL_KEY: Record<string, string> = {
 
 const ALL_STATUSES = ["all", "sent", "signed", "confirmed", "paid", "rejected", "cancelled"] as const;
 type FilterStatus = typeof ALL_STATUSES[number];
-
-function brl(n: number) { return fmtBrl(n); }
 
 function fmtDate(s: string | null, lang = "pt-BR") {
   if (!s) return "—";
@@ -135,6 +139,8 @@ function ContractCard({
   const [expanded,         setExpanded]         = useState(false);
   const [acting,           setActing]           = useState<string | null>(null);
   const [balanceError,     setBalanceError]     = useState<string | null>(null);
+  const [overrideOpen,     setOverrideOpen]     = useState(false);
+  const [overrideReason,   setOverrideReason]   = useState("");
   const { t, lang } = useT();
   const stCls   = contractStatusTone(getContractPaymentStatus({ status: c.status, paid_at: c.paidAt }));
   const stLabel = t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
@@ -142,17 +148,37 @@ function ContractCard({
 
   const isJobPast = jobDatePassed(c.jobDate);
 
-  async function callAction(action: string, nextStatus: string, updates: Partial<AgencyContract>) {
+  async function callAction(
+    action: string,
+    nextStatus: string,
+    updates: Partial<AgencyContract>,
+    extraBody?: Record<string, unknown>,
+  ) {
     setActing(action);
     const res = await fetch(`/api/contracts/${c.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, ...(extraBody ?? {}) }),
     });
     if (res.ok) {
       onUpdate(c.id, { status: nextStatus, ...updates });
+    } else {
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      setBalanceError(data.error ?? "Erro ao processar ação.");
     }
     setActing(null);
+  }
+
+  async function confirmManualOverride() {
+    if (overrideReason.trim().length < 10) return;
+    await callAction(
+      "pay",
+      "paid",
+      { paidAt: new Date().toISOString() },
+      { manual_override: true, override_reason: overrideReason.trim() },
+    );
+    setOverrideOpen(false);
+    setOverrideReason("");
   }
 
   async function handleConfirmEscrow() {
@@ -200,20 +226,45 @@ function ContractCard({
             disabled={acting !== null}
             className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white transition-colors cursor-pointer disabled:opacity-50"
           >
-            {acting === "confirm_escrow" ? "Confirmando..." : "Confirmar reserva"}
+            {acting === "confirm_escrow" ? t("agency_contracts_confirming_booking") : t("agency_contracts_confirm_booking")}
           </button>
         )}
 
         {/* Pay talent + Cancel for confirmed contracts */}
         {showPaymentActions && !isPaid && c.status === "confirmed" && (
           <>
-            <button
-              onClick={() => callAction("pay", "paid", { paidAt: new Date().toISOString() })}
-              disabled={acting !== null}
-              className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {acting === "pay" ? "Pagando..." : "Pagar talento"}
-            </button>
+            {(() => {
+              const eligible = c.isPaymentEligible !== false;
+              const blockReason = c.paymentBlockReason ?? t("agency_contracts_payment_blocked_default");
+              return (
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => callAction("pay", "paid", { paidAt: new Date().toISOString() })}
+                      disabled={acting !== null || !eligible}
+                      title={!eligible ? blockReason : undefined}
+                      className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {acting === "pay" ? t("agency_contracts_paying") : t("action_pay")}
+                    </button>
+                    {!eligible && c.canManualOverride && (
+                      <button
+                        onClick={() => setOverrideOpen(true)}
+                        disabled={acting !== null}
+                        className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {t("agency_contracts_release_now")}
+                      </button>
+                    )}
+                  </div>
+                  {!eligible && (
+                    <p className="text-[11px] text-amber-700 font-medium text-right max-w-[260px]">
+                      {blockReason}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             <button
               onClick={() => callAction("cancel_job", "cancelled", {})}
               disabled={acting !== null}
@@ -222,6 +273,48 @@ function ContractCard({
               {acting === "cancel_job" ? "…" : "Cancelar"}
             </button>
           </>
+        )}
+
+        {/* Manual override confirmation modal */}
+        {overrideOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !acting && setOverrideOpen(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+              <h3 className="text-[16px] font-semibold text-zinc-900">{t("agency_contracts_override_title")}</h3>
+              <p className="text-[13px] text-zinc-600 leading-relaxed">
+                {t("agency_contracts_override_body")}
+              </p>
+              <div>
+                <label className="text-[12px] font-semibold text-zinc-700 block mb-1.5">{t("agency_contracts_override_reason_label")}</label>
+                <textarea
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  rows={3}
+                  minLength={10}
+                  placeholder={t("agency_contracts_override_reason_placeholder")}
+                  className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none"
+                />
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  {t("agency_contracts_override_reason_counter").replace("{count}", String(overrideReason.trim().length))}
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => { setOverrideOpen(false); setOverrideReason(""); }}
+                  disabled={acting !== null}
+                  className="text-[12px] font-medium px-3 py-1.5 rounded-xl text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {t("action_cancel")}
+                </button>
+                <button
+                  onClick={confirmManualOverride}
+                  disabled={acting !== null || overrideReason.trim().length < 10}
+                  className="text-[12px] font-semibold px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {acting === "pay" ? t("agency_contracts_releasing") : t("agency_contracts_confirm_release")}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -481,7 +574,7 @@ export default function AgencyContracts({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-[13px] font-medium text-emerald-800">
-              Pagamento confirmado! O contrato será atualizado em instantes.
+              {t("agency_contracts_payment_confirmed_banner")}
             </p>
           </div>
           <button onClick={() => setStripeBanner(null)} className="text-emerald-500 hover:text-emerald-700 transition-colors cursor-pointer flex-shrink-0">
@@ -499,7 +592,7 @@ export default function AgencyContracts({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-[13px] font-medium text-amber-800">
-              Pagamento cancelado. O contrato permanece aguardando pagamento.
+              {t("agency_contracts_payment_cancelled_banner")}
             </p>
           </div>
           <button onClick={() => setStripeBanner(null)} className="text-amber-500 hover:text-amber-700 transition-colors cursor-pointer flex-shrink-0">

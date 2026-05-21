@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { formatCpfCnpj, isValidCpfCnpj } from "@/lib/cpf";
 import { generateReceiptPdf } from "@/lib/generateReceiptPdf";
+import { useT } from "@/lib/LanguageContext";
 import { brl } from "@/lib/brl";
 import { withdrawalStatusLabel } from "@/lib/withdrawalStatus";
 import { ledgerEntryLabel, ledgerEntryTone, type AgencyLedgerRow } from "@/lib/readModels/agencyLedger";
+import { getWithdrawalFeePreview } from "@/lib/withdrawalPolicy";
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "—";
@@ -87,14 +89,19 @@ export default function AgencyFinances({
   transactions,
   agencyPix,
   withdrawalMinAmount,
+  withdrawalFeePercent = 0,
+  withdrawalMinFee = 0,
   profileCpfCnpj,
 }: {
   summary: AgencyFinanceSummary;
   transactions: AgencyTransaction[];
   agencyPix?: { pix_key_type: string | null; pix_key_value: string | null; pix_holder_name: string | null } | null;
   withdrawalMinAmount: number;
+  withdrawalFeePercent?: number;
+  withdrawalMinFee?: number;
   profileCpfCnpj: string;
 }) {
+  const { t } = useT();
   const router = useRouter();
 
   const walletBalance = summary.walletBalance ?? 0;
@@ -142,6 +149,15 @@ export default function AgencyFinances({
     withdrawAmountNum >= withdrawalMinAmount &&
     withdrawAmountNum <= availableBalance,
   );
+  // Policy 1 — fee preview for agency withdrawals. Pure helper; server is the
+  // authoritative calculator (lib/withdrawal-fee.ts) but UI must show the
+  // breakdown before the user confirms.
+  const withdrawalPreview = getWithdrawalFeePreview(
+    withdrawAmountNum,
+    withdrawalFeePercent,
+    withdrawalMinFee,
+  );
+
   const pendingWithdrawals = transactions.filter(
     (transaction) =>
       transaction.withdrawalStatus === "pending" ||
@@ -288,15 +304,21 @@ export default function AgencyFinances({
       <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
         {withdrawConfirming ? (
           <div className="px-6 py-6 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white space-y-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white">Confirmar Saque</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white">{t("agency_finances_confirm_withdraw_title")}</p>
             <div className="space-y-2 text-[13px]">
               <div className="flex justify-between">
-                <span className="text-white">Valor solicitado</span>
-                <span className="font-bold text-white">{brl(withdrawAmountNum)}</span>
+                <span className="text-white">{t("agency_finances_withdraw_requested_amount")}</span>
+                <span className="font-bold text-white">{brl(withdrawalPreview.gross)}</span>
               </div>
+              {withdrawalPreview.fee > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-white/80">{t("agency_finances_withdraw_fee_label")}</span>
+                  <span className="font-bold text-white">- {brl(withdrawalPreview.fee)}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-white/30 pt-2">
-                <span className="text-white font-semibold">Valor a receber</span>
-                <span className="font-black text-white">{brl(withdrawAmountNum)}</span>
+                <span className="text-white font-semibold">{t("agency_finances_withdraw_net_amount")}</span>
+                <span className="font-black text-white">{brl(withdrawalPreview.net)}</span>
               </div>
             </div>
             <div className="flex gap-2 pt-1">
@@ -305,13 +327,13 @@ export default function AgencyFinances({
                 disabled={withdrawing}
                 className="flex-1 bg-white hover:bg-white/90 disabled:opacity-50 text-[#0E7C86] text-[13px] font-black py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed"
               >
-                {withdrawing ? "Processando..." : "Confirmar Saque"}
+                {withdrawing ? t("action_loading") : t("agency_finances_confirm_withdraw_title")}
               </button>
               <button
                 onClick={() => setWithdrawConfirming(false)}
                 className="px-5 bg-white/20 hover:bg-white/30 text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
               >
-                Cancelar
+                {t("action_cancel")}
               </button>
             </div>
           </div>
@@ -377,14 +399,16 @@ export default function AgencyFinances({
                     disabled={Boolean(!canWithdraw || withdrawing)}
                     className="flex items-center gap-2 bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white border border-white/10 text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed whitespace-nowrap"
                   >
-                    Solicitar Saque
+                    {t("agency_finances_request_withdraw")}
                   </button>
                 </div>
                 {withdrawAmountNum > availableBalance && (
                   <p className="text-[11px] text-rose-100">Valor superior ao saldo disponível.</p>
                 )}
                 {withdrawAmountNum > 0 && withdrawAmountNum < withdrawalMinAmount && (
-                  <p className="text-[11px] text-white/80">Valor minimo para agencias: {brl(withdrawalMinAmount)}.</p>
+                  <p className="text-[11px] text-white/80">
+                    {t("agency_finances_withdraw_min_agency").replace("{amount}", brl(withdrawalMinAmount))}
+                  </p>
                 )}
                 {withdrawInfo && <p className="text-[11px] text-white/80">{withdrawInfo}</p>}
                 {withdrawError && <p className="text-[11px] text-rose-100">{withdrawError}</p>}
@@ -397,7 +421,7 @@ export default function AgencyFinances({
         <div className="px-6 pt-5 pb-6 space-y-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Depositar fundos</p>
-            <p className="text-[12px] text-zinc-400 mt-1">O pagamento será feito via PIX pelo Asaas. O saldo aparece após confirmação do pagamento.</p>
+            <p className="text-[12px] text-zinc-400 mt-1">{t("agency_finances_deposit_pix_info")}</p>
           </div>
 
           {!depositResult ? (

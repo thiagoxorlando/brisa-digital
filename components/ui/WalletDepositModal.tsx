@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { brl } from "@/lib/brl";
 
 interface WalletDepositModalProps {
   txId: string;
@@ -12,10 +13,6 @@ interface WalletDepositModalProps {
   qrCodeBase64: string | null;
   onConfirmed: () => void;
   onClose: () => void;
-}
-
-function brl(n: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
 }
 
 type ModalStatus = "pending" | "confirmed" | "expired";

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { createServerClient } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import { logAdminAction } from "@/lib/auditLog";
 
 export async function POST(
   req: NextRequest,
@@ -76,6 +77,16 @@ export async function POST(
       `wallet-withdrawal-paid:${id}`,
     ).catch((e) => console.error("[withdrawal] marked paid notify failed:", e));
   }
+
+  // Policy 8 — admin money action must be audited.
+  await logAdminAction({
+    adminId: auth.userId,
+    action: "withdrawal_approved",
+    entityType: "wallet_transaction",
+    entityId: id,
+    after: { status: "paid", provider, note: note || null },
+    metadata: { amount: Number(tx?.amount ?? 0), userId: tx?.user_id ?? null },
+  });
 
   return NextResponse.json({ ok: true, id, status: "paid" });
 }

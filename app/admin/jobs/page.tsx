@@ -50,7 +50,7 @@ export default async function AdminJobsPage() {
 
   if (jobIds.length) {
     const [contractsRes, subsRes] = await Promise.all([
-      supabase.from("contracts").select("job_id, talent_id, status").in("job_id", jobIds),
+      supabase.from("contracts").select("job_id, talent_id, status").in("job_id", jobIds).is("deleted_at", null),
       supabase.from("submissions").select("job_id, talent_user_id, status").in("job_id", jobIds),
     ]);
     contractsData = (contractsRes.data ?? []).filter((contract) => !["rejected", "cancelled"].includes(contract.status));

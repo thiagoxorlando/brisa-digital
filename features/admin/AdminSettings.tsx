@@ -17,6 +17,18 @@ export type PlatformSettings = {
   max_withdrawals_per_day: number;
   maintenance_mode_enabled: boolean;
   require_terms_acceptance: boolean;
+  /** PIX withdrawal fee as a percentage (e.g. 2 = 2%). 0 = no fee. */
+  withdrawal_fee_percent: number;
+  /** Minimum fixed withdrawal fee in BRL. Applied only when > 0. */
+  withdrawal_min_fee: number;
+  /** Minimum withdrawal amount for agencies in BRL. */
+  withdrawal_min_amount_agency: number;
+  /** Days after contract is paid before talent can withdraw. 0 = immediate. */
+  payout_delay_days: number;
+  /** Days before an unconfirmed escrow contract is auto-cancelled. 0 = no timeout. */
+  escrow_timeout_days: number;
+  /** Maximum contract/signed-document upload size in MB. */
+  upload_max_mb: number;
 };
 
 function Toggle({
@@ -189,6 +201,80 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
         </SettingRow>
         <SettingRow label="Saques PIX automáticos" description="Habilita processamento automático de saques via PIX">
           <Toggle checked={settings.automatic_pix_withdrawals_enabled} onChange={(v) => update("automatic_pix_withdrawals_enabled", v)} />
+        </SettingRow>
+      </Section>
+
+      <Section title="Taxas e prazos">
+        <SettingRow label="Taxa de saque de agência (%)" description="Percentual cobrado sobre o valor do saque PIX (0 = sem taxa)">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={settings.withdrawal_fee_percent}
+              onChange={(e) => update("withdrawal_fee_percent", Number(e.target.value))}
+              className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+            />
+            <span className="text-[12px] text-zinc-500">%</span>
+          </div>
+        </SettingRow>
+        <SettingRow label="Taxa mínima de saque de agência (R$)" description="Valor mínimo cobrado por saque em reais (0 = sem mínimo)">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] text-zinc-500">R$</span>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={settings.withdrawal_min_fee}
+              onChange={(e) => update("withdrawal_min_fee", Number(e.target.value))}
+              className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+            />
+          </div>
+        </SettingRow>
+        <SettingRow label="Saque mínimo para agências (R$)" description="Valor mínimo permitido por solicitação de saque de agências">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] text-zinc-500">R$</span>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={settings.withdrawal_min_amount_agency}
+              onChange={(e) => update("withdrawal_min_amount_agency", Number(e.target.value))}
+              className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+            />
+          </div>
+        </SettingRow>
+        <SettingRow label="Prazo de liberação (dias)" description="Dias após pagamento do contrato antes do talento poder sacar (0 = imediato)">
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={settings.payout_delay_days}
+            onChange={(e) => update("payout_delay_days", Number(e.target.value))}
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+          />
+        </SettingRow>
+        <SettingRow label="Timeout de custódia (dias)" description="Dias antes de cancelar contrato confirmado sem pagamento (0 = sem timeout)">
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={settings.escrow_timeout_days}
+            onChange={(e) => update("escrow_timeout_days", Number(e.target.value))}
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+          />
+        </SettingRow>
+        <SettingRow label="Tamanho máximo de upload (MB)" description="Limite para upload de contratos PDF (ex: 20)">
+          <input
+            type="number"
+            min={1}
+            max={100}
+            step={1}
+            value={settings.upload_max_mb}
+            onChange={(e) => update("upload_max_mb", Number(e.target.value))}
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+          />
         </SettingRow>
       </Section>
 

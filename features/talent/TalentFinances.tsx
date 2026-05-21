@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { generateReceiptPdf } from "@/lib/generateReceiptPdf";
 import { brl } from "@/lib/brl";
+import { REFERRAL_RATE } from "@/lib/plans";
 import { withdrawalStatusLabel, withdrawalStatusTone } from "@/lib/withdrawalStatus";
 import PixSetup, { type PixKeyType, type PixProfileRow, maskPixKey, PIX_LABELS } from "@/features/talent/PixSetup";
 
@@ -103,7 +104,7 @@ type Referral = {
   talentName: string;
   job: string;
   amount: number;      // deal value
-  commission: number;  // 2% of amount
+  commission: number;  // REFERRAL_RATE of amount
   date: string;
 };
 
@@ -165,6 +166,7 @@ async function downloadReceipt(w: TalentWithdrawal, pix: PixProfileRow | null, t
 }
 
 export default function TalentFinances() {
+  const referralRateLabel = `${REFERRAL_RATE * 100}%`;
   const [payments, setPayments]         = useState<Payment[]>([]);
   const [referrals, setReferrals]       = useState<Referral[]>([]);
   const [paidContracts, setPaidContracts] = useState<PaidContract[]>([]);
@@ -569,7 +571,7 @@ export default function TalentFinances() {
             <StatCard
               label="Indicações"
               value={brl(referralEarnings)}
-              sub={`${referrals.length} reserva${referrals.length !== 1 ? "s" : ""} (2%)`}
+              sub={`${referrals.length} reserva${referrals.length !== 1 ? "s" : ""} (${referralRateLabel})`}
               stripe="from-violet-400 to-purple-500"
             />
           </div>
@@ -858,7 +860,7 @@ export default function TalentFinances() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Ganhos de Indicação</p>
-              <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">2% por reserva</span>
+              <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">{referralRateLabel} por reserva</span>
             </div>
 
             {filteredReferrals.length === 0 ? (

@@ -6,6 +6,7 @@ import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { isJobFull, JOB_FULL_MESSAGE } from "@/lib/jobAvailability";
 import type { Plan } from "@/lib/plans";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
+import { calculateJobReservation, calculateReservationDelta } from "@/lib/jobReservationPolicy";
 
 const JOB_STATUS_ALIASES: Record<string, "open" | "closed" | "draft" | "inactive" | "paused"> = {
   open: "open",
@@ -129,7 +130,8 @@ export async function PATCH(
   if (isAgentEdit && (budgetChanging || talentsChanging)) {
     const newBudget = Number(update.budget ?? existingJob.budget ?? 0);
     const newTalents = Number(update.number_of_talents_required ?? existingJob.number_of_talents_required ?? 1);
-    const newTotal = newBudget * newTalents;
+    // Policy 3 — canonical formula in lib/jobReservationPolicy.ts.
+    const newTotal = calculateJobReservation(newBudget, newTalents);
 
     const { data: wsRow } = await supabase
       .from("premium_workspaces").select("owner_user_id").eq("id", workspaceId).maybeSingle();
@@ -155,7 +157,9 @@ export async function PATCH(
       const totalCommitted = (commitRows ?? []).reduce((s, tx) => s + Number(tx.amount), 0);
       const totalReleased  = (releaseRows ?? []).reduce((s, tx) => s + Number(tx.amount), 0);
       const netCommitment  = totalCommitted - totalReleased;
-      const delta          = newTotal - netCommitment;
+      // Policy 3 — delta math centralised. `reservationDelta.net` is signed.
+      const reservationDelta = calculateReservationDelta(netCommitment, newTotal);
+      const delta          = reservationDelta.net;
 
       if (delta > 0) {
         // Increase: validate agent has enough available balance

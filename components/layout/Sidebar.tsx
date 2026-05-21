@@ -11,13 +11,17 @@ import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
 import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
+import { buildAdminNavGroups } from "@/lib/adminNav";
 
 type NavItem = {
   labelKey: string;
   label?: string;
   href: string;
   exact?: boolean;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
+  /** When true, renders a group-label divider instead of a nav link */
+  isDivider?: boolean;
+  groupLabel?: string;
 };
 
 const AGENCY_OPEN_NAV: NavItem[] = [
@@ -262,185 +266,8 @@ const AGENCY_WORKSPACE_UPSELL_NAV: NavItem[] = [
   },
 ];
 
-const ADMIN_NAV: NavItem[] = [
-  {
-    labelKey: "nav_dashboard",
-    href: "/admin/dashboard",
-    exact: true,
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M9 21V12h6v9" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_jobs",
-    href: "/admin/jobs",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_users",
-    href: "/admin/users",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_bookings",
-    href: "/admin/bookings",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_finances",
-    href: "/admin/finances",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_reconciliation",
-    href: "/admin/reconciliation",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_plans",
-    href: "/admin/plans",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M8 8h8M8 12h8M8 16h5" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_premium",
-    href: "/admin/premium",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_contracts",
-    href: "/admin/contracts",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_referrals",
-    href: "/admin/referrals",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_notifications",
-    href: "/admin/notifications",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_support",
-    href: "/admin/support",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_audit",
-    href: "/admin/audit",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_system",
-    href: "/admin/system",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_settings",
-    href: "/admin/settings",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_trash",
-    href: "/admin/trash",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-      </svg>
-    ),
-  },
-  {
-    labelKey: "nav_profile",
-    href: "/admin/profile",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-  },
-];
+// ADMIN_NAV is now defined in lib/adminNav.tsx — built lazily below.
+// Use buildFlatAdminNav() which includes group-divider markers.
 
 const TALENT_NAV: NavItem[] = [
   {
@@ -571,6 +398,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     });
   }
 
+  // Admin collapsible groups — default: dashboard/operations/financial open, others collapsed
+  const [adminCollapsedGroups, setAdminCollapsedGroups] = useState<Set<string>>(
+    () => new Set(["configuration", "system"]),
+  );
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("admin_sidebar_groups");
+      if (raw) setAdminCollapsedGroups(new Set(JSON.parse(raw) as string[]));
+    } catch { /* ignore */ }
+  }, []);
+
+  function toggleAdminGroup(group: string) {
+    setAdminCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      try { localStorage.setItem("admin_sidebar_groups", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/");
@@ -675,9 +524,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           ]
     : isInWorkspacePortal
       ? [{ titleKey: "nav_menu", items: workspaceNavItems }]
-      : [
-          { titleKey: "nav_menu", items: inferredRole === "talent" ? TALENT_NAV : ADMIN_NAV },
-        ];
+      : inferredRole === "talent"
+        ? [{ titleKey: "nav_menu", items: TALENT_NAV }]
+        : []; // admin: rendered via buildAdminNavGroups() in the nav block below
 
   const isMultiSection = navSections.length > 1;
 
@@ -813,6 +662,67 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           <nav className="h-full px-3 py-4 overflow-y-auto sidebar-scroll">
             <div className="space-y-0.5">
+              {/* Admin: collapsible group sections */}
+              {inferredRole === "admin" && buildAdminNavGroups().map((group) => {
+                const isGroupCollapsed = adminCollapsedGroups.has(group.group);
+                return (
+                  <div key={group.group} className="mb-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleAdminGroup(group.group)}
+                      className="group flex w-full items-center justify-between px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-[0.16em] text-[#4A7872]/55 hover:text-[#7BA09A] transition-colors duration-150 select-none"
+                    >
+                      {group.groupLabel}
+                      <svg
+                        className={[
+                          "w-3 h-3 opacity-40 group-hover:opacity-70 transition-all duration-200",
+                          isGroupCollapsed ? "-rotate-90" : "",
+                        ].join(" ")}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {!isGroupCollapsed && (
+                      <ul className="flex flex-col gap-px">
+                        {group.items.map((item) => {
+                          const isActive = item.exact
+                            ? pathname === item.href
+                            : pathname.startsWith(item.href);
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                onClick={onClose}
+                                className={[
+                                  "relative flex items-center gap-2.5 px-3 py-[7px] rounded-xl text-[13px] font-medium transition-all duration-150",
+                                  isActive
+                                    ? "bg-[#1ABC9C]/[0.15] text-white ring-1 ring-[#49D5C3]/30 font-semibold before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-[#1ABC9C]/70"
+                                    : "text-[#C7D9D5] hover:bg-white/[0.065] hover:text-white",
+                                ].join(" ")}
+                              >
+                                <span
+                                  className={[
+                                    "flex-shrink-0 transition-colors duration-150",
+                                    isActive ? "text-[#7BF0DE]" : "text-[#8FB1AB]",
+                                  ].join(" ")}
+                                >
+                                  {item.icon}
+                                </span>
+                                <span className="truncate">{t(item.labelKey as any)}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Agency / Talent: existing section rendering */}
               {navSections.map((section, sectionIdx) => {
                 const isPremiumSection = section.titleKey === "nav_premium_workspace_section";
                 const isCollapsed = collapsedSections.has(section.titleKey);
@@ -867,6 +777,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       {!isCollapsed && (
                         <ul className="flex flex-col gap-px">
                           {section.items.map((item) => {
+                            if (item.isDivider) {
+                              return (
+                                <li key={`div-${item.groupLabel}`} className="px-2.5 pt-4 pb-1 first:pt-2">
+                                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#4A7872]/60 select-none">
+                                    {item.groupLabel}
+                                  </p>
+                                </li>
+                              );
+                            }
+
                             const isActive = item.exact
                               ? pathname === item.href
                               : pathname.startsWith(item.href);

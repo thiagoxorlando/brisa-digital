@@ -44,7 +44,8 @@ export default async function AdminJobDetailPage({ params }: Props) {
     supabase
       .from("contracts")
       .select("id, talent_id, status, payment_amount, created_at")
-      .eq("job_id", id),
+      .eq("job_id", id)
+      .is("deleted_at", null),
   ]);
 
   if (!job) {

@@ -4,6 +4,8 @@ import { syncBooking } from "@/lib/syncBooking";
 import { agencyWorkspaceBookingsHref, resolveWorkspaceLifecycleByJobId } from "@/lib/workspaceLifecycle";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
+import { isSignedContractUrlRequired } from "@/lib/contractSigningPolicy";
+import { renderNotificationTemplate } from "@/lib/notificationTemplates";
 
 export async function POST(
   req: NextRequest,
@@ -12,6 +14,7 @@ export async function POST(
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const { signed_contract_url } = body as { signed_contract_url?: string };
+  const signedContractUrl = signed_contract_url?.trim() ?? "";
 
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
@@ -21,7 +24,7 @@ export async function POST(
 
   const { data: contract, error: fetchErr } = await supabase
     .from("contracts")
-    .select("agency_id, talent_id, talent_user_id, job_id, booking_id, status")
+    .select("agency_id, talent_id, talent_user_id, job_id, booking_id, status, contract_file_url")
     .eq("id", id)
     .single();
 
@@ -47,12 +50,22 @@ export async function POST(
     return NextResponse.json({ error: "Contract is no longer pending" }, { status: 409 });
   }
 
+  // Policy 5: digital-only contracts do not require an uploaded signed PDF;
+  // PDF-mode contracts (contract_file_url set) require signed_contract_url.
+  // Centralised in lib/contractSigningPolicy.ts.
+  if (isSignedContractUrlRequired(contract) && !signedContractUrl) {
+    return NextResponse.json(
+      { error: "Envie o contrato assinado em PDF antes de concluir a assinatura." },
+      { status: 400 },
+    );
+  }
+
   const updates: Record<string, string> = {
     status: "signed",
     signed_at: new Date().toISOString(),
   };
-  if (signed_contract_url) {
-    updates.signed_contract_url = signed_contract_url;
+  if (signedContractUrl) {
+    updates.signed_contract_url = signedContractUrl;
   }
 
   const { error } = await supabase
@@ -67,7 +80,8 @@ export async function POST(
     talent_id: contractTalentUserId,
   }, "pending_payment");
 
-  await notify(contract.agency_id, "contract", "Talento assinou o contrato", agencyBookingsHref);
+  const signedTpl = renderNotificationTemplate("contract_signed");
+  await notify(contract.agency_id, signedTpl.channel, signedTpl.body, agencyBookingsHref);
 
   return NextResponse.json({ ok: true, status: "signed" });
 }

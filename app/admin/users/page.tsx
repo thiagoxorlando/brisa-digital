@@ -27,7 +27,7 @@ export default async function AdminUsersPage() {
       .or("is_frozen.is.null,is_frozen.eq.false"),
     supabase.from("talent_profiles").select("id, user_id, full_name, avatar_url, marketplace_visible, deleted_at").is("deleted_at", null),
     supabase.from("agencies").select("id, user_id, company_name, avatar_url, deleted_at").is("deleted_at", null),
-    supabase.from("contracts").select("talent_id, agency_id, commission_amount, payment_amount").eq("status", "paid"),
+    supabase.from("contracts").select("talent_id, agency_id, commission_amount, payment_amount").eq("status", "paid").is("deleted_at", null),
     supabase.from("profiles").select("id, is_frozen"),
     supabase.from("jobs").select("agency_id").eq("status", "open").is("deleted_at", null),
     supabase.from("premium_workspaces").select("owner_user_id").is("deleted_at", null),

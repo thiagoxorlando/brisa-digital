@@ -23,6 +23,8 @@ export type PlanProfile = {
 export const PLAN_KEYS: Plan[] = ["free", "pro", "premium"];
 export const PLAN_DEFAULT: Plan = "free";
 export const REFERRAL_RATE = 0.02;
+/** Fallback commission for very old bookings with no stored contract.commission_amount. Pro rate (10%). */
+export const FALLBACK_COMMISSION_RATE = 0.1;
 
 export const PLAN_DEFINITIONS: Record<Plan, PlanDefinition> = {
   free: {

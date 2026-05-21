@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { brl } from "@/lib/brl";
+import { depositStatusLabel, depositStatusTone } from "@/lib/depositStatus";
 import {
   getAgentLedgerBalance,
   getOwnerAllocationSummary,
@@ -67,6 +68,26 @@ function formatDateTime(value: string | null, locale: string): string {
 
 function shortId(value: string): string {
   return value.slice(0, 8).toUpperCase();
+}
+
+function normalizeWalletTransferStatus(status: string | null, providerStatus: string | null): string {
+  if ((providerStatus ?? "").toLowerCase() === "pending_checkout") {
+    return "pending";
+  }
+
+  return (status ?? "").toLowerCase();
+}
+
+function walletTransferStatusTone(status: string): string {
+  const sharedTone = depositStatusTone(status);
+
+  if (sharedTone.includes("ring-emerald-100")) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (sharedTone.includes("ring-amber-100")) return "border-amber-200 bg-amber-50 text-amber-700";
+  if (sharedTone.includes("ring-cyan-100")) return "border-cyan-200 bg-cyan-50 text-cyan-700";
+  if (sharedTone.includes("ring-red-100")) return "border-red-200 bg-red-50 text-red-700";
+  if (sharedTone.includes("ring-zinc-200")) return "border-zinc-200 bg-zinc-100 text-zinc-500";
+
+  return "border-zinc-200 bg-zinc-100 text-zinc-500";
 }
 
 function TimelineCard({
@@ -317,9 +338,10 @@ export default async function WorkspaceWalletPage() {
             {(walletTxsResult.data ?? []).map((tx) => {
               const isDeposit = tx.type === "deposit";
               const isWithdrawal = tx.type === "withdrawal";
-              const statusNorm = (tx.status ?? "").toLowerCase();
-              const isPending = statusNorm === "pending" || tx.provider_status === "pending_checkout";
-              const isFailed  = statusNorm === "failed" || statusNorm === "cancelled";
+              const statusNorm = normalizeWalletTransferStatus(
+                tx.status as string | null,
+                tx.provider_status as string | null,
+              );
               const amount = Math.abs(Number(tx.amount ?? 0));
 
               const typePill = isDeposit
@@ -329,12 +351,8 @@ export default async function WorkspaceWalletPage() {
               const amtColor  = isDeposit ? "text-emerald-700" : "text-rose-600";
               const amtPrefix = isDeposit ? "+" : "−";
 
-              const statusPill = isPending
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : isFailed
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700";
-              const statusLabel = isPending ? "Pendente" : isFailed ? "Falhou" : "Confirmado";
+              const statusPill = walletTransferStatusTone(statusNorm);
+              const statusLabel = depositStatusLabel(statusNorm);
 
               return (
                 <li key={tx.id} className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">

@@ -9,6 +9,7 @@ import {
 } from "@/lib/contractStatus";
 import { useT } from "@/lib/LanguageContext";
 import { brl } from "@/lib/brl";
+import { type SpaceFilter, SPACE_FILTER_LABELS, matchesSpaceFilter } from "@/lib/spaceFilter";
 
 export type AdminContractRow = {
   id: string;
@@ -542,6 +543,7 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
   const { t, lang } = useT();
   const statusLang = lang === "en" ? "en" : "pt-BR" as const;
   const [contracts, setContracts] = useState<AdminContractRow[]>(initialContracts);
+  const [spaceFilter, setSpaceFilter] = useState<SpaceFilter>("all");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateField, setDateField] = useState<DateField>("createdAt");
@@ -562,6 +564,7 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
   }
 
   const filtered = contracts
+    .filter((contract) => matchesSpaceFilter(contract.workspaceId, spaceFilter))
     .filter((contract) => (statusFilter === "all" ? true : contract.status === statusFilter))
     .filter((contract) => matchesDateRange(contract, dateField, fromDate, toDate))
     .filter((contract) => {
@@ -680,6 +683,22 @@ export default function AdminContracts({ contracts: initialContracts }: { contra
               <p className="text-[1.5rem] font-semibold leading-none tracking-tighter text-zinc-900">{stat.value}</p>
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* Space filter — Open Space vs Premium */}
+      <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 self-start">
+        {(["all", "open", "premium"] as const).map((sf) => (
+          <button
+            key={sf}
+            onClick={() => setSpaceFilter(sf)}
+            className={[
+              "whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all",
+              spaceFilter === sf ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700",
+            ].join(" ")}
+          >
+            {SPACE_FILTER_LABELS[sf]}
+          </button>
         ))}
       </div>
 

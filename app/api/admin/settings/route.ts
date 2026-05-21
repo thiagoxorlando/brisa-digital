@@ -27,6 +27,12 @@ const NUMBER_KEYS = new Set([
   "minimum_withdrawal_amount",
   "automatic_withdrawal_limit",
   "max_withdrawals_per_day",
+  "withdrawal_fee_percent",
+  "withdrawal_min_fee",
+  "withdrawal_min_amount_agency",
+  "payout_delay_days",
+  "escrow_timeout_days",
+  "upload_max_mb",
 ]);
 
 const STRING_KEYS = new Set(["platform_name", "support_email"]);

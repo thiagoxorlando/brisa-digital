@@ -12,13 +12,20 @@ import {
   resolveWorkspaceLifecycleByJobId,
   talentWorkspaceContractsHref,
 } from "@/lib/workspaceLifecycle";
+import { REFERRAL_RATE } from "@/lib/plans";
+import { brl } from "@/lib/brl";
+import { checkPaymentReleaseEligibility, checkDisputeBlockingPayout } from "@/lib/paymentReleasePolicy";
+import { type DisputeStatus } from "@/lib/disputePolicy";
+import { getCancellationOutcome } from "@/lib/cancellationPolicy";
+import { logAdminAction } from "@/lib/auditLog";
+import { renderNotificationTemplate } from "@/lib/notificationTemplates";
 
 const ALLOWED_ACTIONS = [
   "reject", "agency_sign", "pay",
   "cancel_job", "talent_cancel",
   "set_file_url",
+  "agent_pay",   // pay from signed when job is backed by agent job_commitment (no real escrow needed)
 ];
-const REFERRAL_RATE = 0.02;
 
 export async function PATCH(
   req: NextRequest,
@@ -75,7 +82,7 @@ export async function PATCH(
 
   const isAgencyOwner = caller?.role === "agency" && !!agencyAccess?.allowed;
   const isTalentOwner = caller?.role === "talent" && contractTalentUserId === user.id;
-  const agencyActions = ["set_file_url", "agency_sign", "pay", "cancel_job"];
+  const agencyActions = ["set_file_url", "agency_sign", "pay", "cancel_job", "agent_pay"];
   const talentActions = ["reject", "talent_cancel"];
 
   if (agencyActions.includes(action) && !isAgencyOwner) {
@@ -201,15 +208,9 @@ export async function PATCH(
     // already_processed: RPC was a no-op (idempotent retry) — skip side effects
     if (!r.already_processed) {
       await syncBooking(supabase, contract, "confirmed");
-      const brl = new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(required);
       await notifyAdmins(
         "payment",
-        `Escrow bloqueado: ${brl} em garantia`,
+        `Escrow bloqueado: ${brl(required)} em garantia`,
         "/admin/finances",
         `admin-escrow-locked:${id}`,
       );
@@ -230,11 +231,10 @@ export async function PATCH(
 
     // Notify agency that escrow was locked successfully
     if (contract.agency_id) {
-      const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(required);
       await notify(
         contract.agency_id,
         "payment",
-        `Escrow realizado: ${brl} movidos para garantia`,
+        `Escrow realizado: ${brl(required)} movidos para garantia`,
         agencyWalletHref,
         `notif_escrow_agency_${id}`,
       );
@@ -254,6 +254,91 @@ export async function PATCH(
         { error: "Contract must be confirmed before paying" },
         { status: 409 }
       );
+    }
+
+    // Policy 6 — release eligibility. Centralised in lib/paymentReleasePolicy.ts.
+    // The workspace owner (or admin) may opt into early release by passing
+    // `{ manual_override: true, override_reason: "..." }`. The override is
+    // gated to owners/admins and requires an audit-logged reason.
+    const manualOverride = body?.manual_override === true;
+    const overrideReason = typeof body?.override_reason === "string" ? body.override_reason.trim() : "";
+
+    // Determine whether the caller is the workspace owner (for workspace
+    // contracts) or admin. Open Space agency contracts: the agency itself IS
+    // the owner, so isAgencyOwner already suffices.
+    let isWorkspaceOwnerOrAdmin = caller?.role === "admin";
+    if (!isWorkspaceOwnerOrAdmin && caller?.role === "agency") {
+      const contractWorkspaceId =
+        (contract as { workspace_id?: string | null }).workspace_id ?? null;
+      if (!contractWorkspaceId) {
+        // Open Space — agency owner equals workspace owner conceptually.
+        isWorkspaceOwnerOrAdmin = isAgencyOwner;
+      } else {
+        const { data: ws } = await supabase
+          .from("premium_workspaces")
+          .select("owner_user_id")
+          .eq("id", contractWorkspaceId)
+          .maybeSingle();
+        isWorkspaceOwnerOrAdmin = !!ws && ws.owner_user_id === user.id;
+      }
+    }
+
+    if (manualOverride) {
+      if (!isWorkspaceOwnerOrAdmin) {
+        return NextResponse.json(
+          { error: "Apenas o dono do workspace pode liberar pagamento manualmente." },
+          { status: 403 },
+        );
+      }
+      if (!overrideReason || overrideReason.length < 1) {
+        return NextResponse.json(
+          { error: "Motivo obrigatório para liberação manual." },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Dispute gate — block payout while any open/under_review dispute exists.
+    const { data: openDispute } = await supabase
+      .from("contract_disputes")
+      .select("status")
+      .eq("contract_id", id)
+      .in("status", ["open", "under_review"])
+      .maybeSingle();
+    const disputeCheck = checkDisputeBlockingPayout(
+      openDispute ? { status: openDispute.status as DisputeStatus } : null,
+    );
+    if (disputeCheck.blocked) {
+      return NextResponse.json({ error: disputeCheck.reason }, { status: 409 });
+    }
+
+    const release = checkPaymentReleaseEligibility(
+      {
+        status: contract.status,
+        job_date: (contract as { job_date?: string | null }).job_date ?? null,
+        confirmed_at: (contract as { confirmed_at?: string | null }).confirmed_at ?? null,
+      },
+      { manualOverride },
+    );
+    if (!release.eligible) {
+      return NextResponse.json(
+        { error: release.reason ?? "Contract is not eligible for payment release." },
+        { status: 403 },
+      );
+    }
+
+    if (manualOverride) {
+      await logAdminAction({
+        adminId: user.id,
+        action: "payment_manual_override",
+        entityType: "contract",
+        entityId: id,
+        before: {
+          status: contract.status,
+          job_date: (contract as { job_date?: string | null }).job_date ?? null,
+        },
+        after: { manual_override: true, reason: overrideReason },
+      });
     }
 
     // ── 1. Look up referral invite BEFORE payout ────────────────────────────
@@ -341,12 +426,9 @@ export async function PATCH(
 
     if (!r.already_processed) {
       await syncBooking(supabase, contract, "paid");
-      const brl = new Intl.NumberFormat("pt-BR", {
-        style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
-      }).format(talentPayout);
       await notifyAdmins(
         "payment",
-        `Pagamento liberado ao talento: ${brl}`,
+        `Pagamento liberado ao talento: ${brl(talentPayout)}`,
         "/admin/finances",
         `admin-payment-released:${id}`,
       );
@@ -481,13 +563,10 @@ export async function PATCH(
             contractId: id,
           });
         }
-        const commBrl = new Intl.NumberFormat("pt-BR", {
-          style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2,
-        }).format(referralCommission);
         await notify(
           referralInvite.referrer_id,
           "payment",
-          `Comissão de indicação liberada: ${commBrl}`,
+          `Comissão de indicação liberada: ${brl(referralCommission)}`,
           "/talent/referrals",
           `notif_referral_comm_${referralInvite.id}_${id}`,
         );
@@ -524,6 +603,25 @@ export async function PATCH(
         { error: "Contract cannot be cancelled at this stage" },
         { status: 409 }
       );
+    }
+
+    // Policy 7 — classify cancellation outcome.
+    // Today: every allowed cancellation auto-releases via cancel_contract_safe.
+    // TODO(dispute): when outcome.requiresReview is true (cancellation on/after
+    // the scheduled job date), do NOT auto-refund. Instead, mark the contract
+    // as "dispute_pending" and notify an admin for manual review. The dispute
+    // table + admin workflow are not yet built — see lib/cancellationPolicy.ts
+    // for the canonical rule. For now this is informational only.
+    const cancellationOutcome = getCancellationOutcome({
+      status: contract.status,
+      job_date: (contract as { job_date?: string | null }).job_date ?? null,
+      confirmed_at: (contract as { confirmed_at?: string | null }).confirmed_at ?? null,
+    });
+    if (cancellationOutcome.requiresReview) {
+      console.log("[cancel_job] post-work-date cancellation — auto-refunding pending dispute workflow", {
+        contractId: id,
+        reason: cancellationOutcome.reason,
+      });
     }
 
     const { data: result, error: rpcErr } = await supabase.rpc("cancel_contract_safe", {
@@ -624,6 +722,293 @@ export async function PATCH(
     }
 
     return NextResponse.json({ ok: true, status: "cancelled", derived_status: getUnifiedBookingStatus("cancelled", "cancelled") });
+  }
+
+  // ── Agent-reservation pay: signed → paid without real escrow ─────────────
+  // Used when the job was created by a workspace agent whose job_commitment
+  // already reserved the funds from their allocated budget.
+  // Bypasses the confirm_booking_escrow RPC (no real wallet_transactions escrow_lock).
+  // Performs direct writes; idempotent via payout_${id} key on wallet_transactions.
+  if (action === "agent_pay") {
+    if (contract.status !== "signed") {
+      return NextResponse.json({ error: "agent_pay requer contrato assinado." }, { status: 409 });
+    }
+
+    // Policy 6 — same job-date gating as the `pay` action. The agent ledger
+    // already reserves funds, but the date guard still applies so payments
+    // cannot be released before the work is delivered. Workspace owner /
+    // admin may override with an audit-logged reason.
+    const agentManualOverride = body?.manual_override === true;
+    const agentOverrideReason = typeof body?.override_reason === "string" ? body.override_reason.trim() : "";
+
+    let agentIsOwnerOrAdmin = caller?.role === "admin";
+    if (!agentIsOwnerOrAdmin && caller?.role === "agency") {
+      const contractWorkspaceId =
+        (contract as { workspace_id?: string | null }).workspace_id ?? null;
+      if (!contractWorkspaceId) {
+        agentIsOwnerOrAdmin = isAgencyOwner;
+      } else {
+        const { data: ws } = await supabase
+          .from("premium_workspaces")
+          .select("owner_user_id")
+          .eq("id", contractWorkspaceId)
+          .maybeSingle();
+        agentIsOwnerOrAdmin = !!ws && ws.owner_user_id === user.id;
+      }
+    }
+
+    if (agentManualOverride) {
+      if (!agentIsOwnerOrAdmin) {
+        return NextResponse.json(
+          { error: "Apenas o dono do workspace pode liberar pagamento manualmente." },
+          { status: 403 },
+        );
+      }
+      if (!agentOverrideReason) {
+        return NextResponse.json(
+          { error: "Motivo obrigatório para liberação manual." },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Dispute gate — same rule as the `pay` action.
+    const { data: openDisputeAgent } = await supabase
+      .from("contract_disputes")
+      .select("status")
+      .eq("contract_id", id)
+      .in("status", ["open", "under_review"])
+      .maybeSingle();
+    const agentDisputeCheck = checkDisputeBlockingPayout(
+      openDisputeAgent ? { status: openDisputeAgent.status as DisputeStatus } : null,
+    );
+    if (agentDisputeCheck.blocked) {
+      return NextResponse.json({ error: agentDisputeCheck.reason }, { status: 409 });
+    }
+
+    // Eligibility check uses "signed" status here; we adapt by temporarily
+    // mapping to "confirmed" semantics — the agent commitment is the escrow.
+    const agentRelease = checkPaymentReleaseEligibility(
+      {
+        status: "confirmed",
+        job_date: (contract as { job_date?: string | null }).job_date ?? null,
+        confirmed_at: (contract as { confirmed_at?: string | null }).confirmed_at ?? null,
+      },
+      { manualOverride: agentManualOverride },
+    );
+    if (!agentRelease.eligible) {
+      return NextResponse.json(
+        { error: agentRelease.reason ?? "Contract is not eligible for payment release." },
+        { status: 403 },
+      );
+    }
+
+    if (agentManualOverride) {
+      await logAdminAction({
+        adminId: user.id,
+        action: "payment_manual_override",
+        entityType: "contract",
+        entityId: id,
+        before: {
+          status: contract.status,
+          job_date: (contract as { job_date?: string | null }).job_date ?? null,
+        },
+        after: { manual_override: true, reason: agentOverrideReason, via: "agent_pay" },
+      });
+    }
+
+    if (!contract.job_id) {
+      return NextResponse.json({ error: "Contrato sem vaga associada." }, { status: 400 });
+    }
+    if (!contractTalentUserId) {
+      return NextResponse.json({ error: "Contrato sem talento associado." }, { status: 400 });
+    }
+
+    // Validate: active job_commitment exists for this job
+    const { data: commitRow } = await supabase
+      .from("premium_agent_wallet_transactions")
+      .select("id")
+      .eq("related_job_id", contract.job_id)
+      .eq("type", "job_commitment")
+      .eq("status", "completed")
+      .limit(1)
+      .maybeSingle();
+
+    if (!commitRow) {
+      return NextResponse.json(
+        { error: "Nenhuma reserva de agente ativa encontrada para esta vaga." },
+        { status: 409 }
+      );
+    }
+
+    // Idempotency: if payout wallet_transaction already exists, return early
+    const { data: existingPayout } = await supabase
+      .from("wallet_transactions")
+      .select("id")
+      .eq("idempotency_key", `payout_${id}`)
+      .maybeSingle();
+
+    if (existingPayout) {
+      return NextResponse.json({
+        ok: true, already_processed: true, status: "paid",
+        derived_status: getUnifiedBookingStatus("paid", "paid"),
+      });
+    }
+
+    // ── 1. Referral lookup (mirrors pay action) ───────────────────────────
+    let referralInvite: { id: string; referrer_id: string; commission_rate: number } | null = null;
+    let referralCommission = 0;
+    let referralJobTitle = "";
+
+    if (contract.payment_amount && contract.job_id) {
+      const [jobRes, inviteRes] = await Promise.all([
+        supabase.from("jobs").select("title").eq("id", contract.job_id).maybeSingle(),
+        supabase.from("referral_invites").select("id, referrer_id, commission_rate")
+          .eq("referred_user_id", contractTalentUserId)
+          .eq("job_id", contract.job_id)
+          .neq("status", "fraud_reported")
+          .neq("status", "commission_paid")
+          .maybeSingle(),
+      ]);
+      referralJobTitle = jobRes.data?.title ?? "trabalho";
+      if (inviteRes.data?.referrer_id) {
+        const inv = inviteRes.data;
+        referralInvite = {
+          id:              inv.id,
+          referrer_id:     inv.referrer_id,
+          commission_rate: Number(inv.commission_rate ?? REFERRAL_RATE),
+        };
+        referralCommission = parseFloat(
+          (Number(contract.payment_amount) * referralInvite.commission_rate).toFixed(2)
+        );
+      }
+    }
+
+    // ── 2. Compute payout ─────────────────────────────────────────────────
+    const grossAmount   = Number(contract.payment_amount ?? 0);
+    const baseNetAmount = Number(contract.net_amount ?? grossAmount);
+    const talentPayout  = parseFloat((baseNetAmount - referralCommission).toFixed(2));
+
+    // ── 3. Direct DB writes (no RPC — agent reservation is the escrow) ────
+    const nowIso = new Date().toISOString();
+
+    // 3a. Update contract to paid
+    const { error: contractErr } = await supabase
+      .from("contracts")
+      .update({ status: "paid", paid_at: nowIso, payment_status: "paid" })
+      .eq("id", id);
+    if (contractErr) {
+      console.error("[agent_pay] contract update failed", contractErr.message);
+      return NextResponse.json({ error: contractErr.message }, { status: 500 });
+    }
+
+    // 3b. Credit talent wallet transaction (idempotent via unique idempotency_key)
+    const { error: txErr } = await supabase.from("wallet_transactions").insert({
+      user_id:         contractTalentUserId,
+      type:            "payout",
+      amount:          talentPayout,
+      status:          "completed",
+      reference_id:    id,
+      idempotency_key: `payout_${id}`,
+    });
+    if (txErr && !txErr.message.includes("duplicate")) {
+      console.error("[agent_pay] wallet_transactions insert failed", txErr.message);
+    }
+
+    // 3c. Increment talent profile wallet_balance
+    const { data: talentProfile } = await supabase
+      .from("profiles")
+      .select("wallet_balance")
+      .eq("id", contractTalentUserId)
+      .single();
+    const currentBalance = Number(talentProfile?.wallet_balance ?? 0);
+    await supabase
+      .from("profiles")
+      .update({ wallet_balance: currentBalance + talentPayout })
+      .eq("id", contractTalentUserId);
+
+    // 3d. Sync booking to paid
+    await syncBooking(supabase, contract, "paid");
+
+    // ── 4. Job settlement (consume agent commitment) ──────────────────────
+    const { data: jobRow } = await supabase
+      .from("jobs")
+      .select("workspace_id, created_by_user_id, agency_id")
+      .eq("id", contract.job_id)
+      .maybeSingle();
+
+    const jobWorkspaceId = (jobRow as { workspace_id?: string | null } | null)?.workspace_id ?? null;
+    const jobCreatorId   = (jobRow as { created_by_user_id?: string | null } | null)?.created_by_user_id ?? null;
+
+    if (jobWorkspaceId && jobCreatorId && jobCreatorId !== (jobRow as { agency_id?: string | null } | null)?.agency_id) {
+      const settlementAmount = Number(contract.payment_amount ?? 0);
+      if (settlementAmount > 0) {
+        const { data: existingSettlement } = await supabase
+          .from("premium_agent_wallet_transactions")
+          .select("id")
+          .eq("related_contract_id", id)
+          .eq("type", "job_settlement")
+          .maybeSingle();
+
+        if (!existingSettlement) {
+          const [wsRow, memberRow] = await Promise.all([
+            supabase.from("premium_workspaces").select("owner_user_id").eq("id", jobWorkspaceId).maybeSingle(),
+            supabase.from("premium_workspace_members").select("role")
+              .eq("workspace_id", jobWorkspaceId).eq("user_id", jobCreatorId).eq("status", "active").maybeSingle(),
+          ]);
+          if (wsRow.data && memberRow.data?.role === "agent") {
+            await supabase.from("premium_agent_wallet_transactions").insert({
+              workspace_id:        jobWorkspaceId,
+              agent_user_id:       jobCreatorId,
+              owner_user_id:       wsRow.data.owner_user_id,
+              type:                "job_settlement",
+              amount:              settlementAmount,
+              status:              "completed",
+              related_job_id:      contract.job_id,
+              related_contract_id: id,
+              created_by:          contract.agency_id,
+              note:                "Pagamento liberado ao talento (via reserva do agente).",
+            });
+          }
+        }
+      }
+    }
+
+    // ── 5. Notifications ─────────────────────────────────────────────────
+    if (contractTalentUserId) {
+      const tpl = renderNotificationTemplate("payout_released", { amount: brl(talentPayout) });
+      await notify(
+        contractTalentUserId,
+        tpl.channel,
+        tpl.body,
+        talentContractsHref,
+        `notif_payout_talent_${id}`,
+      );
+    }
+    await notifyAdmins(
+      "payment",
+      `Pagamento liberado ao talento (agente): ${brl(talentPayout)}`,
+      "/admin/finances",
+      `admin-payment-released:${id}`,
+    );
+
+    // ── 6. Referral commission (idempotent RPC) ───────────────────────────
+    if (referralInvite && referralCommission > 0) {
+      await supabase.rpc("credit_referral_commission", {
+        p_referrer_id: referralInvite.referrer_id,
+        p_invite_id:   referralInvite.id,
+        p_contract_id: id,
+        p_commission:  referralCommission,
+        p_job_title:   referralJobTitle,
+      }).then(
+        ({ error: e }) => { if (e) console.error("[agent_pay referral]", e.message); }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true, status: "paid",
+      derived_status: getUnifiedBookingStatus("paid", "paid"),
+    });
   }
 
   if (action === "withdraw") {

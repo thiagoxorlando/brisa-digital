@@ -4,7 +4,9 @@ import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { REFERRAL_RATE } from "@/lib/plans";
+import { getUnifiedBookingStatus, normaliseStatus, unifiedStatusInfo } from "@/lib/bookingStatus";
 import { getContractPaymentStatus, contractStatusLabel, contractStatusTone } from "@/lib/contractStatus";
+import { type SpaceFilter, SPACE_FILTER_LABELS, matchesSpaceFilter } from "@/lib/spaceFilter";
 import { depositStatusLabel, depositStatusTone } from "@/lib/depositStatus";
 import { useT } from "@/lib/LanguageContext";
 import { brl } from "@/lib/brl";
@@ -643,7 +645,15 @@ function ContractsSection({
 
 // -- Section: Bookings -------------------------------------------------------
 
-function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; summary: FinancesSummary }) {
+function BookingsSection({
+  bookings,
+  summary,
+  statusLang = "pt-BR",
+}: {
+  bookings: FinancesBooking[];
+  summary: FinancesSummary;
+  statusLang?: "pt-BR" | "en";
+}) {
   const [expanded, setExpanded] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const visible = expanded ? bookings : bookings.slice(0, 5);
@@ -683,6 +693,10 @@ function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; s
         <tbody className="divide-y divide-[#EFF5F5]">
           {visible.map((b) => {
             const isRowOpen = expandedRows.has(b.id);
+            const bookingStatus = unifiedStatusInfo(
+              getUnifiedBookingStatus(b.status, normaliseStatus(b.status)),
+              statusLang,
+            );
             return (
               <Fragment key={b.id}>
                 <tr
@@ -708,7 +722,7 @@ function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; s
                   </Td>
                   <Td>{b.talentName}</Td>
                   <Td><Badge value={planLabel(b.agencyPlan)} tone={PLAN_BADGES_LIGHT[b.agencyPlan] ?? PLAN_BADGES_LIGHT.free} /></Td>
-                  <Td><Badge value={b.status} tone={STATUS_BADGES[b.status] ?? STATUS_BADGES.cancelled} /></Td>
+                  <Td><Badge value={bookingStatus.label} tone={bookingStatus.badge} /></Td>
                   <Td right>{brl(b.price)}</Td>
                   <Td right>{b.commissionAmount ? brl(b.commissionAmount) : "—"}</Td>
                   <Td right>{b.referralAmount ? brl(b.referralAmount) : "—"}</Td>
@@ -719,7 +733,7 @@ function BookingsSection({ bookings, summary }: { bookings: FinancesBooking[]; s
                     <td colSpan={8} className="bg-[#F0F9F8] px-6 py-4">
                       <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-[#647B7B]">
                         <span>Criado: <strong className="text-[#1F2D2E]">{fmt(b.created_at)}</strong></span>
-                        <span className="flex items-center gap-1.5">Status: <Badge value={b.status} tone={STATUS_BADGES[b.status] ?? STATUS_BADGES.cancelled} /></span>
+                        <span className="flex items-center gap-1.5">Status: <Badge value={bookingStatus.label} tone={bookingStatus.badge} /></span>
                         <span>Valor bruto: <strong className="text-[#1F2D2E]">{brl(b.price)}</strong></span>
                         <span>Comissão: <strong className="text-emerald-600">{brl(b.commissionAmount)}</strong></span>
                         {b.referralAmount > 0 && <span>Indicação: <strong className="text-amber-600">-{brl(b.referralAmount)}</strong></span>}
@@ -1453,6 +1467,7 @@ export default function AdminFinances({
   const { t, lang } = useT();
   const statusLang = lang === "en" ? "en" : "pt-BR" as const;
   const [activeTab, setActiveTab] = useState<Tab>("saques");
+  const [spaceFilter, setSpaceFilter] = useState<SpaceFilter>("all");
   const [platformBalance, setPlatformBalance] = useState<PlatformBalanceState>({ status: "loading" });
 
   useEffect(() => {
@@ -1557,6 +1572,27 @@ export default function AdminFinances({
         </div>
       </div>
 
+      {/* Space filter — shown only on contratos/reservas tabs */}
+      {(activeTab === "contratos" || activeTab === "reservas") && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#647B7B]">Espaço</span>
+          <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1">
+            {(["all", "open", "premium"] as const).map((sf) => (
+              <button
+                key={sf}
+                onClick={() => setSpaceFilter(sf)}
+                className={[
+                  "whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all",
+                  spaceFilter === sf ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700",
+                ].join(" ")}
+              >
+                {SPACE_FILTER_LABELS[sf]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* -- Tab content ----------------------------------------------------- */}
       <div>
 
@@ -1616,12 +1652,19 @@ export default function AdminFinances({
 
         {/* Contratos */}
         <div className={activeTab === "contratos" ? "" : "hidden"}>
-          <ContractsSection contracts={contracts} summary={summary} />
+          <ContractsSection
+            contracts={contracts.filter((c) => matchesSpaceFilter(c.workspaceId, spaceFilter))}
+            summary={summary}
+          />
         </div>
 
         {/* Reservas */}
         <div className={activeTab === "reservas" ? "" : "hidden"}>
-          <BookingsSection bookings={bookings} summary={summary} />
+          <BookingsSection
+            bookings={bookings.filter((b) => matchesSpaceFilter(b.workspaceId, spaceFilter))}
+            summary={summary}
+            statusLang={statusLang}
+          />
         </div>
 
         {/* Planos */}

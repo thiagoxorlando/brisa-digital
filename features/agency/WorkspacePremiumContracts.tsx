@@ -28,6 +28,8 @@ export type PremiumContract = {
   paidAt: string | null;
   contractFileUrl: string | null;
   signedContractUrl: string | null;
+  isPaymentEligible: boolean;
+  paymentBlockReason: string | null;
 };
 
 type Props = {
@@ -124,6 +126,7 @@ function ContractProgress({
 
 function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumContract; locale: string; lang: string; onPaid: (id: string) => void }) {
   const [paying, setPaying] = useState(false);
+  const { isPaymentEligible, paymentBlockReason } = contract;
 
   const ps    = getContractPaymentStatus({ status: contract.status, paid_at: contract.paidAt });
   const label = contractStatusLabel(ps, lang === "en" ? "en" : "pt-BR");
@@ -231,33 +234,53 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
               <span>Criado em {fmt(contract.createdAt, locale)}</span>
             )}
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-col items-end gap-1.5">
             {contract.status === "confirmed" && (
-              <button
-                onClick={handlePay}
-                disabled={paying}
-                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {paying ? "Pagando..." : "Pagar talento"}
-              </button>
+              <>
+                {isPaymentEligible ? (
+                  <button
+                    onClick={handlePay}
+                    disabled={paying}
+                    className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {paying ? "Pagando..." : "Pagar talento"}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      disabled
+                      className="rounded-lg bg-zinc-100 px-3 py-1.5 text-[11px] font-semibold text-zinc-400 cursor-not-allowed"
+                    >
+                      Pagar talento
+                    </button>
+                    {paymentBlockReason && (
+                      <p className="text-[10px] text-zinc-400 text-right max-w-[200px] leading-tight">
+                        {paymentBlockReason}
+                      </p>
+                    )}
+                  </>
+                )}
+              </>
             )}
-            {contract.jobId && (
-              <Link
-                href={`/agency/workspace/jobs/${contract.jobId}`}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-50 transition-colors"
-              >
-                Ver vaga
-              </Link>
-            )}
-            {(contract.signedContractUrl ?? contract.contractFileUrl) && (
-              <Link
-                href={(contract.signedContractUrl ?? contract.contractFileUrl)!}
-                target="_blank"
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-50 transition-colors"
-              >
-                Ver contrato
-              </Link>
-            )}
+            <div className="flex gap-2 flex-wrap justify-end">
+              {contract.jobId && (
+                <Link
+                  href={`/agency/workspace/jobs/${contract.jobId}`}
+                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-50 transition-colors"
+                >
+                  Ver vaga
+                </Link>
+              )}
+              {(contract.signedContractUrl ?? contract.contractFileUrl) && (
+                <Link
+                  href={(contract.signedContractUrl ?? contract.contractFileUrl)!}
+                  target="_blank"
+                  className="rounded-lg border border-zinc-200 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-50 transition-colors"
+                >
+                  Ver contrato
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>
