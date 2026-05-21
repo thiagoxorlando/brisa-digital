@@ -83,6 +83,8 @@ type PaidContract = {
   id: string;
   jobTitle: string;
   amount: number;
+  commissionAmount: number;
+  referralCommission: number;
   earnings: number;
   paid_at: string | null;
 };
@@ -180,6 +182,7 @@ export default function TalentFinances() {
   const [period, setPeriod]             = useState<PeriodFilter>("all");
   const [showAllWithdrawals, setShowAllWithdrawals] = useState(false);
   const [showAllReferrals, setShowAllReferrals] = useState(false);
+  const [showAllPaid, setShowAllPaid] = useState(false);
   const [expandedWithdrawal, setExpandedWithdrawal] = useState<string | null>(null);
   const [pixProfile, setPixProfile] = useState<PixProfileRow | null>(null);
   const [talentName, setTalentName] = useState("");
@@ -344,17 +347,27 @@ export default function TalentFinances() {
     ]);
 
     setPaidContracts(
-      (contractsData ?? []).map((c) => ({
-        id:           c.id,
-        jobTitle:     c.job_id ? (contractJobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
-        amount:       c.payment_amount ?? 0,
-        // Priority: actual payout tx → stored net_amount → derived net → 0
-        earnings:     payoutTxMap.get(c.id)
-          ?? (c.net_amount != null ? Number(c.net_amount) : null)
-          ?? (c.commission_amount != null ? Math.max(0, (c.payment_amount ?? 0) - Number(c.commission_amount)) : null)
-          ?? 0,
-        paid_at:      c.paid_at ?? null,
-      }))
+      (contractsData ?? []).map((c) => {
+        const gross = Number(c.payment_amount ?? 0);
+        const commissionAmount = c.commission_amount != null ? Number(c.commission_amount) : 0;
+        const netFromContract = c.net_amount != null
+          ? Number(c.net_amount)
+          : Math.max(0, gross - commissionAmount);
+        const payoutTx = payoutTxMap.get(c.id);
+        const earnings = payoutTx ?? netFromContract;
+        const referralCommission = payoutTx != null && netFromContract > payoutTx
+          ? Math.max(0, parseFloat((netFromContract - payoutTx).toFixed(2)))
+          : 0;
+        return {
+          id:                c.id,
+          jobTitle:          c.job_id ? (contractJobMap.get(c.job_id) ?? "Untitled Job") : "Untitled Job",
+          amount:            gross,
+          commissionAmount,
+          referralCommission,
+          earnings,
+          paid_at:           c.paid_at ?? null,
+        };
+      })
     );
 
     // Referral earnings: actual paid commissions from wallet_transactions.
@@ -851,6 +864,57 @@ export default function TalentFinances() {
                   total={filteredWithdrawalHistory.length}
                   expanded={showAllWithdrawals}
                   onClick={() => setShowAllWithdrawals((value) => !value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Paid contract breakdown */}
+          {paidContracts.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Detalhamento dos Pagamentos</p>
+              <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-zinc-50">
+                {visibleItems(paidContracts, showAllPaid).map((contract) => (
+                  <div key={contract.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold text-zinc-900 truncate">{contract.jobTitle}</p>
+                        {contract.paid_at && (
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Pago em {new Date(contract.paid_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-[15px] font-semibold text-emerald-700 tabular-nums flex-shrink-0">{brl(contract.earnings)}</p>
+                    </div>
+                    <div className="mt-2 space-y-0.5 text-[11px] text-zinc-500">
+                      <div className="flex justify-between">
+                        <span>Valor bruto</span>
+                        <span className="tabular-nums text-zinc-700">{brl(contract.amount)}</span>
+                      </div>
+                      {contract.commissionAmount > 0 && (
+                        <div className="flex justify-between">
+                          <span>Comissão da plataforma</span>
+                          <span className="tabular-nums text-rose-600">−{brl(contract.commissionAmount)}</span>
+                        </div>
+                      )}
+                      {contract.referralCommission > 0 && (
+                        <div className="flex justify-between">
+                          <span>Comissão de indicação</span>
+                          <span className="tabular-nums text-violet-600">−{brl(contract.referralCommission)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-zinc-100 pt-1 mt-1">
+                        <span className="font-semibold text-zinc-700">Líquido recebido</span>
+                        <span className="tabular-nums font-semibold text-emerald-700">{brl(contract.earnings)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <ShowMoreButton
+                  total={paidContracts.length}
+                  expanded={showAllPaid}
+                  onClick={() => setShowAllPaid((v) => !v)}
                 />
               </div>
             </div>

@@ -101,6 +101,22 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
     (c) => c.status !== "paid" && c.status !== "cancelled" && c.status !== "rejected",
   );
 
+  // Fetch actual payout wallet_transactions to derive referral deductions per contract.
+  // referral_deduction = net_amount - payout_tx_amount (≥ 0 when payout exists)
+  const paidContractIds = paidContracts.map((c) => c.id);
+  const payoutTxMap = new Map<string, number>();
+  if (paidContractIds.length > 0) {
+    const { data: payoutTxs } = await supabase
+      .from("wallet_transactions")
+      .select("reference_id, amount")
+      .eq("user_id", user.id)
+      .eq("type", "payout")
+      .in("reference_id", paidContractIds);
+    for (const tx of payoutTxs ?? []) {
+      if (tx.reference_id) payoutTxMap.set(String(tx.reference_id), Number(tx.amount));
+    }
+  }
+
   const totalEarned = paidContracts.reduce((s, c) => {
     const { net } = resolveContractAmounts(c as Parameters<typeof resolveContractAmounts>[0]);
     return s + net;
@@ -176,7 +192,7 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
           <div className="overflow-hidden rounded-[22px] border border-amber-100 bg-amber-50/40 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <ul className="divide-y divide-amber-100/60">
               {pendingContracts.map((contract) => {
-                const { net, gross, commissionPct } = resolveContractAmounts(
+                const { net, gross, commission, commissionPct } = resolveContractAmounts(
                   contract as Parameters<typeof resolveContractAmounts>[0],
                 );
                 const ps = getContractPaymentStatus(contract as { status: string; paid_at?: string | null });
@@ -184,28 +200,45 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
                 const statusTone  = contractStatusTone(ps);
                 const jobDate = (contract as { job_date?: string | null }).job_date;
                 return (
-                  <li key={contract.id} className="flex items-center gap-4 px-5 py-4">
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
-                      <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-zinc-900">
-                        {jobMap.get(String(contract.job_id)) ?? "Vaga"}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-zinc-500">
-                        Bruto {brl(gross)} · Comissão {commissionPct}%
+                  <li key={contract.id} className="px-5 py-4">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                        <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-semibold text-zinc-900">
+                          {jobMap.get(String(contract.job_id)) ?? "Vaga"}
+                        </p>
                         {jobDate && (
-                          <> · Trabalho em {new Date(jobDate).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}</>
+                          <p className="mt-0.5 text-[11px] text-zinc-500">
+                            Trabalho em {new Date(jobDate).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
+                          </p>
                         )}
-                      </p>
+                      </div>
+                      <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                        <p className="text-[16px] font-semibold tabular-nums text-amber-700">{brl(net)}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusTone}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-shrink-0 flex-col items-end gap-1">
-                      <p className="text-[16px] font-semibold tabular-nums text-amber-700">{brl(net)}</p>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusTone}`}>
-                        {statusLabel}
-                      </span>
+                    <div className="ml-13 mt-2 space-y-0.5 pl-[52px] text-[11px] text-zinc-500">
+                      <div className="flex justify-between">
+                        <span>Valor bruto</span>
+                        <span className="tabular-nums text-zinc-700">{brl(gross)}</span>
+                      </div>
+                      {commission > 0 && (
+                        <div className="flex justify-between">
+                          <span>Comissão da plataforma ({commissionPct}%)</span>
+                          <span className="tabular-nums text-rose-600">−{brl(commission)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-amber-100/60 pt-1">
+                        <span className="font-semibold text-zinc-700">A receber</span>
+                        <span className="tabular-nums font-semibold text-amber-700">{brl(net)}</span>
+                      </div>
                     </div>
                   </li>
                 );
@@ -224,33 +257,61 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
           <div className="overflow-hidden rounded-[22px] border border-zinc-200 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <ul className="divide-y divide-zinc-50">
               {paidContracts.map((contract) => {
-                const { net, gross, commissionPct } = resolveContractAmounts(
+                const { net, gross, commission, commissionPct } = resolveContractAmounts(
                   contract as Parameters<typeof resolveContractAmounts>[0],
                 );
+                const payoutTx = payoutTxMap.get(String(contract.id));
+                const received = payoutTx ?? net;
+                const referralDeduction = payoutTx != null && net > payoutTx
+                  ? Math.max(0, parseFloat((net - payoutTx).toFixed(2)))
+                  : 0;
                 return (
-                  <li key={contract.id} className="flex items-center gap-4 px-5 py-4">
-                    <div
-                      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: `linear-gradient(135deg, ${primary}25, ${accent}15)` }}
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: primary }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-zinc-900">
-                        {jobMap.get(String(contract.job_id)) ?? "Vaga"}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-zinc-400">
-                        Bruto {brl(gross)} · Comissão {commissionPct}%
+                  <li key={contract.id} className="px-5 py-4">
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
+                        style={{ background: `linear-gradient(135deg, ${primary}25, ${accent}15)` }}
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: primary }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-semibold text-zinc-900">
+                          {jobMap.get(String(contract.job_id)) ?? "Vaga"}
+                        </p>
                         {contract.paid_at && (
-                          <> · {new Date(contract.paid_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}</>
+                          <p className="mt-0.5 text-[11px] text-zinc-400">
+                            Pago em {new Date(contract.paid_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
                         )}
-                      </p>
+                      </div>
+                      <div className="flex-shrink-0 text-right">
+                        <p className="text-[16px] font-semibold tabular-nums text-emerald-700">{brl(received)}</p>
+                        <p className="text-[10px] text-zinc-400">líquido</p>
+                      </div>
                     </div>
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-[16px] font-semibold tabular-nums text-emerald-700">{brl(net)}</p>
-                      <p className="text-[10px] text-zinc-400">líquido</p>
+                    <div className="mt-2 space-y-0.5 pl-[52px] text-[11px] text-zinc-500">
+                      <div className="flex justify-between">
+                        <span>Valor bruto</span>
+                        <span className="tabular-nums text-zinc-700">{brl(gross)}</span>
+                      </div>
+                      {commission > 0 && (
+                        <div className="flex justify-between">
+                          <span>Comissão da plataforma ({commissionPct}%)</span>
+                          <span className="tabular-nums text-rose-600">−{brl(commission)}</span>
+                        </div>
+                      )}
+                      {referralDeduction > 0 && (
+                        <div className="flex justify-between">
+                          <span>Comissão de indicação</span>
+                          <span className="tabular-nums text-violet-600">−{brl(referralDeduction)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-zinc-100 pt-1">
+                        <span className="font-semibold text-zinc-700">Líquido recebido</span>
+                        <span className="tabular-nums font-semibold text-emerald-700">{brl(received)}</span>
+                      </div>
                     </div>
                   </li>
                 );
