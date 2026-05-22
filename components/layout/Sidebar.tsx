@@ -91,6 +91,16 @@ const AGENCY_OPEN_NAV: NavItem[] = [
     ),
   },
   {
+    labelKey: "nav_disputes",
+    href: "/agency/disputes",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    ),
+  },
+  {
     labelKey: "nav_billing",
     href: "/agency/billing",
     icon: (
@@ -175,6 +185,16 @@ const AGENCY_PREMIUM_NAV: NavItem[] = [
     ),
   },
   {
+    labelKey: "nav_workspace_disputes",
+    href: "/agency/workspace/disputes",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    ),
+  },
+  {
     labelKey: "nav_workspace_bookings",
     href: "/agency/workspace/bookings",
     icon: (
@@ -230,10 +250,10 @@ const AGENCY_NON_PREMIUM_OPEN_NAV: NavItem[] = [
 ];
 
 // Invited workspace agents see only the Premium section — no open platform.
-// Branding (index 7) and Agentes (index 3) are owner-only.
+// Branding (index 8) and Agentes (index 3) are owner-only.
 const AGENCY_AGENT_PREMIUM_NAV: NavItem[] = [
   ...AGENCY_PREMIUM_NAV.slice(0, 3),  // overview, jobs, talents
-  ...AGENCY_PREMIUM_NAV.slice(4, 7),  // wallet, contracts, bookings (skip agents at index 3)
+  ...AGENCY_PREMIUM_NAV.slice(4, 8),  // wallet, contracts, disputes, bookings (skip agents at index 3)
   {
     labelKey: "nav_support",
     href: "/agency/support",
@@ -322,6 +342,16 @@ const TALENT_NAV: NavItem[] = [
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
+  {
+    labelKey: "nav_disputes",
+    href: "/talent/disputes",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
       </svg>
     ),
   },
@@ -491,6 +521,16 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null }: Sideba
           icon: (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          ),
+        },
+        {
+          labelKey: "nav_disputes",
+          href: `/talent/workspaces/${portalWorkspace!.slug}/disputes`,
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           ),
         },
