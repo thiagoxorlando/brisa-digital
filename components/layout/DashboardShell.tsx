@@ -5,22 +5,31 @@ import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import WorkspaceTalentSidebar from "./WorkspaceTalentSidebar";
 import { WorkspacePortalData, WorkspacePortalProvider, useWorkspacePortal } from "@/lib/WorkspacePortalContext";
+import type { AdminSidebarMetrics } from "@/lib/adminSidebarMetrics";
 
 export default function DashboardShell({
   children,
   initialWorkspacePortal = null,
+  adminMetrics = null,
 }: {
   children: React.ReactNode;
   initialWorkspacePortal?: WorkspacePortalData | null;
+  adminMetrics?: AdminSidebarMetrics | null;
 }) {
   return (
     <WorkspacePortalProvider initialWorkspace={initialWorkspacePortal}>
-      <DashboardShellFrame>{children}</DashboardShellFrame>
+      <DashboardShellFrame adminMetrics={adminMetrics}>{children}</DashboardShellFrame>
     </WorkspacePortalProvider>
   );
 }
 
-function DashboardShellFrame({ children }: { children: React.ReactNode }) {
+function DashboardShellFrame({
+  children,
+  adminMetrics = null,
+}: {
+  children: React.ReactNode;
+  adminMetrics?: AdminSidebarMetrics | null;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { workspace } = useWorkspacePortal();
   const isTalentPortal = workspace?.mode === "talent";
@@ -37,7 +46,7 @@ function DashboardShellFrame({ children }: { children: React.ReactNode }) {
       {isTalentPortal ? (
         <WorkspaceTalentSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       ) : (
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} adminMetrics={adminMetrics} />
       )}
 
       <div className={`${contentOffsetClass} flex flex-1 flex-col overflow-hidden`}>

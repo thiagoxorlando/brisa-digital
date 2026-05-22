@@ -12,6 +12,7 @@ import { useSubscription } from "@/lib/SubscriptionContext";
 import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
 import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
 import { buildAdminNavGroups } from "@/lib/adminNav";
+import type { AdminSidebarMetrics } from "@/lib/adminSidebarMetrics";
 
 type NavItem = {
   labelKey: string;
@@ -368,9 +369,10 @@ const TALENT_NAV: NavItem[] = [
 type SidebarProps = {
   isOpen: boolean;
   onClose: () => void;
+  adminMetrics?: AdminSidebarMetrics | null;
 };
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, adminMetrics = null }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { role } = useRole();
@@ -665,6 +667,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               {/* Admin: collapsible group sections */}
               {inferredRole === "admin" && buildAdminNavGroups().map((group) => {
                 const isGroupCollapsed = adminCollapsedGroups.has(group.group);
+                const groupHasBadge = adminMetrics != null && group.items.some(
+                  (item) => (adminMetrics[item.href]?.count ?? 0) > 0,
+                );
                 return (
                   <div key={group.group} className="mb-0.5">
                     <button
@@ -673,17 +678,22 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                       className="group flex w-full items-center justify-between px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-[0.16em] text-[#4A7872]/55 hover:text-[#7BA09A] transition-colors duration-150 select-none"
                     >
                       {group.groupLabel}
-                      <svg
-                        className={[
-                          "w-3 h-3 opacity-40 group-hover:opacity-70 transition-all duration-200",
-                          isGroupCollapsed ? "-rotate-90" : "",
-                        ].join(" ")}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
+                      <div className="flex items-center gap-1.5">
+                        {isGroupCollapsed && groupHasBadge && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-400 opacity-80" />
+                        )}
+                        <svg
+                          className={[
+                            "w-3 h-3 opacity-40 group-hover:opacity-70 transition-all duration-200",
+                            isGroupCollapsed ? "-rotate-90" : "",
+                          ].join(" ")}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
                     </button>
                     {!isGroupCollapsed && (
                       <ul className="flex flex-col gap-px">
@@ -691,6 +701,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           const isActive = item.exact
                             ? pathname === item.href
                             : pathname.startsWith(item.href);
+                          const badge = adminMetrics?.[item.href];
                           return (
                             <li key={item.href}>
                               <Link
@@ -712,6 +723,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                   {item.icon}
                                 </span>
                                 <span className="truncate">{t(item.labelKey as any)}</span>
+                                {badge && badge.count > 0 && (
+                                  <span
+                                    className={[
+                                      "ml-auto flex-shrink-0 rounded-full px-1.5 py-px text-[9px] font-bold leading-none tabular-nums min-w-[16px] text-center",
+                                      badge.color === "red"
+                                        ? "bg-red-500 text-white"
+                                        : badge.color === "green"
+                                        ? "bg-emerald-500 text-white"
+                                        : "bg-amber-400 text-amber-950",
+                                    ].join(" ")}
+                                  >
+                                    {badge.count > 99 ? "99+" : badge.count}
+                                  </span>
+                                )}
                               </Link>
                             </li>
                           );

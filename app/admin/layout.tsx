@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
+import { buildAdminSidebarMetrics } from "@/lib/adminSidebarMetrics";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await createSessionClient();
@@ -24,5 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/login");
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  const adminMetrics = await buildAdminSidebarMetrics().catch(() => ({}));
+
+  return <DashboardShell adminMetrics={adminMetrics}>{children}</DashboardShell>;
 }
