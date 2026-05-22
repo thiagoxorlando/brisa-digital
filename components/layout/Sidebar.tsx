@@ -13,6 +13,7 @@ import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
 import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
 import { buildAdminNavGroups } from "@/lib/adminNav";
 import type { AdminSidebarMetrics } from "@/lib/adminSidebarMetrics";
+import { ROUTE_TO_NAV_KEY } from "@/lib/adminSidebarMetrics";
 
 type NavItem = {
   labelKey: string;
@@ -412,6 +413,21 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null }: Sideba
     } catch { /* ignore */ }
   }, []);
 
+  // Mark current admin section as seen — fires on every admin navigation.
+  // The POST is fire-and-forget; badge disappears on the next server render.
+  useEffect(() => {
+    if (!pathname.startsWith("/admin")) return;
+    const navKey = Object.entries(ROUTE_TO_NAV_KEY).find(
+      ([href]) => pathname === href || pathname.startsWith(href + "/"),
+    )?.[1];
+    if (!navKey) return;
+    fetch("/api/admin/nav/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nav_key: navKey }),
+    }).catch(() => {});
+  }, [pathname]);
+
   function toggleAdminGroup(group: string) {
     setAdminCollapsedGroups((prev) => {
       const next = new Set(prev);
@@ -729,8 +745,6 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null }: Sideba
                                       "ml-auto flex-shrink-0 rounded-full px-1.5 py-px text-[9px] font-bold leading-none tabular-nums min-w-[16px] text-center",
                                       badge.color === "red"
                                         ? "bg-red-500 text-white"
-                                        : badge.color === "green"
-                                        ? "bg-emerald-500 text-white"
                                         : "bg-amber-400 text-amber-950",
                                     ].join(" ")}
                                   >
