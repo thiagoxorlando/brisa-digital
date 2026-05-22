@@ -9,6 +9,7 @@ import {
   getContractPaymentStatus,
   contractStatusTone,
 } from "@/lib/contractStatus";
+import { getPremiumContractLifecycle } from "@/lib/premiumContractLifecycle";
 
 export type AgencyContract = {
   id: string;
@@ -38,6 +39,8 @@ export type AgencyContract = {
   paymentBlockReason?: string | null;
   /** Whether the current caller can manually override the date gate. */
   canManualOverride?: boolean;
+  /** True when a completed job_commitment transaction exists for this contract's job. */
+  isAgentJobBacked?: boolean;
 };
 
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -142,8 +145,17 @@ function ContractCard({
   const [overrideOpen,     setOverrideOpen]     = useState(false);
   const [overrideReason,   setOverrideReason]   = useState("");
   const { t, lang } = useT();
-  const stCls   = contractStatusTone(getContractPaymentStatus({ status: c.status, paid_at: c.paidAt }));
-  const stLabel = t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
+
+  // For agent-backed signed contracts, override the badge to show "Reservado pelo agente"
+  const premiumLifecycle = c.isAgentJobBacked
+    ? getPremiumContractLifecycle({ status: c.status, paid_at: c.paidAt }, true)
+    : null;
+  const stCls   = premiumLifecycle
+    ? premiumLifecycle.tone
+    : contractStatusTone(getContractPaymentStatus({ status: c.status, paid_at: c.paidAt }));
+  const stLabel = premiumLifecycle
+    ? premiumLifecycle.label
+    : t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
   const isPaid  = c.status === "paid";
 
   const isJobPast = jobDatePassed(c.jobDate);
@@ -392,7 +404,7 @@ function ContractCard({
               {[
                 { label: t("contracts_sent"),         date: fmtDate(c.createdAt, lang),              done: true              },
                 { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt        },
-                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt || ["confirmed", "paid"].includes(c.status) },
+                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt || ["confirmed", "paid"].includes(c.status) || (!!c.isAgentJobBacked && ["signed", "confirmed", "paid"].includes(c.status)) },
                 { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast },
                 { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt          },
               ].map((step, i) => (

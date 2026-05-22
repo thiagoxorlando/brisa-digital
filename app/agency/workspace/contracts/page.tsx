@@ -89,6 +89,24 @@ const talentIds = [...new Set(
   }
 
   if (context.isOwner) {
+    // Detect which jobs are agent-backed so the status badge and timeline
+    // can reflect "Reservado pelo agente" for signed+agent-funded contracts.
+    const ownerViewJobIds = [
+      ...new Set(contractsData.map((c) => c.job_id).filter((id): id is string => !!id)),
+    ];
+    const ownerAgentBackedJobIds = new Set<string>();
+    if (ownerViewJobIds.length > 0) {
+      const { data: commitRows } = await supabase
+        .from("premium_agent_wallet_transactions")
+        .select("related_job_id")
+        .in("related_job_id", ownerViewJobIds)
+        .eq("type", "job_commitment")
+        .eq("status", "completed");
+      for (const r of commitRows ?? []) {
+        if (r.related_job_id) ownerAgentBackedJobIds.add(String(r.related_job_id));
+      }
+    }
+
     const contracts: AgencyContract[] = contractsData.map((contract) => {
       const talentId = contract.talent_user_id ?? contract.talent_id ?? null;
       const release = checkPaymentReleaseEligibility(
@@ -120,6 +138,7 @@ const talentIds = [...new Set(
         isPaymentEligible: release.eligible,
         paymentBlockReason: release.eligible ? null : (contract.job_date ? "Pagamento disponível após a data da vaga." : null),
         canManualOverride: context.isOwner,
+        isAgentJobBacked: contract.job_id ? ownerAgentBackedJobIds.has(String(contract.job_id)) : false,
       };
     });
 

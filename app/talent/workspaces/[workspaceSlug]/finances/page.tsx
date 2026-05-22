@@ -9,6 +9,7 @@ import {
   contractStatusTone,
   resolveContractAmounts,
 } from "@/lib/contractStatus";
+import { talentFacingLabel, talentFacingTone, getPremiumContractLifecycle } from "@/lib/premiumContractLifecycle";
 import WorkspaceFinancesClient from "@/features/talent/WorkspaceFinancesClient";
 
 export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
@@ -94,6 +95,24 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
       const bTime = b.paid_at ?? (b as { created_at?: string | null }).created_at ?? "";
       return bTime.localeCompare(aTime);
     });
+
+  // Detect which jobs are backed by an agent job_commitment so pending contracts
+  // can show the correct "Em custódia" / "Reservado pelo agente" label.
+  const allContractJobIds = [
+    ...new Set(contractRows.map((c) => c.job_id).filter((id): id is string => !!id))
+  ];
+  const agentBackedJobIds = new Set<string>();
+  if (allContractJobIds.length > 0) {
+    const { data: commitRows } = await supabase
+      .from("premium_agent_wallet_transactions")
+      .select("related_job_id")
+      .in("related_job_id", allContractJobIds)
+      .eq("type", "job_commitment")
+      .eq("status", "completed");
+    for (const r of commitRows ?? []) {
+      if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
+    }
+  }
 
   const contracts = contractRows;
   const paidContracts    = contracts.filter((c) => c.status === "paid");
@@ -195,9 +214,13 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
                 const { net, gross, commission, commissionPct } = resolveContractAmounts(
                   contract as Parameters<typeof resolveContractAmounts>[0],
                 );
-                const ps = getContractPaymentStatus(contract as { status: string; paid_at?: string | null });
-                const statusLabel = contractStatusLabel(ps);
-                const statusTone  = contractStatusTone(ps);
+                const isAgentJobBacked = contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false;
+                const premiumLifecycle = getPremiumContractLifecycle(
+                  { status: contract.status ?? "sent", paid_at: contract.paid_at },
+                  isAgentJobBacked,
+                );
+                const statusLabel = talentFacingLabel(premiumLifecycle.status);
+                const statusTone  = talentFacingTone(premiumLifecycle.status);
                 const jobDate = (contract as { job_date?: string | null }).job_date;
                 return (
                   <li key={contract.id} className="px-5 py-4">
