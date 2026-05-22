@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { brl } from "@/lib/brl";
+import {
+  contractStatusLabel,
+  contractStatusTone,
+  type ContractPaymentStatus,
+} from "@/lib/contractStatus";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
 
 export type WorkspaceApplicationItem = {
@@ -12,7 +17,8 @@ export type WorkspaceApplicationItem = {
   jobBudget: number | null;
   jobDate: string | null;
   jobLocation: string | null;
-  status: string;
+  submissionStatus: string;
+  contractPaymentStatus: ContractPaymentStatus | null;
   createdAt: string;
   canCancel: boolean;
   cancelReason: string | null;
@@ -29,6 +35,33 @@ type Props = {
   items: WorkspaceApplicationItem[];
 };
 
+/**
+ * Derive the display status label and tone for a reservation card.
+ * Contract lifecycle overrides application status when a contract exists.
+ */
+function resolveDisplayStatus(
+  item: WorkspaceApplicationItem,
+  statusLang: "en" | "pt-BR",
+): { label: string; tone: string } {
+  if (item.contractPaymentStatus) {
+    return {
+      label: contractStatusLabel(item.contractPaymentStatus, statusLang),
+      tone: contractStatusTone(item.contractPaymentStatus),
+    };
+  }
+  // Map submission statuses to more user-friendly labels when no contract exists
+  const rawStatus = item.submissionStatus;
+  // "in_review" maps to "Em análise" which is friendlier for the talent
+  if (rawStatus === "in_review") {
+    const label = statusLang === "en" ? "In review" : "Em análise";
+    return { label, tone: "bg-amber-50 text-amber-700 ring-1 ring-amber-100" };
+  }
+  return {
+    label: submissionStatusLabel(rawStatus, statusLang),
+    tone: submissionStatusTone(rawStatus),
+  };
+}
+
 export default function WorkspaceApplicationsClient({
   workspaceName,
   workspaceSlug,
@@ -43,10 +76,13 @@ export default function WorkspaceApplicationsClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, string | null>>({});
 
-  const pending = items.filter((item) => item.status === "pending" || item.status === "in_review");
-  const approved = items.filter((item) => item.status === "approved");
-  const rejected = items.filter((item) => item.status === "rejected");
-  const cancelled = items.filter((item) => item.status === "cancelled");
+  const pending = items.filter(
+    (item) => item.submissionStatus === "pending" || item.submissionStatus === "in_review",
+  );
+  const approved = items.filter((item) => item.submissionStatus === "approved");
+  const rejected = items.filter((item) => item.submissionStatus === "rejected");
+  const cancelled = items.filter((item) => item.submissionStatus === "cancelled");
+  const withContract = items.filter((item) => item.contractPaymentStatus !== null);
 
   async function handleCancel(item: WorkspaceApplicationItem) {
     if (!item.canCancel || busyId) return;
@@ -67,8 +103,10 @@ export default function WorkspaceApplicationsClient({
 
       setItems((current) =>
         current.map((entry) =>
-          entry.id === item.id ? { ...entry, status: "cancelled", canCancel: false } : entry
-        )
+          entry.id === item.id
+            ? { ...entry, submissionStatus: "cancelled", canCancel: false }
+            : entry,
+        ),
       );
     } catch {
       setFeedback((current) => ({
@@ -111,6 +149,11 @@ export default function WorkspaceApplicationsClient({
           <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-[12px] font-medium text-zinc-600">
             {items.length} total
           </span>
+          {withContract.length > 0 && (
+            <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[12px] font-medium text-indigo-700">
+              {withContract.length} com contrato
+            </span>
+          )}
           {approved.length > 0 && (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[12px] font-medium text-emerald-700">
               {approved.length} aprovada{approved.length !== 1 ? "s" : ""}
@@ -158,20 +201,44 @@ export default function WorkspaceApplicationsClient({
       {items.length > 0 && (
         <ul className="flex flex-col gap-3">
           {items.map((item) => {
-            const label = submissionStatusLabel(item.status, statusLang);
-            const tone = submissionStatusTone(item.status);
-            const isPending = item.status === "pending" || item.status === "in_review";
-            const isApproved = item.status === "approved";
-            const isCancelled = item.status === "cancelled";
-            const disableReason = item.canCancel ? null : (item.cancelReason ?? "Esta reserva não pode mais ser cancelada.");
+            const { label, tone } = resolveDisplayStatus(item, statusLang);
+            const isPendingReview =
+              item.submissionStatus === "pending" || item.submissionStatus === "in_review";
+            const isApproved = item.submissionStatus === "approved";
+            const isCancelled = item.submissionStatus === "cancelled";
+            const hasContract = item.contractPaymentStatus !== null;
+            const isPaid = item.contractPaymentStatus === "paid_to_wallet";
+            const isEscrow = item.contractPaymentStatus === "escrow";
+            const isContractSent =
+              item.contractPaymentStatus === "pending" ||
+              item.contractPaymentStatus === "signed";
+            const disableReason = item.canCancel
+              ? null
+              : (item.cancelReason ?? "Esta reserva não pode mais ser cancelada.");
 
             return (
               <li key={item.id}>
-                <div className={`overflow-hidden rounded-[20px] border bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)] ${
-                  isApproved ? "border-emerald-200" : isCancelled ? "border-zinc-100 opacity-60" : "border-zinc-200"
-                }`}>
-                  {isApproved && (
-                    <div className="h-[3px]" style={{ background: `linear-gradient(to right, ${primary}, ${accent})` }} />
+                <div
+                  className={`overflow-hidden rounded-[20px] border bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)] ${
+                    isPaid
+                      ? "border-emerald-200"
+                      : isEscrow
+                        ? "border-indigo-200"
+                        : isApproved
+                          ? "border-emerald-200"
+                          : isCancelled
+                            ? "border-zinc-100 opacity-60"
+                            : "border-zinc-200"
+                  }`}
+                >
+                  {(isPaid || isApproved) && (
+                    <div
+                      className="h-[3px]"
+                      style={{ background: `linear-gradient(to right, ${primary}, ${accent})` }}
+                    />
+                  )}
+                  {isEscrow && (
+                    <div className="h-[3px] bg-gradient-to-r from-indigo-500 to-indigo-400" />
                   )}
                   <div className="p-5">
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -182,7 +249,9 @@ export default function WorkspaceApplicationsClient({
                         {item.jobDate && (
                           <p className="mt-0.5 text-[12px] text-zinc-500">
                             {new Date(`${item.jobDate}T00:00:00`).toLocaleDateString(locale, {
-                              weekday: "short", day: "numeric", month: "short",
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
                             })}
                           </p>
                         )}
@@ -208,12 +277,41 @@ export default function WorkspaceApplicationsClient({
                       <span className="text-zinc-400">
                         Reservado em{" "}
                         {new Date(item.createdAt).toLocaleDateString(locale, {
-                          day: "numeric", month: "short", year: "numeric",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
                         })}
                       </span>
                     </div>
 
-                    {isPending && (
+                    {/* Context banners — contract lifecycle takes precedence */}
+                    {isPaid && (
+                      <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+                        <p className="text-[12px] leading-relaxed text-emerald-700">
+                          Pagamento liberado. O valor já está disponível na sua carteira.
+                        </p>
+                      </div>
+                    )}
+
+                    {isEscrow && (
+                      <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2.5">
+                        <p className="text-[12px] leading-relaxed text-indigo-700">
+                          O pagamento está em custódia. Aguarde a liberação pela agência após a conclusão do trabalho.
+                        </p>
+                      </div>
+                    )}
+
+                    {isContractSent && !isEscrow && (
+                      <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5">
+                        <p className="text-[12px] leading-relaxed text-sky-700">
+                          {item.contractPaymentStatus === "signed"
+                            ? "Contrato assinado. Aguardando depósito da agência."
+                            : "Contrato enviado. Verifique a página de Contratos para assinar."}
+                        </p>
+                      </div>
+                    )}
+
+                    {!hasContract && isPendingReview && (
                       <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
                         <p className="text-[12px] leading-relaxed text-amber-700">
                           Sua reserva está em análise. Você pode cancelar enquanto não houver contrato enviado.
@@ -221,7 +319,7 @@ export default function WorkspaceApplicationsClient({
                       </div>
                     )}
 
-                    {isApproved && (
+                    {!hasContract && isApproved && (
                       <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
                         <p className="text-[12px] leading-relaxed text-emerald-700">
                           Reserva aprovada. Aguarde o envio do contrato pela agência.
@@ -232,7 +330,7 @@ export default function WorkspaceApplicationsClient({
                     {isCancelled && (
                       <div className="mt-3 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5">
                         <p className="text-[12px] leading-relaxed text-zinc-500">
-                          Reserva cancelada por você.
+                          Reserva cancelada.
                         </p>
                       </div>
                     )}
@@ -262,6 +360,17 @@ export default function WorkspaceApplicationsClient({
                         >
                           Ver vaga
                           <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </Link>
+                      )}
+                      {hasContract && item.jobId && (
+                        <Link
+                          href={`/talent/workspaces/${workspaceSlug}/contracts`}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-[12px] font-semibold text-indigo-700 transition-colors hover:border-indigo-300 hover:bg-indigo-100"
+                        >
+                          Ver contrato
+                          <svg className="h-3.5 w-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </Link>

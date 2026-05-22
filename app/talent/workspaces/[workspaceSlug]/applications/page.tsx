@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { getServerLang } from "@/lib/i18n/server";
+import { getContractPaymentStatus } from "@/lib/contractStatus";
 import WorkspaceApplicationsClient, {
   type WorkspaceApplicationItem,
 } from "@/features/talent/WorkspaceApplicationsClient";
@@ -62,50 +63,89 @@ export default async function WorkspaceApplicationsPage({ params }: Props) {
     workspaceJobIds.length
       ? supabase
           .from("contracts")
-          .select("id, job_id, status, talent_id, talent_user_id")
+          .select("id, job_id, status, paid_at, talent_id, talent_user_id")
           .in("job_id", workspaceJobIds)
           .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
           .is("deleted_at", null)
       : Promise.resolve({ data: [] }),
   ]);
 
+  // Build a map: job_id → most-relevant contract for this talent
+  // For each job, prefer active contracts over cancelled/rejected ones.
+  const contractsByJobId = new Map<
+    string,
+    { id: string; status: string; paid_at: string | null }
+  >();
+  for (const contract of contractResult.data ?? []) {
+    const key = String(contract.job_id);
+    const existing = contractsByJobId.get(key);
+    const isActive = !["cancelled", "rejected"].includes(String(contract.status ?? ""));
+    const existingIsActive = existing
+      ? !["cancelled", "rejected"].includes(existing.status)
+      : false;
+    // Prefer active contract over terminal ones; if both active/terminal, keep first found
+    if (!existing || (isActive && !existingIsActive)) {
+      contractsByJobId.set(key, {
+        id: String(contract.id),
+        status: String(contract.status ?? ""),
+        paid_at: contract.paid_at as string | null,
+      });
+    }
+  }
+
   const activeContractJobIds = new Set(
-    (contractResult.data ?? [])
-      .filter((contract) => !["cancelled", "rejected"].includes(String(contract.status ?? "")))
-      .map((contract) => String(contract.job_id))
+    [...contractsByJobId.entries()]
+      .filter(([, c]) => !["cancelled", "rejected"].includes(c.status))
+      .map(([jobId]) => jobId)
   );
 
   const items: WorkspaceApplicationItem[] = (submissionResult.data ?? [])
     .map((submission) => {
       const job = jobMap.get(String(submission.job_id));
-      const status = String(submission.status ?? "pending");
-      const hasActiveContract = activeContractJobIds.has(String(submission.job_id));
-      const isPendingReview = status === "pending" || status === "in_review";
+      const submissionStatus = String(submission.status ?? "pending");
+      const jobIdStr = String(submission.job_id);
+      const contract = contractsByJobId.get(jobIdStr) ?? null;
+      const hasActiveContract = activeContractJobIds.has(jobIdStr);
+
+      // Derive contract payment status if contract exists
+      const contractPaymentStatus = contract
+        ? getContractPaymentStatus({ status: contract.status, paid_at: contract.paid_at })
+        : null;
+
+      const isPendingReview = submissionStatus === "pending" || submissionStatus === "in_review";
+      // Can only cancel if still in review AND no active contract exists
       const canCancel = isPendingReview && !hasActiveContract;
 
       let cancelReason: string | null = null;
-      if (!isPendingReview) {
-        cancelReason = "Esta candidatura já avançou e não pode mais ser cancelada.";
-      } else if (hasActiveContract) {
-        cancelReason = "Esta candidatura já possui contrato enviado.";
+      if (contractPaymentStatus === "paid_to_wallet") {
+        cancelReason = "Esta reserva já foi paga.";
+      } else if (contractPaymentStatus === "escrow") {
+        cancelReason = "Esta reserva está em custódia.";
+      } else if (contractPaymentStatus === "signed") {
+        cancelReason = "Esta reserva já possui contrato enviado.";
+      } else if (contractPaymentStatus === "pending") {
+        cancelReason = "Esta reserva já possui contrato enviado.";
+      } else if (!isPendingReview) {
+        cancelReason = "Esta reserva já avançou e não pode mais ser cancelada.";
       }
 
       return {
         id: String(submission.id),
-        jobId: submission.job_id ? String(submission.job_id) : null,
+        jobId: submission.job_id ? jobIdStr : null,
         jobTitle: job?.title ?? "Vaga",
         jobBudget: job?.budget ?? null,
         jobDate: job?.job_date ?? null,
         jobLocation: job?.location ?? null,
-        status,
+        submissionStatus,
+        contractPaymentStatus,
         createdAt: submission.created_at ?? "",
         canCancel,
         cancelReason,
       };
     })
     .sort((a, b) => {
-      const ao = STATUS_ORDER[a.status] ?? 9;
-      const bo = STATUS_ORDER[b.status] ?? 9;
+      const ao = STATUS_ORDER[a.submissionStatus] ?? 9;
+      const bo = STATUS_ORDER[b.submissionStatus] ?? 9;
       if (ao !== bo) return ao - bo;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });

@@ -52,6 +52,7 @@ const pageMeta: Record<string, MetaEntry> = {
   "/talent/availability": { titleKey: "nav_availability", descKey: "topbar_talent_availability_desc" },
   "/talent/referrals": { titleKey: "page_referrals", descKey: "topbar_talent_referrals_desc" },
   "/talent/support": { titleKey: "nav_support", descKey: "topbar_talent_support_desc" },
+  "/talent/workspaces": { titleKey: "workspace_portal_premium", descKey: "topbar_talent_dashboard_desc" },
   "/admin/dashboard":     { titleKey: "topbar_admin_dashboard_title",     descKey: "topbar_admin_dashboard_desc"     },
   "/admin/jobs":          { titleKey: "topbar_admin_jobs_title",          descKey: "topbar_admin_jobs_desc"          },
   "/admin/users":         { titleKey: "topbar_admin_users_title",         descKey: "topbar_admin_users_desc"         },

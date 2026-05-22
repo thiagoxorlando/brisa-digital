@@ -242,7 +242,7 @@ export const ptBR: Record<string, string> = {
   workspace_powered_by: "Powered by BrisaHub",
   workspace_portal_premium: "Portal Premium",
   workspace_portal_exclusive: "Portal exclusivo",
-  workspace_portal_applications: "Candidaturas",
+  workspace_portal_applications: "Reservas",
   sidebar_close_menu: "Fechar menu",
   workspace_wallet_agent_suspended: "Suspenso",
   workspace_wallet_allocated: "Saldo alocado",

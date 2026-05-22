@@ -200,7 +200,7 @@ export const en: Record<string, string> = {
   workspace_powered_by: "Powered by BrisaHub",
   workspace_portal_premium: "Premium Portal",
   workspace_portal_exclusive: "Exclusive Portal",
-  workspace_portal_applications: "Applications",
+  workspace_portal_applications: "Reservations",
   sidebar_close_menu: "Close menu",
   workspace_wallet_agent_suspended: "Suspended",
   workspace_wallet_allocated: "Allocated balance",
