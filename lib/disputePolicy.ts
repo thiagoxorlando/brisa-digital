@@ -23,6 +23,7 @@ export type DisputeStatus =
   | "under_review"
   | "resolved_refund"
   | "resolved_release"
+  | "resolved_split"
   | "closed";
 
 export const DISPUTE_STATUS_LABEL: Record<DisputeStatus, string> = {
@@ -30,6 +31,7 @@ export const DISPUTE_STATUS_LABEL: Record<DisputeStatus, string> = {
   under_review:     "Em análise",
   resolved_refund:  "Resolvida (reembolso)",
   resolved_release: "Resolvida (liberação)",
+  resolved_split:   "Resolvida (divisao)",
   closed:           "Encerrada",
 };
 
@@ -38,6 +40,7 @@ export const DISPUTE_STATUS_TONE: Record<DisputeStatus, string> = {
   under_review:     "bg-amber-50 text-amber-700 ring-1 ring-amber-100",
   resolved_refund:  "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200",
   resolved_release: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100",
+  resolved_split:   "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100",
   closed:           "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
 };
 

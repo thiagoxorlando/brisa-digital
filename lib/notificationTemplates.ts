@@ -17,7 +17,11 @@ export type NotificationKey =
   | "withdrawal_paid"
   | "support_reply"
   | "contract_cancelled"
-  | "dispute_opened";
+  | "dispute_opened"
+  | "dispute_under_review"
+  | "dispute_resolved_refund"
+  | "dispute_resolved_release"
+  | "dispute_closed";
 
 export type NotificationTemplate = {
   key: NotificationKey;
@@ -82,8 +86,36 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     key: "dispute_opened",
     channel: "contract",
     titlePt: "Disputa aberta",
-    bodyPt: "Uma disputa foi aberta no contrato.",
-    defaultLink: "/contracts",
+    bodyPt: "Uma disputa foi aberta no contrato {contractId}.",
+    defaultLink: "/admin/disputes/{disputeId}",
+  },
+  dispute_under_review: {
+    key: "dispute_under_review",
+    channel: "contract",
+    titlePt: "Disputa em analise",
+    bodyPt: "A disputa do contrato {contractId} esta em analise.",
+    defaultLink: "/admin/disputes/{disputeId}",
+  },
+  dispute_resolved_refund: {
+    key: "dispute_resolved_refund",
+    channel: "payment",
+    titlePt: "Disputa resolvida com reembolso",
+    bodyPt: "A disputa do contrato {contractId} foi resolvida com reembolso de {amount}.",
+    defaultLink: "/admin/disputes/{disputeId}",
+  },
+  dispute_resolved_release: {
+    key: "dispute_resolved_release",
+    channel: "payment",
+    titlePt: "Disputa resolvida com pagamento",
+    bodyPt: "A disputa do contrato {contractId} foi resolvida com pagamento de {amount}.",
+    defaultLink: "/admin/disputes/{disputeId}",
+  },
+  dispute_closed: {
+    key: "dispute_closed",
+    channel: "contract",
+    titlePt: "Disputa encerrada",
+    bodyPt: "A disputa do contrato {contractId} foi encerrada.",
+    defaultLink: "/admin/disputes/{disputeId}",
   },
 };
 

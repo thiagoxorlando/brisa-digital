@@ -2,33 +2,89 @@
 -- Dispute System QA Seed Script
 -- Created: 2026-05-22
 --
+-- Keep this seed aligned with current contracts columns.
+--
 -- PURPOSE
 --   Creates 3 contract_disputes rows (open, under_review, resolved_refund)
---   against real contracts already in the database.
---   Safe to run multiple times — all inserts are guarded by NOT EXISTS.
+--   against QA seed contracts in the database.
+--   Safe to run multiple times because old QA seed rows are cleaned up first.
 --
 -- WHAT THIS SCRIPT DOES
---   1. Finds a real agency user and talent user from live data.
---   2. Finds or creates a job for the dispute contract.
---   3. Creates a "confirmed" contract (no wallet mutation, status only).
---   4. Creates 3 dispute rows with different statuses.
---   5. RAISES NOTICE for every created ID so you know what was inserted.
+--   1. Cleans up prior QA seed rows using existing columns only.
+--   2. Finds a real agency user and talent user from live data.
+--   3. Creates a QA seed job tagged via title/description.
+--   4. Creates 3 lightweight bookings for schemas where contracts.booking_id is required.
+--   5. Creates 3 contracts linked to that job.
+--   6. Creates escrow_lock wallet_transactions for active QA contracts.
+--   7. Creates 3 dispute rows with different statuses.
+--   7. RAISES NOTICE for every created ID so you know what was inserted.
 --
 -- WHAT THIS SCRIPT DOES NOT DO
---   - No wallet_transactions inserts.
 --   - No wallet_balance changes.
+--   - No wallet_balance changes. Escrow is represented by wallet_transactions
+--     only so the admin resolver can verify escrow without debiting real users.
 --   - No RLS policy changes.
 --   - No auth.users inserts.
---   - Idempotent: re-running skips already-existing rows.
+--   - No contracts.notes or contracts.commission_percent writes.
 --
 -- HOW TO RUN
 --   Paste into Supabase SQL editor and run as service role.
 --   Review RAISE NOTICE output to capture IDs for QA.
 --
+-- VERIFICATION
+--   SELECT id, contract_id, workspace_id, status, reason, created_at
+--   FROM contract_disputes
+--   WHERE reason LIKE '%[QA seed]%'
+--   ORDER BY created_at DESC;
+--
 -- CLEANUP
---   DELETE FROM contract_disputes WHERE resolution_note LIKE '%[QA seed]%';
---   DELETE FROM contracts WHERE notes LIKE '%[QA seed]%';
---   DELETE FROM jobs WHERE description LIKE '%[QA seed]%';
+--   DELETE FROM contract_disputes
+--   WHERE reason LIKE '%[QA seed]%'
+--      OR resolution_note LIKE '%[QA seed]%'
+--      OR contract_id IN (
+--        SELECT c.id
+--        FROM contracts c
+--        JOIN jobs j ON j.id = c.job_id
+--        WHERE j.title LIKE '%[QA seed]%'
+--           OR j.description LIKE '%[QA seed]%'
+--      );
+--
+--   DELETE FROM wallet_transactions
+--   WHERE reference_id IN (
+--     SELECT c.id::text
+--     FROM contracts c
+--     JOIN jobs j ON j.id = c.job_id
+--     WHERE j.title LIKE '%[QA seed]%'
+--        OR j.description LIKE '%[QA seed]%'
+--   )
+--      OR idempotency_key IN (
+--        SELECT 'escrow_' || c.id::text
+--        FROM contracts c
+--        JOIN jobs j ON j.id = c.job_id
+--        WHERE j.title LIKE '%[QA seed]%'
+--           OR j.description LIKE '%[QA seed]%'
+--      );
+--
+--   DELETE FROM contracts
+--   WHERE job_id IN (
+--     SELECT id
+--     FROM jobs
+--     WHERE title LIKE '%[QA seed]%'
+--        OR description LIKE '%[QA seed]%'
+--   );
+--
+--   DELETE FROM bookings
+--   WHERE job_id IN (
+--     SELECT id
+--     FROM jobs
+--     WHERE title LIKE '%[QA seed]%'
+--        OR description LIKE '%[QA seed]%'
+--   )
+--      OR job_title LIKE '%[QA seed]%';
+--
+--   DELETE FROM jobs
+--   WHERE title LIKE '%[QA seed]%'
+--      OR description LIKE '%[QA seed]%';
 -- =============================================================================
 
 DO $$
@@ -40,11 +96,14 @@ DECLARE
   v_admin_user_id         uuid;  -- used as opened_by_user_id
   v_resolver_user_id      uuid;
 
-  -- Workspace (optional — used for the "open" dispute to show Premium badge)
+  -- Workspace is optional and used only to show the Premium badge.
   v_workspace_id          uuid;
 
-  -- Created/reused IDs
+  -- Created IDs
   v_job_id                uuid;
+  v_booking_open_id       uuid;
+  v_booking_review_id     uuid;
+  v_booking_resolved_id   uuid;
   v_contract_open_id      uuid;
   v_contract_review_id    uuid;
   v_contract_resolved_id  uuid;
@@ -52,14 +111,103 @@ DECLARE
   v_dispute_review_id     uuid;
   v_dispute_resolved_id   uuid;
 
+  -- Cleanup ID tracking
+  v_cleanup_job_ids       uuid[];
+  v_cleanup_contract_ids  uuid[];
+
+  -- Current contracts schema flags
+  v_has_booking_id        boolean := false;
+  v_has_talent_user_id    boolean := false;
+  v_has_workspace_id      boolean := false;
+  v_has_commission_amount boolean := false;
+  v_has_net_amount        boolean := false;
+  v_has_payment_status    boolean := false;
+  v_has_job_date          boolean := false;
+  v_has_deposit_paid_at   boolean := false;
+  v_has_confirmed_at      boolean := false;
+  v_has_created_at        boolean := false;
+
+  -- Dynamic contract insert helpers
+  v_cols                  text[];
+  v_vals                  text[];
+
   -- Temp variables
   v_agency_name           text;
   v_talent_name           text;
-
 BEGIN
+  -- Inspect contracts columns so optional fields are only inserted when present.
+  SELECT
+    coalesce(bool_or(column_name = 'booking_id'), false),
+    coalesce(bool_or(column_name = 'talent_user_id'), false),
+    coalesce(bool_or(column_name = 'workspace_id'), false),
+    coalesce(bool_or(column_name = 'commission_amount'), false),
+    coalesce(bool_or(column_name = 'net_amount'), false),
+    coalesce(bool_or(column_name = 'payment_status'), false),
+    coalesce(bool_or(column_name = 'job_date'), false),
+    coalesce(bool_or(column_name = 'deposit_paid_at'), false),
+    coalesce(bool_or(column_name = 'confirmed_at'), false),
+    coalesce(bool_or(column_name = 'created_at'), false)
+  INTO
+    v_has_booking_id,
+    v_has_talent_user_id,
+    v_has_workspace_id,
+    v_has_commission_amount,
+    v_has_net_amount,
+    v_has_payment_status,
+    v_has_job_date,
+    v_has_deposit_paid_at,
+    v_has_confirmed_at,
+    v_has_created_at
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = 'contracts';
 
-  -- ── Step 1: Resolve users ─────────────────────────────────────────────────
-  -- Find an admin user
+  RAISE NOTICE 'contracts.booking_id exists: %', v_has_booking_id;
+  RAISE NOTICE 'contracts.talent_user_id exists: %', v_has_talent_user_id;
+  RAISE NOTICE 'contracts.workspace_id exists: %', v_has_workspace_id;
+  RAISE NOTICE 'contracts.commission_amount exists: %', v_has_commission_amount;
+  RAISE NOTICE 'contracts.net_amount exists: %', v_has_net_amount;
+  RAISE NOTICE 'contracts.payment_status exists: %', v_has_payment_status;
+
+  -- Clean up old QA seed data first so the script is idempotent.
+  SELECT coalesce(array_agg(id), ARRAY[]::uuid[])
+  INTO v_cleanup_job_ids
+  FROM jobs
+  WHERE (title LIKE '%[QA seed]%' OR description LIKE '%[QA seed]%')
+    AND deleted_at IS NULL;
+
+  SELECT coalesce(array_agg(id), ARRAY[]::uuid[])
+  INTO v_cleanup_contract_ids
+  FROM contracts
+  WHERE job_id = ANY(v_cleanup_job_ids)
+    AND deleted_at IS NULL;
+
+  DELETE FROM contract_disputes
+  WHERE reason LIKE '%[QA seed]%'
+     OR resolution_note LIKE '%[QA seed]%'
+     OR contract_id = ANY(v_cleanup_contract_ids);
+
+  DELETE FROM wallet_transactions
+  WHERE reference_id IN (
+    SELECT cleanup_contract_id::text
+    FROM unnest(v_cleanup_contract_ids) AS cleanup_contract_id
+  )
+     OR idempotency_key IN (
+       SELECT 'escrow_' || cleanup_contract_id::text
+       FROM unnest(v_cleanup_contract_ids) AS cleanup_contract_id
+     );
+
+  DELETE FROM contracts
+  WHERE id = ANY(v_cleanup_contract_ids);
+
+  DELETE FROM bookings
+  WHERE job_id = ANY(v_cleanup_job_ids)
+     OR job_title LIKE '%[QA seed]%';
+
+  DELETE FROM jobs
+  WHERE id = ANY(v_cleanup_job_ids);
+
+  -- Step 1: Resolve users
   SELECT id INTO v_admin_user_id
   FROM profiles
   WHERE role = 'admin' AND deleted_at IS NULL
@@ -70,7 +218,6 @@ BEGIN
   END IF;
   RAISE NOTICE 'Admin user ID: %', v_admin_user_id;
 
-  -- Find an agency user
   SELECT p.id, a.company_name
   INTO v_agency_user_id, v_agency_name
   FROM profiles p
@@ -84,9 +231,8 @@ BEGIN
   IF v_agency_user_id IS NULL THEN
     RAISE EXCEPTION 'No agency user found. Cannot create dispute contract without an agency.';
   END IF;
-  RAISE NOTICE 'Agency user ID: % (% )', v_agency_user_id, v_agency_name;
+  RAISE NOTICE 'Agency user ID: % (%)', v_agency_user_id, v_agency_name;
 
-  -- Find a talent user (talent_profiles.id = profiles.id = auth.users.id)
   SELECT p.id, tp.full_name
   INTO v_talent_user_id, v_talent_name
   FROM profiles p
@@ -100,308 +246,406 @@ BEGIN
   IF v_talent_user_id IS NULL THEN
     RAISE EXCEPTION 'No talent user found. Cannot create dispute contract without a talent.';
   END IF;
-  v_talent_profile_id := v_talent_user_id;  -- talent_profiles.id = profiles.id
-  RAISE NOTICE 'Talent user ID: % (% )', v_talent_user_id, v_talent_name;
+  v_talent_profile_id := v_talent_user_id;
+  RAISE NOTICE 'Talent user ID: % (%)', v_talent_user_id, v_talent_name;
 
-  -- Use admin as resolver (admin resolves disputes)
   v_resolver_user_id := v_admin_user_id;
 
-  -- Try to find a Premium workspace (for the "open" dispute to show the Premium badge)
   SELECT id INTO v_workspace_id
   FROM premium_workspaces
   WHERE deleted_at IS NULL
   LIMIT 1;
-  -- workspace_id is optional; NULL is fine if no workspace exists
   RAISE NOTICE 'Workspace ID (may be null): %', v_workspace_id;
 
-  -- ── Step 2: Create or reuse a job for the disputes ─────────────────────────
-  -- Check if our QA seed job already exists
-  SELECT id INTO v_job_id
-  FROM jobs
-  WHERE description LIKE '%[QA seed]%'
-    AND agency_id = v_agency_user_id
-    AND deleted_at IS NULL
-  LIMIT 1;
+  -- Step 2: Create a job for the disputes.
+  INSERT INTO jobs (
+    agency_id,
+    title,
+    description,
+    status,
+    workspace_id,
+    created_by_user_id,
+    created_at
+  )
+  VALUES (
+    v_agency_user_id,
+    'Campanha Verao Brisa - Testado [QA seed]',
+    'Vaga criada automaticamente para testes do sistema de disputas. [QA seed]',
+    'open',
+    v_workspace_id,
+    v_agency_user_id,
+    now() - interval '10 days'
+  )
+  RETURNING id INTO v_job_id;
+  RAISE NOTICE 'Created QA seed job ID: %', v_job_id;
 
-  IF v_job_id IS NULL THEN
-    INSERT INTO jobs (
-      agency_id,
-      title,
-      description,
-      status,
-      workspace_id,
-      created_by_user_id,
-      created_at
-    )
-    VALUES (
-      v_agency_user_id,
-      'Campanha Verão Brisa — Testado [QA seed]',
-      'Vaga criada automaticamente para testes do sistema de disputas. [QA seed]',
-      'open',
-      v_workspace_id,
-      v_agency_user_id,
-      now() - interval '10 days'
-    )
-    RETURNING id INTO v_job_id;
-    RAISE NOTICE 'Created QA seed job ID: %', v_job_id;
-  ELSE
-    RAISE NOTICE 'Reusing existing QA seed job ID: %', v_job_id;
+  -- Step 3: Create lightweight bookings.
+  -- These keep current schemas with contracts.booking_id NOT NULL happy.
+  INSERT INTO bookings (
+    job_id,
+    agency_id,
+    talent_user_id,
+    job_title,
+    price,
+    status,
+    created_at
+  )
+  VALUES (
+    v_job_id,
+    v_agency_user_id,
+    v_talent_user_id,
+    'Disputa aberta [QA seed]',
+    5000.00,
+    'pending',
+    now() - interval '8 days'
+  )
+  RETURNING id INTO v_booking_open_id;
+
+  INSERT INTO bookings (
+    job_id,
+    agency_id,
+    talent_user_id,
+    job_title,
+    price,
+    status,
+    created_at
+  )
+  VALUES (
+    v_job_id,
+    v_agency_user_id,
+    v_talent_user_id,
+    'Disputa em analise [QA seed]',
+    3200.00,
+    'pending',
+    now() - interval '12 days'
+  )
+  RETURNING id INTO v_booking_review_id;
+
+  INSERT INTO bookings (
+    job_id,
+    agency_id,
+    talent_user_id,
+    job_title,
+    price,
+    status,
+    created_at
+  )
+  VALUES (
+    v_job_id,
+    v_agency_user_id,
+    v_talent_user_id,
+    'Disputa resolvida com reembolso [QA seed]',
+    8000.00,
+    'pending',
+    now() - interval '25 days'
+  )
+  RETURNING id INTO v_booking_resolved_id;
+
+  RAISE NOTICE 'Created booking IDs: %, %, %', v_booking_open_id, v_booking_review_id, v_booking_resolved_id;
+
+  -- Step 4: Create contracts for each dispute type.
+  -- Core contract columns used: job_id, agency_id, talent_id, status, payment_amount.
+  -- Optional columns are appended only after information_schema confirms they exist.
+
+  -- Contract A: status = 'confirmed' -> will have the 'open' dispute.
+  v_cols := ARRAY['job_id', 'agency_id', 'talent_id', 'status', 'payment_amount'];
+  v_vals := ARRAY[
+    quote_nullable(v_job_id),
+    quote_nullable(v_agency_user_id),
+    quote_nullable(v_talent_profile_id),
+    quote_literal('confirmed'),
+    '5000.00'
+  ];
+
+  IF v_has_booking_id THEN
+    v_cols := array_append(v_cols, 'booking_id');
+    v_vals := array_append(v_vals, quote_nullable(v_booking_open_id));
+  END IF;
+  IF v_has_talent_user_id THEN
+    v_cols := array_append(v_cols, 'talent_user_id');
+    v_vals := array_append(v_vals, quote_nullable(v_talent_user_id));
+  END IF;
+  IF v_has_workspace_id THEN
+    v_cols := array_append(v_cols, 'workspace_id');
+    v_vals := array_append(v_vals, quote_nullable(v_workspace_id));
+  END IF;
+  IF v_has_commission_amount THEN
+    v_cols := array_append(v_cols, 'commission_amount');
+    v_vals := array_append(v_vals, '500.00');
+  END IF;
+  IF v_has_net_amount THEN
+    v_cols := array_append(v_cols, 'net_amount');
+    v_vals := array_append(v_vals, '4500.00');
+  END IF;
+  IF v_has_payment_status THEN
+    v_cols := array_append(v_cols, 'payment_status');
+    v_vals := array_append(v_vals, quote_literal('escrowed'));
+  END IF;
+  IF v_has_job_date THEN
+    v_cols := array_append(v_cols, 'job_date');
+    v_vals := array_append(v_vals, quote_literal((current_date - interval '3 days')::date));
+  END IF;
+  IF v_has_deposit_paid_at THEN
+    v_cols := array_append(v_cols, 'deposit_paid_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '7 days'));
+  END IF;
+  IF v_has_confirmed_at THEN
+    v_cols := array_append(v_cols, 'confirmed_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '7 days'));
+  END IF;
+  IF v_has_created_at THEN
+    v_cols := array_append(v_cols, 'created_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '8 days'));
   END IF;
 
-  -- ── Step 3: Create contracts for each dispute type ────────────────────────
-  -- Note: We write status directly (no wallet mutations). This is test-only.
+  EXECUTE format(
+    'INSERT INTO contracts (%s) VALUES (%s) RETURNING id',
+    array_to_string(v_cols, ', '),
+    array_to_string(v_vals, ', ')
+  )
+  INTO v_contract_open_id;
+  RAISE NOTICE 'Created contract (open dispute) ID: %', v_contract_open_id;
 
-  -- Contract A: status = 'confirmed' → will have the 'open' dispute
-  SELECT id INTO v_contract_open_id
-  FROM contracts
-  WHERE notes LIKE '%[QA seed dispute-open]%'
-    AND deleted_at IS NULL
-  LIMIT 1;
+  -- Contract B: status = 'confirmed' -> will have the 'under_review' dispute.
+  v_cols := ARRAY['job_id', 'agency_id', 'talent_id', 'status', 'payment_amount'];
+  v_vals := ARRAY[
+    quote_nullable(v_job_id),
+    quote_nullable(v_agency_user_id),
+    quote_nullable(v_talent_profile_id),
+    quote_literal('confirmed'),
+    '3200.00'
+  ];
 
-  IF v_contract_open_id IS NULL THEN
-    INSERT INTO contracts (
-      job_id,
-      agency_id,
-      talent_id,
-      talent_user_id,
-      workspace_id,
-      status,
-      payment_amount,
-      commission_percent,
-      commission_amount,
-      net_amount,
-      payment_status,
-      job_date,
-      notes,
-      created_at,
-      deposit_paid_at
-    )
-    VALUES (
-      v_job_id,
-      v_agency_user_id,
-      v_talent_profile_id,
-      v_talent_user_id,
-      v_workspace_id,
-      'confirmed',
-      5000.00,
-      10,
-      500.00,
-      4500.00,
-      'escrowed',
-      (current_date - interval '3 days')::date,
-      'Contrato de campanha de verão. [QA seed dispute-open]',
-      now() - interval '8 days',
-      now() - interval '7 days'
-    )
-    RETURNING id INTO v_contract_open_id;
-    RAISE NOTICE 'Created contract (open dispute) ID: %', v_contract_open_id;
-  ELSE
-    RAISE NOTICE 'Reusing contract (open dispute) ID: %', v_contract_open_id;
+  IF v_has_booking_id THEN
+    v_cols := array_append(v_cols, 'booking_id');
+    v_vals := array_append(v_vals, quote_nullable(v_booking_review_id));
+  END IF;
+  IF v_has_talent_user_id THEN
+    v_cols := array_append(v_cols, 'talent_user_id');
+    v_vals := array_append(v_vals, quote_nullable(v_talent_user_id));
+  END IF;
+  IF v_has_workspace_id THEN
+    v_cols := array_append(v_cols, 'workspace_id');
+    v_vals := array_append(v_vals, 'NULL');
+  END IF;
+  IF v_has_commission_amount THEN
+    v_cols := array_append(v_cols, 'commission_amount');
+    v_vals := array_append(v_vals, '640.00');
+  END IF;
+  IF v_has_net_amount THEN
+    v_cols := array_append(v_cols, 'net_amount');
+    v_vals := array_append(v_vals, '2560.00');
+  END IF;
+  IF v_has_payment_status THEN
+    v_cols := array_append(v_cols, 'payment_status');
+    v_vals := array_append(v_vals, quote_literal('escrowed'));
+  END IF;
+  IF v_has_job_date THEN
+    v_cols := array_append(v_cols, 'job_date');
+    v_vals := array_append(v_vals, quote_literal((current_date - interval '5 days')::date));
+  END IF;
+  IF v_has_deposit_paid_at THEN
+    v_cols := array_append(v_cols, 'deposit_paid_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '11 days'));
+  END IF;
+  IF v_has_confirmed_at THEN
+    v_cols := array_append(v_cols, 'confirmed_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '11 days'));
+  END IF;
+  IF v_has_created_at THEN
+    v_cols := array_append(v_cols, 'created_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '12 days'));
   END IF;
 
-  -- Contract B: status = 'confirmed' → will have the 'under_review' dispute
-  SELECT id INTO v_contract_review_id
-  FROM contracts
-  WHERE notes LIKE '%[QA seed dispute-review]%'
-    AND deleted_at IS NULL
-  LIMIT 1;
+  EXECUTE format(
+    'INSERT INTO contracts (%s) VALUES (%s) RETURNING id',
+    array_to_string(v_cols, ', '),
+    array_to_string(v_vals, ', ')
+  )
+  INTO v_contract_review_id;
+  RAISE NOTICE 'Created contract (under_review dispute) ID: %', v_contract_review_id;
 
-  IF v_contract_review_id IS NULL THEN
-    INSERT INTO contracts (
-      job_id,
-      agency_id,
-      talent_id,
-      talent_user_id,
-      workspace_id,
-      status,
-      payment_amount,
-      commission_percent,
-      commission_amount,
-      net_amount,
-      payment_status,
-      job_date,
-      notes,
-      created_at,
-      deposit_paid_at
-    )
-    VALUES (
-      v_job_id,
-      v_agency_user_id,
-      v_talent_profile_id,
-      v_talent_user_id,
-      NULL,  -- no workspace for this one (shows no Premium badge)
-      'confirmed',
-      3200.00,
-      20,
-      640.00,
-      2560.00,
-      'escrowed',
-      (current_date - interval '5 days')::date,
-      'Contrato de evento corporativo. [QA seed dispute-review]',
-      now() - interval '12 days',
-      now() - interval '11 days'
-    )
-    RETURNING id INTO v_contract_review_id;
-    RAISE NOTICE 'Created contract (under_review dispute) ID: %', v_contract_review_id;
-  ELSE
-    RAISE NOTICE 'Reusing contract (under_review dispute) ID: %', v_contract_review_id;
+  -- Contract C: status = 'cancelled' -> will have the 'resolved_refund' dispute.
+  v_cols := ARRAY['job_id', 'agency_id', 'talent_id', 'status', 'payment_amount'];
+  v_vals := ARRAY[
+    quote_nullable(v_job_id),
+    quote_nullable(v_agency_user_id),
+    quote_nullable(v_talent_profile_id),
+    quote_literal('cancelled'),
+    '8000.00'
+  ];
+
+  IF v_has_booking_id THEN
+    v_cols := array_append(v_cols, 'booking_id');
+    v_vals := array_append(v_vals, quote_nullable(v_booking_resolved_id));
+  END IF;
+  IF v_has_talent_user_id THEN
+    v_cols := array_append(v_cols, 'talent_user_id');
+    v_vals := array_append(v_vals, quote_nullable(v_talent_user_id));
+  END IF;
+  IF v_has_workspace_id THEN
+    v_cols := array_append(v_cols, 'workspace_id');
+    v_vals := array_append(v_vals, 'NULL');
+  END IF;
+  IF v_has_commission_amount THEN
+    v_cols := array_append(v_cols, 'commission_amount');
+    v_vals := array_append(v_vals, '800.00');
+  END IF;
+  IF v_has_net_amount THEN
+    v_cols := array_append(v_cols, 'net_amount');
+    v_vals := array_append(v_vals, '7200.00');
+  END IF;
+  IF v_has_payment_status THEN
+    v_cols := array_append(v_cols, 'payment_status');
+    v_vals := array_append(v_vals, quote_literal('refunded'));
+  END IF;
+  IF v_has_job_date THEN
+    v_cols := array_append(v_cols, 'job_date');
+    v_vals := array_append(v_vals, quote_literal((current_date - interval '20 days')::date));
+  END IF;
+  IF v_has_deposit_paid_at THEN
+    v_cols := array_append(v_cols, 'deposit_paid_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '24 days'));
+  END IF;
+  IF v_has_confirmed_at THEN
+    v_cols := array_append(v_cols, 'confirmed_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '24 days'));
+  END IF;
+  IF v_has_created_at THEN
+    v_cols := array_append(v_cols, 'created_at');
+    v_vals := array_append(v_vals, quote_literal(now() - interval '25 days'));
   END IF;
 
-  -- Contract C: status = 'cancelled' → will have the 'resolved_refund' dispute
-  SELECT id INTO v_contract_resolved_id
-  FROM contracts
-  WHERE notes LIKE '%[QA seed dispute-resolved]%'
-    AND deleted_at IS NULL
-  LIMIT 1;
+  EXECUTE format(
+    'INSERT INTO contracts (%s) VALUES (%s) RETURNING id',
+    array_to_string(v_cols, ', '),
+    array_to_string(v_vals, ', ')
+  )
+  INTO v_contract_resolved_id;
+  RAISE NOTICE 'Created contract (resolved dispute) ID: %', v_contract_resolved_id;
 
-  IF v_contract_resolved_id IS NULL THEN
-    INSERT INTO contracts (
-      job_id,
-      agency_id,
-      talent_id,
-      talent_user_id,
-      workspace_id,
-      status,
-      payment_amount,
-      commission_percent,
-      commission_amount,
-      net_amount,
-      payment_status,
-      job_date,
-      notes,
-      created_at,
-      deposit_paid_at
-    )
-    VALUES (
-      v_job_id,
-      v_agency_user_id,
-      v_talent_profile_id,
-      v_talent_user_id,
-      NULL,
-      'cancelled',
-      8000.00,
-      10,
-      800.00,
-      7200.00,
-      'refunded',
-      (current_date - interval '20 days')::date,
-      'Contrato de produção audiovisual — encerrado via disputa. [QA seed dispute-resolved]',
-      now() - interval '25 days',
-      now() - interval '24 days'
-    )
-    RETURNING id INTO v_contract_resolved_id;
-    RAISE NOTICE 'Created contract (resolved dispute) ID: %', v_contract_resolved_id;
-  ELSE
-    RAISE NOTICE 'Reusing contract (resolved dispute) ID: %', v_contract_resolved_id;
-  END IF;
+  -- Step 5: Create escrow ledger rows for active disputes.
+  -- The admin dispute resolver verifies escrow via these idempotency keys.
+  -- We do not mutate profile wallet_balance in a manual QA seed.
+  INSERT INTO wallet_transactions (
+    user_id,
+    type,
+    amount,
+    description,
+    reference_id,
+    idempotency_key,
+    status,
+    created_at
+  )
+  VALUES (
+    v_agency_user_id,
+    'escrow_lock',
+    5000.00,
+    'Custodia QA seed: fundos simulados para disputa aberta [QA seed]',
+    v_contract_open_id::text,
+    'escrow_' || v_contract_open_id::text,
+    'completed',
+    now() - interval '7 days'
+  )
+  ON CONFLICT (idempotency_key) DO NOTHING;
 
-  -- ── Step 4: Create dispute rows ───────────────────────────────────────────
+  INSERT INTO wallet_transactions (
+    user_id,
+    type,
+    amount,
+    description,
+    reference_id,
+    idempotency_key,
+    status,
+    created_at
+  )
+  VALUES (
+    v_agency_user_id,
+    'escrow_lock',
+    3200.00,
+    'Custodia QA seed: fundos simulados para disputa em analise [QA seed]',
+    v_contract_review_id::text,
+    'escrow_' || v_contract_review_id::text,
+    'completed',
+    now() - interval '11 days'
+  )
+  ON CONFLICT (idempotency_key) DO NOTHING;
 
-  -- Dispute 1: status = 'open' (primary QA target — blocks payout)
-  SELECT id INTO v_dispute_open_id
-  FROM contract_disputes
-  WHERE contract_id = v_contract_open_id
-    AND status = 'open'
-  LIMIT 1;
+  RAISE NOTICE 'Created QA escrow wallet_transactions for contracts: %, %', v_contract_open_id, v_contract_review_id;
 
-  IF v_dispute_open_id IS NULL THEN
-    INSERT INTO contract_disputes (
-      contract_id,
-      workspace_id,
-      opened_by_user_id,
-      reason,
-      status,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      v_contract_open_id,
-      v_workspace_id,
-      v_admin_user_id,
-      'Talento relatou divergência nos termos de pagamento e solicitou revisão administrativa. O valor combinado verbalmente diferiu do registrado no contrato digital. [QA seed]',
-      'open',
-      now() - interval '2 days',
-      now() - interval '2 days'
-    )
-    RETURNING id INTO v_dispute_open_id;
-    RAISE NOTICE 'Created dispute (open) ID: %', v_dispute_open_id;
-  ELSE
-    RAISE NOTICE 'Reusing dispute (open) ID: %', v_dispute_open_id;
-  END IF;
+  -- Step 6: Create dispute rows.
+  INSERT INTO contract_disputes (
+    contract_id,
+    workspace_id,
+    opened_by_user_id,
+    reason,
+    status,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    v_contract_open_id,
+    v_workspace_id,
+    v_admin_user_id,
+    'Talento relatou divergencia nos termos de pagamento e solicitou revisao administrativa. O valor combinado verbalmente diferiu do registrado no contrato digital. [QA seed]',
+    'open',
+    now() - interval '2 days',
+    now() - interval '2 days'
+  )
+  RETURNING id INTO v_dispute_open_id;
+  RAISE NOTICE 'Created dispute (open) ID: %', v_dispute_open_id;
 
-  -- Dispute 2: status = 'under_review' (for filter testing)
-  SELECT id INTO v_dispute_review_id
-  FROM contract_disputes
-  WHERE contract_id = v_contract_review_id
-    AND status = 'under_review'
-  LIMIT 1;
+  INSERT INTO contract_disputes (
+    contract_id,
+    workspace_id,
+    opened_by_user_id,
+    reason,
+    status,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    v_contract_review_id,
+    NULL,
+    v_admin_user_id,
+    'Agencia alega que talento nao compareceu no horario definido. Talento apresentou comprovante de presenca. Admin aguarda documentacao adicional de ambas as partes. [QA seed]',
+    'under_review',
+    now() - interval '6 days',
+    now() - interval '1 day'
+  )
+  RETURNING id INTO v_dispute_review_id;
+  RAISE NOTICE 'Created dispute (under_review) ID: %', v_dispute_review_id;
 
-  IF v_dispute_review_id IS NULL THEN
-    INSERT INTO contract_disputes (
-      contract_id,
-      workspace_id,
-      opened_by_user_id,
-      reason,
-      status,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      v_contract_review_id,
-      NULL,
-      v_admin_user_id,
-      'Agência alega que talento não compareceu no horário definido. Talento apresentou comprovante de presença. Admin aguarda documentação adicional de ambas as partes. [QA seed]',
-      'under_review',
-      now() - interval '6 days',
-      now() - interval '1 day'
-    )
-    RETURNING id INTO v_dispute_review_id;
-    RAISE NOTICE 'Created dispute (under_review) ID: %', v_dispute_review_id;
-  ELSE
-    RAISE NOTICE 'Reusing dispute (under_review) ID: %', v_dispute_review_id;
-  END IF;
+  INSERT INTO contract_disputes (
+    contract_id,
+    workspace_id,
+    opened_by_user_id,
+    reason,
+    status,
+    resolved_at,
+    resolved_by_user_id,
+    resolution_note,
+    created_at,
+    updated_at
+  )
+  VALUES (
+    v_contract_resolved_id,
+    NULL,
+    v_admin_user_id,
+    'Producao audiovisual cancelada dois dias antes do evento. Agencia solicitou reembolso integral do escrow. [QA seed]',
+    'resolved_refund',
+    now() - interval '18 days',
+    v_resolver_user_id,
+    'Reembolso aprovado: talento confirmou cancelamento com antecedencia suficiente. Escrow devolvido a agencia. [QA seed]',
+    now() - interval '22 days',
+    now() - interval '18 days'
+  )
+  RETURNING id INTO v_dispute_resolved_id;
+  RAISE NOTICE 'Created dispute (resolved_refund) ID: %', v_dispute_resolved_id;
 
-  -- Dispute 3: status = 'resolved_refund' (for filter testing — resolved)
-  SELECT id INTO v_dispute_resolved_id
-  FROM contract_disputes
-  WHERE contract_id = v_contract_resolved_id
-    AND status = 'resolved_refund'
-  LIMIT 1;
-
-  IF v_dispute_resolved_id IS NULL THEN
-    INSERT INTO contract_disputes (
-      contract_id,
-      workspace_id,
-      opened_by_user_id,
-      reason,
-      status,
-      resolved_at,
-      resolved_by_user_id,
-      resolution_note,
-      created_at,
-      updated_at
-    )
-    VALUES (
-      v_contract_resolved_id,
-      NULL,
-      v_admin_user_id,
-      'Produção audiovisual cancelada dois dias antes do evento. Agência solicitou reembolso integral do escrow. [QA seed]',
-      'resolved_refund',
-      now() - interval '18 days',
-      v_resolver_user_id,
-      'Reembolso aprovado: talento confirmou cancelamento com antecedência suficiente. Escrow devolvido à agência. [QA seed]',
-      now() - interval '22 days',
-      now() - interval '18 days'
-    )
-    RETURNING id INTO v_dispute_resolved_id;
-    RAISE NOTICE 'Created dispute (resolved_refund) ID: %', v_dispute_resolved_id;
-  ELSE
-    RAISE NOTICE 'Reusing dispute (resolved_refund) ID: %', v_dispute_resolved_id;
-  END IF;
-
-  -- ── Summary ───────────────────────────────────────────────────────────────
+  -- Summary
   RAISE NOTICE '========================================================';
-  RAISE NOTICE 'QA Dispute Seed — Summary';
+  RAISE NOTICE 'QA Dispute Seed - Summary';
   RAISE NOTICE '========================================================';
   RAISE NOTICE 'Agency user ID  : %', v_agency_user_id;
   RAISE NOTICE 'Talent user ID  : %', v_talent_user_id;
@@ -409,6 +653,9 @@ BEGIN
   RAISE NOTICE 'Workspace ID    : %', v_workspace_id;
   RAISE NOTICE '--------------------------------------------------------';
   RAISE NOTICE 'Job ID          : %', v_job_id;
+  RAISE NOTICE 'Booking A       : %', v_booking_open_id;
+  RAISE NOTICE 'Booking B       : %', v_booking_review_id;
+  RAISE NOTICE 'Booking C       : %', v_booking_resolved_id;
   RAISE NOTICE '--------------------------------------------------------';
   RAISE NOTICE 'Contract A (open)     : %', v_contract_open_id;
   RAISE NOTICE 'Contract B (review)   : %', v_contract_review_id;
@@ -422,16 +669,20 @@ BEGIN
   RAISE NOTICE 'QA Pages to visit:';
   RAISE NOTICE '  /admin/disputes  (all 3 rows visible)';
   RAISE NOTICE '  /admin/disputes  (filter Aberta -> 1 row)';
-  RAISE NOTICE '  /admin/disputes  (filter Em análise -> 1 row)';
+  RAISE NOTICE '  /admin/disputes  (filter Em analise -> 1 row)';
   RAISE NOTICE '  /admin/disputes  (filter Resolvida (reembolso) -> 1 row)';
   RAISE NOTICE '';
   RAISE NOTICE 'Payout blocking test:';
-  RAISE NOTICE '  PATCH /api/contracts/%/  action=pay  → expect 409 (blocked)', v_contract_open_id;
-  RAISE NOTICE '  PATCH /api/contracts/%/  action=pay  → expect 409 (blocked)', v_contract_review_id;
+  RAISE NOTICE '  PATCH /api/contracts/%/  action=pay  -> expect 409 (blocked)', v_contract_open_id;
+  RAISE NOTICE '  PATCH /api/contracts/%/  action=pay  -> expect 409 (blocked)', v_contract_review_id;
+  RAISE NOTICE '';
+  RAISE NOTICE 'Verify inserted disputes:';
+  RAISE NOTICE '  SELECT id, contract_id, workspace_id, status, reason, created_at FROM contract_disputes WHERE reason LIKE ''%%[QA seed]%%'' ORDER BY created_at DESC;';
   RAISE NOTICE '';
   RAISE NOTICE 'CLEANUP when done:';
-  RAISE NOTICE '  DELETE FROM contract_disputes WHERE resolution_note LIKE ''%%[QA seed]%%'' OR reason LIKE ''%%[QA seed]%%'';';
-  RAISE NOTICE '  DELETE FROM contracts WHERE notes LIKE ''%%[QA seed]%%'';';
-  RAISE NOTICE '  DELETE FROM jobs WHERE description LIKE ''%%[QA seed]%%'';';
-
+  RAISE NOTICE '  DELETE FROM contract_disputes WHERE reason LIKE ''%%[QA seed]%%'' OR resolution_note LIKE ''%%[QA seed]%%'' OR contract_id IN (SELECT c.id FROM contracts c JOIN jobs j ON j.id = c.job_id WHERE j.title LIKE ''%%[QA seed]%%'' OR j.description LIKE ''%%[QA seed]%%'');';
+  RAISE NOTICE '  DELETE FROM wallet_transactions WHERE reference_id IN (SELECT c.id::text FROM contracts c JOIN jobs j ON j.id = c.job_id WHERE j.title LIKE ''%%[QA seed]%%'' OR j.description LIKE ''%%[QA seed]%%'') OR idempotency_key IN (SELECT ''escrow_'' || c.id::text FROM contracts c JOIN jobs j ON j.id = c.job_id WHERE j.title LIKE ''%%[QA seed]%%'' OR j.description LIKE ''%%[QA seed]%%'');';
+  RAISE NOTICE '  DELETE FROM contracts WHERE job_id IN (SELECT id FROM jobs WHERE title LIKE ''%%[QA seed]%%'' OR description LIKE ''%%[QA seed]%%'');';
+  RAISE NOTICE '  DELETE FROM bookings WHERE job_id IN (SELECT id FROM jobs WHERE title LIKE ''%%[QA seed]%%'' OR description LIKE ''%%[QA seed]%%'') OR job_title LIKE ''%%[QA seed]%%'';';
+  RAISE NOTICE '  DELETE FROM jobs WHERE title LIKE ''%%[QA seed]%%'' OR description LIKE ''%%[QA seed]%%'';';
 END $$;
