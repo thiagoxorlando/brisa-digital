@@ -222,6 +222,7 @@ export default async function WorkspaceJobDetailPage({ params, searchParams }: P
       inviteToken={inviteToken}
       jobsHref={jobsHref}
       dashboardHref={dashboardHref}
+      disableReferral
     />
   );
 }

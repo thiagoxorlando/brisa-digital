@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   if ((job as { workspace_id?: string | null }).workspace_id) {
     return NextResponse.json(
-      { error: "Indicações não estão disponíveis para vagas do Espaço Premium." },
+      { error: "Indicações estão disponíveis apenas para vagas públicas." },
       { status: 403 },
     );
   }

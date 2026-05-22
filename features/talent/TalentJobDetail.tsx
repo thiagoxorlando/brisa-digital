@@ -577,6 +577,7 @@ export default function TalentJobDetail({
   inviteToken = null,
   jobsHref = "/talent/jobs",
   dashboardHref = "/talent/dashboard",
+  disableReferral = false,
 }: {
   job: TalentJobDetailProps | null;
   talentGender?: string | null;
@@ -585,6 +586,7 @@ export default function TalentJobDetail({
   inviteToken?: string | null;
   jobsHref?: string;
   dashboardHref?: string;
+  disableReferral?: boolean;
 }) {
   const router = useRouter();
   const [step, setStep]             = useState<StepId>("info");
@@ -916,9 +918,11 @@ export default function TalentJobDetail({
                     <span className="font-bold text-emerald-600 text-[15px]">{brl(talentGets)}</span>
                   </div>
                 </div>
-                <p className="text-[11px] text-zinc-400 pt-0.5">
-                  Se houver indicação, 2% ({brl(referralFee)}) é destinado ao indicador.
-                </p>
+                {!disableReferral && (
+                  <p className="text-[11px] text-zinc-400 pt-0.5">
+                    Se houver indicação, 2% ({brl(referralFee)}) é destinado ao indicador.
+                  </p>
+                )}
               </div>
             );
           })()}
@@ -1005,12 +1009,14 @@ export default function TalentJobDetail({
               >
                 {submitting ? "Enviando…" : orderedSteps.length === 0 ? "Enviar Candidatura" : "Iniciar Candidatura"}
               </button>
-              <button
-                onClick={() => router.push(`/job/${job.id}`)}
-                className="w-full bg-white border border-zinc-200 hover:border-violet-300 hover:bg-violet-50 text-zinc-700 hover:text-violet-700 text-[14px] font-semibold py-3.5 rounded-xl transition-all duration-150 active:scale-[0.99] cursor-pointer"
-              >
-                Indicar um Talento — ganhe 2%
-              </button>
+              {!disableReferral && (
+                <button
+                  onClick={() => router.push(`/job/${job.id}`)}
+                  className="w-full bg-white border border-zinc-200 hover:border-violet-300 hover:bg-violet-50 text-zinc-700 hover:text-violet-700 text-[14px] font-semibold py-3.5 rounded-xl transition-all duration-150 active:scale-[0.99] cursor-pointer"
+                >
+                  Indicar um Talento — ganhe 2%
+                </button>
+              )}
             </div>
           </div>
         );
