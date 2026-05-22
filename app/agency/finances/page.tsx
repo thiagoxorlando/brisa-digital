@@ -16,7 +16,7 @@ export default async function AgencyFinancesPage() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const [{ data: walletTxs }, { data: profile }, { data: contracts }, { data: agencyRow }, { data: agentAllocTxs }, activelyAllocated] = await Promise.all([
+  const [{ data: walletTxs }, { data: profile }, { data: contracts }, { data: agencyRow }, { data: agentAllocTxsRaw }, activelyAllocated] = await Promise.all([
     supabase
       .from("wallet_transactions")
       .select("id, type, amount, description, created_at, idempotency_key, status, provider, provider_status, admin_note, processed_at")
@@ -43,20 +43,56 @@ export default async function AgencyFinancesPage() {
       .single(),
     supabase
       .from("premium_agent_wallet_transactions")
-      .select("id, type, amount, note, created_at")
+      .select("id, type, amount, note, created_at, related_job_id, related_contract_id")
       .eq("owner_user_id", user?.id ?? "")
       .eq("status", "completed")
       .is("reversed_at", null)
-      .in("type", ["allocation", "allocation_reversal"])
+      .in("type", ["allocation", "allocation_reversal", "job_commitment", "job_release", "job_settlement"])
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(100),
     getOwnerTotalActiveAllocations(user?.id ?? ""),
   ]);
+
+  // Resolve job titles for Premium agent reservation rows.
+  // Collect unique job IDs from job_commitment / job_release / job_settlement entries.
+  const premiumJobIds = [
+    ...new Set(
+      (agentAllocTxsRaw ?? [])
+        .map((tx) => (tx as Record<string, unknown>).related_job_id as string | null | undefined)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const jobTitleMap = new Map<string, string>();
+  if (premiumJobIds.length > 0) {
+    const { data: jobRows } = await supabase
+      .from("jobs")
+      .select("id, title")
+      .in("id", premiumJobIds);
+    for (const j of jobRows ?? []) {
+      jobTitleMap.set(String(j.id), j.title ?? "Vaga privada");
+    }
+  }
+
+  // Enrich agentAllocTxs with resolved job_title for display.
+  const agentAllocTxs = (agentAllocTxsRaw ?? []).map((tx) => {
+    const raw = tx as Record<string, unknown>;
+    const relJobId = raw.related_job_id as string | null | undefined;
+    return {
+      id: String(tx.id),
+      type: String(tx.type),
+      amount: tx.amount as number | null,
+      note: tx.note as string | null,
+      created_at: String(tx.created_at),
+      related_job_id: relJobId ?? null,
+      related_contract_id: (raw.related_contract_id as string | null | undefined) ?? null,
+      job_title: relJobId ? (jobTitleMap.get(relJobId) ?? null) : null,
+    };
+  });
 
   const transactions: AgencyLedgerRow[] = buildAgencyWalletLedgerRows(
     walletTxs ?? [],
     contracts ?? [],
-    agentAllocTxs ?? [],
+    agentAllocTxs,
   );
 
   // Derive payment stats from the wallet ledger — same source as wallet balance.

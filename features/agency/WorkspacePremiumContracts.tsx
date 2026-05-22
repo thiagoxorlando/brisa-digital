@@ -7,7 +7,7 @@ import { brl } from "@/lib/brl";
 import {
   resolveContractAmounts,
 } from "@/lib/contractStatus";
-import { getPremiumContractLifecycle } from "@/lib/premiumContractLifecycle";
+import { getPremiumContractLifecycle, isCustodyActive } from "@/lib/premiumContractLifecycle";
 
 export type PremiumContract = {
   id: string;
@@ -68,16 +68,18 @@ function ContractProgress({
   signedAt,
   paidAt,
   locale,
+  isAgentJobBacked,
 }: {
   status: string;
   signedAt: string | null;
   paidAt: string | null;
   locale: string;
+  isAgentJobBacked: boolean;
 }) {
   if (["cancelled", "rejected"].includes(status)) return null;
 
   const atLeastSigned    = ["signed", "confirmed", "paid"].includes(status);
-  const atLeastConfirmed = ["confirmed", "paid"].includes(status);
+  const atLeastConfirmed = isCustodyActive(status, isAgentJobBacked);
   const isPaid           = status === "paid";
 
   const steps = [
@@ -190,6 +192,7 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
           signedAt={contract.signedAt}
           paidAt={contract.paidAt}
           locale={locale}
+          isAgentJobBacked={contract.isAgentJobBacked ?? false}
         />
 
         {/* Financials */}

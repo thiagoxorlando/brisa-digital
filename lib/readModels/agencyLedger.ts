@@ -61,6 +61,12 @@ type AgentAllocTxInput = {
   amount: number | null;
   note: string | null;
   created_at: string;
+  /** Job ID for job_commitment / job_release / job_settlement rows */
+  related_job_id?: string | null;
+  /** Contract ID for job_settlement rows — used to prevent double-counting */
+  related_contract_id?: string | null;
+  /** Job title resolved by caller — avoids extra DB call in the builder */
+  job_title?: string | null;
 };
 
 // ── Escrow matcher ─────────────────────────────────────────────────────────────
@@ -106,6 +112,14 @@ export function makeEscrowMatcher(contracts: EscrowMatchContract[]) {
  * entries into a sorted AgencyLedgerRow[].
  *
  * Called from /agency/finances. Pure transformer — no DB calls.
+ *
+ * Double-count prevention for Premium reservation rows:
+ *   - job_commitment / job_release are virtual (no real money moved) → always show
+ *   - job_settlement means the agent paid the talent from reserved funds.
+ *     A corresponding wallet_transactions row of type="payout" referencing the
+ *     same contract_id is written at the same time. To avoid double-counting,
+ *     job_settlement rows are skipped when a matching "payout" wallet_transaction
+ *     exists for the same related_contract_id.
  */
 export function buildAgencyWalletLedgerRows(
   walletTxs: WalletTxInput[],
@@ -113,6 +127,20 @@ export function buildAgencyWalletLedgerRows(
   agentAllocTxs: AgentAllocTxInput[],
 ): AgencyLedgerRow[] {
   const findEscrowContract = makeEscrowMatcher(contracts);
+
+  // Build a set of contract IDs that already have a real payout row in wallet_transactions.
+  // Used to skip job_settlement rows that would otherwise double-count.
+  const payoutContractIds = new Set<string>(
+    walletTxs
+      .filter((w) => w.type === "payout" && w.description)
+      .map((w) => {
+        // wallet_transactions for payouts have idempotency_key = "payout_${contractId}"
+        const key = (w as Record<string, unknown>).idempotency_key as string | null | undefined;
+        if (key?.startsWith("payout_")) return key.slice("payout_".length);
+        return null;
+      })
+      .filter((id): id is string => id !== null),
+  );
 
   const walletRows: AgencyLedgerRow[] = walletTxs.map((w) => {
     let status = w.type ?? "payment";
@@ -168,19 +196,87 @@ export function buildAgencyWalletLedgerRows(
     };
   });
 
-  const allocationRows: AgencyLedgerRow[] = agentAllocTxs.map((tx) => ({
-    id: tx.id,
-    kind: "wallet" as const,
-    talent: "",
-    job: "",
-    amount: Number(tx.amount),
-    status: tx.type === "allocation" ? "agent_allocation" : "agent_allocation_reversal",
-    date: tx.created_at,
-    description:
-      tx.type === "allocation"
-        ? tx.note ? `Alocação para agente · ${tx.note}` : "Alocação para agente"
-        : tx.note ? `Retorno de saldo do agente · ${tx.note}` : "Retorno de saldo do agente",
-  }));
+  const allocationRows: AgencyLedgerRow[] = [];
+
+  for (const tx of agentAllocTxs) {
+    const jobSuffix = tx.job_title ? ` — ${tx.job_title}` : "";
+
+    if (tx.type === "allocation") {
+      allocationRows.push({
+        id: tx.id,
+        kind: "wallet" as const,
+        talent: "",
+        job: tx.job_title ?? "",
+        amount: Number(tx.amount),
+        status: "agent_allocation",
+        date: tx.created_at,
+        description: tx.note ? `Alocação para agente · ${tx.note}` : "Alocação para agente",
+      });
+      continue;
+    }
+
+    if (tx.type === "allocation_reversal") {
+      allocationRows.push({
+        id: tx.id,
+        kind: "wallet" as const,
+        talent: "",
+        job: tx.job_title ?? "",
+        amount: Number(tx.amount),
+        status: "agent_allocation_reversal",
+        date: tx.created_at,
+        description: tx.note ? `Retorno de saldo do agente · ${tx.note}` : "Retorno de saldo do agente",
+      });
+      continue;
+    }
+
+    if (tx.type === "job_commitment") {
+      allocationRows.push({
+        id: tx.id,
+        kind: "wallet" as const,
+        talent: "",
+        job: tx.job_title ?? "",
+        amount: Number(tx.amount),
+        status: "agent_job_commitment",
+        date: tx.created_at,
+        description: `Reserva por agente${jobSuffix}`,
+      });
+      continue;
+    }
+
+    if (tx.type === "job_release") {
+      allocationRows.push({
+        id: tx.id,
+        kind: "wallet" as const,
+        talent: "",
+        job: tx.job_title ?? "",
+        amount: Number(tx.amount),
+        status: "agent_job_release",
+        date: tx.created_at,
+        description: `Liberação de reserva${jobSuffix}`,
+      });
+      continue;
+    }
+
+    if (tx.type === "job_settlement") {
+      // Double-count prevention: skip if a real payout wallet_transaction
+      // already exists for the same contract. The payout row is the
+      // authoritative ledger entry for actual money movement.
+      const contractId = tx.related_contract_id ?? null;
+      if (contractId && payoutContractIds.has(contractId)) continue;
+
+      allocationRows.push({
+        id: tx.id,
+        kind: "wallet" as const,
+        talent: "",
+        job: tx.job_title ?? "",
+        amount: Number(tx.amount),
+        status: "agent_job_settlement",
+        date: tx.created_at,
+        description: `Pagamento ao talento via agente${jobSuffix}`,
+      });
+      continue;
+    }
+  }
 
   return [...walletRows, ...allocationRows].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -208,6 +304,9 @@ const LEDGER_LABEL: Record<string, string> = {
   refund:                    "Reembolso",
   agent_allocation:          "Alocação a agente",
   agent_allocation_reversal: "Retorno de agente",
+  agent_job_commitment:      "Reserva por agente",
+  agent_job_release:         "Liberação de reserva",
+  agent_job_settlement:      "Pagamento via agente",
 };
 
 const LEDGER_TONE: Record<string, string> = {
@@ -227,6 +326,9 @@ const LEDGER_TONE: Record<string, string> = {
   refund:                    "bg-rose-50    text-rose-700    ring-1 ring-rose-100",
   agent_allocation:          "bg-indigo-50  text-indigo-700  ring-1 ring-indigo-100",
   agent_allocation_reversal: "bg-teal-50    text-teal-700    ring-1 ring-teal-100",
+  agent_job_commitment:      "bg-amber-50   text-amber-700   ring-1 ring-amber-100",
+  agent_job_release:         "bg-sky-50     text-sky-700     ring-1 ring-sky-100",
+  agent_job_settlement:      "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
 };
 
 export function ledgerEntryLabel(key: string): string {

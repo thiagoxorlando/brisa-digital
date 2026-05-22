@@ -155,6 +155,25 @@ export function getPremiumContractLifecycle(
 }
 
 /**
+ * Returns true when the "Em custódia" timeline step should be shown as completed.
+ *
+ * Rules:
+ *  - Direct escrow: contract status is "confirmed" or "paid"
+ *  - Agent-backed reservation: isAgentJobBacked=true AND status is "signed", "confirmed", or "paid"
+ *    (the agent job_commitment covers escrow, so the step is effectively active once signed)
+ *
+ * Use this helper in every contract timeline component instead of inline conditions.
+ */
+export function isCustodyActive(
+  contractStatus: string,
+  isAgentJobBacked: boolean,
+): boolean {
+  if (["confirmed", "paid"].includes(contractStatus)) return true;
+  if (isAgentJobBacked && ["signed", "confirmed", "paid"].includes(contractStatus)) return true;
+  return false;
+}
+
+/**
  * Talent-facing label for an agent-reserved or confirmed contract.
  * Both "agent_reserved" and "confirmed" map to "Em custódia" from the
  * talent's perspective — the distinction (who funded it) is irrelevant.
