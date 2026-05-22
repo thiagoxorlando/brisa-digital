@@ -236,7 +236,7 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
                         </div>
                       )}
                       <div className="flex justify-between border-t border-amber-100/60 pt-1">
-                        <span className="font-semibold text-zinc-700">A receber</span>
+                        <span className="font-semibold text-zinc-700">Você recebe</span>
                         <span className="tabular-nums font-semibold text-amber-700">{brl(net)}</span>
                       </div>
                     </div>

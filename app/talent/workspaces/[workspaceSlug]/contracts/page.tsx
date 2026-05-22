@@ -21,6 +21,8 @@ type ContractRow = {
   location: string | null;
   job_description: string | null;
   payment_amount: number | null;
+  commission_amount: number | null;
+  net_amount: number | null;
   payment_method: string | null;
   additional_notes: string | null;
   status: string | null;
@@ -63,7 +65,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
   const jobMap = new Map((allJobs ?? []).map((job) => [String(job.id), job.title ?? "Vaga"]));
 
   const contractSelect =
-    "id, workspace_id, agency_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, created_at, signed_at, paid_at, contract_file_url, signed_contract_url";
+    "id, workspace_id, agency_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, created_at, signed_at, paid_at, contract_file_url, signed_contract_url";
 
   const [workspaceContractsResult, jobJoinContractsResult, agencyResult] = await Promise.all([
     supabase
@@ -129,6 +131,8 @@ export default async function WorkspaceContractsPage({ params }: Props) {
       location: contract.location ?? null,
       jobDescription: contract.job_description ?? null,
       paymentAmount: contract.payment_amount ?? 0,
+      commissionAmount: contract.commission_amount ?? null,
+      netAmount: contract.net_amount ?? null,
       paymentMethod: contract.payment_method ?? null,
       additionalNotes: contract.additional_notes ?? null,
       status: contract.status ?? "sent",

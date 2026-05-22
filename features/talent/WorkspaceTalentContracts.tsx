@@ -21,6 +21,8 @@ export type WorkspaceTalentContract = {
   location: string | null;
   jobDescription: string | null;
   paymentAmount: number;
+  commissionAmount: number | null;
+  netAmount: number | null;
   paymentMethod: string | null;
   additionalNotes: string | null;
   status: string;
@@ -508,7 +510,11 @@ function ContractCard({
   const effectivePaymentStatus = (contract.isAgentJobBacked && paymentStatus === "signed") ? "escrow" : paymentStatus;
   const label = contractStatusLabel(effectivePaymentStatus, "pt-BR");
   const tone  = contractStatusTone(effectivePaymentStatus);
-  const { gross, net } = resolveContractAmounts({ payment_amount: contract.paymentAmount });
+  const { gross, commission, net, commissionPct } = resolveContractAmounts({
+    payment_amount: contract.paymentAmount,
+    commission_amount: contract.commissionAmount,
+    net_amount: contract.netAmount,
+  });
 
   return (
     <div className="overflow-hidden rounded-[20px] border border-zinc-200 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
@@ -526,22 +532,30 @@ function ContractCard({
           <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone}`}>{label}</span>
         </div>
 
-        <div className="flex flex-wrap gap-4 text-[12px] text-zinc-500">
-          <span>
-            <span className="font-medium text-zinc-700">A receber: </span>
-            <span className="font-semibold text-emerald-600">{brl(net)}</span>
-          </span>
-          <span>
-            <span className="font-medium text-zinc-700">Bruto: </span>
-            {brl(gross)}
-          </span>
-          {contract.location && (
+        <div className="space-y-0.5 text-[12px] text-zinc-500">
+          <div className="flex flex-wrap gap-4">
             <span>
-              <span className="font-medium text-zinc-700">Local: </span>
-              {contract.location}
+              <span className="font-medium text-zinc-700">Você recebe: </span>
+              <span className="font-semibold text-emerald-600">{brl(net)}</span>
             </span>
+            <span>
+              <span className="font-medium text-zinc-700">Bruto: </span>
+              {brl(gross)}
+            </span>
+          </div>
+          {commission > 0 && (
+            <p className="text-[11px] text-zinc-400">
+              Comissão da plataforma ({commissionPct}%): −{brl(commission)}
+            </p>
           )}
         </div>
+
+        {contract.location && (
+          <p className="text-[12px] text-zinc-500">
+            <span className="font-medium text-zinc-700">Local: </span>
+            {contract.location}
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => onDetails(contract.id)}
