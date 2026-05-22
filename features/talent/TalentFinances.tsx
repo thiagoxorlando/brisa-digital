@@ -303,7 +303,7 @@ export default function TalentFinances() {
     const { data: contractsDataRaw } = await supabase
       .from("contracts")
       .select("id, job_id, payment_amount, net_amount, commission_amount, paid_at")
-      .eq("talent_id", user.id)
+      .or(`talent_id.eq.${user.id},talent_user_id.eq.${user.id}`)
       .eq("status", "paid")
       .order("paid_at", { ascending: false });
 
