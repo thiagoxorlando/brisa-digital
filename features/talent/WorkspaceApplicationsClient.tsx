@@ -9,6 +9,7 @@ import {
   type ContractPaymentStatus,
 } from "@/lib/contractStatus";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
+import { getPremiumContractLifecycle, talentFacingLabel, talentFacingTone } from "@/lib/premiumContractLifecycle";
 
 export type WorkspaceApplicationItem = {
   id: string;
@@ -19,9 +20,13 @@ export type WorkspaceApplicationItem = {
   jobLocation: string | null;
   submissionStatus: string;
   contractPaymentStatus: ContractPaymentStatus | null;
+  /** Raw contract.status for lifecycle derivation (present when contractPaymentStatus is set). */
+  contractRawStatus?: string | null;
   createdAt: string;
   canCancel: boolean;
   cancelReason: string | null;
+  /** True when a completed job_commitment transaction exists for this job. */
+  isAgentJobBacked?: boolean;
 };
 
 type Props = {
@@ -38,12 +43,25 @@ type Props = {
 /**
  * Derive the display status label and tone for a reservation card.
  * Contract lifecycle overrides application status when a contract exists.
+ * For agent-backed jobs, signed/confirmed contracts show "Em custódia" (talent-facing).
  */
 function resolveDisplayStatus(
   item: WorkspaceApplicationItem,
   statusLang: "en" | "pt-BR",
 ): { label: string; tone: string } {
   if (item.contractPaymentStatus) {
+    // If we have agent-backed context and a raw contract status, use the lifecycle helper
+    // to produce the correct talent-facing label (agent_reserved → "Em custódia").
+    if (item.isAgentJobBacked && item.contractRawStatus) {
+      const lifecycle = getPremiumContractLifecycle(
+        { status: item.contractRawStatus },
+        true,
+      );
+      return {
+        label: talentFacingLabel(lifecycle.status),
+        tone: talentFacingTone(lifecycle.status),
+      };
+    }
     return {
       label: contractStatusLabel(item.contractPaymentStatus, statusLang),
       tone: contractStatusTone(item.contractPaymentStatus),
@@ -208,10 +226,16 @@ export default function WorkspaceApplicationsClient({
             const isCancelled = item.submissionStatus === "cancelled";
             const hasContract = item.contractPaymentStatus !== null;
             const isPaid = item.contractPaymentStatus === "paid_to_wallet";
-            const isEscrow = item.contractPaymentStatus === "escrow";
+            // Agent-backed signed contracts are effectively in escrow from the talent's perspective
+            const isAgentReservedSigned =
+              !!item.isAgentJobBacked &&
+              (item.contractPaymentStatus === "signed" || item.contractPaymentStatus === "escrow");
+            const isEscrow = item.contractPaymentStatus === "escrow" || isAgentReservedSigned;
+            // "isContractSent" = awaiting deposit (not agent-backed)
             const isContractSent =
-              item.contractPaymentStatus === "pending" ||
-              item.contractPaymentStatus === "signed";
+              (item.contractPaymentStatus === "pending" ||
+               item.contractPaymentStatus === "signed") &&
+              !isAgentReservedSigned;
             const disableReason = item.canCancel
               ? null
               : (item.cancelReason ?? "Esta reserva não pode mais ser cancelada.");

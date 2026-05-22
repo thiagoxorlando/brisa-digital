@@ -126,6 +126,24 @@ const talentIds = [...new Set(
     return <AgencyContracts contracts={contracts} bookingsHref="/agency/workspace/bookings" showPaymentActions={false} />;
   }
 
+  // For the agent (non-owner) view, detect which jobs have an agent commitment so
+  // the status badge can show "Reservado pelo agente" instead of "Aguardando depósito".
+  const agentViewJobIds = [
+    ...new Set(contractsData.map((c) => c.job_id).filter((id): id is string => !!id)),
+  ];
+  const agentBackedJobIds = new Set<string>();
+  if (agentViewJobIds.length > 0) {
+    const { data: commitRows } = await supabase
+      .from("premium_agent_wallet_transactions")
+      .select("related_job_id")
+      .in("related_job_id", agentViewJobIds)
+      .eq("type", "job_commitment")
+      .eq("status", "completed");
+    for (const r of commitRows ?? []) {
+      if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
+    }
+  }
+
   const premiumContracts: PremiumContract[] = contractsData.map((contract) => {
     const talentId = contract.talent_user_id ?? contract.talent_id ?? null;
     const release = checkPaymentReleaseEligibility(
@@ -151,6 +169,7 @@ const talentIds = [...new Set(
       signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
       isPaymentEligible: release.eligible,
       paymentBlockReason: release.eligible ? null : "Pagamento antecipado precisa ser liberado pelo proprietário do workspace.",
+      isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
     };
   });
 

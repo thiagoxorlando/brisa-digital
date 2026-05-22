@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
 import {
-  getContractPaymentStatus,
-  contractStatusLabel,
-  contractStatusTone,
   resolveContractAmounts,
 } from "@/lib/contractStatus";
+import { getPremiumContractLifecycle } from "@/lib/premiumContractLifecycle";
 
 export type PremiumContract = {
   id: string;
@@ -30,6 +28,8 @@ export type PremiumContract = {
   signedContractUrl: string | null;
   isPaymentEligible: boolean;
   paymentBlockReason: string | null;
+  /** True when a completed job_commitment transaction exists for this contract's job. */
+  isAgentJobBacked?: boolean;
 };
 
 type Props = {
@@ -128,9 +128,12 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
   const [paying, setPaying] = useState(false);
   const { isPaymentEligible, paymentBlockReason } = contract;
 
-  const ps    = getContractPaymentStatus({ status: contract.status, paid_at: contract.paidAt });
-  const label = contractStatusLabel(ps, lang === "en" ? "en" : "pt-BR");
-  const tone  = contractStatusTone(ps);
+  const lifecycle = getPremiumContractLifecycle(
+    { status: contract.status, paid_at: contract.paidAt },
+    contract.isAgentJobBacked ?? false,
+  );
+  const label = lifecycle.label;
+  const tone  = lifecycle.tone;
   const { gross, commission, net, commissionPct } = resolveContractAmounts({
     payment_amount:    contract.paymentAmount,
     commission_amount: contract.commissionAmount,

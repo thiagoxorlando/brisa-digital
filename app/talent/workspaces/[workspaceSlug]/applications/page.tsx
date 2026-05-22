@@ -70,6 +70,28 @@ export default async function WorkspaceApplicationsPage({ params }: Props) {
       : Promise.resolve({ data: [] }),
   ]);
 
+  // Detect which jobs are backed by an agent job_commitment so the status badge
+  // can reflect "Em custódia" instead of "Aguardando depósito".
+  const contractJobIds = [
+    ...new Set(
+      (contractResult.data ?? [])
+        .map((c) => c.job_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  const agentBackedJobIds = new Set<string>();
+  if (contractJobIds.length > 0) {
+    const { data: commitRows } = await supabase
+      .from("premium_agent_wallet_transactions")
+      .select("related_job_id")
+      .in("related_job_id", contractJobIds)
+      .eq("type", "job_commitment")
+      .eq("status", "completed");
+    for (const r of commitRows ?? []) {
+      if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
+    }
+  }
+
   // Build a map: job_id → most-relevant contract for this talent
   // For each job, prefer active contracts over cancelled/rejected ones.
   const contractsByJobId = new Map<
@@ -88,7 +110,7 @@ export default async function WorkspaceApplicationsPage({ params }: Props) {
       contractsByJobId.set(key, {
         id: String(contract.id),
         status: String(contract.status ?? ""),
-        paid_at: contract.paid_at as string | null,
+        paid_at: (contract.paid_at as string | null) ?? null,
       });
     }
   }
@@ -138,9 +160,11 @@ export default async function WorkspaceApplicationsPage({ params }: Props) {
         jobLocation: job?.location ?? null,
         submissionStatus,
         contractPaymentStatus,
+        contractRawStatus: contract ? contract.status : null,
         createdAt: submission.created_at ?? "",
         canCancel,
         cancelReason,
+        isAgentJobBacked: submission.job_id ? agentBackedJobIds.has(String(submission.job_id)) : false,
       };
     })
     .sort((a, b) => {
