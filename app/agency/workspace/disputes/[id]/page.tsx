@@ -107,6 +107,11 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
 
   const talentUserId = contract.talent_user_id ?? null;
 
+  // Only look up agent membership when the job creator is not the workspace owner
+  const potentialAgentId = (jobRow?.created_by_user_id && jobRow.created_by_user_id !== context.workspace.ownerUserId)
+    ? jobRow.created_by_user_id
+    : null;
+
   // Resolve all party user IDs in one batch call
   const partyIds = [
     talentUserId,
@@ -117,7 +122,7 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
 
   const uniquePartyIds = [...new Set(partyIds)];
 
-  const [resolvedUsers, notesResult, talentProfileResult] = await Promise.all([
+  const [resolvedUsers, notesResult, talentProfileResult, agentMembershipResult] = await Promise.all([
     resolveSupportUsers(uniquePartyIds),
     supabase
       .from("contract_dispute_notes")
@@ -127,6 +132,9 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
       .order("created_at", { ascending: false }),
     talentUserId
       ? supabase.from("talent_profiles").select("id, full_name, avatar_url").eq("user_id", talentUserId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    potentialAgentId
+      ? supabase.from("workspace_agents").select("id").eq("workspace_id", context.workspace.id).eq("user_id", potentialAgentId).eq("status", "active").maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -151,9 +159,8 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
   const openedByRole = openedByUser?.roleLabel ?? null;
   const openedByEmail = openedByUser?.email ?? null;
 
-  const agentCreatedBy = jobRow?.created_by_user_id;
-  const isJobCreatedByAgent = agentCreatedBy && agentCreatedBy !== context.workspace.ownerUserId;
-  const agentUser = isJobCreatedByAgent ? resolvedUsers.get(agentCreatedBy) : null;
+  const isVerifiedAgent = potentialAgentId !== null && agentMembershipResult.data !== null;
+  const agentUser = isVerifiedAgent ? resolvedUsers.get(potentialAgentId!) : null;
 
   return (
     <div className="max-w-5xl space-y-6 px-4 pb-10 sm:px-6">
@@ -200,7 +207,7 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
               name={agentUser.name}
               email={agentUser.email}
               role="Agente"
-              sublabel={`ID: ${agentCreatedBy!.slice(0, 8)}`}
+              sublabel={`ID: ${potentialAgentId!.slice(0, 8)}`}
             />
           ) : null}
           <PartyCard
