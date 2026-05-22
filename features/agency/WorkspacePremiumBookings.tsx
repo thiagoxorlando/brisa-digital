@@ -19,6 +19,8 @@ export type PremiumBooking = {
   paidAt: string | null;
   contractId: string | null;
   isAgentJobBacked: boolean;
+  /** Display name of the user who released payment. NULL for legacy rows. */
+  paidByName?: string | null;
 };
 
 type Props = { bookings: PremiumBooking[] };
@@ -144,7 +146,9 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
             </span>
             <span className="text-zinc-400">
               {isPaid && booking.paidAt
-                ? `Pago em ${fmt(booking.paidAt)}`
+                ? (booking.paidByName
+                    ? `Pago por ${booking.paidByName} em ${fmt(booking.paidAt)}`
+                    : `Pago em ${fmt(booking.paidAt)}`)
                 : `Criado em ${fmt(booking.createdAt)}`}
             </span>
           </div>

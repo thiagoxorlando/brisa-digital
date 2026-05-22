@@ -41,6 +41,8 @@ export type AgencyContract = {
   canManualOverride?: boolean;
   /** True when a completed job_commitment transaction exists for this contract's job. */
   isAgentJobBacked?: boolean;
+  /** Display name of the user who released payment. NULL for legacy rows. */
+  paidByName?: string | null;
 };
 
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -406,7 +408,7 @@ function ContractCard({
                 { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt        },
                 { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt || ["confirmed", "paid"].includes(c.status) || (!!c.isAgentJobBacked && ["signed", "confirmed", "paid"].includes(c.status)) },
                 { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast },
-                { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt          },
+                { label: c.paidByName ? `${t("contracts_pay_talent")} — ${c.paidByName}` : t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt          },
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className={[

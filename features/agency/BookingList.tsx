@@ -27,6 +27,8 @@ export type Booking = {
   hasContractFile:   boolean;
   hasSignedContract: boolean;
   isAgentJobBacked:  boolean;
+  /** Display name of the user who released payment. NULL for legacy rows. */
+  paidByName?: string | null;
 };
 
 function formatDate(s: string | null) {
@@ -337,7 +339,9 @@ function BookingRow({
           )}
 
           {unified === "pago" && (
-            <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">Pago</span>
+            <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">
+              {booking.paidByName ? `Pago por ${booking.paidByName}` : "Pago"}
+            </span>
           )}
           {unified === "cancelado" && (
             <span className="text-[12px] font-medium text-zinc-400">{st.label}</span>

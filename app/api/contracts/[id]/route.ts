@@ -429,6 +429,16 @@ export async function PATCH(
     }
 
     if (!r.already_processed) {
+      // Record who released the payment (owner, agent, or admin).
+      // Best-effort: never block the response on this write.
+      supabase
+        .from("contracts")
+        .update({ paid_by_user_id: user.id })
+        .eq("id", id)
+        .then(({ error: pbErr }) => {
+          if (pbErr) console.error("[pay] paid_by_user_id update failed", pbErr.message);
+        });
+
       await syncBooking(supabase, contract, "paid");
       await notifyAdmins(
         "payment",
@@ -899,10 +909,10 @@ export async function PATCH(
     // ── 3. Direct DB writes (no RPC — agent reservation is the escrow) ────
     const nowIso = new Date().toISOString();
 
-    // 3a. Update contract to paid
+    // 3a. Update contract to paid (record who released the payment)
     const { error: contractErr } = await supabase
       .from("contracts")
-      .update({ status: "paid", paid_at: nowIso, payment_status: "paid" })
+      .update({ status: "paid", paid_at: nowIso, payment_status: "paid", paid_by_user_id: user.id })
       .eq("id", id);
     if (contractErr) {
       console.error("[agent_pay] contract update failed", contractErr.message);

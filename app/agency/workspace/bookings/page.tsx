@@ -4,6 +4,7 @@ import BookingList, { type Booking } from "@/features/agency/BookingList";
 import WorkspacePremiumBookings, { type PremiumBooking } from "@/features/agency/WorkspacePremiumBookings";
 import { getUnifiedBookingStatus } from "@/lib/bookingStatus";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
+import { resolveActorNames } from "@/lib/resolveActorName.server";
 
 export const metadata: Metadata = { title: "Reservas Premium — BrisaHub" };
 
@@ -38,7 +39,7 @@ export default async function WorkspaceBookingsPage() {
     .select(`
       id, talent_user_id, job_id, status, price, job_title, created_at,
       contracts!contracts_booking_id_fkey (
-        id, status, signed_at, job_date, location, paid_at, contract_file_url, signed_contract_url
+        id, status, signed_at, job_date, location, paid_at, contract_file_url, signed_contract_url, paid_by_user_id
       )
     `)
     .in("job_id", jobIds)
@@ -72,12 +73,23 @@ export default async function WorkspaceBookingsPage() {
     avatarMap.set(p.id, (p as { avatar_url?: string | null }).avatar_url ?? null);
   }
 
+  // Collect all paid_by_user_id values across all contracts, then batch-resolve names.
+  const allContracts = (rows ?? []).flatMap((row) => {
+    const raw = (row as { contracts?: unknown[] }).contracts;
+    return Array.isArray(raw) ? raw as Record<string, unknown>[] : (raw ? [raw as Record<string, unknown>] : []);
+  });
+  const actorIds = [...new Set(
+    allContracts.map((c) => c?.paid_by_user_id as string | null | undefined).filter((id): id is string => !!id),
+  )];
+  const actorNameMap = await resolveActorNames(actorIds, supabase);
+
   // Owner → full BookingList component
   if (context.isOwner) {
     const bookings: Booking[] = (rows ?? []).map((row) => {
       const contract = Array.isArray((row as { contracts?: unknown[] }).contracts)
         ? (row as { contracts?: Record<string, unknown>[] }).contracts?.[0] ?? null
         : null;
+      const paidByUserId = contract?.paid_by_user_id ? String(contract.paid_by_user_id) : null;
       return {
         id:               String(row.id ?? ""),
         contractId:       contract?.id ? String(contract.id) : null,
@@ -96,6 +108,7 @@ export default async function WorkspaceBookingsPage() {
         hasContractFile:  !!contract?.contract_file_url,
         hasSignedContract: !!contract?.signed_contract_url,
         isAgentJobBacked: row.job_id ? agentBackedJobIds.has(String(row.job_id)) : false,
+        paidByName:       paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
       };
     });
     return <BookingList bookings={bookings} financesHref="/agency/workspace/wallet" />;
@@ -107,6 +120,7 @@ export default async function WorkspaceBookingsPage() {
       ? (row as { contracts?: Record<string, unknown>[] }).contracts?.[0] ?? null
       : null;
     const contractStatus = contract?.status ? String(contract.status) : null;
+    const paidByUserId = contract?.paid_by_user_id ? String(contract.paid_by_user_id) : null;
     return {
       id:             String(row.id ?? ""),
       jobId:          row.job_id ? String(row.job_id) : null,
@@ -123,6 +137,7 @@ export default async function WorkspaceBookingsPage() {
       paidAt:           contract?.paid_at ? String(contract.paid_at) : null,
       contractId:       contract?.id ? String(contract.id) : null,
       isAgentJobBacked: row.job_id ? agentBackedJobIds.has(String(row.job_id)) : false,
+      paidByName:       paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
     };
   });
 

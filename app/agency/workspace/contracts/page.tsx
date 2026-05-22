@@ -5,6 +5,7 @@ import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 import { createServerClient } from "@/lib/supabase";
 import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
+import { resolveActorNames } from "@/lib/resolveActorName.server";
 
 export const metadata: Metadata = { title: "Contratos Premium - BrisaHub" };
 
@@ -27,7 +28,7 @@ export default async function WorkspaceContractsPage() {
   const jobTitleMap = new Map(allWorkspaceJobs.map((job) => [job.id, job.title ?? "Vaga do workspace"]));
 
   const contractSelect =
-    "id, workspace_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at";
+    "id, workspace_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, paid_by_user_id";
 
   const [workspaceContractsResult, jobJoinContractsResult] = await Promise.all([
     supabase
@@ -88,6 +89,16 @@ const talentIds = [...new Set(
     }
   }
 
+  // Batch-resolve paid_by_user_id → display name for all contracts.
+  const paidByActorIds = [
+    ...new Set(
+      contractsData
+        .map((c) => (c as { paid_by_user_id?: string | null }).paid_by_user_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  const actorNameMap = await resolveActorNames(paidByActorIds, supabase);
+
   if (context.isOwner) {
     // Detect which jobs are agent-backed so the status badge and timeline
     // can reflect "Reservado pelo agente" for signed+agent-funded contracts.
@@ -113,6 +124,7 @@ const talentIds = [...new Set(
         { status: contract.status ?? "", job_date: contract.job_date ?? null },
         { now: new Date() },
       );
+      const paidByUserId = (contract as { paid_by_user_id?: string | null }).paid_by_user_id ?? null;
       return {
         id: contract.id,
         jobId: contract.job_id ?? null,
@@ -139,6 +151,7 @@ const talentIds = [...new Set(
         paymentBlockReason: release.eligible ? null : (contract.job_date ? "Pagamento disponível após a data da vaga." : null),
         canManualOverride: context.isOwner,
         isAgentJobBacked: contract.job_id ? ownerAgentBackedJobIds.has(String(contract.job_id)) : false,
+        paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
       };
     });
 
@@ -169,6 +182,7 @@ const talentIds = [...new Set(
       { status: contract.status ?? "", job_date: contract.job_date ?? null },
       { now: new Date(), isInvitedAgent: true },
     );
+    const paidByUserId = (contract as { paid_by_user_id?: string | null }).paid_by_user_id ?? null;
     return {
       id: contract.id,
       jobId: contract.job_id ?? null,
@@ -189,6 +203,7 @@ const talentIds = [...new Set(
       isPaymentEligible: release.eligible,
       paymentBlockReason: release.eligible ? null : "Pagamento antecipado precisa ser liberado pelo proprietário do workspace.",
       isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
+      paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
     };
   });
 
