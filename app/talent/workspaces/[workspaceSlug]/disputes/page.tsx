@@ -38,22 +38,48 @@ export default async function WorkspaceTalentDisputesPage({ params }: Props) {
   const isWorkspaceMember = await hasActivePremiumWorkspaceTalentMembership(supabase, workspace.id, user.id);
   if (!isWorkspaceMember) notFound();
 
+  // Look up talent profile to get the profile PK (talent_id in contracts)
+  const { data: talentProfile } = await supabase
+    .from("talent_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   const { data: allJobs } = await supabase
     .from("jobs")
     .select("id, title")
     .eq("workspace_id", workspace.id)
     .is("deleted_at", null);
 
-  const workspaceJobIds = (allJobs ?? []).map((j) => j.id);
+  const allJobIds = (allJobs ?? []).map((j) => j.id);
   const jobTitleMap = new Map((allJobs ?? []).map((j) => [j.id, j.title ?? "Vaga"]));
 
-  const { data: contractRows } = await supabase
-    .from("contracts")
-    .select("id, job_id, job_description, job_date, net_amount, payment_amount, status")
-    .or(`workspace_id.eq.${workspace.id}${workspaceJobIds.length > 0 ? `,job_id.in.(${workspaceJobIds.join(",")})` : ""}`)
-    .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`);
+  // Use two separate queries + merge to get workspace contracts for this talent
+  const talentFilter = talentProfile
+    ? `talent_user_id.eq.${user.id},talent_id.eq.${talentProfile.id}`
+    : `talent_user_id.eq.${user.id}`;
 
-  const contractMap = new Map((contractRows ?? []).map((c) => [c.id, c]));
+  const [workspaceContractsResult, jobContractsResult] = await Promise.all([
+    supabase
+      .from("contracts")
+      .select("id, job_id, job_description, job_date, net_amount, payment_amount, status")
+      .eq("workspace_id", workspace.id)
+      .or(talentFilter),
+    allJobIds.length > 0
+      ? supabase
+          .from("contracts")
+          .select("id, job_id, job_description, job_date, net_amount, payment_amount, status")
+          .in("job_id", allJobIds)
+          .or(talentFilter)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const contractMap = new Map<string, { id: string; job_id: string | null; job_description: string | null; job_date: string | null; net_amount: number | null; payment_amount: number | null }>();
+  for (const c of workspaceContractsResult.data ?? []) contractMap.set(c.id, c);
+  for (const c of jobContractsResult.data ?? []) {
+    if (!contractMap.has(c.id)) contractMap.set(c.id, c);
+  }
+
   const contractIds = [...contractMap.keys()];
 
   const { data: disputeRows } = contractIds.length > 0

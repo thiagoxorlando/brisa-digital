@@ -52,8 +52,14 @@ export default async function WorkspaceTalentDisputeDetailPage({ params }: Props
 
   if (!workspace) notFound();
 
-  const isWorkspaceMember = await hasActivePremiumWorkspaceTalentMembership(supabase, workspace.id, user.id);
-  if (!isWorkspaceMember) notFound();
+  const [isMember, talentProfileResult] = await Promise.all([
+    hasActivePremiumWorkspaceTalentMembership(supabase, workspace.id, user.id),
+    supabase.from("talent_profiles").select("id").eq("user_id", user.id).maybeSingle(),
+  ]);
+
+  if (!isMember) notFound();
+
+  const talentProfileId = talentProfileResult.data?.id ?? null;
 
   const { data: dispute } = await supabase
     .from("contract_disputes")
@@ -63,27 +69,31 @@ export default async function WorkspaceTalentDisputeDetailPage({ params }: Props
 
   if (!dispute) notFound();
 
+  // Ownership check using correct talent_id (profile PK) and talent_user_id (auth UUID)
+  const talentFilter = talentProfileId
+    ? `talent_user_id.eq.${user.id},talent_id.eq.${talentProfileId}`
+    : `talent_user_id.eq.${user.id}`;
+
   const { data: contract } = await supabase
     .from("contracts")
     .select("id, job_id, job_description, job_date, job_time, payment_amount, commission_amount, net_amount, status, payment_status, workspace_id")
     .eq("id", dispute.contract_id)
-    .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
+    .or(talentFilter)
     .maybeSingle();
 
   if (!contract) notFound();
 
   // Verify this contract belongs to the workspace the talent is browsing
-  const isOwnWorkspace = contract.workspace_id === workspace.id;
-  if (!isOwnWorkspace && contract.job_id) {
+  let inWorkspace = contract.workspace_id === workspace.id;
+  if (!inWorkspace && contract.job_id) {
     const { data: job } = await supabase
       .from("jobs")
       .select("workspace_id")
       .eq("id", contract.job_id)
       .maybeSingle();
-    if (job?.workspace_id !== workspace.id) notFound();
-  } else if (!isOwnWorkspace) {
-    notFound();
+    inWorkspace = job?.workspace_id === workspace.id;
   }
+  if (!inWorkspace) notFound();
 
   const [jobResult, notesResult] = await Promise.all([
     contract.job_id

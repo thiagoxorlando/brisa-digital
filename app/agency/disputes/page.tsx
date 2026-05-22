@@ -20,18 +20,11 @@ export default async function AgencyDisputesPage() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const { data: agency } = await supabase
-    .from("agencies")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!agency) redirect("/agency/dashboard");
-
+  // contracts.agency_id stores the auth user.id — not the agencies table PK
   const { data: contractRows } = await supabase
     .from("contracts")
     .select("id, job_id, job_description, job_date, payment_amount, status")
-    .eq("agency_id", agency.id)
+    .eq("agency_id", user.id)
     .is("workspace_id", null);
 
   const contractMap = new Map((contractRows ?? []).map((c) => [c.id, c]));

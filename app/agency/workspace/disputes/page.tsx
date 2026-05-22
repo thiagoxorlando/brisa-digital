@@ -28,24 +28,37 @@ export default async function WorkspaceDisputesPage() {
 
   const visibleJobIds = new Set(visibleJobs.map((job) => job.id));
   const jobTitleMap = new Map(allJobs.map((job) => [job.id, job.title ?? "Vaga"]));
+  const allJobIds = allJobs.map((j) => j.id);
 
-  const { data: contractRows } = await supabase
-    .from("contracts")
-    .select("id, job_id, job_description, job_date, payment_amount, status, workspace_id")
-    .or(`workspace_id.eq.${context.workspace.id},job_id.in.(${allJobs.map((j) => j.id).join(",") || "00000000-0000-0000-0000-000000000000"})`)
-    .order("created_at", { ascending: false });
+  // Use two queries + merge (same pattern as workspace contracts page)
+  const [workspaceContractsResult, jobContractsResult] = await Promise.all([
+    supabase
+      .from("contracts")
+      .select("id, job_id, job_description, job_date, payment_amount, status, workspace_id")
+      .eq("workspace_id", context.workspace.id),
+    allJobIds.length > 0
+      ? supabase
+          .from("contracts")
+          .select("id, job_id, job_description, job_date, payment_amount, status, workspace_id")
+          .in("job_id", allJobIds)
+      : Promise.resolve({ data: [] }),
+  ]);
 
-  const contractMap = new Map(
-    (contractRows ?? [])
-      .filter((c) => {
-        if (context.isOwner) return true;
-        if (!c.job_id) return false;
-        return visibleJobIds.has(c.job_id);
-      })
-      .map((c) => [c.id, c]),
-  );
+  const contractMap = new Map<string, { id: string; job_id: string | null; job_description: string | null; job_date: string | null; payment_amount: number | null; status: string | null }>();
+  for (const c of workspaceContractsResult.data ?? []) {
+    contractMap.set(c.id, c);
+  }
+  for (const c of jobContractsResult.data ?? []) {
+    if (!contractMap.has(c.id)) contractMap.set(c.id, c);
+  }
 
-  const contractIds = [...contractMap.keys()];
+  const filteredContracts = [...contractMap.values()].filter((c) => {
+    if (context.isOwner) return true;
+    if (!c.job_id) return false;
+    return visibleJobIds.has(c.job_id);
+  });
+
+  const contractIds = filteredContracts.map((c) => c.id);
 
   const { data: disputeRows } = contractIds.length > 0
     ? await supabase

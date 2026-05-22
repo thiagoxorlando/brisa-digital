@@ -41,14 +41,6 @@ export default async function AgencyDisputeDetailPage({ params }: PageProps) {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const { data: agency } = await supabase
-    .from("agencies")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!agency) redirect("/agency/dashboard");
-
   const { data: dispute } = await supabase
     .from("contract_disputes")
     .select("id, contract_id, status, reason, created_at, resolved_at, resolution_note, resolution_action, talent_amount, agency_refund_amount")
@@ -57,16 +49,18 @@ export default async function AgencyDisputeDetailPage({ params }: PageProps) {
 
   if (!dispute) notFound();
 
+  // contracts.agency_id stores the auth user.id — not the agencies table PK
   const { data: contract } = await supabase
     .from("contracts")
-    .select("id, job_id, job_description, job_date, job_time, payment_amount, commission_amount, net_amount, status, payment_status")
+    .select("id, job_id, job_description, job_date, job_time, payment_amount, commission_amount, net_amount, status, payment_status, talent_id, talent_user_id")
     .eq("id", dispute.contract_id)
-    .eq("agency_id", agency.id)
+    .eq("agency_id", user.id)
     .maybeSingle();
 
   if (!contract) notFound();
 
-  const [jobResult, notesResult] = await Promise.all([
+  const talentUserId = contract.talent_user_id ?? contract.talent_id ?? null;
+  const [jobResult, notesResult, talentResult] = await Promise.all([
     contract.job_id
       ? supabase.from("jobs").select("id, title").eq("id", contract.job_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -76,10 +70,14 @@ export default async function AgencyDisputeDetailPage({ params }: PageProps) {
       .eq("dispute_id", id)
       .eq("visibility", "public")
       .order("created_at", { ascending: false }),
+    talentUserId
+      ? supabase.from("talent_profiles").select("id, full_name, user_id").eq("user_id", talentUserId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const jobTitle = jobResult.data?.title ?? contract.job_description ?? "Vaga";
   const publicNotes = notesResult.data ?? [];
+  const talentName = talentResult.data?.full_name ?? "Talento";
   const amounts = resolveContractAmounts(contract);
   const status = dispute.status as DisputeStatus;
   const isResolved = !["open", "under_review"].includes(dispute.status);
@@ -108,6 +106,10 @@ export default async function AgencyDisputeDetailPage({ params }: PageProps) {
             <div className="flex justify-between text-[13px]">
               <span className="text-zinc-500">ID do contrato</span>
               <span className="font-mono font-medium text-zinc-700">{contract.id.slice(0, 8)}</span>
+            </div>
+            <div className="flex justify-between text-[13px]">
+              <span className="text-zinc-500">Talento</span>
+              <span className="font-medium text-zinc-700">{talentName}</span>
             </div>
             <div className="flex justify-between text-[13px]">
               <span className="text-zinc-500">Data da vaga</span>
