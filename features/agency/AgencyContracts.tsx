@@ -404,11 +404,11 @@ function ContractCard({
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("contracts_signed")}</p>
             <div className="flex flex-col gap-2">
               {[
-                { label: t("contracts_sent"),         date: fmtDate(c.createdAt, lang),              done: true              },
-                { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt        },
-                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt || ["confirmed", "paid"].includes(c.status) || (!!c.isAgentJobBacked && ["signed", "confirmed", "paid"].includes(c.status)) },
-                { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast },
-                { label: c.paidByName ? `${t("contracts_pay_talent")} — ${c.paidByName}` : t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt          },
+                { label: t("contracts_sent"),         date: fmtDate(c.createdAt, lang),              done: true,         sublabel: null },
+                { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt, sublabel: null },
+                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt || ["confirmed", "paid"].includes(c.status) || (!!c.isAgentJobBacked && ["signed", "confirmed", "paid"].includes(c.status)), sublabel: null },
+                { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast, sublabel: null },
+                { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt,   sublabel: c.paidByName ? `Pago por ${c.paidByName}` : null },
               ].map((step, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className={[
@@ -423,6 +423,7 @@ function ContractCard({
                   </div>
                   <div>
                     <p className={`text-[12px] font-medium ${step.done ? "text-zinc-800" : "text-zinc-400"}`}>{step.label}</p>
+                    {step.sublabel && step.done && <p className="text-[11px] font-semibold text-zinc-600">{step.sublabel}</p>}
                     {step.date && step.done && <p className="text-[10px] text-zinc-400">{step.date}</p>}
                   </div>
                 </div>
