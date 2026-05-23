@@ -6,6 +6,7 @@ import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.se
 import { createServerClient } from "@/lib/supabase";
 import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
 import { resolveActorNames } from "@/lib/resolveActorName.server";
+import { batchGetActiveDisputes } from "@/lib/contractState.server";
 
 export const metadata: Metadata = { title: "Contratos Premium - BrisaHub" };
 
@@ -100,17 +101,7 @@ const talentIds = [...new Set(
   const actorNameMap = await resolveActorNames(paidByActorIds, supabase);
 
   const allContractIds = contractsData.map((c) => c.id);
-  const activeDisputeMap = new Map<string, string>();
-  if (allContractIds.length) {
-    const { data: disputeRows } = await supabase
-      .from("contract_disputes")
-      .select("id, contract_id")
-      .in("contract_id", allContractIds)
-      .in("status", ["open", "under_review"]);
-    for (const d of disputeRows ?? []) {
-      if (d.contract_id) activeDisputeMap.set(d.contract_id, d.id);
-    }
-  }
+  const activeDisputeMap = await batchGetActiveDisputes(allContractIds);
 
   if (context.isOwner) {
     // Detect which jobs are agent-backed so the status badge and timeline
@@ -165,7 +156,7 @@ const talentIds = [...new Set(
         canManualOverride: context.isOwner,
         isAgentJobBacked: contract.job_id ? ownerAgentBackedJobIds.has(String(contract.job_id)) : false,
         paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
-        activeDisputeId: activeDisputeMap.get(contract.id) ?? null,
+        activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
       };
     });
 
@@ -218,7 +209,7 @@ const talentIds = [...new Set(
       paymentBlockReason: release.eligible ? null : "Pagamento antecipado precisa ser liberado pelo proprietário do workspace.",
       isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
       paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
-      activeDisputeId: activeDisputeMap.get(contract.id) ?? null,
+      activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
     };
   });
 

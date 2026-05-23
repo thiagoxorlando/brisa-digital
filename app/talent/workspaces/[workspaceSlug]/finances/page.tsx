@@ -3,13 +3,8 @@ import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { brl } from "@/lib/brl";
-import {
-  getContractPaymentStatus,
-  contractStatusLabel,
-  contractStatusTone,
-  resolveContractAmounts,
-} from "@/lib/contractStatus";
-import { talentFacingLabel, talentFacingTone, getPremiumContractLifecycle } from "@/lib/premiumContractLifecycle";
+import { resolveContractAmounts } from "@/lib/contractStatus";
+import { getContractComputedState } from "@/lib/contractState";
 import WorkspaceFinancesClient from "@/features/talent/WorkspaceFinancesClient";
 
 export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
@@ -211,16 +206,21 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
           <div className="overflow-hidden rounded-[22px] border border-amber-100 bg-amber-50/40 shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <ul className="divide-y divide-amber-100/60">
               {pendingContracts.map((contract) => {
-                const { net, gross, commission, commissionPct } = resolveContractAmounts(
-                  contract as Parameters<typeof resolveContractAmounts>[0],
-                );
                 const isAgentJobBacked = contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false;
-                const premiumLifecycle = getPremiumContractLifecycle(
-                  { status: contract.status ?? "sent", paid_at: contract.paid_at },
-                  isAgentJobBacked,
+                const cs = getContractComputedState(
+                  {
+                    status: contract.status ?? "sent",
+                    paid_at: contract.paid_at,
+                    payment_amount: contract.payment_amount,
+                    commission_amount: contract.commission_amount,
+                    net_amount: contract.net_amount,
+                    workspace_id: workspace.id,
+                  },
+                  { isAgentJobBacked, viewerRole: "talent" },
                 );
-                const statusLabel = talentFacingLabel(premiumLifecycle.status);
-                const statusTone  = talentFacingTone(premiumLifecycle.status);
+                const statusLabel = cs.displayBadge;
+                const statusTone  = cs.displayTone;
+                const { grossAmount: gross, commissionAmount: commission, netAmount: net, commissionPct } = cs;
                 const jobDate = (contract as { job_date?: string | null }).job_date;
                 return (
                   <li key={contract.id} className="px-5 py-4">
@@ -280,8 +280,9 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
           <div className="overflow-hidden rounded-[22px] border border-zinc-200 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             <ul className="divide-y divide-zinc-50">
               {paidContracts.map((contract) => {
-                const { net, gross, commission, commissionPct } = resolveContractAmounts(
-                  contract as Parameters<typeof resolveContractAmounts>[0],
+                const { grossAmount: gross, commissionAmount: commission, netAmount: net, commissionPct } = getContractComputedState(
+                  { status: contract.status ?? "paid", paid_at: contract.paid_at, payment_amount: contract.payment_amount, commission_amount: contract.commission_amount, net_amount: contract.net_amount, workspace_id: workspace.id },
+                  { isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false },
                 );
                 const payoutTx = payoutTxMap.get(String(contract.id));
                 const received = payoutTx ?? net;

@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
-import {
-  resolveContractAmounts,
-} from "@/lib/contractStatus";
-import { getPremiumContractLifecycle, isCustodyActive } from "@/lib/premiumContractLifecycle";
+import { resolveContractAmounts } from "@/lib/contractStatus";
+import { getContractComputedState, isCustodyActive } from "@/lib/contractState";
 
 export type PremiumContract = {
   id: string;
@@ -134,17 +132,20 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
   const [paying, setPaying] = useState(false);
   const { isPaymentEligible, paymentBlockReason } = contract;
 
-  const lifecycle = getPremiumContractLifecycle(
-    { status: contract.status, paid_at: contract.paidAt },
-    contract.isAgentJobBacked ?? false,
+  const state = getContractComputedState(
+    {
+      status: contract.status,
+      paid_at: contract.paidAt,
+      workspace_id: "ws",
+      payment_amount: contract.paymentAmount,
+      commission_amount: contract.commissionAmount,
+      net_amount: contract.netAmount,
+    },
+    { isAgentJobBacked: contract.isAgentJobBacked ?? false, viewerRole: "agency" },
   );
-  const label = lifecycle.label;
-  const tone  = lifecycle.tone;
-  const { gross, commission, net, commissionPct } = resolveContractAmounts({
-    payment_amount:    contract.paymentAmount,
-    commission_amount: contract.commissionAmount,
-    net_amount:        contract.netAmount,
-  });
+  const label = state.displayBadge;
+  const tone  = state.displayTone;
+  const { grossAmount: gross, commissionAmount: commission, netAmount: net, commissionPct } = state;
 
   const isPaid      = contract.status === "paid";
   const isActive    = ["sent", "signed", "confirmed"].includes(contract.status);

@@ -4,11 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
-import {
-  getContractPaymentStatus,
-  contractStatusLabel,
-  contractStatusTone,
-} from "@/lib/contractStatus";
+import { getContractComputedState } from "@/lib/contractState";
 import { brl } from "@/lib/brl";
 import { useT } from "@/lib/LanguageContext";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
@@ -190,8 +186,8 @@ function ContractRow({
   const [uploading, setUploading]   = useState(false);
   const [uploadError, setUploadError] = useState("");
 
-  const ps          = getContractPaymentStatus({ status: c.status });
-  const st          = { label: contractStatusLabel(ps), cls: contractStatusTone(ps) };
+  const state       = getContractComputedState({ status: c.status });
+  const st          = { label: state.displayBadge, cls: state.displayTone };
   const isPending   = c.status === "sent";
   const isCompleted = ["signed", "confirmed", "paid"].includes(c.status);
   const fileUrl     = latestFileUrl(c);

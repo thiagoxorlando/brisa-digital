@@ -5,11 +5,7 @@ import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import { brl } from "@/lib/brl";
-import {
-  getContractPaymentStatus,
-  contractStatusTone,
-} from "@/lib/contractStatus";
-import { getPremiumContractLifecycle } from "@/lib/premiumContractLifecycle";
+import { getContractComputedState, isCustodyActive } from "@/lib/contractState";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 
 export type AgencyContract = {
@@ -153,15 +149,14 @@ function ContractCard({
   const [overrideReason,   setOverrideReason]   = useState("");
   const { t, lang } = useT();
 
-  // For agent-backed signed contracts, override the badge to show "Reservado pelo agente"
-  const premiumLifecycle = c.isAgentJobBacked
-    ? getPremiumContractLifecycle({ status: c.status, paid_at: c.paidAt }, true)
-    : null;
-  const stCls   = premiumLifecycle
-    ? premiumLifecycle.tone
-    : contractStatusTone(getContractPaymentStatus({ status: c.status, paid_at: c.paidAt }));
-  const stLabel = premiumLifecycle
-    ? premiumLifecycle.label
+  const state = getContractComputedState(
+    { status: c.status, paid_at: c.paidAt, deposit_paid_at: c.depositPaidAt, workspace_id: c.isAgentJobBacked ? "ws" : null },
+    { isAgentJobBacked: c.isAgentJobBacked ?? false, viewerRole: "agency" },
+  );
+  const stCls   = state.displayTone;
+  // Premium agent-reserved: use Portuguese displayBadge; open-space: use i18n translation
+  const stLabel = state.isAgentReserved
+    ? state.displayBadge
     : t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
   const isPaid  = c.status === "paid";
 
@@ -411,7 +406,7 @@ function ContractCard({
               {[
                 { label: t("contracts_sent"),         date: fmtDate(c.createdAt, lang),              done: true,         sublabel: null },
                 { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt, sublabel: null },
-                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: !!c.depositPaidAt || ["confirmed", "paid"].includes(c.status) || (!!c.isAgentJobBacked && ["signed", "confirmed", "paid"].includes(c.status)), sublabel: null },
+                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: isCustodyActive(c.status, c.isAgentJobBacked ?? false), sublabel: null },
                 { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast, sublabel: null },
                 { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt,   sublabel: c.paidByName ? `Pago por ${c.paidByName}` : null },
               ].map((step, i) => (

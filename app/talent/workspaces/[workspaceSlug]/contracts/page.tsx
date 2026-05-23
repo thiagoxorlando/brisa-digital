@@ -5,6 +5,7 @@ import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { hasActivePremiumWorkspaceTalentMembership } from "@/lib/workspacePortalJobs";
+import { batchGetActiveDisputes } from "@/lib/contractState.server";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
 
@@ -104,7 +105,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
     [...contractMap.values()].map((c) => c.job_id).filter((id): id is string => !!id)
   )];
 
-  const [agentCommitsResult, activeDisputesResult] = await Promise.all([
+  const [agentCommitsResult, activeDisputeMap] = await Promise.all([
     allContractJobIds.length
       ? supabase
         .from("premium_agent_wallet_transactions")
@@ -113,23 +114,12 @@ export default async function WorkspaceContractsPage({ params }: Props) {
         .eq("type", "job_commitment")
         .eq("status", "completed")
       : Promise.resolve({ data: [] }),
-    allContractIds.length
-      ? supabase
-        .from("contract_disputes")
-        .select("id, contract_id")
-        .in("contract_id", allContractIds)
-        .in("status", ["open", "under_review"])
-      : Promise.resolve({ data: [] }),
+    batchGetActiveDisputes(allContractIds),
   ]);
 
   const agentBackedJobIds = new Set<string>();
   for (const r of agentCommitsResult.data ?? []) {
     if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
-  }
-
-  const activeDisputeMap = new Map<string, string>();
-  for (const d of activeDisputesResult.data ?? []) {
-    if (d.contract_id) activeDisputeMap.set(d.contract_id, d.id);
   }
 
   const contracts: WorkspaceTalentContract[] = [...contractMap.values()]
@@ -159,7 +149,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
       contractFileUrl: contract.contract_file_url ? buildContractFileAccessUrl(contract.id, "original") : null,
       signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
       isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
-      activeDisputeId: activeDisputeMap.get(contract.id) ?? null,
+      activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
     }));
 
   const primary = workspace.brand_primary_color ?? "#1ABC9C";

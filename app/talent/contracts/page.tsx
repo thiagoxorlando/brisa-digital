@@ -4,6 +4,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import TalentContracts from "@/features/talent/TalentContracts";
 import type { TalentContract, ApprovedSubmission } from "@/features/talent/TalentContracts";
+import { batchGetActiveDisputes } from "@/lib/contractState.server";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
 
@@ -51,17 +52,7 @@ export default async function TalentContractsPage() {
   const filteredSubRows = subRows.filter((submission) => submission.job_id && openJobMap.has(submission.job_id));
   const contractJobIds = new Set(filteredRows.map((c) => c.job_id).filter(Boolean));
 
-  const activeDisputeMap = new Map<string, string>();
-  if (filteredRows.length) {
-    const { data: disputeRows } = await supabase
-      .from("contract_disputes")
-      .select("id, contract_id")
-      .in("contract_id", filteredRows.map((c) => c.id))
-      .in("status", ["open", "under_review"]);
-    for (const d of disputeRows ?? []) {
-      if (d.contract_id) activeDisputeMap.set(d.contract_id, d.id);
-    }
-  }
+  const activeDisputeMap = await batchGetActiveDisputes(filteredRows.map((c) => c.id));
 
   // Resolve agency names
   const agencyIds = [...new Set(filteredRows.map((c) => c.agency_id).filter((id): id is string => !!id))];
@@ -122,7 +113,7 @@ export default async function TalentContractsPage() {
     createdAt:       c.created_at           ?? "",
     contractFileUrl:   c.contract_file_url ? buildContractFileAccessUrl(c.id, "original") : null,
     signedContractUrl: c.signed_contract_url ? buildContractFileAccessUrl(c.id, "signed") : null,
-    activeDisputeId: activeDisputeMap.get(c.id) ?? null,
+    activeDisputeId: activeDisputeMap.get(c.id)?.id ?? null,
   }));
 
   return <TalentContracts contracts={contracts} approvedSubmissions={approvedSubmissions} />;

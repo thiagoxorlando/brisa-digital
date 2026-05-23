@@ -4,12 +4,7 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
 import { brl } from "@/lib/brl";
-import {
-  getContractPaymentStatus,
-  contractStatusLabel,
-  contractStatusTone,
-  resolveContractAmounts,
-} from "@/lib/contractStatus";
+import { getContractComputedState } from "@/lib/contractState";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 
 export type WorkspaceTalentContract = {
@@ -518,16 +513,20 @@ function ContractCard({
 }) {
   const status       = mapStatus(contract.status);
   const isActionable = ACTIONABLE_STATUSES.has(status);
-  const paymentStatus = getContractPaymentStatus({ status, paid_at: contract.paidAt });
-  // Agent-backed signed contracts: funds are already reserved — show "Em custódia" instead of "Aguardando depósito"
-  const effectivePaymentStatus = (contract.isAgentJobBacked && paymentStatus === "signed") ? "escrow" : paymentStatus;
-  const label = contractStatusLabel(effectivePaymentStatus, "pt-BR");
-  const tone  = contractStatusTone(effectivePaymentStatus);
-  const { gross, commission, net, commissionPct } = resolveContractAmounts({
-    payment_amount: contract.paymentAmount,
-    commission_amount: contract.commissionAmount,
-    net_amount: contract.netAmount,
-  });
+  const state = getContractComputedState(
+    {
+      status,
+      paid_at: contract.paidAt,
+      workspace_id: "ws", // Workspace talent contracts are always Premium context
+      payment_amount: contract.paymentAmount,
+      commission_amount: contract.commissionAmount,
+      net_amount: contract.netAmount,
+    },
+    { isAgentJobBacked: contract.isAgentJobBacked ?? false, viewerRole: "talent" },
+  );
+  const label = state.displayBadge;
+  const tone  = state.displayTone;
+  const { grossAmount: gross, commissionAmount: commission, netAmount: net, commissionPct } = state;
 
   return (
     <div className="overflow-hidden rounded-[20px] border border-zinc-200 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
