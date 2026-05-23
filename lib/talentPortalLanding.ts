@@ -24,7 +24,7 @@ export async function resolvePortalOnlyTalentLanding(
 
   const isPortalOnly =
     portalRes.data?.workspace_id != null &&
-    profileRes.data?.marketplace_visible === false;
+    profileRes.data?.marketplace_visible !== true;
 
   if (!isPortalOnly) return null;
   const workspaceId = portalRes.data?.workspace_id;
