@@ -197,75 +197,89 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`/api/admin/disputes/${data.dispute.id}/resolve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: pendingAction,
-        note: actionNote,
-        noteVisibility,
-        talentAmount: pendingAction === "split" ? parseBRL(talentAmount) : undefined,
-        agencyRefundAmount: pendingAction === "split" ? parseBRL(agencyRefundAmount) : undefined,
-      }),
-    });
-
-    const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
-    if (!res.ok) {
-      setError({
-        message: String(payload.error ?? "Nao foi possivel resolver a disputa."),
-        detail: errorDetailFromPayload(payload),
+    try {
+      const res = await fetch(`/api/admin/disputes/${data.dispute.id}/resolve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: pendingAction,
+          note: actionNote,
+          noteVisibility,
+          talentAmount: pendingAction === "split" ? parseBRL(talentAmount) : undefined,
+          agencyRefundAmount: pendingAction === "split" ? parseBRL(agencyRefundAmount) : undefined,
+        }),
       });
-      setSubmitting(false);
-      return;
-    }
 
-    setPendingAction(null);
-    setActionNote("");
-    setTalentAmount("");
-    setAgencyRefundAmount("");
-    setSubmitting(false);
-    router.refresh();
+      const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
+      if (!res.ok) {
+        setError({
+          message: String(payload.error ?? "Nao foi possivel resolver a disputa."),
+          detail: errorDetailFromPayload(payload),
+        });
+        return;
+      }
+
+      setPendingAction(null);
+      setActionNote("");
+      setTalentAmount("");
+      setAgencyRefundAmount("");
+      router.refresh();
+    } catch {
+      setError({ message: "Erro de rede. Verifique a conexao e tente novamente.", detail: null });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function markUnderReview() {
     setSubmitting(true);
     setError(null);
-    const res = await fetch(`/api/admin/disputes/${data.dispute.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "under_review", note: "Disputa assumida para analise admin." }),
-    });
-    const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
-    if (!res.ok) {
-      setError({
-        message: String(payload.error ?? "Nao foi possivel atualizar o status."),
-        detail: errorDetailFromPayload(payload),
+    try {
+      const res = await fetch(`/api/admin/disputes/${data.dispute.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "under_review", note: "Disputa assumida para analise admin." }),
       });
+      const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
+      if (!res.ok) {
+        setError({
+          message: String(payload.error ?? "Nao foi possivel atualizar o status."),
+          detail: errorDetailFromPayload(payload),
+        });
+      }
+      router.refresh();
+    } catch {
+      setError({ message: "Erro de rede. Verifique a conexao e tente novamente.", detail: null });
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
-    router.refresh();
   }
 
   async function addNote() {
     if (!newNote.trim()) return;
     setSubmitting(true);
     setError(null);
-    const res = await fetch(`/api/admin/disputes/${data.dispute.id}/notes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: newNote, visibility: newNoteVisibility }),
-    });
-    const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
-    if (!res.ok) {
-      setError({
-        message: String(payload.error ?? "Nao foi possivel adicionar a nota."),
-        detail: errorDetailFromPayload(payload),
+    try {
+      const res = await fetch(`/api/admin/disputes/${data.dispute.id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: newNote, visibility: newNoteVisibility }),
       });
-    } else {
-      setNewNote("");
-      router.refresh();
+      const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
+      if (!res.ok) {
+        setError({
+          message: String(payload.error ?? "Nao foi possivel adicionar a nota."),
+          detail: errorDetailFromPayload(payload),
+        });
+      } else {
+        setNewNote("");
+        router.refresh();
+      }
+    } catch {
+      setError({ message: "Erro de rede. Verifique a conexao e tente novamente.", detail: null });
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   return (
@@ -592,6 +606,8 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
             <label className="mt-4 block text-[12px] font-semibold text-zinc-600">
               Nota admin obrigatoria
               <textarea
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
                 value={actionNote}
                 onChange={(event) => setActionNote(event.target.value)}
                 className="mt-1 min-h-28 w-full rounded-2xl border border-zinc-200 p-3 text-[13px] outline-none focus:border-teal-400"
@@ -622,9 +638,9 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
               <button
                 onClick={submitResolution}
                 disabled={submitting || actionNote.trim().length < 3 || (pendingAction === "split" && splitExceeds)}
-                className="rounded-xl bg-teal-600 px-4 py-2 text-[12px] font-semibold text-white disabled:opacity-50"
+                className="rounded-xl bg-teal-600 px-4 py-2 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Confirmar decisao
+                {submitting ? "Enviando..." : "Confirmar decisao"}
               </button>
             </div>
           </div>
