@@ -367,7 +367,7 @@ BEGIN
     RETURNING id INTO v_refund_tx_id;
   END IF;
 
-  IF v_referral_found AND v_referral_commission > 0 AND v_referral_invite.referrer_id IS NOT NULL THEN
+  IF v_action = 'release' AND v_referral_found AND v_referral_commission > 0 AND v_referral_invite.referrer_id IS NOT NULL THEN
     UPDATE profiles
     SET wallet_balance = round((coalesce(wallet_balance, 0) + v_referral_commission)::numeric, 2)
     WHERE id = v_referral_invite.referrer_id;
