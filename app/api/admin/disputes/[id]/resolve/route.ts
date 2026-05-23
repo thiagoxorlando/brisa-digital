@@ -254,13 +254,15 @@ export async function POST(
   }
 
   let workspaceOwnerId: string | null = null;
+  let workspaceSlug: string | null = null;
   if (contract?.workspace_id) {
     const { data: workspace } = await supabase
       .from("premium_workspaces")
-      .select("owner_user_id")
+      .select("owner_user_id, slug")
       .eq("id", contract.workspace_id)
       .maybeSingle();
     workspaceOwnerId = workspace?.owner_user_id ?? null;
+    workspaceSlug = (workspace as { slug?: string | null } | null)?.slug ?? null;
   }
 
   if (contract) {
@@ -285,7 +287,7 @@ export async function POST(
     await Promise.all(
       recipients.map((userId) => {
         const link = userId === talentUserId
-          ? "/talent/contracts"
+          ? (workspaceSlug ? `/talent/workspaces/${workspaceSlug}/contracts` : "/talent/contracts")
           : contract.workspace_id && userId === workspaceOwnerId
             ? "/agency/workspace/contracts"
             : "/agency/contracts";

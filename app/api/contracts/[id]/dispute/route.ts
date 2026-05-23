@@ -211,22 +211,32 @@ export async function POST(
   if (contract.talent_user_id) notifyUsers.add(contract.talent_user_id);
   else if (contract.talent_id) notifyUsers.add(contract.talent_id);
 
+  let wsOwnerId: string | null = null;
+  let wsSlug: string | null = null;
   if (contract.workspace_id) {
     const { data: ws } = await supabase
       .from("premium_workspaces")
-      .select("owner_user_id")
+      .select("owner_user_id, slug")
       .eq("id", contract.workspace_id)
       .maybeSingle();
-    if (ws?.owner_user_id) notifyUsers.add(ws.owner_user_id);
+    if (ws?.owner_user_id) { notifyUsers.add(ws.owner_user_id); wsOwnerId = ws.owner_user_id; }
+    wsSlug = (ws as { slug?: string | null } | null)?.slug ?? null;
   }
 
   notifyUsers.delete(user.id); // don't notify the opener
 
+  const talentUserId = contract.talent_user_id ?? contract.talent_id;
+
   await Promise.all([
-    ...[...notifyUsers].map((uid) =>
-      notify(uid, tpl.channel, `${tpl.body} Motivo: ${reason}`, "/disputes", `dispute-opened:${dispute.id}:${uid}`)
-        .catch(() => {}),
-    ),
+    ...[...notifyUsers].map((uid) => {
+      const disputeLink = uid === talentUserId
+        ? (wsSlug ? `/talent/workspaces/${wsSlug}/disputes` : "/disputes")
+        : contract.workspace_id && uid === wsOwnerId
+          ? `/agency/workspace/contracts`
+          : "/disputes";
+      return notify(uid, tpl.channel, `${tpl.body} Motivo: ${reason}`, disputeLink, `dispute-opened:${dispute.id}:${uid}`)
+        .catch(() => {});
+    }),
     notifyAdmins(tpl.channel, `Nova disputa aberta: contrato ${contractId.slice(0, 8)}. Motivo: ${reason}`, "/admin/disputes")
       .catch(() => {}),
   ]);
