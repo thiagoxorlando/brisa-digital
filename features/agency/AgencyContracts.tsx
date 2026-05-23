@@ -7,6 +7,7 @@ import { useSubscription } from "@/lib/SubscriptionContext";
 import { brl } from "@/lib/brl";
 import { getContractComputedState, isCustodyActive } from "@/lib/contractState";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
+import { formatJobLocation } from "@/lib/jobLocation";
 
 export type AgencyContract = {
   id: string;
@@ -395,7 +396,7 @@ function ContractCard({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label={t("contracts_job_date")} value={fmtJobDate(c.jobDate, lang)} />
             <Field label={t("contracts_job_time")} value={c.jobTime ?? "—"} />
-            <Field label={t("contracts_location")} value={c.location ?? "—"} />
+            <Field label={t("contracts_location")} value={formatJobLocation(c.location) ?? "—"} />
             <Field label={t("contracts_payment_method")} value={c.paymentMethod ?? "—"} />
           </div>
 

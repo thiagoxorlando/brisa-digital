@@ -11,6 +11,7 @@ import {
   contractStatusTone,
 } from "@/lib/contractStatus";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
+import { formatJobLocation } from "@/lib/jobLocation";
 
 export type AdminJob = {
   id: string;
@@ -202,7 +203,7 @@ function JobRow({
     { label: "Orcamento", value: job.budget ? brl(job.budget) : "-" },
     { label: "Candidaturas", value: String(job.submissionCount) },
     { label: "Categoria", value: job.category ?? "-" },
-    { label: "Localizacao", value: job.location ?? "-" },
+    { label: "Localizacao", value: formatJobLocation(job.location) ?? "-" },
     { label: "Genero", value: job.gender ?? "-" },
     {
       label: "Faixa etaria",

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
 import { brl } from "@/lib/brl";
+import { formatJobLocation } from "@/lib/jobLocation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -293,8 +294,8 @@ export default function TalentDashboard({
                       <p className="text-[13px] font-semibold text-zinc-900 truncate leading-snug">{b.title}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <p className="text-[11px] text-zinc-400 truncate">{b.agencyName}</p>
-                        {b.location && <span className="text-[#647B7B]">·</span>}
-                        {b.location && <p className="text-[11px] text-zinc-400 truncate">{b.location}</p>}
+                        {formatJobLocation(b.location) && <span className="text-[#647B7B]">·</span>}
+                        {formatJobLocation(b.location) && <p className="text-[11px] text-zinc-400 truncate">{formatJobLocation(b.location)}</p>}
                       </div>
                       {b.jobTime && (
                         <p className="text-[11px] text-zinc-400 mt-0.5">{b.jobTime}</p>

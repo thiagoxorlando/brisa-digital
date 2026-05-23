@@ -6,6 +6,7 @@ import { getContractComputedState } from "@/lib/contractState";
 import { getServerLang, getServerT } from "@/lib/i18n/server";
 import { isPremiumInviteOnlyJob, isPremiumPortalVisibleJob } from "@/lib/jobVisibility";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
+import { formatJobLocation } from "@/lib/jobLocation";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
@@ -316,7 +317,7 @@ export default async function TalentWorkspaceDashboard({ params }: Props) {
                         {new Date(`${job.job_date}T00:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short" })}
                       </span>
                     ) : null}
-                    {job.location ? <span className="text-zinc-400">{job.location}</span> : null}
+                    {formatJobLocation(job.location) ? <span className="text-zinc-400">{formatJobLocation(job.location)}</span> : null}
                   </div>
                 </div>
               </Link>

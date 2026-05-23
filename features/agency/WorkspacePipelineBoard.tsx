@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { brl } from "@/lib/brl";
 import { formatJobVisibilityLabel } from "@/lib/jobVisibility";
+import { formatJobLocation } from "@/lib/jobLocation";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
 import { initials } from "@/lib/talentDisplay";
@@ -392,7 +393,7 @@ function JobOverviewSection({
           { label: "Talentos", value: `${job.numberOfTalentsRequired} vaga${job.numberOfTalentsRequired !== 1 ? "s" : ""}` },
           job.jobDate && { label: "Data do trabalho", value: new Date(`${job.jobDate}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) },
           job.jobTime && { label: "Horário", value: job.jobTime },
-          job.location && { label: "Localização", value: job.location },
+          formatJobLocation(job.location) && { label: "Localização", value: formatJobLocation(job.location)! },
           job.gender && job.gender !== "any" && { label: "Gênero", value: GENDER_LABEL[job.gender] ?? job.gender },
           (job.ageMin || job.ageMax) && { label: "Faixa etária", value: job.ageMin && job.ageMax ? `${job.ageMin}–${job.ageMax} anos` : job.ageMin ? `${job.ageMin}+ anos` : `até ${job.ageMax} anos` },
           job.deadline && { label: "Prazo candidaturas", value: new Date(`${job.deadline}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) },

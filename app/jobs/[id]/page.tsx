@@ -6,6 +6,7 @@ import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { isJobOpenForApplications, JOB_UNAVAILABLE_MESSAGE } from "@/lib/jobAvailability";
+import { formatJobLocation } from "@/lib/jobLocation";
 import type { Plan } from "@/lib/plans";
 
 type Props = {
@@ -220,9 +221,9 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
                   {agency.company_name}
                 </span>
               )}
-              {job.location && (
+              {formatJobLocation(job.location) && (
                 <span className="rounded-full border border-[#DDE6E6] bg-white px-3 py-1">
-                  {job.location}
+                  {formatJobLocation(job.location)}
                 </span>
               )}
               {job.category && (
@@ -354,9 +355,9 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
                   {job.category}
                 </span>
               )}
-              {job.location && (
+              {formatJobLocation(job.location) && (
                 <span className="rounded-full border border-[#DDE6E6] bg-[#F8FAFC] px-3 py-1">
-                  {job.location}
+                  {formatJobLocation(job.location)}
                 </span>
               )}
               <span className="rounded-full border border-[#DDE6E6] bg-[#F8FAFC] px-3 py-1">

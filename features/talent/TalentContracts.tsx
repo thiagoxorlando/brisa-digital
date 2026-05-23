@@ -8,6 +8,7 @@ import { getContractComputedState } from "@/lib/contractState";
 import { brl } from "@/lib/brl";
 import { useT } from "@/lib/LanguageContext";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
+import { formatJobLocation } from "@/lib/jobLocation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -135,7 +136,7 @@ function downloadFallback(c: TalentContract) {
     `Forma de Pagamento: ${c.paymentMethod ?? "—"}`,
     `Data do Trabalho:   ${c.jobDate ? fmtJobDate(c.jobDate) : "A definir"}`,
     `Horário:            ${c.jobTime ?? "—"}`,
-    `Local:              ${c.location ?? "—"}`,
+    `Local:              ${formatJobLocation(c.location) ?? "—"}`,
     `Recebido em:        ${fmtDate(c.createdAt)}`,
     "",
     "DESCRIÇÃO DA VAGA",
@@ -309,7 +310,7 @@ function ContractRow({
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("contracts_location")}</p>
-              <p className="text-[13px] font-medium text-zinc-800">{c.location ?? "—"}</p>
+              <p className="text-[13px] font-medium text-zinc-800">{formatJobLocation(c.location) ?? "—"}</p>
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("contracts_payment")}</p>

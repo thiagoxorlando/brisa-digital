@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
+import { formatJobLocation } from "@/lib/jobLocation";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 import { resolveContractAmounts } from "@/lib/contractStatus";
 import { getContractComputedState, isCustodyActive } from "@/lib/contractState";
@@ -223,10 +224,10 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
               <span className="font-semibold text-zinc-800">{brl(gross)}</span>
             </span>
           )}
-          {contract.location && (
+          {formatJobLocation(contract.location) && (
             <span>
               <span className="text-zinc-500">Local: </span>
-              <span className="text-zinc-700">{contract.location}</span>
+              <span className="text-zinc-700">{formatJobLocation(contract.location)}</span>
             </span>
           )}
         </div>

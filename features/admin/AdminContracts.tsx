@@ -9,6 +9,7 @@ import {
 } from "@/lib/contractStatus";
 import { useT } from "@/lib/LanguageContext";
 import { brl } from "@/lib/brl";
+import { formatJobLocation } from "@/lib/jobLocation";
 import { type SpaceFilter, SPACE_FILTER_LABELS, matchesSpaceFilter } from "@/lib/spaceFilter";
 
 export type AdminContractRow = {
@@ -308,7 +309,7 @@ function ContractRow({
           <p className="text-[13px] text-zinc-500">{formatJobDate(local.jobDate)}</p>
         </td>
         <td className="hidden px-4 py-4 lg:table-cell">
-          <p className="max-w-[140px] truncate text-[13px] text-zinc-500">{local.location ?? "-"}</p>
+          <p className="max-w-[140px] truncate text-[13px] text-zinc-500">{formatJobLocation(local.location) ?? "-"}</p>
         </td>
         <td className="hidden px-4 py-4 text-right sm:table-cell">
           <p className="text-[13px] font-semibold tabular-nums text-zinc-900">{brl(local.paymentAmount)}</p>
@@ -460,7 +461,7 @@ function ContractRow({
                   </div>
                   <div>
                     <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Localizacao</p>
-                    <p className="text-zinc-700">{local.location ?? "-"}</p>
+                    <p className="text-zinc-700">{formatJobLocation(local.location) ?? "-"}</p>
                   </div>
                   <div>
                     <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Pagamento</p>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { brl } from "@/lib/brl";
+import { formatJobLocation } from "@/lib/jobLocation";
 import { unifiedStatusInfo } from "@/lib/bookingStatus";
 import AgentBookingActions from "@/features/agency/AgentBookingActions";
 
@@ -106,7 +107,7 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
         </div>
 
         {/* Date + location */}
-        {(booking.jobDate || booking.location) && (
+        {(booking.jobDate || formatJobLocation(booking.location)) && (
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[12px] text-zinc-600">
             {booking.jobDate && (
               <span className="flex items-center gap-1.5">
@@ -116,13 +117,13 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
                 {fmtJobDate(booking.jobDate)}
               </span>
             )}
-            {booking.location && (
+            {formatJobLocation(booking.location) && (
               <span className="flex items-center gap-1.5">
                 <svg className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                {booking.location}
+                {formatJobLocation(booking.location)}
               </span>
             )}
           </div>

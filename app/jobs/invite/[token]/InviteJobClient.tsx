@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { formatJobLocation } from "@/lib/jobLocation";
 
 type JobData = {
   id: string;
@@ -145,7 +146,7 @@ export default function InviteJobClient({
               <div className="grid gap-3 sm:grid-cols-2">
                 {job.category ? <InfoCard label="Categoria" value={job.category} /> : null}
                 <InfoCard label="Cachê" value={job.budget} />
-                {job.location ? <InfoCard label="Local" value={job.location} /> : null}
+                {formatJobLocation(job.location) ? <InfoCard label="Local" value={formatJobLocation(job.location)!} /> : null}
                 {job.deadline ? <InfoCard label="Prazo" value={job.deadline} /> : null}
                 {job.jobDate ? <InfoCard label="Data" value={`${job.jobDate}${job.jobTime ? ` às ${job.jobTime}` : ""}`} /> : null}
               </div>

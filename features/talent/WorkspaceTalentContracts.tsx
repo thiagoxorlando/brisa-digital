@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
 import { brl } from "@/lib/brl";
+import { formatJobLocation } from "@/lib/jobLocation";
 import { getContractComputedState } from "@/lib/contractState";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 
@@ -562,10 +563,10 @@ function ContractCard({
           )}
         </div>
 
-        {contract.location && (
+        {formatJobLocation(contract.location) && (
           <p className="text-[12px] text-zinc-500">
             <span className="font-medium text-zinc-700">Local: </span>
-            {contract.location}
+            {formatJobLocation(contract.location)}
           </p>
         )}
 
@@ -627,7 +628,7 @@ function ContractDetails({
     <div className={`grid gap-4 ${compact ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"}`}>
       <DetailField label="Data" value={fmtJobDate(contract.jobDate)} />
       <DetailField label="Horário" value={contract.jobTime ?? "—"} />
-      <DetailField label="Local" value={contract.location ?? "—"} />
+      <DetailField label="Local" value={formatJobLocation(contract.location) ?? "—"} />
       <DetailField label="Pagamento" value={`${brl(contract.paymentAmount)}${contract.paymentMethod ? ` · ${contract.paymentMethod}` : ""}`} />
       {!compact && contract.jobDescription && (
         <div className="sm:col-span-2 lg:col-span-4">

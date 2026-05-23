@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { REFERRAL_RATE } from "@/lib/plans";
 import { brl } from "@/lib/brl";
 import { isGenderEligible, genderLabel, normalizeGender } from "@/lib/genderNormalization";
+import { formatJobLocation } from "@/lib/jobLocation";
 
 export type TalentJobDetailProps = {
   id: string;
@@ -869,10 +870,10 @@ export default function TalentJobDetail({
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Prazo</p>
               <p className="text-[16px] font-semibold text-zinc-900">{formatDate(job.deadline)}</p>
             </div>
-            {job.location && (
+            {formatJobLocation(job.location) && (
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Localização</p>
-                <p className="text-[14px] font-semibold text-zinc-900">{job.location}</p>
+                <p className="text-[14px] font-semibold text-zinc-900">{formatJobLocation(job.location)}</p>
               </div>
             )}
             {job.gender && normalizeGender(job.gender) !== "any" && (

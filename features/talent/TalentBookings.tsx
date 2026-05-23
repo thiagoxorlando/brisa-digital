@@ -7,6 +7,7 @@ import { getUnifiedBookingStatus, unifiedStatusInfo, type UnifiedBookingStatus }
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { brl } from "@/lib/brl";
 import { useT } from "@/lib/LanguageContext";
+import { formatJobLocation } from "@/lib/jobLocation";
 
 type Booking = {
   id: string;
@@ -92,7 +93,7 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
             </div>
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{t("contracts_location")}</p>
-              <p className="text-zinc-700">{b.location ?? "—"}</p>
+              <p className="text-zinc-700">{formatJobLocation(b.location) ?? "—"}</p>
             </div>
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{t("bookings_booked_at")}</p>
