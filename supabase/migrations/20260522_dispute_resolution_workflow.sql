@@ -88,7 +88,9 @@ DECLARE
   v_agency_balance numeric(12,2);
   v_payout_tx_id uuid;
   v_refund_tx_id uuid;
-  v_referral_invite record;
+  v_referral_id uuid;
+  v_referrer_id uuid;
+  v_referral_commission_rate numeric;
   v_referral_found boolean := false;
   v_referral_commission numeric(12,2) := 0;
   v_referral_tx_id uuid;
@@ -228,7 +230,7 @@ BEGIN
 
   IF v_action = 'release' THEN
     SELECT id, referrer_id, commission_rate
-    INTO v_referral_invite
+    INTO v_referral_id, v_referrer_id, v_referral_commission_rate
     FROM referral_invites
     WHERE referred_user_id = v_talent_user_id
       AND job_id = v_contract.job_id
@@ -240,8 +242,8 @@ BEGIN
 
     v_referral_found := FOUND;
 
-    IF v_referral_found AND v_referral_invite.referrer_id IS NOT NULL THEN
-      v_referral_commission := round((v_gross * coalesce(v_referral_invite.commission_rate, 0.02))::numeric, 2);
+    IF v_referral_found AND v_referrer_id IS NOT NULL THEN
+      v_referral_commission := round((v_gross * coalesce(v_referral_commission_rate, 0.02))::numeric, 2);
     END IF;
 
     v_talent_amount := greatest(round((v_contract_net - v_referral_commission)::numeric, 2), 0);
@@ -367,10 +369,10 @@ BEGIN
     RETURNING id INTO v_refund_tx_id;
   END IF;
 
-  IF v_action = 'release' AND v_referral_found AND v_referral_commission > 0 AND v_referral_invite.referrer_id IS NOT NULL THEN
+  IF v_referral_found AND v_referral_commission > 0 AND v_referrer_id IS NOT NULL THEN
     UPDATE profiles
     SET wallet_balance = round((coalesce(wallet_balance, 0) + v_referral_commission)::numeric, 2)
-    WHERE id = v_referral_invite.referrer_id;
+    WHERE id = v_referrer_id;
 
     INSERT INTO wallet_transactions (
       user_id,
@@ -382,7 +384,7 @@ BEGIN
       status
     )
     VALUES (
-      v_referral_invite.referrer_id,
+      v_referrer_id,
       'referral_commission',
       v_referral_commission,
       'Comissao de indicacao por resolucao de disputa',
@@ -400,7 +402,7 @@ BEGIN
       commission_paid_at = coalesce(commission_paid_at, v_now),
       paid_contract_id = v_contract.id,
       updated_at = v_now
-    WHERE id = v_referral_invite.id;
+    WHERE id = v_referral_id;
   END IF;
 
   IF v_action IN ('release', 'refund', 'split') THEN
