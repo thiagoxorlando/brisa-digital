@@ -20,6 +20,7 @@
 -- All should be 0 after running clean_demo_data.sql
 -- =============================================================================
 
+WITH checks AS (
 SELECT
   '[QA seed] jobs remaining'              AS check_name,
   count(*)::int                           AS count,
@@ -48,7 +49,9 @@ UNION ALL SELECT
   count(*)::int,
   CASE WHEN count(*) = 0 THEN 'OK' ELSE 'FAIL — run clean_demo_data.sql Section 3' END
 FROM notifications
-WHERE title ILIKE '%[QA%' OR body ILIKE '%[QA%'
+-- Assumption verified against current Supabase schema/migrations:
+-- notifications uses message/type/link/created_at and does not have title/body.
+WHERE COALESCE(message, '') ILIKE '%[QA%'
 
 
 -- =============================================================================
@@ -166,9 +169,16 @@ UNION ALL SELECT
 FROM support_conversations
 WHERE subject ILIKE '%asd%'
    OR subject ILIKE '%lorem%'
+)
 
+SELECT *
+FROM checks
 ORDER BY
-  CASE status WHEN 'OK' THEN 0 WHEN 'WARN' ELSE 2 END,
+  CASE
+    WHEN status = 'OK' THEN 0
+    WHEN status = 'WARN' THEN 1
+    ELSE 2
+  END,
   check_name;
 
 

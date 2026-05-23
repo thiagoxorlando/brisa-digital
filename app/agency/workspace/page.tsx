@@ -153,22 +153,22 @@ function WorkspaceHeader({
   return (
     <div className="overflow-hidden rounded-[30px] border border-zinc-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
       <div
-        className="px-6 py-8 text-white sm:px-8"
+        className="px-6 py-5 text-white sm:px-8"
         style={{
           background: `radial-gradient(circle at top left, ${primary}50, transparent 28%), linear-gradient(135deg, ${primary} 0%, ${accent} 100%)`,
         }}
       >
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
             {workspace.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={workspace.logoUrl}
                 alt={t("workspace_header_logo_alt")}
-                className="h-16 w-16 rounded-2xl border border-white/20 object-cover shadow-lg"
+                className="h-12 w-12 rounded-2xl border border-white/20 object-cover shadow-lg"
               />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/14 text-[18px] font-bold text-white shadow-lg">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/14 text-[15px] font-bold text-white shadow-lg">
                 {initials}
               </div>
             )}
@@ -185,7 +185,7 @@ function WorkspaceHeader({
                   {isOwner ? t("workspace_role_owner") : t("workspace_role_agent")}
                 </span>
               </div>
-              <h1 className="mt-3 truncate text-[1.6rem] font-bold tracking-tight sm:text-[2rem]">{workspace.name}</h1>
+              <h1 className="mt-2 truncate text-[1.4rem] font-bold tracking-tight sm:text-[1.75rem]">{workspace.name}</h1>
               <p className="mt-2 max-w-2xl text-[14px] leading-6 text-white/78">
                 {workspace.welcomeMessage || t("workspace_header_default_welcome")}
               </p>

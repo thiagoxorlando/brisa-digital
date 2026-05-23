@@ -72,10 +72,11 @@ WHERE bio = 'Referral email test sent by admin.'
 ORDER BY created_at DESC;
 
 -- 0e. QA/test notifications
-SELECT id, type, LEFT(title, 60) AS title, created_at
+-- Assumption verified against current Supabase schema/migrations:
+-- notifications has message/type/link/created_at and does not have title/body.
+SELECT id, type, LEFT(COALESCE(message, ''), 60) AS message_preview, link, created_at
 FROM notifications
-WHERE title ILIKE '%[QA%'
-   OR body ILIKE '%[QA%'
+WHERE COALESCE(message, '') ILIKE '%[QA%'
 ORDER BY created_at DESC;
 
 -- 0f. Manual review — other suspicious patterns (review before acting)
@@ -229,9 +230,10 @@ DO $$
 DECLARE
   v_rows_deleted int;
 BEGIN
+  -- Assumption verified against current Supabase schema/migrations:
+  -- cleanup must match notifications.message because title/body do not exist.
   DELETE FROM notifications
-  WHERE title ILIKE '%[QA%'
-     OR body  ILIKE '%[QA%';
+  WHERE COALESCE(message, '') ILIKE '%[QA%';
   GET DIAGNOSTICS v_rows_deleted = ROW_COUNT;
   RAISE NOTICE 'Deleted QA notifications: %', v_rows_deleted;
 
@@ -296,6 +298,6 @@ UNION ALL SELECT
   '[QA] notifications remaining',
   count(*)
 FROM notifications
-WHERE title ILIKE '%[QA%' OR body ILIKE '%[QA%'
+WHERE COALESCE(message, '') ILIKE '%[QA%'
 
 ORDER BY check_name;

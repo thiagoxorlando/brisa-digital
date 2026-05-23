@@ -1200,7 +1200,7 @@ export const en: Record<string, string> = {
   workspace_header_default_welcome: "Customize the space with your agency logo and colors.",
   workspace_header_created_at: "Created on",
   workspace_header_access: "Access",
-  workspace_header_access_owner: "Full oversight",
+  workspace_header_access_owner: "Full workspace control",
   workspace_header_access_agent: "Team operations",
   workspace_identity_summary: "Visual identity and private portal link summary.",
   workspace_identity_edit: "Edit branding",

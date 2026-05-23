@@ -156,7 +156,7 @@ export default function TalentDashboard({
       ),
     },
     {
-      label: t("action_accept"),
+      label: t("portal_active_contracts"),
       value: String(stats.accepted),
       sub:   t("contracts_title"),
       href:  "/talent/contracts",

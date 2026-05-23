@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { brl } from "@/lib/brl";
-import type { AdminControlCenterData, QueueItem } from "@/lib/readModels/adminControlCenter";
+import type { AdminControlCenterData, QueueItem, RecentActivityItem } from "@/lib/readModels/adminControlCenter";
 
 function ChevronRight({ size = 16, className = "" }: { size?: number; className?: string }) {
   return (
@@ -34,8 +34,37 @@ const QUEUE_COUNT_CLS: Record<QueueItem["severity"], string> = {
   neutral:  "text-zinc-500",
 };
 
+const ACTIVITY_TONE_DOT: Record<RecentActivityItem["tone"], string> = {
+  emerald: "bg-emerald-500",
+  indigo:  "bg-indigo-500",
+  amber:   "bg-amber-400",
+  red:     "bg-red-500",
+  zinc:    "bg-zinc-400",
+  sky:     "bg-sky-400",
+};
+
+const ACTIVITY_TONE_LABEL: Record<RecentActivityItem["tone"], string> = {
+  emerald: "text-emerald-700",
+  indigo:  "text-indigo-700",
+  amber:   "text-amber-700",
+  red:     "text-red-700",
+  zinc:    "text-zinc-600",
+  sky:     "text-sky-700",
+};
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 2) return "agora";
+  if (m < 60) return `${m}min atrás`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h atrás`;
+  const d = Math.floor(h / 24);
+  return `${d}d atrás`;
+}
+
 export default function AdminControlCenter({ data }: { data: AdminControlCenterData }) {
-  const { alerts, financialOps, operationalQueue, activityMetrics, systemHealth } = data;
+  const { alerts, financialOps, operationalQueue, activityMetrics, systemHealth, recentActivity } = data;
   const hasAlerts = alerts.length > 0;
   const allQueueClear = operationalQueue.every((q) => q.count === 0);
 
@@ -309,7 +338,38 @@ export default function AdminControlCenter({ data }: { data: AdminControlCenterD
         </div>
       </section>
 
-      {/* ── SECTION 5: Status do Sistema ───────────────────────────────────── */}
+      {/* ── SECTION 5: Atividade Recente ───────────────────────────────────── */}
+      <section className="space-y-3">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+          Atividade recente
+        </h2>
+        {recentActivity.length === 0 ? (
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
+            Nenhuma atividade recente registrada.
+          </div>
+        ) : (
+          <div className="rounded-xl border border-zinc-200 overflow-hidden bg-white">
+            <ul className="divide-y divide-zinc-100">
+              {recentActivity.map((event) => (
+                <li key={`${event.type}-${event.id}`} className="flex items-start gap-3 px-4 py-3 hover:bg-zinc-50 transition">
+                  <span className={["mt-1.5 h-2 w-2 rounded-full flex-shrink-0", ACTIVITY_TONE_DOT[event.tone]].join(" ")} />
+                  <div className="flex-1 min-w-0">
+                    <Link href={event.href} className="group flex items-baseline justify-between gap-2">
+                      <span className={["text-sm font-medium truncate", ACTIVITY_TONE_LABEL[event.tone]].join(" ")}>
+                        {event.label}
+                      </span>
+                      <span className="text-[11px] text-zinc-400 flex-shrink-0">{timeAgo(event.createdAt)}</span>
+                    </Link>
+                    <p className="text-xs text-zinc-500 truncate mt-0.5">{event.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      {/* ── SECTION 7: Status do Sistema ───────────────────────────────────── */}
       <section className="space-y-3">
         <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-500">
           Status do sistema

@@ -78,7 +78,7 @@ export default async function TalentDashboardPage() {
     for (const agency of agencies ?? []) agencyMap.set(agency.id, agency.company_name ?? "Agency");
   }
 
-  const acceptedContracts = filteredContracts.filter((contract) => ["signed", "confirmed", "paid"].includes(contract.status ?? ""));
+  const acceptedContracts = filteredContracts.filter((contract) => ["sent", "signed", "confirmed"].includes(contract.status ?? ""));
   const upcomingContracts = filteredContracts
     .filter((contract) => ["signed", "confirmed"].includes(contract.status ?? ""))
     .filter((contract) => contract.job_date && contract.job_date >= new Date().toISOString().slice(0, 10))

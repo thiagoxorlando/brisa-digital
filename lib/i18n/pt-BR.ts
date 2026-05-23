@@ -400,7 +400,7 @@ export const ptBR: Record<string, string> = {
   workspace_header_default_welcome: "Personalize o espaço com o logo e as cores da sua agência.",
   workspace_header_created_at: "Criado em",
   workspace_header_access: "Acesso",
-  workspace_header_access_owner: "Supervisão completa",
+  workspace_header_access_owner: "Controle total do workspace",
   workspace_header_access_agent: "Operação da equipe",
   workspace_identity_summary: "Resumo da identidade visual e do link privado do portal.",
   workspace_identity_edit: "Editar personalização",
