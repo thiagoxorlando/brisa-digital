@@ -4,7 +4,7 @@ import { getWorkspaceMembers } from "@/lib/premiumWorkspace.server";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 import WorkspaceJobsBoard, { type WorkspaceJob } from "@/features/agency/WorkspaceJobsBoard";
 
-export const metadata: Metadata = { title: "Vagas privadas — BrisaHub" };
+export const metadata: Metadata = { title: "Vagas do Espaco Premium — BrisaHub" };
 
 export default async function WorkspaceJobsPage() {
   const context = await requirePremiumWorkspacePageContext();
@@ -95,3 +95,5 @@ export default async function WorkspaceJobsPage() {
     />
   );
 }
+
+

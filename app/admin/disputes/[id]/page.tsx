@@ -12,7 +12,8 @@ import {
   getContractPaymentStatus,
   resolveContractAmounts,
 } from "@/lib/contractStatus";
-import { canResolveDispute, type DisputeStatus } from "@/lib/disputePolicy";
+import { canAdminResolveDispute, type DisputeStatus } from "@/lib/disputePolicy";
+import { batchValidateDisputes } from "@/lib/disputeValidation.server";
 import {
   checkDisputeBlockingPayout,
   checkPaymentReleaseEligibility,
@@ -319,8 +320,36 @@ export default async function AdminDisputeDetailPage({ params }: PageProps) {
     referralPaid === 0 && referralInviteRes.data && referralInviteRes.data.status !== "commission_paid"
       ? Math.round(amounts.gross * asNumber(referralInviteRes.data.commission_rate ?? 0.02) * 100) / 100
       : null;
+
+  // Integrity validation using already-loaded contract + job data — at most 2 extra queries.
+  type IntegrityContractRow = { id: string; workspace_id: string | null; agency_id: string | null; talent_id: string | null; talent_user_id: string | null; job_id: string | null; status: string | null };
+  const integrityContractMap = new Map<string, IntegrityContractRow>();
+  if (contract) {
+    integrityContractMap.set(contract.id, {
+      id: contract.id,
+      workspace_id: contract.workspace_id ?? null,
+      agency_id: contract.agency_id ?? null,
+      talent_id: contract.talent_id ?? null,
+      talent_user_id: (contract as { talent_user_id?: string | null }).talent_user_id ?? null,
+      job_id: contract.job_id ?? null,
+      status: contract.status ?? null,
+    });
+  }
+  const jobEntry = jobRes.data
+    ? { id: jobRes.data.id, workspace_id: (jobRes.data as { workspace_id?: string | null }).workspace_id ?? null }
+    : null;
+  const integrityJobMap = jobEntry ? new Map([[jobEntry.id, jobEntry]]) : new Map<string, { id: string; workspace_id: string | null }>();
+  const validationMap = await batchValidateDisputes(
+    supabase,
+    [{ id, contract_id: dispute.contract_id, workspace_id: (dispute as { workspace_id?: string | null }).workspace_id ?? null }],
+    integrityContractMap,
+    integrityJobMap,
+  );
+  const integrityResult = validationMap.get(id) ?? { isValid: true, scope: "unknown" as const, invalidReasons: [], disputeId: id };
+  const resolveCheck = canAdminResolveDispute(dispute.status as DisputeStatus, integrityResult);
+  const canResolve = resolveCheck.allowed;
+
   const hasEscrowLock = walletTransactions.some((tx) => tx.type === "escrow_lock");
-  const canResolve = canResolveDispute(dispute.status as DisputeStatus);
   const escrowAmount = contract?.status === "confirmed" && (hasEscrowLock || canResolve) ? amounts.gross : 0;
 
   const releaseCheck = contract
@@ -411,6 +440,8 @@ export default async function AdminDisputeDetailPage({ params }: PageProps) {
       createdAt: String(note.created_at),
     })),
     canResolve,
+    isValid: integrityResult.isValid,
+    invalidReasons: integrityResult.invalidReasons,
   };
 
   return <AdminDisputeDetail data={data} />;

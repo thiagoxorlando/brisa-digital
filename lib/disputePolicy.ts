@@ -76,3 +76,136 @@ export function disputeStatusLabel(status: DisputeStatus): string {
 export function disputeStatusTone(status: DisputeStatus): string {
   return DISPUTE_STATUS_TONE[status] ?? DISPUTE_STATUS_TONE.closed;
 }
+
+// ─── Integrity validation ──────────────────────────────────────────────────
+
+export type DisputeScope = "open_space" | "premium" | "unknown";
+
+export type DisputeIntegrityResult = {
+  isValid: boolean;
+  scope: DisputeScope;
+  /** Human-readable reasons; empty when isValid = true */
+  invalidReasons: string[];
+};
+
+/**
+ * All data needed to validate a single dispute's integrity.
+ * All fields come from already-loaded DB rows — no DB calls here.
+ *
+ * - `undefined` means "not checked / not applicable"
+ * - `null`      means "checked and not found"
+ */
+export type DisputeIntegrityInput = {
+  dispute: {
+    workspace_id: string | null;
+    contract_id: string;
+  };
+  contract: {
+    workspace_id: string | null;
+    agency_id: string | null;
+    talent_id: string | null;
+    talent_user_id: string | null;
+    job_id: string | null;
+    status: string | null;
+  } | null;
+  job: { workspace_id: string | null } | null;
+  /** null = workspace not found in DB */
+  premiumWorkspace: { id: string } | null | undefined;
+  /** null = talent has no active membership row */
+  talentWorkspaceMembership: { status: string; removed_at: string | null } | null | undefined;
+};
+
+/**
+ * Pure validation — no DB calls.
+ *
+ * Rules:
+ *  OPEN SPACE — contract.workspace_id IS NULL, dispute.workspace_id IS NULL,
+ *               job.workspace_id IS NULL.
+ *  PREMIUM    — contract.workspace_id = dispute.workspace_id,
+ *               job.workspace_id = contract.workspace_id (when present),
+ *               workspace exists, talent is an active workspace member.
+ */
+export function validateDisputeIntegrity(
+  input: DisputeIntegrityInput,
+): DisputeIntegrityResult {
+  const reasons: string[] = [];
+
+  if (!input.contract) {
+    return { isValid: false, scope: "unknown", invalidReasons: ["Contrato não encontrado"] };
+  }
+
+  const disputeWsId   = input.dispute.workspace_id;
+  const contractWsId  = input.contract.workspace_id;
+  const jobWsId       = input.job?.workspace_id ?? null;
+  const isPremiumDispute  = Boolean(disputeWsId);
+  const isPremiumContract = Boolean(contractWsId);
+  const isPremiumJob      = Boolean(jobWsId);
+
+  let scope: DisputeScope;
+
+  if (!isPremiumDispute && !isPremiumContract && !isPremiumJob) {
+    scope = "open_space";
+  } else if (isPremiumDispute || isPremiumContract) {
+    scope = "premium";
+  } else {
+    scope = "unknown";
+    reasons.push("Escopo indeterminado: job tem workspace mas contrato/disputa não têm");
+  }
+
+  if (scope === "premium") {
+    if (!disputeWsId) {
+      reasons.push("dispute.workspace_id ausente para disputa Premium");
+    }
+    if (!contractWsId) {
+      reasons.push("contract.workspace_id ausente para disputa Premium");
+    }
+    if (disputeWsId && contractWsId && disputeWsId !== contractWsId) {
+      reasons.push(
+        `workspace_id mismatch: disputa(${disputeWsId.slice(0, 8)}) ≠ contrato(${contractWsId.slice(0, 8)})`,
+      );
+    }
+    if (jobWsId && contractWsId && jobWsId !== contractWsId) {
+      reasons.push(
+        `workspace_id mismatch: job(${jobWsId.slice(0, 8)}) ≠ contrato(${contractWsId.slice(0, 8)})`,
+      );
+    }
+    if (input.premiumWorkspace === null) {
+      reasons.push("Workspace Premium não encontrado no banco");
+    }
+    if (input.talentWorkspaceMembership === null) {
+      reasons.push("Talento não tem vínculo ativo com este workspace Premium");
+    } else if (
+      input.talentWorkspaceMembership !== undefined &&
+      (input.talentWorkspaceMembership.status !== "active" ||
+        input.talentWorkspaceMembership.removed_at !== null)
+    ) {
+      reasons.push("Vínculo do talento com o workspace está inativo ou removido");
+    }
+  } else if (scope === "open_space") {
+    if (isPremiumJob) {
+      reasons.push("Disputa Open Space tem job vinculado a workspace Premium");
+    }
+  }
+
+  return { isValid: reasons.length === 0, scope, invalidReasons: reasons };
+}
+
+/**
+ * Returns true if this dispute is eligible for resolution (not invalid, not terminal).
+ * Combines validity + lifecycle check.
+ */
+export function canAdminResolveDispute(
+  status: DisputeStatus,
+  integrityResult: DisputeIntegrityResult,
+): { allowed: boolean; reason?: string } {
+  if (!integrityResult.isValid) {
+    return {
+      allowed: false,
+      reason: `Disputa inválida — revisar vínculos antes de resolver. ${integrityResult.invalidReasons.join("; ")}`,
+    };
+  }
+  if (!canResolveDispute(status)) {
+    return { allowed: false, reason: "Disputa já resolvida ou encerrada." };
+  }
+  return { allowed: true };
+}

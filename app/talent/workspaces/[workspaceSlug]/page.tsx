@@ -8,6 +8,7 @@ import {
   resolveContractAmounts,
 } from "@/lib/contractStatus";
 import { getServerLang, getServerT } from "@/lib/i18n/server";
+import { isPremiumInviteOnlyJob, isPremiumPortalVisibleJob } from "@/lib/jobVisibility";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
@@ -128,11 +129,8 @@ export default async function TalentWorkspaceDashboard({ params }: Props) {
   const allJobIds = (allJobRows ?? []).map((job) => job.id);
   const jobMap = new Map((allJobRows ?? []).map((job) => [job.id, job.title ?? t("portal_job_fallback")]));
 
-  const availableJobs = (allJobRows ?? []).filter(
-    (job) => job.status === "open" && (job.visibility === "private_invite" || job.visibility === "private_portal"),
-  );
-
   let submissions: Array<{ id: string; job_id: string; status: string; created_at: string }> = [];
+  let directInvites: Array<{ job_id: string | null }> = [];
   let contracts: Array<{
     id: string;
     job_id: string | null;
@@ -146,13 +144,18 @@ export default async function TalentWorkspaceDashboard({ params }: Props) {
   }> = [];
 
   if (allJobIds.length) {
-    const [subsRes, contractsRes] = await Promise.all([
+    const [subsRes, directInvitesRes, contractsRes] = await Promise.all([
       supabase
         .from("submissions")
         .select("id, job_id, status, created_at")
         .eq("talent_user_id", user.id)
         .in("job_id", allJobIds)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("job_invites")
+        .select("job_id")
+        .eq("talent_id", user.id)
+        .in("job_id", allJobIds),
       supabase
         .from("contracts")
         .select("id, job_id, status, payment_amount, net_amount, commission_amount, paid_at, job_date, created_at")
@@ -161,8 +164,20 @@ export default async function TalentWorkspaceDashboard({ params }: Props) {
         .order("created_at", { ascending: false }),
     ]);
     submissions = (subsRes.data ?? []) as typeof submissions;
+    directInvites = (directInvitesRes.data ?? []) as typeof directInvites;
     contracts = (contractsRes.data ?? []) as typeof contracts;
   }
+
+  const invitedJobIds = new Set(directInvites.map((invite) => String(invite.job_id)));
+  const submittedJobIds = new Set(submissions.map((submission) => String(submission.job_id)));
+  const availableJobs = (allJobRows ?? []).filter((job) => {
+    if (job.status !== "open") return false;
+    if (isPremiumPortalVisibleJob({ visibility: job.visibility, workspaceId: workspace.id })) return true;
+    if (isPremiumInviteOnlyJob({ visibility: job.visibility, workspaceId: workspace.id })) {
+      return invitedJobIds.has(String(job.id)) || submittedJobIds.has(String(job.id));
+    }
+    return false;
+  });
 
   const activeContracts = contracts.filter((contract) => ["sent", "signed", "confirmed"].includes(contract.status ?? ""));
   const paidContracts = contracts.filter((contract) => contract.status === "paid");

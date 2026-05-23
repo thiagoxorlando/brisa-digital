@@ -6,6 +6,7 @@ import { logAdminAction } from "@/lib/auditLog";
 import { notify } from "@/lib/notify";
 import { renderNotificationTemplate, type NotificationKey } from "@/lib/notificationTemplates";
 import { brl } from "@/lib/brl";
+import { validateSingleDispute } from "@/lib/disputeValidation.server";
 
 type ResolutionAction = "release" | "refund" | "split" | "close";
 
@@ -76,7 +77,7 @@ export async function POST(
 
   const { data: before } = await supabase
     .from("contract_disputes")
-    .select("id, contract_id, status, reason, resolution_note")
+    .select("id, contract_id, workspace_id, status, reason, resolution_note")
     .eq("id", id)
     .maybeSingle();
 
@@ -89,6 +90,22 @@ export async function POST(
     .select("id, agency_id, talent_id, talent_user_id, workspace_id")
     .eq("id", before.contract_id)
     .maybeSingle();
+
+  // Integrity gate — refuse to resolve disputes with broken relationships.
+  const integrity = await validateSingleDispute(supabase, {
+    id,
+    contract_id: before.contract_id,
+    workspace_id: (before as { workspace_id?: string | null }).workspace_id ?? null,
+  });
+  if (!integrity.isValid) {
+    return NextResponse.json(
+      {
+        error: "Disputa com relacionamentos inválidos — corrija os vínculos antes de resolver.",
+        invalidReasons: integrity.invalidReasons,
+      },
+      { status: 422 },
+    );
+  }
 
   const { data: result, error: rpcError } = await supabase.rpc("resolve_contract_dispute", {
     p_dispute_id: id,

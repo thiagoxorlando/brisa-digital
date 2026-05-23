@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
+import { formatJobVisibilityLabel } from "@/lib/jobVisibility";
 import { jobStatusLabel, jobStatusTone } from "@/lib/jobStatus";
 import WorkspacePrivateInviteButton from "@/features/agency/WorkspacePrivateInviteButton";
 
@@ -219,7 +220,7 @@ export default function WorkspaceJobsBoard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[1.5rem] font-bold tracking-tight text-zinc-950 sm:text-[1.75rem]">
-            Vagas privadas
+            Vagas do Espaco Premium
           </h1>
           <p className="mt-0.5 text-[13px] text-zinc-500">
             Gestão centralizada das vagas do workspace
@@ -233,7 +234,7 @@ export default function WorkspaceJobsBoard({
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Criar vaga privada
+          Criar vaga do Espaco Premium
         </Link>
       </div>
 
@@ -310,8 +311,8 @@ export default function WorkspaceJobsBoard({
         {/* Type */}
         <select value={typeF} onChange={(e) => setTypeF(e.target.value)} className={sel}>
           <option value="">Visibilidade</option>
-          <option value="private_invite">Privada</option>
-          <option value="public">Pública</option>
+          <option value="private_invite">{formatJobVisibilityLabel({ visibility: "private_invite", workspaceId: "premium" })}</option>
+          <option value="public">{formatJobVisibilityLabel({ visibility: "public", workspaceId: "premium" })}</option>
         </select>
 
         {/* Category */}
@@ -553,3 +554,6 @@ const PenIcon     = () => <svg fill="none" stroke="currentColor" viewBox="0 0 24
 const LockIcon    = () => <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
 const CheckIcon   = () => <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>;
 const CalIcon     = () => <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+
+
+

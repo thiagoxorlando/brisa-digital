@@ -11,6 +11,7 @@ import {
 } from "@/lib/contractStatus";
 import { brl } from "@/lib/brl";
 import { useT } from "@/lib/LanguageContext";
+import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ export type TalentContract = {
   createdAt:          string;
   contractFileUrl:    string | null;   // original — uploaded by agency
   signedContractUrl:  string | null;   // signed version — uploaded by talent
+  activeDisputeId:    string | null;
 };
 
 export type ApprovedSubmission = {
@@ -372,6 +374,17 @@ function ContractRow({
             </div>
             </div>
           )}
+
+          {/* ── Dispute ── */}
+          <div className="flex flex-wrap gap-2">
+            <AbrirDisputaButton
+              contractId={c.id}
+              contractStatus={c.status}
+              activeDisputeId={c.activeDisputeId}
+              activeDisputeHref={null}
+              disputeListHref="/talent/disputes"
+            />
+          </div>
 
           {/* ── Actions ── */}
           <div className="space-y-3 pt-1">

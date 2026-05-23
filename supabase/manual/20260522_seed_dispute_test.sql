@@ -251,11 +251,19 @@ BEGIN
 
   v_resolver_user_id := v_admin_user_id;
 
-  SELECT id INTO v_workspace_id
-  FROM premium_workspaces
-  WHERE deleted_at IS NULL
+  -- Only use a workspace where the talent already has an active membership.
+  -- This satisfies the integrity rule: Premium disputes require talent membership.
+  -- If no such workspace exists the Premium contract falls back to Open Space (null).
+  SELECT pwa.workspace_id INTO v_workspace_id
+  FROM premium_workspace_talents pwa
+  JOIN premium_workspaces pw ON pw.id = pwa.workspace_id
+  WHERE pwa.talent_user_id = v_talent_user_id
+    AND pwa.status = 'active'
+    AND pwa.removed_at IS NULL
+    AND pw.deleted_at IS NULL
+    AND pw.status = 'active'
   LIMIT 1;
-  RAISE NOTICE 'Workspace ID (may be null): %', v_workspace_id;
+  RAISE NOTICE 'Workspace ID where talent is active member (may be null): %', v_workspace_id;
 
   -- Step 2: Create a job for the disputes.
   INSERT INTO jobs (

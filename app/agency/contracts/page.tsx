@@ -16,7 +16,7 @@ export default async function AgencyContractsPage() {
 
   const { data: rows } = await supabase
     .from("contracts")
-    .select("id, job_id, talent_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at")
+    .select("id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at")
     .eq("agency_id", user?.id ?? "")
     .order("created_at", { ascending: false });
 
@@ -45,6 +45,22 @@ export default async function AgencyContractsPage() {
           })
       : Promise.resolve(),
   ]);
+
+  const openSpaceContractIds = contracts_data
+    .filter((c) => !c.job_id || jobMap.has(c.job_id))
+    .map((c) => c.id);
+
+  const activeDisputeMap = new Map<string, string>();
+  if (openSpaceContractIds.length) {
+    const { data: disputeRows } = await supabase
+      .from("contract_disputes")
+      .select("id, contract_id")
+      .in("contract_id", openSpaceContractIds)
+      .in("status", ["open", "under_review"]);
+    for (const d of disputeRows ?? []) {
+      if (d.contract_id) activeDisputeMap.set(d.contract_id, d.id);
+    }
+  }
 
   const contracts: AgencyContract[] = contracts_data
     .filter((c) => !c.job_id || jobMap.has(c.job_id))
@@ -79,6 +95,7 @@ export default async function AgencyContractsPage() {
     paymentBlockReason:    release.eligible ? null : (c.job_date ? "Pagamento disponível após a data da vaga." : null),
     // Open Space: the agency IS the owner, so they can manually override.
     canManualOverride:     true,
+    activeDisputeId:       activeDisputeMap.get(c.id) ?? null,
   });
   });
 

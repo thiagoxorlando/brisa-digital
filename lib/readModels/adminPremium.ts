@@ -313,7 +313,7 @@ export async function loadAdminPremiumData(): Promise<AdminPremiumData> {
     const activeAgents = wsMembers.filter((m) => m.role === "agent" && m.status === "active");
     const wsInvites = invitesByWorkspace.get(wsId) ?? [];
     const wsJobs = jobsByWorkspace.get(wsId) ?? [];
-    const privateJobs = wsJobs.filter((j) => j.visibility === "private_invite");
+    const privateJobs = wsJobs;
 
     const includedSeats = Number(ws.included_agent_seats ?? 2);
     const extraSeats = Number(ws.extra_agent_seats ?? 0);

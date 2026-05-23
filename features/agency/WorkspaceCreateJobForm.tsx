@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { brl } from "@/lib/brl";
+import { formatJobVisibilityDescription, formatJobVisibilityLabel } from "@/lib/jobVisibility";
 import ApplicationRequirementsInput from "@/features/agency/ApplicationRequirementsInput";
 
 const CATEGORIES = [
@@ -115,7 +116,7 @@ export default function WorkspaceCreateJobForm({
           Vagas do workspace
         </Link>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">
-          Criar vaga privada
+          Criar vaga do Espaco Premium
         </h1>
         <p className="text-[13px] text-zinc-400 mt-1">
           A vaga será vinculada ao workspace e {isOwner ? "visível para a equipe." : "criada com o seu saldo alocado."}
@@ -342,8 +343,16 @@ export default function WorkspaceCreateJobForm({
             <label className={labelCls}>Visibilidade</label>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { value: "private_invite", label: "Privada por convite", desc: "Somente talentos com link de convite podem se candidatar." },
-                { value: "public",         label: "Pública",             desc: "Visível no portal de talentos aberto." },
+                {
+                  value: "private_invite",
+                  label: formatJobVisibilityLabel({ visibility: "private_invite", workspaceId: "premium" }),
+                  desc: formatJobVisibilityDescription({ visibility: "private_invite", workspaceId: "premium" }),
+                },
+                {
+                  value: "public",
+                  label: formatJobVisibilityLabel({ visibility: "public", workspaceId: "premium" }),
+                  desc: formatJobVisibilityDescription({ visibility: "public", workspaceId: "premium" }),
+                },
               ].map((opt) => (
                 <label
                   key={opt.value}
@@ -397,10 +406,11 @@ export default function WorkspaceCreateJobForm({
             disabled={saving || exceedsBalance}
             className="flex-1 py-3 text-[14px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {saving ? "Criando vaga…" : "Criar vaga privada"}
+            {saving ? "Criando vaga…" : "Criar vaga do Espaco Premium"}
           </button>
         </div>
       </form>
     </div>
   );
 }
+

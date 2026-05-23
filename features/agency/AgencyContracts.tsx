@@ -10,6 +10,7 @@ import {
   contractStatusTone,
 } from "@/lib/contractStatus";
 import { getPremiumContractLifecycle } from "@/lib/premiumContractLifecycle";
+import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 
 export type AgencyContract = {
   id: string;
@@ -43,6 +44,8 @@ export type AgencyContract = {
   isAgentJobBacked?: boolean;
   /** Display name of the user who released payment. NULL for legacy rows. */
   paidByName?: string | null;
+  /** Active open/under_review dispute ID for this contract, or null. */
+  activeDisputeId?: string | null;
 };
 
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -136,10 +139,12 @@ function ContractCard({
   contract: c,
   onUpdate,
   showPaymentActions = true,
+  disputesHref = "/agency/disputes",
 }: {
   contract: AgencyContract;
   onUpdate: (id: string, updates: Partial<AgencyContract>) => void;
   showPaymentActions?: boolean;
+  disputesHref?: string;
 }) {
   const [expanded,         setExpanded]         = useState(false);
   const [acting,           setActing]           = useState<string | null>(null);
@@ -443,6 +448,15 @@ function ContractCard({
               <p className="text-[13px] text-zinc-600 leading-relaxed whitespace-pre-line">{c.additionalNotes}</p>
             </div>
           )}
+          <div className="flex flex-wrap gap-2">
+            <AbrirDisputaButton
+              contractId={c.id}
+              contractStatus={c.status}
+              activeDisputeId={c.activeDisputeId ?? null}
+              activeDisputeHref={null}
+              disputeListHref={disputesHref}
+            />
+          </div>
           <p className="text-[11px] text-zinc-400">{t("contracts_sent")} {fmtDate(c.createdAt, lang)}</p>
         </div>
       )}
@@ -458,6 +472,7 @@ function JobGroup({
   contracts,
   onUpdate,
   bookingsHref,
+  disputesHref = "/agency/disputes",
   showPaymentActions = true,
 }: {
   jobTitle: string;
@@ -465,6 +480,7 @@ function JobGroup({
   contracts: AgencyContract[];
   onUpdate: (id: string, updates: Partial<AgencyContract>) => void;
   bookingsHref: string;
+  disputesHref?: string;
   showPaymentActions?: boolean;
 }) {
   const pendingDeposit = contracts.filter((c) => c.status === "signed").length;
@@ -525,7 +541,7 @@ function JobGroup({
       {/* Contract rows */}
       <div className="divide-y divide-zinc-50">
         {contracts.map((c) => (
-          <ContractCard key={c.id} contract={c} onUpdate={onUpdate} showPaymentActions={showPaymentActions} />
+          <ContractCard key={c.id} contract={c} onUpdate={onUpdate} showPaymentActions={showPaymentActions} disputesHref={disputesHref} />
         ))}
       </div>
     </div>
@@ -537,10 +553,12 @@ function JobGroup({
 export default function AgencyContracts({
   contracts: initialContracts,
   bookingsHref = "/agency/bookings",
+  disputesHref = "/agency/disputes",
   showPaymentActions = true,
 }: {
   contracts: AgencyContract[];
   bookingsHref?: string;
+  disputesHref?: string;
   showPaymentActions?: boolean;
 }) {
   const [contracts,    setContracts]    = useState<AgencyContract[]>(initialContracts);
@@ -701,6 +719,7 @@ export default function AgencyContracts({
                 contracts={group}
                 onUpdate={handleUpdate}
                 bookingsHref={bookingsHref}
+                disputesHref={disputesHref}
                 showPaymentActions={showPaymentActions}
               />
             );

@@ -4,6 +4,7 @@ import AdminDisputes, { type AdminDisputeRow } from "@/features/admin/AdminDispu
 import { resolveContractAmounts } from "@/lib/contractStatus";
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
+import { batchValidateDisputes } from "@/lib/disputeValidation.server";
 
 export const metadata: Metadata = { title: "Administracao - Disputas - BrisaHub" };
 
@@ -85,7 +86,7 @@ export default async function AdminDisputesPage() {
 
   const [jobsRes, talentsByIdRes, talentsByUserRes, agenciesRes] = await Promise.all([
     jobIds.length
-      ? supabase.from("jobs").select("id, title").in("id", jobIds)
+      ? supabase.from("jobs").select("id, title, workspace_id").in("id", jobIds)
       : Promise.resolve({ data: [] }),
     talentIds.length
       ? supabase.from("talent_profiles").select("id, full_name").in("id", talentIds)
@@ -98,30 +99,65 @@ export default async function AdminDisputesPage() {
       : Promise.resolve({ data: [] }),
   ]);
 
-  const jobMap = new Map<string, string>();
+  // jobMap used for display (title) and validation (workspace_id)
+  const jobMap = new Map<string, { workspace_id: string | null; title: string | null }>();
   const talentMap = new Map<string, string>();
   const agencyMap = new Map<string, string>();
 
-  for (const j of jobsRes.data ?? []) jobMap.set(j.id, j.title ?? "Vaga sem titulo");
+  for (const j of jobsRes.data ?? []) jobMap.set(j.id, { workspace_id: (j as { workspace_id?: string | null }).workspace_id ?? null, title: j.title ?? null });
   for (const t of talentsByIdRes.data ?? []) talentMap.set(t.id, t.full_name ?? "Talento");
   for (const t of talentsByUserRes.data ?? []) {
     if (t.user_id) talentMap.set(t.user_id, t.full_name ?? "Talento");
   }
   for (const a of agenciesRes.data ?? []) agencyMap.set(a.id, a.company_name ?? "Agencia");
 
+  // Build maps typed for validation
+  const contractMapForValidation = new Map(
+    [...contractMap.entries()].map(([k, v]) => [k, {
+      id: v.job_id ?? k,
+      workspace_id: null as string | null, // overridden below
+      agency_id: v.agency_id,
+      talent_id: v.talent_id,
+      talent_user_id: (v as { talent_user_id?: string | null }).talent_user_id ?? null,
+      job_id: v.job_id,
+      status: v.status,
+    }]),
+  );
+  // Restore real workspace_id from the original contract query result
+  for (const c of contracts ?? []) {
+    const entry = contractMapForValidation.get(c.id);
+    if (entry) entry.workspace_id = (c as { workspace_id?: string | null }).workspace_id ?? null;
+  }
+
+  const jobMapForValidation = new Map(
+    [...jobMap.entries()].map(([id, j]) => [id, { id, workspace_id: j.workspace_id }]),
+  );
+
+  const validationMap = await batchValidateDisputes(
+    supabase,
+    rows.map((d) => ({
+      id: d.id,
+      contract_id: d.contract_id,
+      workspace_id: (d as { workspace_id?: string | null }).workspace_id ?? null,
+    })),
+    contractMapForValidation,
+    jobMapForValidation,
+  );
+
   const enriched: AdminDisputeRow[] = rows.map((d) => {
     const ctx = contractMap.get(d.contract_id);
     const amounts = ctx ? resolveContractAmounts(ctx) : { gross: 0, commission: 0, net: 0, commissionPct: 0 };
     const status = d.status as AdminDisputeRow["status"];
     const activeEscrow = (status === "open" || status === "under_review") && ctx?.status === "confirmed";
+    const validity = validationMap.get(d.id);
 
     return {
       id: d.id,
       contractId: d.contract_id,
       workspaceId: (d as { workspace_id?: string | null }).workspace_id ?? null,
-      jobTitle: ctx?.job_id ? (jobMap.get(ctx.job_id) ?? null) : null,
+      jobTitle: ctx?.job_id ? (jobMap.get(ctx.job_id)?.title ?? null) : null,
       talentName: ctx?.talent_user_id || ctx?.talent_id
-        ? (talentMap.get(ctx.talent_user_id ?? "") ?? talentMap.get(ctx.talent_id ?? "") ?? null)
+        ? (talentMap.get((ctx as { talent_user_id?: string | null }).talent_user_id ?? "") ?? talentMap.get(ctx.talent_id ?? "") ?? null)
         : null,
       agencyName: ctx?.agency_id ? (agencyMap.get(ctx.agency_id) ?? null) : null,
       status,
@@ -133,6 +169,9 @@ export default async function AdminDisputesPage() {
       escrowAmount: activeEscrow ? amounts.gross : 0,
       contractStatus: ctx?.status ?? null,
       urgency: urgencyFor(status, d.created_at),
+      isValid: validity?.isValid ?? true,
+      invalidReasons: validity?.invalidReasons ?? [],
+      scope: validity?.scope ?? (d as { workspace_id?: string | null }).workspace_id ? "premium" : "open_space",
     };
   });
 

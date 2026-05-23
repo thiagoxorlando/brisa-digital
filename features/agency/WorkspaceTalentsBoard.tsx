@@ -122,7 +122,7 @@ function EmptyState({
         Nenhum talento conectado ainda
       </h2>
       <p className="mx-auto mt-2 max-w-xl text-[14px] leading-7 text-zinc-500">
-        Compartilhe o link do portal ou crie uma vaga privada para convidar talentos.
+        Compartilhe o link do portal ou crie uma vaga do Espaco Premium para convidar talentos.
       </p>
       <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
         {workspaceSlug ? (
@@ -138,7 +138,7 @@ function EmptyState({
           href="/agency/post-job"
           className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-[#0E7C86] to-[#1ABC9C] px-5 py-3 text-[13px] font-semibold text-white shadow-[0_14px_28px_rgba(14,124,134,0.18)]"
         >
-          Criar vaga privada
+          Criar vaga do Espaco Premium
         </Link>
       </div>
     </div>
@@ -258,7 +258,7 @@ export default function WorkspaceTalentsBoard({ talents, workspaceSlug, brandPri
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-[13px] font-semibold shadow-[0_14px_28px_rgba(8,35,38,0.18)]"
                 style={{ color: brandPrimary }}
               >
-                Criar vaga privada
+                Criar vaga do Espaco Premium
               </Link>
             </div>
           </div>
@@ -290,7 +290,7 @@ export default function WorkspaceTalentsBoard({ talents, workspaceSlug, brandPri
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por nome, e-mail, telefone ou vaga privada"
+              placeholder="Buscar por nome, e-mail, telefone ou vaga do Espaco Premium"
               className="w-full rounded-2xl border border-[#DDE6E6] bg-white py-3 pl-11 pr-4 text-[13px] text-zinc-800 shadow-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-[#0E7C86]"
             />
           </div>
@@ -572,3 +572,4 @@ export default function WorkspaceTalentsBoard({ talents, workspaceSlug, brandPri
     </div>
   );
 }
+

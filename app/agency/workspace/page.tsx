@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { brl } from "@/lib/brl";
 import { getServerLang, getServerT } from "@/lib/i18n/server";
+import { formatJobVisibilityLabel } from "@/lib/jobVisibility";
 import { jobStatusLabel, jobStatusTone } from "@/lib/jobStatus";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { premiumSeatHighlights } from "@/lib/planSettings.shared";
@@ -274,11 +275,9 @@ function JobRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-[14px] font-semibold text-zinc-900">{job.title}</p>
-          {job.visibility === "private_invite" ? (
-            <span className="inline-flex items-center rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">
-              {t("workspace_private_job")}
-            </span>
-          ) : null}
+          <span className="inline-flex items-center rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">
+            {formatJobVisibilityLabel({ visibility: job.visibility, workspaceId: "premium" })}
+          </span>
         </div>
         <p className="mt-1 text-[12px] text-zinc-500">
           {job.creatorName

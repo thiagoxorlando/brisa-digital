@@ -138,11 +138,14 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
   if (referralToken) {
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, title, description, category, budget, deadline, agency_id, location, visibility, status, deleted_at, number_of_talents_required")
+      .select("id, title, description, category, budget, deadline, agency_id, location, visibility, status, deleted_at, number_of_talents_required, workspace_id")
       .eq("id", id)
       .maybeSingle();
 
     if (!job || job.status === "inactive") notFound();
+    if ((job as { workspace_id?: string | null }).workspace_id) {
+      return <UnavailableJobState />;
+    }
     const canApply = await getJobAvailability(supabase, {
       id: job.id,
       agency_id: job.agency_id ?? null,
@@ -282,11 +285,11 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, title, description, category, budget, job_date, job_time, agency_id, location, visibility, status, deleted_at, number_of_talents_required")
+    .select("id, title, description, category, budget, job_date, job_time, agency_id, location, visibility, status, deleted_at, number_of_talents_required, workspace_id")
     .eq("id", id)
     .maybeSingle();
 
-  if (!job || job.visibility !== "public") {
+  if (!job || job.visibility !== "public" || (job as { workspace_id?: string | null }).workspace_id) {
     return <UnavailableJobState />;
   }
 

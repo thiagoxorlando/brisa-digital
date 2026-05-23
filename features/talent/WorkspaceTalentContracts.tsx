@@ -10,6 +10,7 @@ import {
   contractStatusTone,
   resolveContractAmounts,
 } from "@/lib/contractStatus";
+import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 
 export type WorkspaceTalentContract = {
   id: string;
@@ -32,11 +33,13 @@ export type WorkspaceTalentContract = {
   contractFileUrl: string | null;
   signedContractUrl: string | null;
   isAgentJobBacked?: boolean;
+  activeDisputeId: string | null;
 };
 
 type Props = {
   contracts: WorkspaceTalentContract[];
   workspaceName: string;
+  workspaceSlug: string;
   primary: string;
   accent: string;
 };
@@ -74,6 +77,7 @@ function mapStatus(status: string) {
 export default function WorkspaceTalentContracts({
   contracts: initialContracts,
   workspaceName,
+  workspaceSlug,
   primary,
   accent,
 }: Props) {
@@ -290,6 +294,15 @@ export default function WorkspaceTalentContracts({
                         Este contrato não possui PDF anexado. Você ainda pode aceitar digitalmente.
                       </p>
                     )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <AbrirDisputaButton
+                      contractId={modalContract.id}
+                      contractStatus={modalContract.status}
+                      activeDisputeId={modalContract.activeDisputeId}
+                      activeDisputeHref={null}
+                      disputeListHref={`/talent/workspaces/${workspaceSlug}/disputes`}
+                    />
                   </div>
                 </>
               )}

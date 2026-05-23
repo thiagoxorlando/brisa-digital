@@ -99,20 +99,37 @@ export default async function WorkspaceContractsPage({ params }: Props) {
 
   const agencyName = agencyResult.data?.company_name ?? workspace.name;
 
+  const allContractIds = [...contractMap.keys()];
   const allContractJobIds = [...new Set(
     [...contractMap.values()].map((c) => c.job_id).filter((id): id is string => !!id)
   )];
+
+  const [agentCommitsResult, activeDisputesResult] = await Promise.all([
+    allContractJobIds.length
+      ? supabase
+        .from("premium_agent_wallet_transactions")
+        .select("related_job_id")
+        .in("related_job_id", allContractJobIds)
+        .eq("type", "job_commitment")
+        .eq("status", "completed")
+      : Promise.resolve({ data: [] }),
+    allContractIds.length
+      ? supabase
+        .from("contract_disputes")
+        .select("id, contract_id")
+        .in("contract_id", allContractIds)
+        .in("status", ["open", "under_review"])
+      : Promise.resolve({ data: [] }),
+  ]);
+
   const agentBackedJobIds = new Set<string>();
-  if (allContractJobIds.length) {
-    const { data: commitRows } = await supabase
-      .from("premium_agent_wallet_transactions")
-      .select("related_job_id")
-      .in("related_job_id", allContractJobIds)
-      .eq("type", "job_commitment")
-      .eq("status", "completed");
-    for (const r of commitRows ?? []) {
-      if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
-    }
+  for (const r of agentCommitsResult.data ?? []) {
+    if (r.related_job_id) agentBackedJobIds.add(String(r.related_job_id));
+  }
+
+  const activeDisputeMap = new Map<string, string>();
+  for (const d of activeDisputesResult.data ?? []) {
+    if (d.contract_id) activeDisputeMap.set(d.contract_id, d.id);
   }
 
   const contracts: WorkspaceTalentContract[] = [...contractMap.values()]
@@ -142,6 +159,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
       contractFileUrl: contract.contract_file_url ? buildContractFileAccessUrl(contract.id, "original") : null,
       signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
       isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
+      activeDisputeId: activeDisputeMap.get(contract.id) ?? null,
     }));
 
   const primary = workspace.brand_primary_color ?? "#1ABC9C";
@@ -151,6 +169,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
     <WorkspaceTalentContracts
       contracts={contracts}
       workspaceName={workspace.name}
+      workspaceSlug={workspaceSlug}
       primary={primary}
       accent={accent}
     />

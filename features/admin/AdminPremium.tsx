@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
+import { formatJobVisibilityLabel } from "@/lib/jobVisibility";
 import { jobStatusLabel, jobStatusTone } from "@/lib/jobStatus";
 import { workspaceStatusLabel, workspaceStatusTone, agentStatusLabel, agentStatusTone } from "@/lib/workspaceStatus";
 import type {
@@ -32,9 +33,9 @@ function statusBadge(s: string) {
 
 function visibilityBadge(v: string) {
   if (v === "private_invite") {
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-100">Privada</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-100">{formatJobVisibilityLabel({ visibility: v, workspaceId: "premium" })}</span>;
   }
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-500 border border-zinc-200">Pública</span>;
+  return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-500 border border-zinc-200">{formatJobVisibilityLabel({ visibility: v, workspaceId: "premium" })}</span>;
 }
 
 function jobStatusBadge(s: string) {
@@ -51,7 +52,7 @@ function SummaryCards({ summary }: { summary: AdminPremiumSummary }) {
   const cards = [
     { label: "Espaços ativos",        value: String(summary.activeWorkspaceCount), accent: "text-amber-600" },
     { label: "Agentes ativos",        value: String(summary.activeAgentCount),     accent: "text-indigo-600" },
-    { label: "Vagas privadas",        value: String(summary.privateJobCount),      accent: "text-violet-600" },
+    { label: "Vagas do portal",       value: String(summary.privateJobCount),      accent: "text-violet-600" },
     { label: "Convites pendentes",    value: String(summary.pendingInviteCount),   accent: "text-emerald-600" },
     {
       label: "Assentos usados",
@@ -128,8 +129,8 @@ function FilterBar({ filters, onChange }: { filters: Filters; onChange: (f: Filt
       </select>
       <select value={filters.privateJobs} onChange={(e) => set("privateJobs", e.target.value as Filters["privateJobs"])} className={selectCls}>
         <option value="all">Todas as vagas</option>
-        <option value="has">Com vagas privadas</option>
-        <option value="none">Sem vagas privadas</option>
+        <option value="has">Com vagas Premium</option>
+        <option value="none">Sem vagas Premium</option>
       </select>
       <select value={filters.orphan} onChange={(e) => set("orphan", e.target.value as Filters["orphan"])} className={selectCls}>
         <option value="active_only">Ativos</option>
@@ -815,3 +816,6 @@ export default function AdminPremium({ data }: { data: AdminPremiumData }) {
     </div>
   );
 }
+
+
+

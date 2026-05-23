@@ -1,4 +1,9 @@
-const PORTAL_JOB_VISIBILITY = new Set(["private_invite", "private_portal", "workspace_only"]);
+import {
+  isPremiumInviteOnlyJob,
+  isPremiumPortalVisibleJob,
+} from "@/lib/jobVisibility";
+
+const PORTAL_JOB_VISIBILITY = new Set(["private_invite", "private_portal", "workspace_only", "public"]);
 
 type SupabaseLike = {
   from: (table: string) => {
@@ -6,8 +11,28 @@ type SupabaseLike = {
   };
 };
 
-export function isWorkspacePortalJobVisibility(visibility: string | null | undefined) {
-  return visibility ? PORTAL_JOB_VISIBILITY.has(visibility) : false;
+export function isWorkspacePortalJobVisibility(
+  visibility: string | null | undefined,
+  workspaceId?: string | null,
+) {
+  if (!visibility) return false;
+  if (!workspaceId) return PORTAL_JOB_VISIBILITY.has(visibility) && visibility !== "public";
+  return isPremiumPortalVisibleJob({ visibility, workspaceId }) || isPremiumInviteOnlyJob({ visibility, workspaceId });
+}
+
+async function hasDirectJobInvite(
+  supabase: SupabaseLike,
+  jobId: string,
+  talentUserId: string,
+) {
+  const { data: invite } = await supabase
+    .from("job_invites")
+    .select("id")
+    .eq("job_id", jobId)
+    .eq("talent_id", talentUserId)
+    .maybeSingle();
+
+  return Boolean(invite);
 }
 
 export async function hasActivePremiumWorkspaceTalentMembership(
@@ -85,15 +110,20 @@ export async function hasPortalJobAccess({
     return true;
   }
 
-  if (
+  const isWorkspaceMember =
     workspaceId &&
-    await hasActivePremiumWorkspaceTalentMembership(supabase, workspaceId, talentUserId)
-  ) {
-    return true;
+    await hasActivePremiumWorkspaceTalentMembership(supabase, workspaceId, talentUserId);
+
+  if (isPremiumPortalVisibleJob({ visibility, workspaceId })) {
+    return Boolean(isWorkspaceMember);
   }
 
-  if (visibility === "private_invite") {
-    return hasValidJobInviteLink(supabase, jobId, inviteToken ?? null);
+  if (isPremiumInviteOnlyJob({ visibility, workspaceId })) {
+    const [directInvite, validLink] = await Promise.all([
+      hasDirectJobInvite(supabase, jobId, talentUserId),
+      hasValidJobInviteLink(supabase, jobId, inviteToken ?? null),
+    ]);
+    return directInvite || validLink;
   }
 
   return false;

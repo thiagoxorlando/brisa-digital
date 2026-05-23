@@ -50,6 +50,7 @@ export default async function TalentJobDetailPage({ params, searchParams }: Prop
   ]);
   const data = jobRes.data;
   const talentProfile = profileRes.data;
+  const workspaceId = (data as { workspace_id?: string | null } | null)?.workspace_id ?? null;
 
   if (!data || data.status === "inactive") return notFound();
 
@@ -83,20 +84,20 @@ export default async function TalentJobDetailPage({ params, searchParams }: Prop
     }
   }
 
-  if (data.visibility === "private_invite" || isWorkspacePortalJobVisibility(data.visibility)) {
+  if (data.visibility === "private_invite" || isWorkspacePortalJobVisibility(data.visibility, workspaceId)) {
     const hasAccess = await hasPortalJobAccess({
       supabase,
       jobId: id,
       talentUserId: user.id,
       visibility: data.visibility,
-      workspaceId: (data as { workspace_id?: string | null }).workspace_id ?? null,
+      workspaceId,
       inviteToken,
     });
 
     if (!hasAccess) return notFound();
   }
 
-  if ((data as { workspace_id?: string | null }).workspace_id) {
+  if (workspaceId) {
     const workspaceLifecycle = await resolveWorkspaceLifecycleByJobId(supabase, id);
     if (workspaceLifecycle?.workspaceSlug) {
       const inviteSuffix = inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : "";

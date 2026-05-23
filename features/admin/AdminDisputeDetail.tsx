@@ -94,6 +94,8 @@ export type AdminDisputeDetailData = {
   timeline: DisputeTimelineItem[];
   notes: DisputeNote[];
   canResolve: boolean;
+  isValid: boolean;
+  invalidReasons: string[];
 };
 
 const ACTION_LABEL: Record<ResolutionAction, string> = {
@@ -363,6 +365,20 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
               </button>
             ) : null}
           </div>
+
+          {!data.isValid && (
+            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4">
+              <p className="text-[13px] font-semibold text-red-800">Disputa inválida — resolução bloqueada</p>
+              <ul className="mt-2 list-inside list-disc space-y-1">
+                {data.invalidReasons.map((reason, i) => (
+                  <li key={i} className="text-[12px] text-red-700">{reason}</li>
+                ))}
+              </ul>
+              <p className="mt-3 text-[11px] text-red-600">
+                Corrija os vínculos de workspace/talento antes de resolver esta disputa.
+              </p>
+            </div>
+          )}
 
           {data.canResolve ? (
             <div className="mt-5 grid gap-3">

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSubscription } from "@/lib/SubscriptionContext";
+import { formatJobVisibilityDescription, formatJobVisibilityLabel } from "@/lib/jobVisibility";
 
 type AgentBudgetInfo = {
   spendingLimit: number | null;
@@ -827,10 +828,10 @@ export default function PostJobForm() {
                     </div>
                     <div>
                       <p className={["text-[13px] font-semibold", form.visibility === "public" ? "text-emerald-900" : "text-zinc-700"].join(" ")}>
-                        Pública
+                        {formatJobVisibilityLabel({ visibility: "public", workspaceId: "premium" })}
                       </p>
                       <p className={["text-[12px] mt-0.5", form.visibility === "public" ? "text-emerald-600" : "text-zinc-400"].join(" ")}>
-                        Aparece para talentos na plataforma.
+                        {formatJobVisibilityDescription({ visibility: "public", workspaceId: "premium" })}
                       </p>
                     </div>
                   </button>
@@ -852,10 +853,10 @@ export default function PostJobForm() {
                     </div>
                     <div>
                       <p className={["text-[13px] font-semibold", form.visibility === "private_invite" ? "text-violet-900" : "text-zinc-700"].join(" ")}>
-                        Privada por convite
+                        {formatJobVisibilityLabel({ visibility: "private_invite", workspaceId: "premium" })}
                       </p>
                       <p className={["text-[12px] mt-0.5", form.visibility === "private_invite" ? "text-violet-600" : "text-zinc-400"].join(" ")}>
-                        Somente talentos com o link privado podem acessar.
+                        {formatJobVisibilityDescription({ visibility: "private_invite", workspaceId: "premium" })}
                       </p>
                     </div>
                   </button>

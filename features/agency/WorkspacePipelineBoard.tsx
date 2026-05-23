@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { brl } from "@/lib/brl";
+import { formatJobVisibilityLabel } from "@/lib/jobVisibility";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
 import { initials } from "@/lib/talentDisplay";
@@ -268,11 +269,9 @@ function JobOverviewSection({
                 {job.title}
               </h1>
               <StBadge status={jobStatus} />
-              {job.visibility === "private_invite" && (
-                <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">
-                  Privada
-                </span>
-              )}
+              <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">
+                {formatJobVisibilityLabel({ visibility: job.visibility, workspaceId: job.workspaceId })}
+              </span>
               {job.inviteOnly && (
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
                   Invite-only
@@ -397,7 +396,7 @@ function JobOverviewSection({
           job.gender && job.gender !== "any" && { label: "Gênero", value: GENDER_LABEL[job.gender] ?? job.gender },
           (job.ageMin || job.ageMax) && { label: "Faixa etária", value: job.ageMin && job.ageMax ? `${job.ageMin}–${job.ageMax} anos` : job.ageMin ? `${job.ageMin}+ anos` : `até ${job.ageMax} anos` },
           job.deadline && { label: "Prazo candidaturas", value: new Date(`${job.deadline}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) },
-          { label: "Visibilidade", value: job.visibility === "private_invite" ? "Privada (convite)" : "Pública" },
+          { label: "Visibilidade", value: formatJobVisibilityLabel({ visibility: job.visibility, workspaceId: job.workspaceId }) },
         ].filter(Boolean).map((item) => {
           const it = item as { label: string; value: string };
           return (
@@ -2096,3 +2095,5 @@ function ContractModal({
     </div>
   );
 }
+
+

@@ -99,6 +99,19 @@ const talentIds = [...new Set(
   ];
   const actorNameMap = await resolveActorNames(paidByActorIds, supabase);
 
+  const allContractIds = contractsData.map((c) => c.id);
+  const activeDisputeMap = new Map<string, string>();
+  if (allContractIds.length) {
+    const { data: disputeRows } = await supabase
+      .from("contract_disputes")
+      .select("id, contract_id")
+      .in("contract_id", allContractIds)
+      .in("status", ["open", "under_review"]);
+    for (const d of disputeRows ?? []) {
+      if (d.contract_id) activeDisputeMap.set(d.contract_id, d.id);
+    }
+  }
+
   if (context.isOwner) {
     // Detect which jobs are agent-backed so the status badge and timeline
     // can reflect "Reservado pelo agente" for signed+agent-funded contracts.
@@ -152,10 +165,11 @@ const talentIds = [...new Set(
         canManualOverride: context.isOwner,
         isAgentJobBacked: contract.job_id ? ownerAgentBackedJobIds.has(String(contract.job_id)) : false,
         paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
+        activeDisputeId: activeDisputeMap.get(contract.id) ?? null,
       };
     });
 
-    return <AgencyContracts contracts={contracts} bookingsHref="/agency/workspace/bookings" showPaymentActions={false} />;
+    return <AgencyContracts contracts={contracts} bookingsHref="/agency/workspace/bookings" showPaymentActions={false} disputesHref="/agency/workspace/disputes" />;
   }
 
   // For the agent (non-owner) view, detect which jobs have an agent commitment so
@@ -204,6 +218,7 @@ const talentIds = [...new Set(
       paymentBlockReason: release.eligible ? null : "Pagamento antecipado precisa ser liberado pelo proprietário do workspace.",
       isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
       paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
+      activeDisputeId: activeDisputeMap.get(contract.id) ?? null,
     };
   });
 

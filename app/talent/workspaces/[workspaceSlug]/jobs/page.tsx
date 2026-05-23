@@ -4,12 +4,13 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { isJobOpenForApplications } from "@/lib/jobAvailability";
+import { isPremiumInviteOnlyJob, isPremiumPortalVisibleJob } from "@/lib/jobVisibility";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 import { hasActivePremiumWorkspaceTalentMembership } from "@/lib/workspacePortalJobs";
 import { isGenderEligible } from "@/lib/genderNormalization";
 import WorkspaceJobListClient, { type WorkspaceJob } from "@/features/talent/WorkspaceJobListClient";
 
-export const metadata: Metadata = { title: "Vagas privadas — BrisaHub" };
+export const metadata: Metadata = { title: "Vagas do portal Premium — BrisaHub" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 
@@ -58,7 +59,7 @@ export default async function WorkspaceJobsPage({ params }: Props) {
   const allWorkspaceJobs = isWorkspaceMember ? (jobRows ?? []) : [];
   const jobIds = allWorkspaceJobs.map((job) => job.id);
 
-  const [allContractsResult, talentContractsResult] = await Promise.all([
+  const [allContractsResult, talentContractsResult, directInvitesResult] = await Promise.all([
     jobIds.length
       ? supabase
           .from("contracts")
@@ -76,6 +77,13 @@ export default async function WorkspaceJobsPage({ params }: Props) {
           .not("status", "in", '("cancelled","rejected")')
           .is("deleted_at", null)
       : Promise.resolve({ data: [] }),
+    jobIds.length
+      ? supabase
+          .from("job_invites")
+          .select("job_id")
+          .in("job_id", jobIds)
+          .eq("talent_id", user.id)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const activeHireCountByJob = new Map<string, number>();
@@ -85,6 +93,9 @@ export default async function WorkspaceJobsPage({ params }: Props) {
   }
   const talentActiveContractJobIds = new Set(
     (talentContractsResult.data ?? []).map((row) => String(row.job_id)),
+  );
+  const invitedJobIds = new Set(
+    (directInvitesResult.data ?? []).map((row) => String(row.job_id)),
   );
 
   const { data: allWorkspaceSubmissions } = jobIds.length
@@ -107,6 +118,27 @@ export default async function WorkspaceJobsPage({ params }: Props) {
 
   const rawJobs = allWorkspaceJobs.filter((job) => {
     const appliedSubmission = submissionByJobId.get(String(job.id));
+    const portalVisible = isPremiumPortalVisibleJob({ visibility: job.visibility, workspaceId: workspace.id });
+    const inviteOnly = isPremiumInviteOnlyJob({ visibility: job.visibility, workspaceId: workspace.id });
+
+    if (inviteOnly && !invitedJobIds.has(String(job.id)) && !appliedSubmission) {
+      hiddenJobs.push({
+        jobId: String(job.id),
+        title: job.title ?? "Vaga",
+        reason: "invite_required",
+      });
+      return false;
+    }
+
+    if (!portalVisible && !inviteOnly && !appliedSubmission) {
+      hiddenJobs.push({
+        jobId: String(job.id),
+        title: job.title ?? "Vaga",
+        reason: "not_visible_in_portal",
+      });
+      return false;
+    }
+
     if (
       job.deadline &&
       !Number.isNaN(new Date(`${job.deadline}T00:00:00`).getTime()) &&
@@ -244,7 +276,7 @@ export default async function WorkspaceJobsPage({ params }: Props) {
           <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-zinc-400">
             {workspace.name as string}
           </p>
-          <h1 className="text-[1.3rem] font-bold leading-tight text-zinc-950">Vagas privadas</h1>
+          <h1 className="text-[1.3rem] font-bold leading-tight text-zinc-950">Vagas do portal Premium</h1>
         </div>
       </div>
 
@@ -269,3 +301,5 @@ export default async function WorkspaceJobsPage({ params }: Props) {
     </div>
   );
 }
+
+

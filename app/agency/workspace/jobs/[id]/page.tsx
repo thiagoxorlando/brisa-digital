@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = createServerClient({ useServiceRole: true });
   const { data } = await supabase.from("jobs").select("title").eq("id", id).single();
-  return { title: data ? `${data.title} — BrisaHub Premium` : "Vaga privada — BrisaHub" };
+  return { title: data ? `${data.title} — BrisaHub Premium` : "Vaga do Espaco Premium — BrisaHub" };
 }
 
 export default async function WorkspaceJobDetailPage({ params }: Props) {
@@ -326,3 +326,4 @@ export default async function WorkspaceJobDetailPage({ params }: Props) {
     />
   );
 }
+

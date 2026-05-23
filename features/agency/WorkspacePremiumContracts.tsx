@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { brl } from "@/lib/brl";
+import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 import {
   resolveContractAmounts,
 } from "@/lib/contractStatus";
@@ -32,6 +33,7 @@ export type PremiumContract = {
   isAgentJobBacked?: boolean;
   /** Display name of the user who released payment. NULL for legacy rows. */
   paidByName?: string | null;
+  activeDisputeId?: string | null;
 };
 
 type Props = {
@@ -290,6 +292,13 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
                   Ver contrato
                 </Link>
               )}
+              <AbrirDisputaButton
+                contractId={contract.id}
+                contractStatus={contract.status}
+                activeDisputeId={contract.activeDisputeId ?? null}
+                activeDisputeHref={null}
+                disputeListHref="/agency/workspace/disputes"
+              />
             </div>
           </div>
         </div>
