@@ -120,7 +120,7 @@ BEGIN
       SELECT 1
       FROM wallet_transactions
       WHERE type = 'escrow_lock'
-        AND status = 'completed'
+        AND (status = 'completed' OR status IS NULL)
         AND (
           reference_id = v_contract.id::text
           OR idempotency_key = 'escrow_' || v_contract.id::text
