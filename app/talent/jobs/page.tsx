@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
-import { createSessionClient } from "@/lib/supabase.server";
 import TalentJobList from "@/features/talent/TalentJobList";
+import { guardOpenSpacePage } from "@/lib/talentPortalLanding";
 
 export const metadata: Metadata = { title: "Vagas — BrisaHub" };
 
 export default async function TalentJobsPage() {
+  const userId = await guardOpenSpacePage();
   const supabase = createServerClient({ useServiceRole: true });
-  const session  = await createSessionClient();
-  const { data: { user } } = await session.auth.getUser();
 
   const [jobsResult, subsResult] = await Promise.all([
     supabase
@@ -18,13 +17,11 @@ export default async function TalentJobsPage() {
       .is("workspace_id", null)
       .not("visibility", "in", '("private","private_invite")')
       .order("created_at", { ascending: false }),
-    user
-      ? supabase
-          .from("submissions")
-          .select("job_id")
-          .eq("talent_user_id", user.id)
-          .neq("status", "rejected")
-      : Promise.resolve({ data: [] }),
+    supabase
+      .from("submissions")
+      .select("job_id")
+      .eq("talent_user_id", userId)
+      .neq("status", "rejected"),
   ]);
 
   if (jobsResult.error) console.error("[TalentJobsPage]", jobsResult.error.message);

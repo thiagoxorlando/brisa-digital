@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase";
+import { createSessionClient } from "@/lib/supabase.server";
 
 type AdminSupabaseClient = ReturnType<typeof createServerClient>;
 
@@ -15,10 +17,12 @@ export async function resolvePortalOnlyTalentLanding(
       .is("removed_at", null)
       .limit(1)
       .maybeSingle(),
+    // Query by user_id (canonical FK) with fallback to id (legacy profiles).
     supabase
       .from("talent_profiles")
       .select("marketplace_visible")
-      .eq("id", userId)
+      .or(`user_id.eq.${userId},id.eq.${userId}`)
+      .limit(1)
       .maybeSingle(),
   ]);
 
@@ -41,4 +45,22 @@ export async function resolvePortalOnlyTalentLanding(
   if (!workspace?.slug) return null;
 
   return `/talent/workspaces/${workspace.slug}`;
+}
+
+/**
+ * Call at the top of any open-space talent page (Server Component).
+ * Redirects portal-only talents to their workspace if accessed via
+ * client-side navigation (router.push), which bypasses the layout guard.
+ * Returns the userId for convenience so callers don't need a second auth call.
+ */
+export async function guardOpenSpacePage(): Promise<string> {
+  const session = await createSessionClient();
+  const { data: { user } } = await session.auth.getUser();
+  if (!user) redirect("/login");
+
+  const supabase = createServerClient({ useServiceRole: true });
+  const landing = await resolvePortalOnlyTalentLanding(supabase, user.id);
+  if (landing) redirect(landing);
+
+  return user.id;
 }

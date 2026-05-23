@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase";
-import { createSessionClient } from "@/lib/supabase.server";
 import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import TalentContracts from "@/features/talent/TalentContracts";
 import type { TalentContract, ApprovedSubmission } from "@/features/talent/TalentContracts";
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
+import { guardOpenSpacePage } from "@/lib/talentPortalLanding";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
 
 export default async function TalentContractsPage() {
-  const session = await createSessionClient();
-  const { data: { user } } = await session.auth.getUser();
+  const talentId = await guardOpenSpacePage();
 
   const supabase = createServerClient({ useServiceRole: true });
-  const talentId = user?.id ?? "";
 
   // Fetch contracts and approved submissions in parallel
   const [contractsResult, subsResult] = await Promise.all([

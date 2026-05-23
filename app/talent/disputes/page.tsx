@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@/lib/disputePolicy";
 import { brl } from "@/lib/brl";
+import { guardOpenSpacePage } from "@/lib/talentPortalLanding";
 
 export const metadata: Metadata = { title: "Disputas — BrisaHub" };
 
@@ -14,6 +15,8 @@ function fmtDate(value: string | null | undefined) {
 }
 
 export default async function TalentDisputesPage() {
+  await guardOpenSpacePage();
+
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) redirect("/login");
