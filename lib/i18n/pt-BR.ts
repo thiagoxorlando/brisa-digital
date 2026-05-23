@@ -415,7 +415,7 @@ export const ptBR: Record<string, string> = {
   workspace_summary_pending: "Pendente",
   workspace_summary_branding_ready: "Logo e identidade do espaço",
   workspace_summary_branding_missing: "Adicione logo e cores da agência",
-  workspace_summary_owner_value: "Supervisão",
+  workspace_summary_owner_value: "Controle total do workspace",
   workspace_summary_owner_hint: "Controle total da operação",
   workspace_summary_role_operation: "Operação",
   workspace_summary_agent_balance_usage: "Acesso operacional ao Espaço Premium",
