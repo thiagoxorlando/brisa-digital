@@ -23,7 +23,7 @@
   nav_premium_workspace_section: "Espaço Premium",
   nav_public_jobs: "Vagas públicas",
   nav_workspace_overview: "Visão geral",
-  nav_workspace_jobs: "Vagas privadas",
+  nav_workspace_jobs: "Vagas do portal Premium",
   nav_workspace_talents: "Talentos convidados",
   nav_workspace_agents: "Agentes",
   nav_workspace_wallet: "Carteira Premium",

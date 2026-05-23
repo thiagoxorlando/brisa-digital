@@ -29,7 +29,7 @@ export default async function WorkspaceEditJobPage({ params }: Props) {
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, title, description, category, budget, deadline, job_date, job_time, status, location, gender, age_min, age_max, number_of_talents_required, application_requirements, agency_id, workspace_id, created_by_user_id")
+    .select("id, title, description, category, budget, deadline, job_date, job_time, status, location, gender, age_min, age_max, number_of_talents_required, application_requirements, agency_id, workspace_id, created_by_user_id, visibility")
     .eq("id", id)
     .single();
 
@@ -67,6 +67,9 @@ export default async function WorkspaceEditJobPage({ params }: Props) {
         age_max: job.age_max ?? null,
         number_of_talents_required: job.number_of_talents_required ?? 1,
         application_requirements: (job as { application_requirements?: string[] }).application_requirements ?? [],
+        visibility: (job.visibility ?? "public") as "public" | "private" | "private_invite",
+        workspace_id: workspaceId,
+        detail_href: `/agency/workspace/jobs/${job.id}`,
       }}
     />
   );

@@ -166,7 +166,11 @@ BEGIN
       SELECT 1
       FROM wallet_transactions
       WHERE type = 'escrow_lock'
-        AND idempotency_key = 'escrow_' || v_contract.id::text
+        AND status = 'completed'
+        AND (
+          reference_id = v_contract.id::text
+          OR idempotency_key = 'escrow_' || v_contract.id::text
+        )
     )
     INTO v_has_wallet_escrow;
 

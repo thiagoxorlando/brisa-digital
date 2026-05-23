@@ -1,4 +1,4 @@
-type JobVisibilityValue =
+export type JobVisibilityValue =
   | "public"
   | "private"
   | "private_invite"
@@ -6,12 +6,19 @@ type JobVisibilityValue =
   | "workspace_only"
   | (string & {});
 
+export type JobDestination = "open_space" | "premium_portal" | "private_invite";
+
 type VisibilityContext = "auto" | "premium" | "open_space";
 
 type JobVisibilityInput = {
   visibility: JobVisibilityValue | null | undefined;
   workspaceId?: string | null | undefined;
   context?: VisibilityContext;
+};
+
+type JobDestinationInput = {
+  visibility: JobVisibilityValue | null | undefined;
+  workspaceId?: string | null | undefined;
 };
 
 function resolveVisibilityContext({
@@ -41,36 +48,69 @@ export function isPremiumInviteOnlyJob({
   return Boolean(workspaceId) && visibility === "private_invite";
 }
 
+export function resolveJobDestination({
+  visibility,
+  workspaceId,
+}: JobDestinationInput): JobDestination {
+  if (!workspaceId) return "open_space";
+  if (visibility === "private_invite") return "private_invite";
+  return "premium_portal";
+}
+
+export function formatJobDestinationLabel(input: JobDestinationInput) {
+  const destination = resolveJobDestination(input);
+
+  if (destination === "open_space") return "Publicar no Open Space";
+  if (destination === "premium_portal") return "Visível no portal Premium";
+  return "Privada por convite";
+}
+
+export function formatJobDestinationDescription(input: JobDestinationInput) {
+  const destination = resolveJobDestination(input);
+
+  if (destination === "open_space") {
+    return "Aparece para todos os talentos da plataforma.";
+  }
+  if (destination === "premium_portal") {
+    return "Aparece para talentos convidados/aprovados deste workspace.";
+  }
+  return "Somente talentos com convite ou link privado podem acessar.";
+}
+
+export function formatJobScopeLabel(input: JobDestinationInput) {
+  return input.workspaceId ? "Premium" : "Open Space";
+}
+
 export function formatJobVisibilityLabel(input: JobVisibilityInput) {
   const context = resolveVisibilityContext(input);
 
   if (context === "premium") {
-    if (isPremiumInviteOnlyJob(input)) return "Privada por convite";
-    if (isPremiumPortalVisibleJob(input)) return "Visivel no portal Premium";
+    return formatJobDestinationLabel({
+      visibility: input.visibility,
+      workspaceId: input.workspaceId,
+    });
   }
 
   if (input.visibility === "private_invite") return "Privada por convite";
   if (input.visibility === "private") return "Privada";
-  return "Publica";
+  return "Pública";
 }
 
 export function formatJobVisibilityDescription(input: JobVisibilityInput) {
   const context = resolveVisibilityContext(input);
 
   if (context === "premium") {
-    if (isPremiumInviteOnlyJob(input)) {
-      return "Somente talentos com convite ou link privado podem acessar.";
-    }
-    if (isPremiumPortalVisibleJob(input)) {
-      return "Aparece para talentos convidados/aprovados deste workspace.";
-    }
+    return formatJobDestinationDescription({
+      visibility: input.visibility,
+      workspaceId: input.workspaceId,
+    });
   }
 
   if (input.visibility === "private_invite") {
     return "Somente talentos com convite ou link privado podem acessar.";
   }
   if (input.visibility === "private") {
-    return "Disponivel apenas para talentos convidados.";
+    return "Disponível apenas para talentos convidados.";
   }
   return "Aparece para talentos da plataforma.";
 }

@@ -8,12 +8,7 @@
  * share the same labels and badge colours.
  */
 
-import {
-  getContractPaymentStatus,
-  contractStatusLabel,
-  contractStatusTone,
-  resolveContractAmounts,
-} from "@/lib/contractStatus";
+import { getContractComputedState } from "@/lib/contractState";
 import { getWorkspaceMembers } from "@/lib/premiumWorkspace.server";
 import { createServerClient } from "@/lib/supabase";
 import { resolveEscrowTxType } from "./contractLifecycle";
@@ -270,20 +265,24 @@ export async function buildWorkspaceLedgerRows(
   const contractRawStatusMap = new Map<string, string>();
 
   for (const contract of (contractsResult.data ?? []) as (WorkspaceLedgerContractRow & { job_id: string | null })[]) {
-    const paymentStatus = getContractPaymentStatus(contract);
-    const { gross, commission, net } = resolveContractAmounts(contract);
+    const state = getContractComputedState(
+      { status: contract.status, paid_at: contract.paid_at as string | null,
+        payment_amount: contract.payment_amount, commission_amount: contract.commission_amount,
+        net_amount: contract.net_amount, workspace_id: "ws" },
+      { viewerRole: "agency" },
+    );
     const paidToTalent =
       payoutMap.get(String(contract.id))
       ?? (contract.net_amount != null ? Number(contract.net_amount) : null)
-      ?? Math.max(0, gross - commission);
+      ?? Math.max(0, state.grossAmount - state.commissionAmount);
 
     contractMap.set(String(contract.id), {
       id:         String(contract.id),
-      label:      contractStatusLabel(paymentStatus, statusLang),
-      tone:       contractStatusTone(paymentStatus),
-      gross,
-      commission,
-      net:        paidToTalent ?? net,
+      label:      state.displayBadge,
+      tone:       state.displayTone,
+      gross:      state.grossAmount,
+      commission: state.commissionAmount,
+      net:        paidToTalent ?? state.netAmount,
       paidAt:     (contract.paid_at as string | null) ?? null,
     });
 

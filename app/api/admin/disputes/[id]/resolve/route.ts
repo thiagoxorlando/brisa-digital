@@ -20,11 +20,28 @@ function toAmount(value: unknown) {
 }
 
 function resultRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
 function errorStatus(errorCode: string) {
   if (["dispute_not_found", "contract_not_found"].includes(errorCode)) return 404;
+  if (
+    [
+      "invalid_escrow_amount",
+      "invalid_split_amount",
+      "split_requires_amount",
+      "admin_note_required",
+      "invalid_note_visibility",
+      "missing_required_argument",
+      "invalid_action",
+      "talent_not_found",
+      "agency_not_found",
+      "talent_profile_not_found",
+      "agency_profile_not_found",
+    ].includes(errorCode)
+  ) {
+    return 422;
+  }
   if (
     [
       "dispute_not_open",
@@ -46,6 +63,99 @@ function templateForAction(action: ResolutionAction): NotificationKey {
   return "dispute_closed";
 }
 
+function joinReasons(reasons: string[]) {
+  return reasons.map((reason) => reason.trim()).filter(Boolean).join(" | ");
+}
+
+function integrityMessage(reasons: string[]) {
+  const text = joinReasons(reasons).toLowerCase();
+  if (text.includes("talento") && text.includes("workspace")) {
+    return "Disputa invalida: talento nao pertence ao workspace.";
+  }
+  if (text.includes("workspace_id mismatch")) {
+    return "Disputa invalida: workspace do contrato e da disputa nao conferem.";
+  }
+  if (text.includes("contrato")) {
+    return "Disputa invalida: contrato nao encontrado ou inconsistente.";
+  }
+  return "Disputa invalida: revise os vinculos antes de resolver.";
+}
+
+function resolutionErrorMessage(errorCode: string, details: Record<string, unknown>) {
+  switch (errorCode) {
+    case "dispute_not_open":
+      return "Esta disputa ja foi resolvida.";
+    case "contract_not_confirmed":
+      return "Contrato nao esta em custodia para esta resolucao.";
+    case "escrow_not_found":
+      return "Custodia nao encontrada para este contrato.";
+    case "invalid_escrow_amount":
+      return "Contrato sem saldo em custodia.";
+    case "payout_already_exists":
+      return "Este contrato ja possui pagamento registrado.";
+    case "refund_already_exists":
+      return "Este contrato ja possui reembolso registrado.";
+    case "split_exceeds_escrow":
+      return `A divisao excede a custodia disponivel (${brl(toAmount(details.escrow_amount))}).`;
+    case "invalid_split_amount":
+      return "Valores da divisao invalidos.";
+    case "split_requires_amount":
+      return "Informe ao menos um valor para a divisao.";
+    case "talent_not_found":
+    case "talent_profile_not_found":
+      return "Talento vinculado ao contrato nao foi encontrado.";
+    case "agency_not_found":
+    case "agency_profile_not_found":
+      return "Agencia vinculada ao contrato nao foi encontrada.";
+    case "admin_note_required":
+      return "Nota administrativa obrigatoria para resolver a disputa.";
+    case "invalid_note_visibility":
+      return "Visibilidade da nota invalida.";
+    case "contract_not_found":
+      return "Contrato da disputa nao foi encontrado.";
+    case "dispute_not_found":
+      return "Disputa nao encontrada.";
+    default:
+      return typeof details.error === "string" ? details.error : "Nao foi possivel resolver a disputa.";
+  }
+}
+
+function rpcFailureMessage(rpcError: {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+}) {
+  const rawParts = [rpcError.message, rpcError.details, rpcError.hint].filter(Boolean);
+  const rawMessage = rawParts.join(" | ");
+  const lowered = rawMessage.toLowerCase();
+
+  if (lowered.includes("paid_by_user_id")) {
+    return {
+      error: "A migracao contracts.paid_by_user_id ainda nao foi aplicada.",
+      adminMessage: "Execute supabase/manual/20260522_run_before_deploy.sql antes de resolver disputas.",
+      errorCode: "schema_missing_paid_by_user_id",
+      rawError: rawMessage,
+    };
+  }
+
+  if (lowered.includes("resolve_contract_dispute") && lowered.includes("does not exist")) {
+    return {
+      error: "A RPC de resolucao de disputa nao esta instalada no banco.",
+      adminMessage: "Execute supabase/manual/20260522_run_before_deploy.sql para criar resolve_contract_dispute().",
+      errorCode: "rpc_missing_resolve_contract_dispute",
+      rawError: rawMessage,
+    };
+  }
+
+  return {
+    error: "Falha interna ao resolver a disputa.",
+    adminMessage: rawMessage || "Sem detalhes retornados pelo banco.",
+    errorCode: "rpc_resolution_failed",
+    rawError: rawMessage,
+  };
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -54,7 +164,7 @@ export async function POST(
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;
-  const body = await req.json().catch(() => ({})) as {
+  const body = (await req.json().catch(() => ({}))) as {
     action?: ResolutionAction;
     note?: string;
     talentAmount?: number | string;
@@ -91,7 +201,6 @@ export async function POST(
     .eq("id", before.contract_id)
     .maybeSingle();
 
-  // Integrity gate — refuse to resolve disputes with broken relationships.
   const integrity = await validateSingleDispute(supabase, {
     id,
     contract_id: before.contract_id,
@@ -100,7 +209,8 @@ export async function POST(
   if (!integrity.isValid) {
     return NextResponse.json(
       {
-        error: "Disputa com relacionamentos inválidos — corrija os vínculos antes de resolver.",
+        error: integrityMessage(integrity.invalidReasons),
+        adminMessage: joinReasons(integrity.invalidReasons),
         invalidReasons: integrity.invalidReasons,
       },
       { status: 422 },
@@ -120,16 +230,27 @@ export async function POST(
   if (rpcError) {
     console.error("[admin/dispute-resolve] rpc failed", {
       disputeId: id,
+      contractId: before.contract_id,
       action,
+      code: rpcError.code,
       message: rpcError.message,
+      details: rpcError.details,
+      hint: rpcError.hint,
     });
-    return NextResponse.json({ error: "Could not resolve dispute." }, { status: 500 });
+    return NextResponse.json(rpcFailureMessage(rpcError), { status: 500 });
   }
 
   const resolved = resultRecord(result);
   if (resolved.ok !== true) {
     const code = String(resolved.error ?? "resolution_failed");
-    return NextResponse.json({ error: code, details: resolved }, { status: errorStatus(code) });
+    return NextResponse.json(
+      {
+        error: resolutionErrorMessage(code, resolved),
+        errorCode: code,
+        details: resolved,
+      },
+      { status: errorStatus(code) },
+    );
   }
 
   let workspaceOwnerId: string | null = null;

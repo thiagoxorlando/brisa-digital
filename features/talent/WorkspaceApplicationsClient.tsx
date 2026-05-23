@@ -3,13 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { brl } from "@/lib/brl";
-import {
-  contractStatusLabel,
-  contractStatusTone,
-  type ContractPaymentStatus,
-} from "@/lib/contractStatus";
+import { type ContractPaymentStatus } from "@/lib/contractStatus";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
-import { getPremiumContractLifecycle, talentFacingLabel, talentFacingTone } from "@/lib/premiumContractLifecycle";
+import { getContractComputedState } from "@/lib/contractState";
 
 export type WorkspaceApplicationItem = {
   id: string;
@@ -43,33 +39,19 @@ type Props = {
 /**
  * Derive the display status label and tone for a reservation card.
  * Contract lifecycle overrides application status when a contract exists.
- * For agent-backed jobs, signed/confirmed contracts show "Em custódia" (talent-facing).
  */
 function resolveDisplayStatus(
   item: WorkspaceApplicationItem,
   statusLang: "en" | "pt-BR",
 ): { label: string; tone: string } {
-  if (item.contractPaymentStatus) {
-    // If we have agent-backed context and a raw contract status, use the lifecycle helper
-    // to produce the correct talent-facing label (agent_reserved → "Em custódia").
-    if (item.isAgentJobBacked && item.contractRawStatus) {
-      const lifecycle = getPremiumContractLifecycle(
-        { status: item.contractRawStatus },
-        true,
-      );
-      return {
-        label: talentFacingLabel(lifecycle.status),
-        tone: talentFacingTone(lifecycle.status),
-      };
-    }
-    return {
-      label: contractStatusLabel(item.contractPaymentStatus, statusLang),
-      tone: contractStatusTone(item.contractPaymentStatus),
-    };
+  if (item.contractRawStatus) {
+    const state = getContractComputedState(
+      { status: item.contractRawStatus, workspace_id: "ws" },
+      { isAgentJobBacked: item.isAgentJobBacked ?? false, viewerRole: "talent" },
+    );
+    return { label: state.displayBadge, tone: state.displayTone };
   }
-  // Map submission statuses to more user-friendly labels when no contract exists
   const rawStatus = item.submissionStatus;
-  // "in_review" maps to "Em análise" which is friendlier for the talent
   if (rawStatus === "in_review") {
     const label = statusLang === "en" ? "In review" : "Em análise";
     return { label, tone: "bg-amber-50 text-amber-700 ring-1 ring-amber-100" };

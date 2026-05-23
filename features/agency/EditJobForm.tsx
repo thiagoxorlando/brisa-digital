@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSubscription } from "@/lib/SubscriptionContext";
+import {
+  formatJobDestinationDescription,
+  formatJobDestinationLabel,
+  formatJobScopeLabel,
+} from "@/lib/jobVisibility";
 import ApplicationRequirementsInput from "@/features/agency/ApplicationRequirementsInput";
 
 export type EditableJob = {
@@ -22,6 +27,9 @@ export type EditableJob = {
   age_max: number | null;
   number_of_talents_required: number;
   application_requirements: string[];
+  visibility: "public" | "private" | "private_invite";
+  workspace_id: string | null;
+  detail_href: string;
 };
 
 const CATEGORIES = [
@@ -96,7 +104,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
 
     if (res.ok) {
       setSaved(true);
-      setTimeout(() => router.push(`/agency/jobs/${job.id}`), 1000);
+      setTimeout(() => router.push(job.detail_href), 1000);
     } else {
       const d = await res.json();
       setError(d.error ?? "Falha ao salvar alterações.");
@@ -111,7 +119,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
       {/* Header */}
       <div>
         <Link
-          href={`/agency/jobs/${job.id}`}
+          href={job.detail_href}
           className="inline-flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-zinc-700 transition-colors mb-4"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,6 +132,19 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
           {allEditable
             ? "Todos os campos podem ser editados."
             : "Esta vaga está ativa — apenas o prazo pode ser alterado."}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-4">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Destino da vaga</p>
+        <p className="mt-2 text-[14px] font-semibold text-zinc-900">
+          {formatJobDestinationLabel({ visibility: job.visibility, workspaceId: job.workspace_id })}
+        </p>
+        <p className="mt-1 text-[12px] text-zinc-500">
+          {formatJobDestinationDescription({ visibility: job.visibility, workspaceId: job.workspace_id })}
+        </p>
+        <p className="mt-3 text-[12px] text-zinc-600">
+          Escopo atual: <strong>{formatJobScopeLabel({ visibility: job.visibility, workspaceId: job.workspace_id })}</strong>. O destino nao pode ser alterado apos a criacao.
         </p>
       </div>
 
@@ -323,7 +344,7 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <Link
-            href={`/agency/jobs/${job.id}`}
+            href={job.detail_href}
             className="flex-1 py-3 text-[14px] font-medium text-center border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"
           >
             Cancelar
@@ -340,4 +361,3 @@ export default function EditJobForm({ job }: { job: EditableJob }) {
     </div>
   );
 }
-

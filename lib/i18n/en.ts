@@ -768,7 +768,7 @@ export const en: Record<string, string> = {
   nav_premium_workspace_section: "Premium Workspace",
   nav_public_jobs: "Public jobs",
   nav_workspace_overview: "Overview",
-  nav_workspace_jobs: "Private jobs",
+  nav_workspace_jobs: "Premium portal jobs",
   nav_workspace_talents: "Invited talents",
   nav_workspace_agents: "Agents",
   nav_workspace_wallet: "Premium wallet",

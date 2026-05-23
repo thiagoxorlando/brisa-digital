@@ -5,6 +5,7 @@ import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import AgencyContracts from "@/features/agency/AgencyContracts";
 import type { AgencyContract } from "@/features/agency/AgencyContracts";
 import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
+import { batchGetActiveDisputes } from "@/lib/contractState.server";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
 
@@ -50,17 +51,7 @@ export default async function AgencyContractsPage() {
     .filter((c) => !c.job_id || jobMap.has(c.job_id))
     .map((c) => c.id);
 
-  const activeDisputeMap = new Map<string, string>();
-  if (openSpaceContractIds.length) {
-    const { data: disputeRows } = await supabase
-      .from("contract_disputes")
-      .select("id, contract_id")
-      .in("contract_id", openSpaceContractIds)
-      .in("status", ["open", "under_review"]);
-    for (const d of disputeRows ?? []) {
-      if (d.contract_id) activeDisputeMap.set(d.contract_id, d.id);
-    }
-  }
+  const activeDisputeMap = await batchGetActiveDisputes(openSpaceContractIds);
 
   const contracts: AgencyContract[] = contracts_data
     .filter((c) => !c.job_id || jobMap.has(c.job_id))
@@ -95,7 +86,7 @@ export default async function AgencyContractsPage() {
     paymentBlockReason:    release.eligible ? null : (c.job_date ? "Pagamento disponível após a data da vaga." : null),
     // Open Space: the agency IS the owner, so they can manually override.
     canManualOverride:     true,
-    activeDisputeId:       activeDisputeMap.get(c.id) ?? null,
+    activeDisputeId:       activeDisputeMap.get(c.id)?.id ?? null,
   });
   });
 

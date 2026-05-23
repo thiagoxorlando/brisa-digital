@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     status,
     number_of_talents_required,
     auto_invite,
+    destination: rawDestination,
     visibility: rawVisibility,
     application_requirements,
   } = body;
@@ -93,7 +94,16 @@ export async function POST(req: NextRequest) {
   }
 
   const workspaceOwnerUserId = workspaceAccess?.workspace.ownerUserId ?? actorUserId;
-  const canUsePrivateInvite = !!workspaceId;
+  const membershipRole = workspaceAccess?.membership.role ?? null;
+  const requestedDestination =
+    rawDestination === "open_space" || rawDestination === "premium_portal" || rawDestination === "private_invite"
+      ? rawDestination
+      : workspaceId
+        ? rawVisibility === "private_invite"
+          ? "private_invite"
+          : "premium_portal"
+        : "open_space";
+  const targetWorkspaceId = requestedDestination === "open_space" ? null : workspaceId;
 
   const { data: agency, error: agencyError } = await supabase
     .from("agencies")
@@ -122,15 +132,22 @@ export async function POST(req: NextRequest) {
   );
   if (hiresLimited) return hiresLimited;
 
-  if (rawVisibility === "private_invite" && !canUsePrivateInvite) {
+  if (requestedDestination === "open_space" && workspaceId && membershipRole !== "owner") {
     return NextResponse.json(
-      { error: "Vagas privadas estão disponíveis apenas no Premium." },
+      { error: "Somente o proprietario do workspace pode publicar no Open Space." },
       { status: 403 }
     );
   }
 
-  if (isWorkspaceMember && workspaceAccess?.membership.role === "agent" && workspaceId) {
-    const ledger = await getAgentLedgerBalance(workspaceId, actorUserId);
+  if ((requestedDestination === "premium_portal" || requestedDestination === "private_invite") && !workspaceId) {
+    return NextResponse.json(
+      { error: "Vagas do portal Premium estao disponiveis apenas no Premium." },
+      { status: 403 }
+    );
+  }
+
+  if (isWorkspaceMember && workspaceAccess?.membership.role === "agent" && targetWorkspaceId) {
+    const ledger = await getAgentLedgerBalance(targetWorkspaceId, actorUserId);
     // Policy 3: canonical reservation formula lives in lib/jobReservationPolicy.ts.
     const jobEstimate = calculateJobReservation(
       Number(budget ?? 0),
@@ -144,19 +161,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let visibility: "public" | "private" | "private_invite" = "public";
-  if (workspaceId && (rawVisibility === "private" || rawVisibility === "private_invite")) {
-    visibility = "private_invite";
-  } else if (!workspaceId && isPremiumPlan && rawVisibility === "private") {
-    visibility = "private";
-  }
+  const visibility: "public" | "private" | "private_invite" =
+    requestedDestination === "private_invite" ? "private_invite" : "public";
 
   console.log("[plan] create_job", {
     agencyId: workspaceOwnerUserId,
     actorUserId,
     plan: planInfo.plan,
+    destination: requestedDestination,
     visibility,
-    workspaceId,
+    workspaceId: targetWorkspaceId,
     maxActiveJobs: planInfo.maxActiveJobs,
   });
 
@@ -179,8 +193,8 @@ export async function POST(req: NextRequest) {
     status: status ?? "open",
   };
 
-  if (workspaceId) {
-    baseInsert.workspace_id = workspaceId;
+  if (targetWorkspaceId) {
+    baseInsert.workspace_id = targetWorkspaceId;
     baseInsert.created_by_user_id = actorUserId;
     baseInsert.invite_only = visibility === "private_invite";
   }
@@ -204,7 +218,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Record internal allocation commitment for agent-created workspace jobs
-  if (isWorkspaceMember && workspaceAccess?.membership.role === "agent" && workspaceId && data?.id) {
+  if (isWorkspaceMember && workspaceAccess?.membership.role === "agent" && targetWorkspaceId && data?.id) {
     // Policy 3: same canonical formula as the ledger-balance pre-check above.
     const jobEstimate = calculateJobReservation(
       Number(budget ?? 0),
@@ -233,7 +247,7 @@ export async function POST(req: NextRequest) {
       data.id,
       workspaceOwnerUserId,
       5,
-      visibility === "private" || visibility === "private_invite"
+      visibility === "private_invite"
     );
     const toInvite = suggestions.filter((suggestion) => !suggestion.is_unavailable);
 
@@ -269,7 +283,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (isPublished && visibility === "public" && !workspaceId) {
+  if (isPublished && visibility === "public" && !targetWorkspaceId) {
     let talentIds: string[] = [];
 
     if (job_date) {
@@ -306,3 +320,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ job: data }, { status: 201 });
 }
+

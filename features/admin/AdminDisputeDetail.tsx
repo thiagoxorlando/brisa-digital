@@ -13,6 +13,11 @@ import { ledgerEntryLabel, ledgerEntryTone } from "@/lib/readModels/agencyLedger
 
 type ResolutionAction = "release" | "refund" | "split" | "close";
 
+type AdminUiError = {
+  message: string;
+  detail: string | null;
+};
+
 export type DisputeTimelineItem = {
   id: string;
   label: string;
@@ -161,13 +166,31 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
   const [talentAmount, setTalentAmount] = useState("");
   const [agencyRefundAmount, setAgencyRefundAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AdminUiError | null>(null);
   const [newNote, setNewNote] = useState("");
   const [newNoteVisibility, setNewNoteVisibility] = useState<"internal" | "public">("internal");
 
   const contract = data.contract;
   const splitTotal = parseBRL(talentAmount) + parseBRL(agencyRefundAmount);
   const splitExceeds = contract ? splitTotal > contract.escrowAmount : false;
+
+  function errorDetailFromPayload(payload: Record<string, unknown>) {
+    if (typeof payload.adminMessage === "string" && payload.adminMessage.trim()) return payload.adminMessage.trim();
+    if (typeof payload.rawError === "string" && payload.rawError.trim()) return payload.rawError.trim();
+    if (Array.isArray(payload.invalidReasons) && payload.invalidReasons.length > 0) {
+      return payload.invalidReasons.map((reason) => String(reason)).join(" | ");
+    }
+    if (payload.details && typeof payload.details === "object") {
+      const details = payload.details as Record<string, unknown>;
+      const code = typeof payload.errorCode === "string" ? `Codigo: ${payload.errorCode}` : null;
+      const status = typeof details.status === "string" ? `Status atual: ${details.status}` : null;
+      const escrow = Number.isFinite(Number(details.escrow_amount))
+        ? `Custodia esperada: ${brl(Number(details.escrow_amount))}`
+        : null;
+      return [code, status, escrow].filter(Boolean).join(" | ") || null;
+    }
+    return null;
+  }
 
   async function submitResolution() {
     if (!pendingAction) return;
@@ -186,9 +209,12 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
       }),
     });
 
-    const payload = await res.json().catch(() => ({}));
+    const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
     if (!res.ok) {
-      setError(String(payload.error ?? "Nao foi possivel resolver a disputa."));
+      setError({
+        message: String(payload.error ?? "Nao foi possivel resolver a disputa."),
+        detail: errorDetailFromPayload(payload),
+      });
       setSubmitting(false);
       return;
     }
@@ -209,8 +235,13 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "under_review", note: "Disputa assumida para analise admin." }),
     });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) setError(String(payload.error ?? "Nao foi possivel atualizar o status."));
+    const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (!res.ok) {
+      setError({
+        message: String(payload.error ?? "Nao foi possivel atualizar o status."),
+        detail: errorDetailFromPayload(payload),
+      });
+    }
     setSubmitting(false);
     router.refresh();
   }
@@ -224,9 +255,12 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: newNote, visibility: newNoteVisibility }),
     });
-    const payload = await res.json().catch(() => ({}));
+    const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
     if (!res.ok) {
-      setError(String(payload.error ?? "Nao foi possivel adicionar a nota."));
+      setError({
+        message: String(payload.error ?? "Nao foi possivel adicionar a nota."),
+        detail: errorDetailFromPayload(payload),
+      });
     } else {
       setNewNote("");
       router.refresh();
@@ -266,8 +300,9 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
       </div>
 
       {error ? (
-        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
-          {error}
+        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-[13px] text-red-700">
+          <p className="font-medium">{error.message}</p>
+          {error.detail ? <p className="mt-1 text-[12px] text-red-600">{error.detail}</p> : null}
         </div>
       ) : null}
 

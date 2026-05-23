@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { brl } from "@/lib/brl";
-import { formatJobVisibilityDescription, formatJobVisibilityLabel } from "@/lib/jobVisibility";
+import {
+  formatJobDestinationDescription,
+  formatJobDestinationLabel,
+} from "@/lib/jobVisibility";
 import ApplicationRequirementsInput from "@/features/agency/ApplicationRequirementsInput";
 
 const CATEGORIES = [
@@ -42,8 +45,8 @@ export default function WorkspaceCreateJobForm({
   const [gender,          setGender]          = useState("any");
   const [ageMin,          setAgeMin]          = useState("");
   const [ageMax,          setAgeMax]          = useState("");
-  const [visibility,        setVisibility]        = useState<"private_invite" | "public">("private_invite");
-  const [appRequirements,   setAppRequirements]   = useState<string[]>([]);
+  const [destination,     setDestination]     = useState<"open_space" | "premium_portal" | "private_invite">("premium_portal");
+  const [appRequirements, setAppRequirements] = useState<string[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
@@ -77,7 +80,7 @@ export default function WorkspaceCreateJobForm({
       age_min:                   ageMin   ? Number(ageMin)  : null,
       age_max:                   ageMax   ? Number(ageMax)  : null,
       number_of_talents_required: talentsNum,
-      visibility:                isOwner ? visibility : "private_invite",
+      destination:               isOwner ? destination : "private_invite",
       status:                    "open",
       auto_invite:               false,
       application_requirements:  appRequirements,
@@ -92,9 +95,16 @@ export default function WorkspaceCreateJobForm({
     setSaving(false);
 
     if (res.ok) {
-      const data = await res.json() as { job?: { id?: string } };
+      const data = await res.json() as { job?: { id?: string; workspace_id?: string | null } };
       const jobId = data.job?.id;
-      router.push(jobId ? `/agency/workspace/jobs/${jobId}` : "/agency/workspace/jobs");
+      const workspaceId = data.job?.workspace_id ?? null;
+      router.push(
+        jobId
+          ? workspaceId
+            ? `/agency/workspace/jobs/${jobId}`
+            : `/agency/jobs/${jobId}`
+          : "/agency/workspace/jobs"
+      );
     } else {
       const data = await res.json().catch(() => ({})) as { error?: string };
       setError(data.error ?? "Falha ao criar vaga.");
@@ -116,10 +126,10 @@ export default function WorkspaceCreateJobForm({
           Vagas do workspace
         </Link>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">
-          Criar vaga do Espaco Premium
+          Criar vaga a partir do workspace
         </h1>
         <p className="text-[13px] text-zinc-400 mt-1">
-          A vaga será vinculada ao workspace e {isOwner ? "visível para a equipe." : "criada com o seu saldo alocado."}
+          {isOwner ? "Escolha se a vaga sera publicada no Open Space ou dentro do portal Premium." : "A vaga sera criada dentro do portal Premium com o seu saldo alocado."}
         </p>
       </div>
 
@@ -337,38 +347,43 @@ export default function WorkspaceCreateJobForm({
           onChange={setAppRequirements}
         />
 
-        {/* Visibility — owners can choose; agents are locked to private_invite */}
+        {/* Destination selection */}
         {isOwner ? (
           <div>
-            <label className={labelCls}>Visibilidade</label>
-            <div className="grid grid-cols-2 gap-3">
+            <label className={labelCls}>Destino da vaga</label>
+            <div className="grid gap-3">
               {[
                 {
-                  value: "private_invite",
-                  label: formatJobVisibilityLabel({ visibility: "private_invite", workspaceId: "premium" }),
-                  desc: formatJobVisibilityDescription({ visibility: "private_invite", workspaceId: "premium" }),
+                  value: "open_space",
+                  label: formatJobDestinationLabel({ visibility: "public", workspaceId: null }),
+                  desc: formatJobDestinationDescription({ visibility: "public", workspaceId: null }),
                 },
                 {
-                  value: "public",
-                  label: formatJobVisibilityLabel({ visibility: "public", workspaceId: "premium" }),
-                  desc: formatJobVisibilityDescription({ visibility: "public", workspaceId: "premium" }),
+                  value: "premium_portal",
+                  label: formatJobDestinationLabel({ visibility: "public", workspaceId: "premium" }),
+                  desc: formatJobDestinationDescription({ visibility: "public", workspaceId: "premium" }),
+                },
+                {
+                  value: "private_invite",
+                  label: formatJobDestinationLabel({ visibility: "private_invite", workspaceId: "premium" }),
+                  desc: formatJobDestinationDescription({ visibility: "private_invite", workspaceId: "premium" }),
                 },
               ].map((opt) => (
                 <label
                   key={opt.value}
                   className={[
                     "flex flex-col gap-1 rounded-xl border px-4 py-3 cursor-pointer transition-colors",
-                    visibility === opt.value
+                    destination === opt.value
                       ? "border-[#1ABC9C] bg-[#1ABC9C]/5 ring-1 ring-[#1ABC9C]"
                       : "border-zinc-200 hover:border-zinc-300",
                   ].join(" ")}
                 >
                   <input
                     type="radio"
-                    name="visibility"
+                    name="destination"
                     value={opt.value}
-                    checked={visibility === (opt.value as "private_invite" | "public")}
-                    onChange={() => setVisibility(opt.value as "private_invite" | "public")}
+                    checked={destination === (opt.value as "open_space" | "premium_portal" | "private_invite")}
+                    onChange={() => setDestination(opt.value as "open_space" | "premium_portal" | "private_invite")}
                     className="sr-only"
                   />
                   <span className="text-[13px] font-semibold text-zinc-900">{opt.label}</span>
@@ -383,7 +398,7 @@ export default function WorkspaceCreateJobForm({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
-            <span>Vagas criadas por agentes são sempre <strong>privadas por convite</strong>.</span>
+            <span>Agentes convidados publicam apenas no Premium como <strong>Privada por convite</strong>.</span>
           </div>
         )}
 
@@ -406,11 +421,12 @@ export default function WorkspaceCreateJobForm({
             disabled={saving || exceedsBalance}
             className="flex-1 py-3 text-[14px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {saving ? "Criando vaga…" : "Criar vaga do Espaco Premium"}
+            {saving ? "Criando vaga…" : "Criar vaga"}
           </button>
         </div>
       </form>
     </div>
   );
 }
+
 

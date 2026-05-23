@@ -1,12 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { brl } from "@/lib/brl";
-import {
-  contractStatusLabel,
-  contractStatusTone,
-  getContractPaymentStatus,
-  resolveContractAmounts,
-} from "@/lib/contractStatus";
+import { resolveContractAmounts } from "@/lib/contractStatus";
+import { getContractComputedState } from "@/lib/contractState";
 import { getServerLang, getServerT } from "@/lib/i18n/server";
 import { isPremiumInviteOnlyJob, isPremiumPortalVisibleJob } from "@/lib/jobVisibility";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
@@ -374,10 +370,14 @@ export default async function TalentWorkspaceDashboard({ params }: Props) {
           />
           <div className="divide-y divide-zinc-50 overflow-hidden rounded-[22px] border border-zinc-200 bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)]">
             {contracts.slice(0, 4).map((contract) => {
-              const paymentStatus = getContractPaymentStatus(contract as Parameters<typeof getContractPaymentStatus>[0]);
-              const label = contractStatusLabel(paymentStatus, statusLang);
-              const tone = contractStatusTone(paymentStatus);
-              const { net } = resolveContractAmounts(contract as Parameters<typeof resolveContractAmounts>[0]);
+              const state = getContractComputedState(
+                { status: contract.status ?? "sent", paid_at: contract.paid_at, workspace_id: workspace.id,
+                  payment_amount: contract.payment_amount, commission_amount: contract.commission_amount,
+                  net_amount: contract.net_amount },
+              );
+              const label = state.displayBadge;
+              const tone = state.displayTone;
+              const net = state.netAmount;
 
               return (
                 <div key={contract.id} className="flex items-center justify-between gap-3 px-5 py-3.5">

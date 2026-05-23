@@ -5,12 +5,7 @@ import WorkspaceTalentsBoard, {
 } from "@/features/agency/WorkspaceTalentsBoard";
 import { createServerClient } from "@/lib/supabase";
 import { brl } from "@/lib/brl";
-import {
-  contractStatusLabel,
-  contractStatusTone,
-  getContractPaymentStatus,
-  resolveContractAmounts,
-} from "@/lib/contractStatus";
+import { getContractComputedState } from "@/lib/contractState";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 
 export const metadata: Metadata = { title: "Talentos convidados - BrisaHub" };
@@ -256,20 +251,24 @@ export default async function WorkspaceTalentsPage() {
     const talentUserId = contract.talent_user_id ?? contract.talent_id;
     if (!talentUserId) continue;
     const userId = String(talentUserId);
-    const paymentStatus = getContractPaymentStatus(contract);
-    const { gross, commission, net } = resolveContractAmounts(contract);
+    const state = getContractComputedState(
+      { status: contract.status, paid_at: contract.paid_at as string | null,
+        payment_amount: contract.payment_amount, commission_amount: contract.commission_amount,
+        net_amount: contract.net_amount, workspace_id: "ws" },
+      { viewerRole: "agency" },
+    );
     const paidToTalent =
       payoutMap.get(String(contract.id))
       ?? (contract.net_amount != null ? Number(contract.net_amount) : null)
-      ?? Math.max(0, gross - commission);
+      ?? Math.max(0, state.grossAmount - state.commissionAmount);
 
     const item: WorkspaceTalentContractHistory = {
       id: String(contract.id),
       jobTitle: jobTitleMap.get(String(contract.job_id)) ?? "Vaga privada",
-      statusLabel: contractStatusLabel(paymentStatus),
-      statusTone: contractStatusTone(paymentStatus),
-      grossLabel: brl(gross),
-      netLabel: brl(paidToTalent ?? net),
+      statusLabel: state.displayBadge,
+      statusTone: state.displayTone,
+      grossLabel: brl(state.grossAmount),
+      netLabel: brl(paidToTalent ?? state.netAmount),
       paidAt: (contract.paid_at as string | null) ?? null,
       createdAt: String(contract.created_at ?? ""),
     };

@@ -9,6 +9,7 @@ import { useSubscription } from "@/lib/SubscriptionContext";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
 import { brl } from "@/lib/brl";
+import { formatJobScopeLabel, formatJobVisibilityLabel } from "@/lib/jobVisibility";
 import { jobStatusTone } from "@/lib/jobStatus";
 import { statusInfo, normaliseStatus } from "@/lib/bookingStatus";
 import { submissionStatusTone } from "@/lib/submissionStatus";
@@ -1264,14 +1265,15 @@ export default function JobDetail({
               <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full ${jobStatusTone(currentStatus)}`}>
                 {{ open: "Aberta", closed: "Fechada", draft: "Rascunho", inactive: "Inativa", paused: "Pausada" }[currentStatus] ?? currentStatus}
               </span>
-              {(job.visibility === "private" || job.visibility === "private_invite") && (
-                <span className="inline-flex items-center gap-1 text-[12px] font-medium bg-violet-50 text-violet-600 border border-violet-100 px-2.5 py-1 rounded-full">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  {job.visibility === "private_invite" ? "Privada por convite" : "Privada"}
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1 text-[12px] font-medium bg-violet-50 text-violet-600 border border-violet-100 px-2.5 py-1 rounded-full">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                {formatJobVisibilityLabel({ visibility: job.visibility, workspaceId: job.workspaceId })}
+              </span>
+              <span className="text-[12px] font-medium bg-white/20 text-white border border-white/20 px-2.5 py-1 rounded-full">
+                {formatJobScopeLabel({ visibility: job.visibility, workspaceId: job.workspaceId })}
+              </span>
               <span className="text-[12px] font-medium bg-white/20 text-white border border-white/20 px-2.5 py-1 rounded-full">
                 {job.category}
               </span>

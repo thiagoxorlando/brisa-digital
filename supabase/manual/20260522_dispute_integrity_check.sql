@@ -85,7 +85,8 @@ ORDER BY d.created_at DESC;
 
 -- ── Check 5: Disputes with no corresponding escrow evidence ──────────────────
 -- Active disputes (open / under_review) on confirmed contracts should have
--- a wallet_transactions escrow_lock row. Rows here may need manual escrow audit.
+-- either a wallet_transactions escrow_lock row or a Premium agent
+-- job_commitment row. Rows here may need manual escrow audit.
 SELECT
   d.id         AS dispute_id,
   d.contract_id,
@@ -101,9 +102,22 @@ WHERE d.status IN ('open', 'under_review')
   AND NOT EXISTS (
     SELECT 1
     FROM wallet_transactions wt
-    WHERE wt.reference_id = d.contract_id::text
-      AND wt.type = 'escrow_lock'
+    WHERE wt.type = 'escrow_lock'
       AND wt.status = 'completed'
+      AND (
+        wt.reference_id = d.contract_id::text
+        OR wt.idempotency_key = 'escrow_' || d.contract_id::text
+      )
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM premium_agent_wallet_transactions pat
+    WHERE pat.type = 'job_commitment'
+      AND pat.status = 'completed'
+      AND (
+        pat.related_contract_id = d.contract_id
+        OR (c.job_id IS NOT NULL AND pat.related_job_id = c.job_id)
+      )
   )
 ORDER BY d.created_at DESC;
 
@@ -162,7 +176,21 @@ WITH
     WHERE d.status IN ('open','under_review') AND c.status = 'confirmed' AND c.deleted_at IS NULL
       AND NOT EXISTS (
         SELECT 1 FROM wallet_transactions wt
-        WHERE wt.reference_id = d.contract_id::text AND wt.type = 'escrow_lock' AND wt.status = 'completed'
+        WHERE wt.type = 'escrow_lock'
+          AND wt.status = 'completed'
+          AND (
+            wt.reference_id = d.contract_id::text
+            OR wt.idempotency_key = 'escrow_' || d.contract_id::text
+          )
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM premium_agent_wallet_transactions pat
+        WHERE pat.type = 'job_commitment'
+          AND pat.status = 'completed'
+          AND (
+            pat.related_contract_id = d.contract_id
+            OR (c.job_id IS NOT NULL AND pat.related_job_id = c.job_id)
+          )
       )
   ),
   duplicates AS (
