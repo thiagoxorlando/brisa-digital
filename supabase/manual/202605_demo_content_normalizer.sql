@@ -335,7 +335,7 @@ END $$;
 
 
 -- =============================================================================
--- SECTION 5 — CONTRACTS (job_description display field only)
+-- SECTION 5 — CONTRACTS (job_description and location display fields only)
 -- Financial columns are NEVER touched.
 -- =============================================================================
 
@@ -374,7 +374,31 @@ BEGIN
     WHERE id = v_id;
   END LOOP;
 
-  RAISE NOTICE 'Contracts updated: %', v_idx;
+  RAISE NOTICE 'Contracts job_description updated: %', v_idx;
+
+  -- Fix ugly location values
+  v_idx := 0;
+  FOR v_id IN (
+    SELECT id FROM contracts
+    WHERE (location ILIKE '%asd%' OR location ILIKE '%sdf%' OR location ILIKE '%qwe%' OR
+           location ILIKE '%zxc%' OR location ILIKE '%dqd%' OR location ILIKE '%test%' OR
+           location ILIKE '%lorem%' OR location ILIKE '%seed%' OR location ILIKE '%demo%' OR
+           location ILIKE '%dummy%' OR location ~ '(.)\1\1' OR
+           (location IS NOT NULL AND length(trim(location)) <= 3 AND location !~ '^\s*$'))
+      AND deleted_at IS NULL
+    ORDER BY created_at ASC
+  ) LOOP
+    v_idx := v_idx + 1;
+    UPDATE contracts
+    SET location = (ARRAY[
+      'São Paulo, SP', 'Rio de Janeiro, RJ', 'Belo Horizonte, MG',
+      'Curitiba, PR', 'Porto Alegre, RS', 'Salvador, BA',
+      'Fortaleza, CE', 'Recife, PE', 'Brasília, DF', 'Campinas, SP'
+    ])[((v_idx - 1) % 10) + 1]
+    WHERE id = v_id;
+  END LOOP;
+
+  RAISE NOTICE 'Contracts location updated: %', v_idx;
   RAISE NOTICE '--- Section 5 (Contracts) complete ---';
 END $$;
 
