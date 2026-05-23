@@ -1,15 +1,11 @@
 -- Hotfix: guard v_referral_invite field access with v_action = 'release'.
 --
--- The original resolve_contract_dispute function declared v_referral_invite as
--- an untyped record and only assigned it inside the v_action = 'release' branch.
--- Line 370 of the original migration accessed v_referral_invite.referrer_id
--- outside that branch, which caused PL/pgSQL to attempt tuple-descriptor
--- resolution on an unassigned record — throwing
---   "record "v_referral_invite" is not assigned yet"
--- for refund / split / close actions.
+-- v_referral_invite is an untyped record only assigned inside the release branch.
+-- The original line 370 accessed .referrer_id outside that branch, causing PL/pgSQL
+-- to throw "record is not assigned yet" for refund / split / close actions.
 --
 -- Fix: prefix that IF with v_action = 'release' so the field is never read
--- for non-release actions.
+-- when the record was never populated.
 
 CREATE OR REPLACE FUNCTION resolve_contract_dispute(
   p_dispute_id uuid,
@@ -84,100 +80,182 @@ BEGIN
   END IF;
 
   IF v_dispute.status NOT IN ('open', 'under_review') THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'dispute_not_actionable', 'current_status', v_dispute.status);
+    RETURN jsonb_build_object(
+      'ok', false,
+      'error', 'dispute_not_open',
+      'status', v_dispute.status
+    );
   END IF;
 
   SELECT *
   INTO v_contract
   FROM contracts
   WHERE id = v_dispute.contract_id
+    AND deleted_at IS NULL
   FOR UPDATE;
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'error', 'contract_not_found');
   END IF;
 
-  v_gross          := coalesce(v_contract.payment_amount, 0);
-  v_commission     := coalesce(v_contract.commission_amount, 0);
-  v_contract_net   := coalesce(v_contract.net_amount, v_gross - v_commission);
-  v_talent_user_id := v_contract.talent_user_id;
+  v_gross := round(coalesce(v_contract.payment_amount, 0)::numeric, 2);
+  v_commission := round(coalesce(v_contract.commission_amount, 0)::numeric, 2);
+  v_contract_net := round(coalesce(v_contract.net_amount, greatest(v_gross - v_commission, 0))::numeric, 2);
+  v_talent_user_id := coalesce(v_contract.talent_user_id, v_contract.talent_id);
 
-  IF v_action = 'split' THEN
-    v_talent_amount        := round(coalesce(p_talent_amount, 0)::numeric, 2);
-    v_agency_refund_amount := round(coalesce(p_agency_refund_amount, 0)::numeric, 2);
-    IF (v_talent_amount + v_agency_refund_amount) > v_gross THEN
-      RETURN jsonb_build_object('ok', false, 'error', 'split_exceeds_escrow');
+  IF v_action IN ('release', 'refund', 'split') THEN
+    IF v_contract.status <> 'confirmed' THEN
+      RETURN jsonb_build_object(
+        'ok', false,
+        'error', 'contract_not_confirmed',
+        'status', v_contract.status
+      );
     END IF;
-    v_platform_retained := v_gross - v_talent_amount - v_agency_refund_amount;
-  ELSIF v_action = 'release' THEN
-    v_talent_amount := v_contract_net;
-  ELSIF v_action = 'refund' THEN
-    v_agency_refund_amount := v_gross;
-  END IF;
 
-  IF v_action = 'release' THEN
-    v_resolution_status := 'resolved_release';
-    v_contract_status   := 'paid';
-    v_payment_status    := 'paid';
-    v_booking_status    := 'completed';
-  ELSIF v_action = 'refund' THEN
-    v_resolution_status := 'resolved_refund';
-    v_contract_status   := 'cancelled';
-    v_payment_status    := 'refunded';
-    v_booking_status    := 'cancelled';
-  ELSIF v_action = 'split' THEN
-    v_resolution_status := 'resolved_split';
-    v_contract_status   := 'paid';
-    v_payment_status    := 'split';
-    v_booking_status    := 'completed';
-  ELSIF v_action = 'close' THEN
-    v_resolution_status := 'closed';
-    v_contract_status   := v_contract.status;
-    v_payment_status    := v_contract.payment_status;
-    v_booking_status    := NULL;
-  END IF;
-
-  IF v_action = 'release' THEN
-    SELECT ri.*
-    INTO v_referral_invite
-    FROM referral_invites ri
-    WHERE ri.invited_user_id = v_talent_user_id
-      AND ri.status IN ('joined', 'commission_pending')
-    LIMIT 1;
-
-    IF FOUND THEN
-      v_referral_found := true;
-      IF v_referral_invite.referrer_id IS NOT NULL THEN
-        v_referral_commission := round((v_gross * coalesce(v_referral_invite.commission_rate, 0.02))::numeric, 2);
-      END IF;
+    IF v_gross <= 0 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_escrow_amount');
     END IF;
-  END IF;
 
-  SELECT exists(
-    SELECT 1 FROM wallet_transactions
-    WHERE idempotency_key = 'escrow_' || v_contract.id::text
-      AND type = 'escrow_lock'
-  ) INTO v_has_wallet_escrow;
+    SELECT EXISTS (
+      SELECT 1
+      FROM wallet_transactions
+      WHERE type = 'escrow_lock'
+        AND status = 'completed'
+        AND (
+          reference_id = v_contract.id::text
+          OR idempotency_key = 'escrow_' || v_contract.id::text
+        )
+    )
+    INTO v_has_wallet_escrow;
 
-  SELECT exists(
-    SELECT 1 FROM premium_agent_wallet_transactions
-    WHERE related_contract_id = v_contract.id
-      AND type = 'job_commitment'
-  ) INTO v_has_agent_commitment;
-
-  IF v_has_agent_commitment THEN
     SELECT *
     INTO v_agent_commitment
     FROM premium_agent_wallet_transactions
-    WHERE related_contract_id = v_contract.id
-      AND type = 'job_commitment'
-    ORDER BY created_at
-    LIMIT 1;
+    WHERE type = 'job_commitment'
+      AND status = 'completed'
+      AND (
+        related_contract_id = v_contract.id
+        OR (v_contract.job_id IS NOT NULL AND related_job_id = v_contract.job_id)
+      )
+    ORDER BY created_at DESC
+    LIMIT 1
+    FOR UPDATE;
+
+    v_has_agent_commitment := FOUND;
+
+    IF NOT v_has_wallet_escrow AND NOT v_has_agent_commitment THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'escrow_not_found');
+    END IF;
   END IF;
 
-  IF v_action IN ('release', 'split') AND v_talent_amount > 0 AND v_talent_user_id IS NOT NULL THEN
+  IF v_action IN ('release', 'split') THEN
+    IF v_talent_user_id IS NULL THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'talent_not_found');
+    END IF;
+  END IF;
+
+  IF v_action IN ('refund', 'split') THEN
+    IF v_contract.agency_id IS NULL THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'agency_not_found');
+    END IF;
+  END IF;
+
+  IF v_action IN ('release', 'refund', 'split') THEN
+    IF EXISTS (
+      SELECT 1
+      FROM wallet_transactions
+      WHERE reference_id = v_contract.id::text
+        AND type = 'payout'
+    ) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'payout_already_exists');
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM wallet_transactions
+      WHERE reference_id = v_contract.id::text
+        AND type = 'refund'
+    ) THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'refund_already_exists');
+    END IF;
+  END IF;
+
+  IF v_action = 'release' THEN
+    SELECT id, referrer_id, commission_rate
+    INTO v_referral_invite
+    FROM referral_invites
+    WHERE referred_user_id = v_talent_user_id
+      AND job_id = v_contract.job_id
+      AND status <> 'fraud_reported'
+      AND status <> 'commission_paid'
+    ORDER BY created_at
+    LIMIT 1
+    FOR UPDATE;
+
+    v_referral_found := FOUND;
+
+    IF v_referral_found AND v_referral_invite.referrer_id IS NOT NULL THEN
+      v_referral_commission := round((v_gross * coalesce(v_referral_invite.commission_rate, 0.02))::numeric, 2);
+    END IF;
+
+    v_talent_amount := greatest(round((v_contract_net - v_referral_commission)::numeric, 2), 0);
+    v_agency_refund_amount := 0;
+    v_resolution_status := 'resolved_release';
+    v_contract_status := 'paid';
+    v_payment_status := 'paid';
+    v_booking_status := 'paid';
+  ELSIF v_action = 'refund' THEN
+    v_talent_amount := 0;
+    v_agency_refund_amount := v_gross;
+    v_resolution_status := 'resolved_refund';
+    v_contract_status := 'cancelled';
+    v_payment_status := 'refunded';
+    v_booking_status := 'cancelled';
+  ELSIF v_action = 'split' THEN
+    v_talent_amount := round(coalesce(p_talent_amount, 0)::numeric, 2);
+    v_agency_refund_amount := round(coalesce(p_agency_refund_amount, 0)::numeric, 2);
+
+    IF v_talent_amount < 0 OR v_agency_refund_amount < 0 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'invalid_split_amount');
+    END IF;
+
+    IF v_talent_amount = 0 AND v_agency_refund_amount = 0 THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'split_requires_amount');
+    END IF;
+
+    IF round((v_talent_amount + v_agency_refund_amount)::numeric, 2) > v_gross THEN
+      RETURN jsonb_build_object(
+        'ok', false,
+        'error', 'split_exceeds_escrow',
+        'escrow_amount', v_gross
+      );
+    END IF;
+
+    v_resolution_status := 'resolved_split';
+    v_contract_status := CASE WHEN v_talent_amount > 0 THEN 'paid' ELSE 'cancelled' END;
+    v_payment_status := 'split';
+    v_booking_status := CASE WHEN v_talent_amount > 0 THEN 'paid' ELSE 'cancelled' END;
+  ELSE
+    v_talent_amount := 0;
+    v_agency_refund_amount := 0;
+    v_resolution_status := 'closed';
+  END IF;
+
+  v_platform_retained := greatest(round((v_gross - v_talent_amount - v_agency_refund_amount - v_referral_commission)::numeric, 2), 0);
+
+  IF v_talent_amount > 0 THEN
+    SELECT coalesce(wallet_balance, 0)
+    INTO v_talent_balance
+    FROM profiles
+    WHERE id = v_talent_user_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'talent_profile_not_found');
+    END IF;
+
     UPDATE profiles
-    SET wallet_balance = round((coalesce(wallet_balance, 0) + v_talent_amount)::numeric, 2)
+    SET wallet_balance = round((v_talent_balance + v_talent_amount)::numeric, 2)
     WHERE id = v_talent_user_id;
 
     INSERT INTO wallet_transactions (
@@ -193,9 +271,9 @@ BEGIN
       v_talent_user_id,
       'payout',
       v_talent_amount,
-      CASE v_action
-        WHEN 'split' THEN 'Pagamento parcial por resolucao de disputa'
-        ELSE 'Pagamento por resolucao de disputa'
+      CASE
+        WHEN v_action = 'split' THEN 'Pagamento parcial por resolucao de disputa'
+        ELSE 'Pagamento liberado por resolucao de disputa'
       END,
       v_contract.id::text,
       'dispute:payout:' || p_dispute_id::text,
@@ -204,10 +282,20 @@ BEGIN
     RETURNING id INTO v_payout_tx_id;
   END IF;
 
-  IF v_action IN ('refund', 'split') AND v_agency_refund_amount > 0 THEN
+  IF v_agency_refund_amount > 0 THEN
+    SELECT coalesce(wallet_balance, 0)
+    INTO v_agency_balance
+    FROM profiles
+    WHERE id = v_contract.agency_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('ok', false, 'error', 'agency_profile_not_found');
+    END IF;
+
     UPDATE profiles
-    SET wallet_balance = round((coalesce(wallet_balance, 0) + v_agency_refund_amount)::numeric, 2)
-    WHERE id = v_contract.agency_user_id;
+    SET wallet_balance = round((v_agency_balance + v_agency_refund_amount)::numeric, 2)
+    WHERE id = v_contract.agency_id;
 
     INSERT INTO wallet_transactions (
       user_id,
@@ -219,11 +307,11 @@ BEGIN
       status
     )
     VALUES (
-      v_contract.agency_user_id,
+      v_contract.agency_id,
       'refund',
       v_agency_refund_amount,
-      CASE v_action
-        WHEN 'split' THEN 'Reembolso parcial por resolucao de disputa'
+      CASE
+        WHEN v_action = 'split' THEN 'Reembolso parcial por resolucao de disputa'
         ELSE 'Reembolso por resolucao de disputa'
       END,
       v_contract.id::text,
@@ -233,9 +321,9 @@ BEGIN
     RETURNING id INTO v_refund_tx_id;
   END IF;
 
-  -- Only pay referral commission when the talent is actually being paid (release action).
-  -- Accessing v_referral_invite fields is safe here because the guard ensures the
-  -- variable was assigned in the release branch above.
+  -- v_referral_invite is only assigned in the release branch above,
+  -- so guard this block with v_action = 'release' to prevent tuple-descriptor
+  -- resolution on an unassigned record for refund/split/close actions.
   IF v_action = 'release' AND v_referral_found AND v_referral_commission > 0 AND v_referral_invite.referrer_id IS NOT NULL THEN
     UPDATE profiles
     SET wallet_balance = round((coalesce(wallet_balance, 0) + v_referral_commission)::numeric, 2)
@@ -281,81 +369,103 @@ BEGIN
       paid_by_user_id = CASE WHEN v_talent_amount > 0 THEN p_admin_user_id ELSE paid_by_user_id END
     WHERE id = v_contract.id;
 
-    UPDATE bookings
-    SET status = v_booking_status
-    WHERE contract_id = v_contract.id
-      AND status NOT IN ('cancelled', 'completed');
-  END IF;
-
-  IF v_has_wallet_escrow AND v_action IN ('release', 'refund', 'split') THEN
-    UPDATE wallet_transactions
-    SET
-      status = 'completed',
-      updated_at = v_now
-    WHERE idempotency_key = 'escrow_' || v_contract.id::text
-      AND type = 'escrow_lock';
-  END IF;
-
-  IF v_has_agent_commitment AND v_action IN ('release', 'refund', 'split') THEN
-    v_settle_amount  := CASE WHEN v_action IN ('release', 'split') THEN v_commission ELSE 0 END;
-    v_release_amount := CASE WHEN v_action = 'refund' THEN coalesce((v_agent_commitment).amount, 0) ELSE 0 END;
-
-    IF v_settle_amount > 0 THEN
-      INSERT INTO premium_agent_wallet_transactions (
-        workspace_id,
-        agent_user_id,
-        type,
-        amount,
-        status,
-        related_contract_id,
-        related_job_id,
-        note
-      )
-      SELECT
-        workspace_id,
-        agent_user_id,
-        'job_settlement',
-        v_settle_amount,
-        'completed',
-        v_contract.id,
-        job_id,
-        'Liquidacao por resolucao de disputa'
-      FROM contracts WHERE id = v_contract.id;
+    IF v_contract.booking_id IS NOT NULL THEN
+      UPDATE bookings
+      SET status = v_booking_status
+      WHERE id = v_contract.booking_id;
     END IF;
 
-    IF v_release_amount > 0 THEN
-      INSERT INTO premium_agent_wallet_transactions (
-        workspace_id,
-        agent_user_id,
-        type,
-        amount,
-        status,
-        related_contract_id,
-        related_job_id,
-        note
-      )
-      SELECT
-        workspace_id,
-        agent_user_id,
-        'job_release',
-        v_release_amount,
-        'completed',
-        v_contract.id,
-        job_id,
-        'Liberacao de comprometido por reembolso de disputa'
-      FROM contracts WHERE id = v_contract.id;
+    IF v_has_agent_commitment THEN
+      v_settle_amount := CASE
+        WHEN v_action = 'release' THEN v_gross
+        WHEN v_action = 'split' THEN greatest(round((v_gross - v_agency_refund_amount)::numeric, 2), 0)
+        ELSE 0
+      END;
+      v_release_amount := CASE
+        WHEN v_action = 'refund' THEN v_gross
+        WHEN v_action = 'split' THEN v_agency_refund_amount
+        ELSE 0
+      END;
+
+      IF v_settle_amount > 0 AND NOT EXISTS (
+        SELECT 1
+        FROM premium_agent_wallet_transactions
+        WHERE related_contract_id = v_contract.id
+          AND type = 'job_settlement'
+      ) THEN
+        INSERT INTO premium_agent_wallet_transactions (
+          workspace_id,
+          agent_user_id,
+          owner_user_id,
+          type,
+          amount,
+          status,
+          related_job_id,
+          related_contract_id,
+          created_by,
+          note,
+          metadata
+        )
+        VALUES (
+          v_agent_commitment.workspace_id,
+          v_agent_commitment.agent_user_id,
+          v_agent_commitment.owner_user_id,
+          'job_settlement',
+          v_settle_amount,
+          'completed',
+          v_contract.job_id,
+          v_contract.id,
+          p_admin_user_id,
+          'Resolucao de disputa: valor consumido da reserva do agente.',
+          jsonb_build_object('dispute_id', p_dispute_id, 'action', v_action)
+        );
+      END IF;
+
+      IF v_release_amount > 0 AND NOT EXISTS (
+        SELECT 1
+        FROM premium_agent_wallet_transactions
+        WHERE related_contract_id = v_contract.id
+          AND type IN ('job_release', 'refund')
+      ) THEN
+        INSERT INTO premium_agent_wallet_transactions (
+          workspace_id,
+          agent_user_id,
+          owner_user_id,
+          type,
+          amount,
+          status,
+          related_job_id,
+          related_contract_id,
+          created_by,
+          note,
+          metadata
+        )
+        VALUES (
+          v_agent_commitment.workspace_id,
+          v_agent_commitment.agent_user_id,
+          v_agent_commitment.owner_user_id,
+          'job_release',
+          v_release_amount,
+          'completed',
+          v_contract.job_id,
+          v_contract.id,
+          p_admin_user_id,
+          'Resolucao de disputa: valor devolvido da reserva do agente.',
+          jsonb_build_object('dispute_id', p_dispute_id, 'action', v_action)
+        );
+      END IF;
     END IF;
   END IF;
 
   UPDATE contract_disputes
   SET
-    status           = v_resolution_status,
-    resolution_action = v_action,
-    talent_amount    = v_talent_amount,
-    agency_refund_amount = v_agency_refund_amount,
-    resolved_at      = v_now,
+    status = v_resolution_status,
+    resolved_at = v_now,
     resolved_by_user_id = p_admin_user_id,
-    updated_at       = v_now
+    resolution_note = v_note,
+    resolution_action = v_action,
+    talent_amount = v_talent_amount,
+    agency_refund_amount = v_agency_refund_amount
   WHERE id = p_dispute_id;
 
   INSERT INTO contract_dispute_notes (
@@ -373,14 +483,17 @@ BEGIN
 
   RETURN jsonb_build_object(
     'ok', true,
-    'resolution', v_resolution_status,
+    'dispute_id', p_dispute_id,
+    'contract_id', v_contract.id,
+    'status', v_resolution_status,
+    'action', v_action,
     'talent_amount', v_talent_amount,
     'agency_refund_amount', v_agency_refund_amount,
-    'platform_retained', v_platform_retained,
     'referral_commission', v_referral_commission,
-    'payout_tx_id', v_payout_tx_id,
-    'refund_tx_id', v_refund_tx_id,
-    'referral_tx_id', v_referral_tx_id
+    'platform_retained', v_platform_retained,
+    'payout_transaction_id', v_payout_tx_id,
+    'refund_transaction_id', v_refund_tx_id,
+    'referral_transaction_id', v_referral_tx_id
   );
 END;
 $$;
