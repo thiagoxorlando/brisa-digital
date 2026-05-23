@@ -627,7 +627,18 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
               </select>
             </div>
 
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
+            {actionNote.trim().length < 3 && !submitting && (
+              <p className="mt-4 text-right text-[11px] text-amber-600">
+                Preencha a nota acima para habilitar a confirmacao.
+              </p>
+            )}
+            {pendingAction === "split" && splitExceeds && !submitting && (
+              <p className="mt-4 text-right text-[11px] text-red-600">
+                Os valores informados excedem a custodia disponivel.
+              </p>
+            )}
+
+            <div className="mt-3 flex flex-wrap justify-end gap-2">
               <button
                 onClick={() => setPendingAction(null)}
                 disabled={submitting}
@@ -638,7 +649,7 @@ export default function AdminDisputeDetail({ data }: { data: AdminDisputeDetailD
               <button
                 onClick={submitResolution}
                 disabled={submitting || actionNote.trim().length < 3 || (pendingAction === "split" && splitExceeds)}
-                className="rounded-xl bg-teal-600 px-4 py-2 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-teal-600 px-4 py-2 text-[12px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting ? "Enviando..." : "Confirmar decisao"}
               </button>
