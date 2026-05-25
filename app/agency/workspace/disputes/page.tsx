@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 import { createServerClient } from "@/lib/supabase";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@/lib/disputePolicy";
 import { brl } from "@/lib/brl";
 
@@ -15,6 +17,13 @@ function fmtDate(value: string | null | undefined) {
 export default async function WorkspaceDisputesPage() {
   const context = await requirePremiumWorkspacePageContext();
   const supabase = createServerClient({ useServiceRole: true });
+
+  const [{ data: agencyRow }, globalDefaults] = await Promise.all([
+    supabase.from("agencies").select("payment_mode").eq("id", context.workspace.ownerUserId).maybeSingle(),
+    getGlobalPaymentDefaults(),
+  ]);
+  const resolvedMode = (agencyRow?.payment_mode as string | null) ?? globalDefaults.default_payment_mode;
+  if (resolvedMode === "internal") redirect("/agency/workspace");
 
   const { data: workspaceJobs } = await supabase
     .from("jobs")

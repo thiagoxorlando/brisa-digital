@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@/lib/disputePolicy";
 import { brl } from "@/lib/brl";
 
@@ -19,6 +20,13 @@ export default async function AgencyDisputesPage() {
   if (!user) redirect("/login");
 
   const supabase = createServerClient({ useServiceRole: true });
+
+  const [{ data: agencyRow }, globalDefaults] = await Promise.all([
+    supabase.from("agencies").select("payment_mode").eq("id", user.id).maybeSingle(),
+    getGlobalPaymentDefaults(),
+  ]);
+  const resolvedMode = (agencyRow?.payment_mode as string | null) ?? globalDefaults.default_payment_mode;
+  if (resolvedMode === "internal") redirect("/agency/dashboard");
 
   // contracts.agency_id stores the auth user.id — not the agencies table PK
   const { data: contractRows } = await supabase

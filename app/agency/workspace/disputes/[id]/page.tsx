@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 import { createServerClient } from "@/lib/supabase";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { resolveSupportUsers } from "@/lib/resolveSupportUsers";
 import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@/lib/disputePolicy";
 import { resolveContractAmounts } from "@/lib/contractStatus";
@@ -69,6 +70,13 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
   const { id } = await params;
   const context = await requirePremiumWorkspacePageContext();
   const supabase = createServerClient({ useServiceRole: true });
+
+  const [{ data: agencyRow }, globalDefaults] = await Promise.all([
+    supabase.from("agencies").select("payment_mode").eq("id", context.workspace.ownerUserId).maybeSingle(),
+    getGlobalPaymentDefaults(),
+  ]);
+  const resolvedMode = (agencyRow?.payment_mode as string | null) ?? globalDefaults.default_payment_mode;
+  if (resolvedMode === "internal") redirect("/agency/workspace");
 
   const { data: dispute } = await supabase
     .from("contract_disputes")
