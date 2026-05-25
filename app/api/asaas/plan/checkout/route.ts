@@ -5,6 +5,7 @@ import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
 import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
 import { parsePlan, PLAN_KEYS, type Plan } from "@/lib/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
+import { getTrialDurationDays } from "@/lib/platformSettings.server";
 
 function extractAsaasError(err: unknown): string {
   try {
@@ -121,13 +122,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 7-day free trial: card is captured on the Asaas hosted page but the
-  // first charge is deferred to day 8. This satisfies "card required upfront".
+  // Free trial: card is captured on the Asaas hosted page but the
+  // first charge is deferred by trial_duration_days. Satisfies "card required upfront".
+  const trialDays = await getTrialDurationDays();
   const trialStartedAt = new Date();
   const trialEndsAt = new Date();
-  trialEndsAt.setDate(trialEndsAt.getDate() + 7);
+  trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
   const nextDueDate = new Date();
-  nextDueDate.setDate(nextDueDate.getDate() + 7);
+  nextDueDate.setDate(nextDueDate.getDate() + trialDays);
   const nextDueDateStr = nextDueDate.toISOString().slice(0, 10);
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;

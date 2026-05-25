@@ -61,6 +61,14 @@ export async function getInternalAutoConfirmDays(): Promise<number> {
   return getPlatformSetting<number>("internal_payment_auto_confirm_days", 5);
 }
 
+/**
+ * Number of days for the PRO plan free trial.
+ * Fallback: 7 days.
+ */
+export async function getTrialDurationDays(): Promise<number> {
+  return getPlatformSetting<number>("trial_duration_days", 7);
+}
+
 export async function getAllPlatformSettings(): Promise<Record<string, PlatformSettingValue>> {
   try {
     const supabase = createServerClient({ useServiceRole: true });

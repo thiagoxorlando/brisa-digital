@@ -863,6 +863,9 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
   const [contractIdToConfirm, setContractIdToConfirm] = useState("");
+  const [trialExtendDays, setTrialExtendDays] = useState("7");
+  const [extendingTrial, setExtendingTrial] = useState(false);
+  const [extendMsg, setExtendMsg] = useState<string | null>(null);
 
   async function handleSaveConfig() {
     setSaving(true);
@@ -880,6 +883,26 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
     });
     setSaving(false);
     setSaveMsg(res.ok ? "Salvo com sucesso." : "Erro ao salvar.");
+  }
+
+  async function handleExtendTrial() {
+    const days = Number(trialExtendDays);
+    if (!days || days < 1) return;
+    setExtendingTrial(true);
+    setExtendMsg(null);
+    const res = await fetch("/api/admin/trial/extend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: agency.id, days }),
+    });
+    setExtendingTrial(false);
+    const data = await res.json().catch(() => ({})) as { error?: string; newTrialEndsAt?: string };
+    if (res.ok && data.newTrialEndsAt) {
+      const d = new Date(data.newTrialEndsAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+      setExtendMsg(`Trial estendido. Novo fim: ${d}`);
+    } else {
+      setExtendMsg(data.error ?? "Erro ao estender trial.");
+    }
   }
 
   async function handleManualConfirm() {
@@ -1005,6 +1028,40 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
                       )}
                     </div>
                   )}
+                  {/* Trial extension */}
+                  <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-5 py-4 space-y-3">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-700">Estender trial</p>
+                    <p className="text-[12px] text-indigo-600">
+                      {agency.planStatus === "trialing"
+                        ? "Este usuário está em período de trial. Estenda a data de expiração."
+                        : "Adicione dias de trial a este usuário (pode converter plano free para trial)."}
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={trialExtendDays}
+                        onChange={(e) => setTrialExtendDays(e.target.value)}
+                        placeholder="Dias"
+                        className="w-24 rounded-lg border border-indigo-200 px-3 py-1.5 text-[13px] bg-white focus:outline-none focus:border-indigo-400"
+                      />
+                      <span className="text-[12px] text-indigo-600">dias adicionais</span>
+                      <button
+                        onClick={handleExtendTrial}
+                        disabled={extendingTrial || !trialExtendDays || Number(trialExtendDays) < 1}
+                        className="flex-shrink-0 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {extendingTrial ? "Estendendo…" : "Estender"}
+                      </button>
+                    </div>
+                    {extendMsg && (
+                      <p className={`text-[12px] font-medium ${extendMsg.includes("Erro") || extendMsg.includes("erro") ? "text-rose-600" : "text-emerald-600"}`}>
+                        {extendMsg}
+                      </p>
+                    )}
+                  </div>
+
                   {totalHistoryCount > 0 ? (
                     <div className="space-y-6">
                       <ChargeSection title="Pagas" charges={agency.paidCharges} />

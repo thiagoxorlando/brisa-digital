@@ -7,6 +7,8 @@ import { useT } from "@/lib/LanguageContext";
 import { talentCategoryLabel } from "@/lib/talentCategories";
 import { brl } from "@/lib/brl";
 import { avatarGradient, initials } from "@/lib/talentDisplay";
+import TrialStatusBanner from "@/components/TrialStatusBanner";
+import AgencyLaunchChecklist, { type LaunchChecklistData } from "@/features/agency/AgencyLaunchChecklist";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -316,6 +318,7 @@ export default function AgencyDashboardOverview({
   pendingContracts,
   activeJobsList,
   confirmedContracts,
+  checklist,
 }: {
   stats: Stats;
   recentTalent: TalentRow[];
@@ -323,6 +326,7 @@ export default function AgencyDashboardOverview({
   pendingContracts: PendingContract[];
   activeJobsList: ActiveJob[];
   confirmedContracts: ConfirmedContract[];
+  checklist?: LaunchChecklistData;
 }) {
   const { t, lang } = useT();
 
@@ -362,6 +366,58 @@ export default function AgencyDashboardOverview({
           </div>
         </div>
       </div>
+
+      {/* ── Trial banner ── */}
+      <TrialStatusBanner />
+
+      {/* ── Launch checklist ── */}
+      {checklist && <AgencyLaunchChecklist data={checklist} />}
+
+      {/* ── First-time onboarding nudge (no activity yet) ── */}
+      {stats.totalJobs === 0 && stats.submissions === 0 && (
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white">
+          <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-teal-400 mb-1.5">Começando agora</p>
+              <h2 className="text-[1.5rem] font-black tracking-[-0.03em] leading-tight">
+                Gerencie seus talentos aqui — sem marketplace necessário.
+              </h2>
+              <p className="text-[13px] text-slate-300 mt-2 leading-relaxed max-w-lg">
+                O BrisaHub é sua infraestrutura operacional. Crie vagas, compartilhe o link direto com seus talentos pelo WhatsApp ou e-mail, e gerencie contratos e pagamentos em um só lugar.
+              </p>
+              <div className="flex flex-wrap gap-3 mt-4">
+                <Link
+                  href="/agency/post-job"
+                  className="inline-flex items-center gap-2 bg-teal-500 hover:bg-teal-400 active:scale-[0.98] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl transition-all shadow-[0_4px_14px_rgba(26,188,156,0.4)]"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Criar primeira vaga
+                </Link>
+                <Link
+                  href="/agency/jobs"
+                  className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-[13px] font-bold px-4 py-2.5 rounded-xl transition-all border border-white/20"
+                >
+                  Ver vagas
+                </Link>
+              </div>
+            </div>
+            <div className="flex-shrink-0 grid grid-cols-1 gap-2.5 min-w-[200px]">
+              {[
+                { icon: "🔗", text: "Compartilhe o link de candidatura diretamente" },
+                { icon: "📋", text: "Contratos gerados automaticamente após aprovação" },
+                { icon: "💳", text: "Pagamentos rastreados sem intermediário" },
+              ].map((item) => (
+                <div key={item.text} className="flex items-center gap-3 bg-white/10 rounded-xl px-3.5 py-2.5">
+                  <span className="text-[18px] flex-shrink-0">{item.icon}</span>
+                  <p className="text-[12px] text-slate-200 leading-snug">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Stats ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -424,8 +480,14 @@ export default function AgencyDashboardOverview({
         <div className="xl:col-span-3">
           <SectionHeader title={t("dashboard_recent_bookings")} meta={`${recentActivity.length}`} />
           {recentActivity.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#DDE6E6] py-14 text-center">
-              <p className="text-[14px] font-medium text-[#647B7B]">{t("dashboard_no_activity")}</p>
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] py-10 text-center px-6">
+              <p className="text-[14px] font-semibold text-zinc-600">Nenhuma atividade ainda</p>
+              <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
+                Crie uma vaga e compartilhe o link com seus talentos para começar.
+              </p>
+              <Link href="/agency/post-job" className="inline-block mt-4 text-[12px] font-bold text-teal-700 hover:text-teal-900 underline">
+                Criar primeira vaga →
+              </Link>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] overflow-hidden">
@@ -496,7 +558,15 @@ export default function AgencyDashboardOverview({
             hrefLabel={t("dashboard_view_all")}
           />
           {activeJobsList.length === 0 ? (
-            <Empty msg="Nenhuma vaga ativa no momento." />
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] py-10 text-center px-6">
+              <p className="text-[14px] font-semibold text-zinc-600">Nenhuma vaga aberta</p>
+              <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
+                Crie sua primeira vaga e envie o link de candidatura diretamente para seus talentos.
+              </p>
+              <Link href="/agency/post-job" className="inline-block mt-4 text-[12px] font-bold text-teal-700 hover:text-teal-900 underline">
+                Criar vaga →
+              </Link>
+            </div>
           ) : (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
               {activeJobsList.map((job) => {
@@ -531,7 +601,12 @@ export default function AgencyDashboardOverview({
             hrefLabel={t("dashboard_view_all")}
           />
           {confirmedContracts.length === 0 ? (
-            <Empty msg="Nenhum contrato pago ainda." />
+            <div className="bg-white rounded-2xl border border-[#DDE6E6] py-10 text-center px-6">
+              <p className="text-[14px] font-semibold text-zinc-600">Nenhum pagamento concluído</p>
+              <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
+                Os pagamentos concluídos aparecerão aqui após o ciclo completo: vaga → candidatura → contrato → pagamento.
+              </p>
+            </div>
           ) : (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
               {confirmedContracts.map((c) => (

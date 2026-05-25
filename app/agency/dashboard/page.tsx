@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AgencyDashboardOverview from "@/features/agency/AgencyDashboardOverview";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
+import type { LaunchChecklistData } from "@/features/agency/AgencyLaunchChecklist";
 
 export const metadata: Metadata = { title: "Painel - BrisaHub" };
 
@@ -20,6 +21,7 @@ export default async function AgencyDashboardPage() {
     { data: recentBookingsDataRaw },
     { data: recentSubmissionsDataRaw },
     { data: profile },
+    { data: agencyRow },
   ] = await Promise.all([
     supabase
       .from("jobs")
@@ -65,6 +67,11 @@ export default async function AgencyDashboardPage() {
       .select("wallet_balance")
       .eq("id", agencyId)
       .single(),
+    supabase
+      .from("agencies")
+      .select("company_name, avatar_url")
+      .eq("id", agencyId)
+      .maybeSingle(),
   ]);
 
   const openJobs = openJobsData ?? [];
@@ -193,6 +200,17 @@ export default async function AgencyDashboardPage() {
     paidAt: contract.paid_at ?? null,
   }));
 
+  // ── Checklist: compute from existing data without extra queries ──
+  const agencyData = agencyRow as Record<string, unknown> | null;
+  const hasAnyJob = (openJobsData?.length ?? 0) > 0 || lifecycleJobIds.length > 0;
+  const checklist: LaunchChecklistData = {
+    hasJob: hasAnyJob,
+    hasApplication: (submissionsData?.length ?? 0) > 0,
+    hasContract: (confirmedContractsDataRaw?.length ?? 0) > 0 || (paidContractsRaw?.length ?? 0) > 0,
+    hasPaidContract: (paidContractsRaw?.length ?? 0) > 0,
+    hasBranding: !!(agencyData?.company_name && agencyData?.avatar_url),
+  };
+
   return (
     <AgencyDashboardOverview
       stats={{
@@ -210,6 +228,7 @@ export default async function AgencyDashboardPage() {
       pendingContracts={pendingContracts}
       activeJobsList={activeJobsList}
       confirmedContracts={confirmedContracts}
+      checklist={checklist}
     />
   );
 }

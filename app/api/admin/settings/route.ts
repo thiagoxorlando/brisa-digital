@@ -21,6 +21,11 @@ const BOOLEAN_KEYS = new Set([
   "automatic_pix_withdrawals_enabled",
   "maintenance_mode_enabled",
   "require_terms_acceptance",
+  // Trial + onboarding
+  "trials_enabled",
+  "trial_auto_charge_enabled",
+  "show_onboarding_checklist",
+  "show_feature_guide_cards",
 ]);
 
 const NUMBER_KEYS = new Set([
@@ -34,6 +39,8 @@ const NUMBER_KEYS = new Set([
   "escrow_timeout_days",
   "upload_max_mb",
   "internal_payment_auto_confirm_days",
+  // Trial
+  "trial_duration_days",
 ]);
 
 const STRING_KEYS = new Set(["platform_name", "support_email"]);
