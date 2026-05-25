@@ -618,7 +618,7 @@ export default function AgencyFinances({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Transações</p>
-            <p className="text-[12px] text-zinc-400 mt-1">Depósitos, custódia, pagamentos e movimentações da carteira.</p>
+            <p className="text-[12px] text-zinc-400 mt-1">{(!agencyConfig || agencyConfig.showEscrow) ? "Depósitos, custódia, pagamentos e movimentações da carteira." : "Comprovantes, confirmações e histórico operacional de pagamentos."}</p>
           </div>
           <span className="text-[12px] font-semibold text-zinc-400">{transactions.length} itens</span>
         </div>

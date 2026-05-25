@@ -954,9 +954,7 @@ function SignupPageContent() {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2 mb-1">
                                     <p className="text-[14px] font-bold text-zinc-800">{livePlans.free.name}</p>
-                                    {available ? (
-                                      <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">{livePlans.free.commission_percent}% {t("plan_commission_badge")}</span>
-                                    ) : (
+                                    {!available && (
                                       <span className="text-[10px] font-semibold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full">{t("plan_coming_soon")}</span>
                                     )}
                                   </div>
@@ -994,7 +992,6 @@ function SignupPageContent() {
                                     <div className="flex items-center gap-2 mb-1">
                                       <p className="text-[14px] font-bold text-white">{livePlans.pro.name}</p>
                                       <span className="text-[10px] font-black text-[#0C9E87] bg-white px-2 py-0.5 rounded-full tracking-wide">{proAvailable ? t("plan_popular_short") : t("plan_coming_soon")}</span>
-                                      {proAvailable ? <span className="text-[10px] font-semibold text-white/70 bg-white/15 px-2 py-0.5 rounded-full">{livePlans.pro.commission_percent}% {t("plan_commission_badge")}</span> : null}
                                     </div>
                                     <p className="text-[12px] text-white/80 leading-relaxed">{proAvailable ? planLimitHighlights(livePlans.pro, lang).slice(0, 2).join(" · ") : t("plan_coming_soon")}</p>
                                   </div>
@@ -1031,7 +1028,6 @@ function SignupPageContent() {
                                   <div className="flex items-center gap-2 mb-1">
                                     <p className={["text-[14px] font-bold", available ? "text-zinc-800" : "text-zinc-500"].join(" ")}>{livePlans.premium.name}</p>
                                     {!available ? <span className="text-[10px] font-semibold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full">{t("plan_coming_soon")}</span> : null}
-                                    {available ? <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">{livePlans.premium.commission_percent}% {t("plan_commission_badge")}</span> : null}
                                   </div>
                                   <p className={["text-[12px] leading-relaxed", available ? "text-zinc-500" : "text-zinc-400"].join(" ")}>
                                     {available

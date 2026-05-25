@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useUserProfile } from "@/lib/useUserProfile";
 import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
+import { useAgencyConfig } from "@/lib/AgencyConfigContext";
 import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
 import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
 import { buildAdminNavGroups } from "@/lib/adminNav";
@@ -411,6 +412,11 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null }: Sideba
   const [imgError, setImgError] = useState(false);
   const { t } = useT();
   const { isPremium, isWorkspaceAgent } = useSubscription();
+  const agencyConfig = useAgencyConfig();
+  const hideDisputes = role === "agency" && agencyConfig.paymentMode === "internal";
+  function filterNav(items: NavItem[]) {
+    return hideDisputes ? items.filter((item) => !item.href.includes("/disputes")) : items;
+  }
   const { workspace: portalWorkspace } = useWorkspacePortal();
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
@@ -569,15 +575,15 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null }: Sideba
     ? isWorkspaceAgent
       // Invited agents are workspace-only — no open platform section at all
       ? [
-          { titleKey: "nav_premium_workspace_section", items: AGENCY_AGENT_PREMIUM_NAV },
+          { titleKey: "nav_premium_workspace_section", items: filterNav(AGENCY_AGENT_PREMIUM_NAV) },
         ]
       : hasPremiumAccess
         ? [
-            { titleKey: "nav_open_platform", items: AGENCY_OPEN_NAV },
-            { titleKey: "nav_premium_workspace_section", items: AGENCY_PREMIUM_NAV },
+            { titleKey: "nav_open_platform", items: filterNav(AGENCY_OPEN_NAV) },
+            { titleKey: "nav_premium_workspace_section", items: filterNav(AGENCY_PREMIUM_NAV) },
           ]
         : [
-            { titleKey: "nav_open_platform", items: AGENCY_NON_PREMIUM_OPEN_NAV },
+            { titleKey: "nav_open_platform", items: filterNav(AGENCY_NON_PREMIUM_OPEN_NAV) },
             { titleKey: "nav_premium_workspace_section", items: AGENCY_WORKSPACE_UPSELL_NAV },
           ]
     : isInWorkspacePortal

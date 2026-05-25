@@ -223,6 +223,16 @@ export default function Home() {
   const ctrustItems = [t("landing_ctrust_item1"), t("landing_ctrust_item2"), t("landing_ctrust_item3")];
 
   function getPlanHighlights(livePlan: PublicPlanSetting) {
+    if (livePlan.plan_key === "pro") {
+      return [
+        "Contratos digitais",
+        "Upload de comprovantes",
+        "Dashboard operacional",
+        "Compartilhamento por WhatsApp",
+        "Gestão de talentos",
+        "Workflow completo",
+      ];
+    }
     const liveHighlights = planLimitHighlights(livePlan, lang);
     return livePlan.plan_key === "premium"
       ? [t("plan_everything_in_pro"), ...premiumSeatHighlights(livePlan, lang), ...liveHighlights]
@@ -860,7 +870,10 @@ export default function Home() {
                   ) : (
                     <p className="mt-4 text-4xl font-black tracking-[-0.04em] text-white/45">{t("plan_coming_soon")}</p>
                   )}
-                  {livePlan.is_available && (
+                  {livePlan.is_available && plan.key === "free" && (
+                    <p className="mt-5 text-[13px] font-semibold text-white/50">20% por contratação concluída</p>
+                  )}
+                  {livePlan.is_available && plan.key !== "free" && (
                     <div className="mt-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/8 px-4 py-3 flex items-center gap-3">
                       <svg className="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
