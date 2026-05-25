@@ -27,7 +27,9 @@ export type TalentContract = {
   createdAt:          string;
   contractFileUrl:    string | null;   // original — uploaded by agency
   signedContractUrl:  string | null;   // signed version — uploaded by talent
-  activeDisputeId:    string | null;
+  activeDisputeId:           string | null;
+  agencyPaymentSentAt?:      string | null;
+  talentPaymentConfirmedAt?: string | null;
 };
 
 export type ApprovedSubmission = {
@@ -177,7 +179,7 @@ function ContractRow({
   acting,
 }: {
   contract: TalentContract;
-  onAction: (id: string, action: "sign" | "reject", extra?: string) => void;
+  onAction: (id: string, action: "sign" | "reject" | "confirm_payment_received", extra?: string) => void;
   acting: string | null;
 }) {
   const { t } = useT();
@@ -534,6 +536,23 @@ function ContractRow({
               </div>
             )}
 
+            {/* Internal payment confirmation */}
+            {c.agencyPaymentSentAt && !c.talentPaymentConfirmedAt && !isPending && c.status !== "paid" && (
+              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+                <svg className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-[13px] font-semibold text-emerald-800 flex-1">{t("agency_contracts_payment_confirmed_banner")}</p>
+                <button
+                  onClick={() => onAction(c.id, "confirm_payment_received")}
+                  disabled={acting === c.id}
+                  className="flex-shrink-0 px-3 py-1.5 text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {acting === c.id ? "Confirmando…" : "Confirmar recebimento"}
+                </button>
+              </div>
+            )}
+
             {/* Reject confirmation */}
             {isPending && showReject && (
               <div className="flex items-center gap-3 bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 w-full">
@@ -590,10 +609,23 @@ export default function TalentContracts({
 
   async function handleAction(
     id: string,
-    action: "sign" | "reject",
+    action: "sign" | "reject" | "confirm_payment_received",
     extra?: string
   ) {
     setActing(id);
+
+    if (action === "confirm_payment_received") {
+      const res = await fetch(`/api/contracts/${id}/confirm-payment-received`, { method: "POST" });
+      if (res.ok) {
+        setContracts((prev) => prev.map((c) => c.id === id ? { ...c, status: "paid", talentPaymentConfirmedAt: new Date().toISOString() } : c));
+        showToast("Recebimento confirmado com sucesso.");
+      } else {
+        const d = await res.json().catch(() => ({}));
+        showToast(d.error ?? t("common_unexpected_error"), "error");
+      }
+      setActing(null);
+      return;
+    }
 
     if (action === "sign") {
       const body: Record<string, string> = {};

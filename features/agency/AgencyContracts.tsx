@@ -8,6 +8,7 @@ import { brl } from "@/lib/brl";
 import { getContractComputedState, isCustodyActive } from "@/lib/contractState";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 import { formatJobLocation } from "@/lib/jobLocation";
+import type { AgencyConfig } from "@/lib/agencyConfig";
 
 export type AgencyContract = {
   id: string;
@@ -43,6 +44,8 @@ export type AgencyContract = {
   paidByName?: string | null;
   /** Active open/under_review dispute ID for this contract, or null. */
   activeDisputeId?: string | null;
+  /** Set when agency has marked external payment as sent (internal payment mode). */
+  agencyPaymentSentAt?: string | null;
 };
 
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -137,12 +140,17 @@ function ContractCard({
   onUpdate,
   showPaymentActions = true,
   disputesHref = "/agency/disputes",
+  agencyConfig,
 }: {
   contract: AgencyContract;
   onUpdate: (id: string, updates: Partial<AgencyContract>) => void;
   showPaymentActions?: boolean;
   disputesHref?: string;
+  agencyConfig?: AgencyConfig;
 }) {
+  const showEscrow   = !agencyConfig || agencyConfig.showEscrow;
+  const showInternal = agencyConfig?.showInternalConfirmation ?? false;
+
   const [expanded,         setExpanded]         = useState(false);
   const [acting,           setActing]           = useState<string | null>(null);
   const [balanceError,     setBalanceError]     = useState<string | null>(null);
@@ -215,6 +223,18 @@ function ContractCard({
     setActing(null);
   }
 
+  async function handleMarkPaymentSent() {
+    setActing("payment_sent");
+    const res = await fetch(`/api/contracts/${c.id}/confirm-payment-sent`, { method: "POST" });
+    if (res.ok) {
+      onUpdate(c.id, { agencyPaymentSentAt: new Date().toISOString() });
+    } else {
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      setBalanceError(data.error ?? "Erro ao registrar envio do pagamento.");
+    }
+    setActing(null);
+  }
+
   return (
     <div>
       {/* Header row */}
@@ -235,7 +255,7 @@ function ContractCard({
           {stLabel}
         </span>
 
-        {showPaymentActions && c.status === "signed" && (
+        {showPaymentActions && showEscrow && c.status === "signed" && (
           <button
             onClick={handleConfirmEscrow}
             disabled={acting !== null}
@@ -245,8 +265,24 @@ function ContractCard({
           </button>
         )}
 
-        {/* Pay talent + Cancel for confirmed contracts */}
-        {showPaymentActions && !isPaid && c.status === "confirmed" && (
+        {showInternal && c.status === "signed" && !c.agencyPaymentSentAt && (
+          <button
+            onClick={handleMarkPaymentSent}
+            disabled={acting !== null}
+            className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {acting === "payment_sent" ? "Registrando…" : "Marcar pagamento enviado"}
+          </button>
+        )}
+
+        {showInternal && c.status === "signed" && c.agencyPaymentSentAt && (
+          <span className="flex-shrink-0 text-[12px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+            Pagamento enviado · aguardando talento
+          </span>
+        )}
+
+        {/* Pay talent + Cancel for confirmed contracts (escrow mode only) */}
+        {showPaymentActions && showEscrow && !isPaid && c.status === "confirmed" && (
           <>
             {(() => {
               const eligible = c.isPaymentEligible !== false;
@@ -470,6 +506,7 @@ function JobGroup({
   bookingsHref,
   disputesHref = "/agency/disputes",
   showPaymentActions = true,
+  agencyConfig,
 }: {
   jobTitle: string;
   jobId: string | null;
@@ -478,6 +515,7 @@ function JobGroup({
   bookingsHref: string;
   disputesHref?: string;
   showPaymentActions?: boolean;
+  agencyConfig?: AgencyConfig;
 }) {
   const pendingDeposit = contracts.filter((c) => c.status === "signed").length;
   const confirmed      = contracts.filter((c) => c.status === "confirmed" || c.status === "paid").length;
@@ -537,7 +575,7 @@ function JobGroup({
       {/* Contract rows */}
       <div className="divide-y divide-zinc-50">
         {contracts.map((c) => (
-          <ContractCard key={c.id} contract={c} onUpdate={onUpdate} showPaymentActions={showPaymentActions} disputesHref={disputesHref} />
+          <ContractCard key={c.id} contract={c} onUpdate={onUpdate} showPaymentActions={showPaymentActions} disputesHref={disputesHref} agencyConfig={agencyConfig} />
         ))}
       </div>
     </div>
@@ -548,11 +586,13 @@ function JobGroup({
 
 export default function AgencyContracts({
   contracts: initialContracts,
+  agencyConfig,
   bookingsHref = "/agency/bookings",
   disputesHref = "/agency/disputes",
   showPaymentActions = true,
 }: {
   contracts: AgencyContract[];
+  agencyConfig?: AgencyConfig;
   bookingsHref?: string;
   disputesHref?: string;
   showPaymentActions?: boolean;
@@ -653,7 +693,7 @@ export default function AgencyContracts({
         </Link>
       )}
 
-      {contracts.length > 0 && (
+      {contracts.length > 0 && (!agencyConfig || agencyConfig.showCommission) && (
         <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -717,6 +757,7 @@ export default function AgencyContracts({
                 bookingsHref={bookingsHref}
                 disputesHref={disputesHref}
                 showPaymentActions={showPaymentActions}
+                agencyConfig={agencyConfig}
               />
             );
           })}

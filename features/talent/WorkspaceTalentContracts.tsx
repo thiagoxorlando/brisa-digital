@@ -30,6 +30,8 @@ export type WorkspaceTalentContract = {
   signedContractUrl: string | null;
   isAgentJobBacked?: boolean;
   activeDisputeId: string | null;
+  agencyPaymentSentAt?: string | null;
+  talentPaymentConfirmedAt?: string | null;
 };
 
 type Props = {
@@ -512,6 +514,9 @@ function ContractCard({
   onSign: (id: string) => void;
   onReject: (id: string) => void;
 }) {
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [paymentConfirmedLocally, setPaymentConfirmedLocally] = useState(false);
+
   const status       = mapStatus(contract.status);
   const isActionable = ACTIONABLE_STATUSES.has(status);
   const state = getContractComputedState(
@@ -610,6 +615,28 @@ function ContractCard({
               </svg>
               Versão assinada
             </a>
+          )}
+
+          {contract.agencyPaymentSentAt && !contract.talentPaymentConfirmedAt && status !== "paid" && !paymentConfirmedLocally && (
+            <button
+              type="button"
+              disabled={confirmingPayment}
+              onClick={async () => {
+                setConfirmingPayment(true);
+                const res = await fetch(`/api/contracts/${contract.id}/confirm-payment-received`, { method: "POST" });
+                if (res.ok) setPaymentConfirmedLocally(true);
+                setConfirmingPayment(false);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors disabled:opacity-50"
+            >
+              {confirmingPayment ? "Confirmando…" : "Confirmar recebimento"}
+            </button>
+          )}
+
+          {(paymentConfirmedLocally || (contract.talentPaymentConfirmedAt && status !== "paid")) && (
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-700">
+              Recebimento confirmado
+            </span>
           )}
         </div>
       </div>

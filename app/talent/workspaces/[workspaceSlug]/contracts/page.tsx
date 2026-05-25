@@ -66,7 +66,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
   const jobMap = new Map((allJobs ?? []).map((job) => [String(job.id), job.title ?? "Vaga"]));
 
   const contractSelect =
-    "id, workspace_id, agency_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, created_at, signed_at, paid_at, contract_file_url, signed_contract_url";
+    "id, workspace_id, agency_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, created_at, signed_at, paid_at, contract_file_url, signed_contract_url, agency_payment_sent_at, talent_payment_confirmed_at";
 
   const [workspaceContractsResult, jobJoinContractsResult, agencyResult] = await Promise.all([
     supabase
@@ -150,6 +150,8 @@ export default async function WorkspaceContractsPage({ params }: Props) {
       signedContractUrl: contract.signed_contract_url ? buildContractFileAccessUrl(contract.id, "signed") : null,
       isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
       activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
+      agencyPaymentSentAt: (contract as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
+      talentPaymentConfirmedAt: (contract as Record<string, unknown>).talent_payment_confirmed_at as string | null ?? null,
     }));
 
   const primary = workspace.brand_primary_color ?? "#1ABC9C";

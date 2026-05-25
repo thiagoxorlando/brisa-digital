@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { resolvePlanInfo, type Plan } from "@/lib/plans";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { formatPlanCommission, formatTalentShareLabel } from "@/lib/planSettings.shared";
+import { getSubscriptionStatus, getTrialDaysRemaining } from "@/lib/trialStatus";
 
 export async function GET() {
   const session = await createSessionClient();
@@ -14,12 +15,20 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("plan")
+    .select("plan, plan_status, trial_started_at, trial_ends_at, plan_expires_at, subscription_provider")
     .eq("id", user.id)
     .single();
 
-  const plan       = (profile?.plan ?? "free") as Plan;
-  const planStatus = plan === "free" ? "free" : "active";
+  const profileRow = profile as Record<string, unknown> | null;
+  const plan = ((profileRow?.plan as string | null) ?? "free") as Plan;
+  const trialEndsAt = (profileRow?.trial_ends_at as string | null) ?? null;
+  const subscriptionStatus = getSubscriptionStatus({
+    plan,
+    plan_status:    (profileRow?.plan_status as string | null) ?? null,
+    trial_ends_at:  trialEndsAt,
+    plan_expires_at: (profileRow?.plan_expires_at as string | null) ?? null,
+  });
+  const planStatus = subscriptionStatus;
 
   const [planInfo, liveSetting] = await Promise.all([
     Promise.resolve(resolvePlanInfo({ plan })),
@@ -33,21 +42,29 @@ export async function GET() {
     commissionRate: liveSetting.commission_rate,
   });
 
+  const trialDaysRemaining = getTrialDaysRemaining(trialEndsAt);
+
   return NextResponse.json({
     plan,
-    plan_label:          liveSetting.name,
-    plan_status:         planStatus,
-    plan_expires_at:     null,
-    is_pro:              planInfo.isPaid,
-    is_premium:          plan === "premium",
-    is_active:           true,
-    is_unlimited:        liveSetting.job_limit === null,
-    max_active_jobs:     liveSetting.job_limit,
-    max_hires_per_job:   liveSetting.max_hires_per_job,
-    commission_rate:     liveSetting.commission_rate,
-    commission_label:    formatPlanCommission(liveSetting.commission_percent),
-    talent_share_label:  formatTalentShareLabel(liveSetting.commission_percent),
-    private_environment: planInfo.privateEnvironment,
+    plan_label:              liveSetting.name,
+    plan_status:             planStatus,
+    subscription_status:     subscriptionStatus,
+    subscription_provider:   (profileRow?.subscription_provider as string | null) ?? "asaas",
+    plan_expires_at:         (profileRow?.plan_expires_at as string | null) ?? null,
+    trial_started_at:        (profileRow?.trial_started_at as string | null) ?? null,
+    trial_ends_at:           trialEndsAt,
+    is_trialing:             subscriptionStatus === "trialing",
+    trial_days_remaining:    trialDaysRemaining,
+    is_pro:                  planInfo.isPaid,
+    is_premium:              plan === "premium",
+    is_active:               subscriptionStatus === "active" || subscriptionStatus === "trialing",
+    is_unlimited:            liveSetting.job_limit === null,
+    max_active_jobs:         liveSetting.job_limit,
+    max_hires_per_job:       liveSetting.max_hires_per_job,
+    commission_rate:         liveSetting.commission_rate,
+    commission_label:        formatPlanCommission(liveSetting.commission_percent),
+    talent_share_label:      formatTalentShareLabel(liveSetting.commission_percent),
+    private_environment:     planInfo.privateEnvironment,
   });
 }
 

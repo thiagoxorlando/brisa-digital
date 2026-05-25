@@ -7,12 +7,22 @@ import { createServerClient } from "@/lib/supabase";
 import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
 import { resolveActorNames } from "@/lib/resolveActorName.server";
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
+import { resolveAgencyConfig, defaultEscrowConfig } from "@/lib/agencyConfig";
+import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { parsePlan } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Contratos Premium - BrisaHub" };
 
 export default async function WorkspaceContractsPage() {
   const context = await requirePremiumWorkspacePageContext();
   const supabase = createServerClient({ useServiceRole: true });
+
+  const [{ data: profileRow }, { data: agencyRow }] = await Promise.all([
+    supabase.from("profiles").select("plan").eq("id", context.userId).maybeSingle(),
+    supabase.from("agencies").select("payment_mode, commission_percent_override, escrow_enabled, receipt_uploads_enabled").eq("id", context.userId).maybeSingle(),
+  ]);
+  const planSetting = await getLivePlanSetting(parsePlan((profileRow as Record<string, unknown> | null)?.plan as string | null));
+  const agencyConfig = resolveAgencyConfig(agencyRow as Record<string, unknown> | null, planSetting.commission_percent);
 
   const { data: workspaceJobs } = await supabase
     .from("jobs")
@@ -29,7 +39,7 @@ export default async function WorkspaceContractsPage() {
   const jobTitleMap = new Map(allWorkspaceJobs.map((job) => [job.id, job.title ?? "Vaga do workspace"]));
 
   const contractSelect =
-    "id, workspace_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, paid_by_user_id";
+    "id, workspace_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, paid_by_user_id, agency_payment_sent_at";
 
   const [workspaceContractsResult, jobJoinContractsResult] = await Promise.all([
     supabase
@@ -157,10 +167,11 @@ const talentIds = [...new Set(
         isAgentJobBacked: contract.job_id ? ownerAgentBackedJobIds.has(String(contract.job_id)) : false,
         paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
         activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
+        agencyPaymentSentAt: (contract as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
       };
     });
 
-    return <AgencyContracts contracts={contracts} bookingsHref="/agency/workspace/bookings" showPaymentActions={false} disputesHref="/agency/workspace/disputes" />;
+    return <AgencyContracts contracts={contracts} agencyConfig={agencyConfig} bookingsHref="/agency/workspace/bookings" showPaymentActions={false} disputesHref="/agency/workspace/disputes" />;
   }
 
   // For the agent (non-owner) view, detect which jobs have an agent commitment so
@@ -210,8 +221,9 @@ const talentIds = [...new Set(
       isAgentJobBacked: contract.job_id ? agentBackedJobIds.has(String(contract.job_id)) : false,
       paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
       activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
+      agencyPaymentSentAt: (contract as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
     };
   });
 
-  return <WorkspacePremiumContracts contracts={premiumContracts} lang={context.lang} />;
+  return <WorkspacePremiumContracts contracts={premiumContracts} agencyConfig={agencyConfig} lang={context.lang} />;
 }

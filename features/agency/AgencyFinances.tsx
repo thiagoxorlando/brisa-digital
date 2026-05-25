@@ -86,6 +86,7 @@ function StatCard({ label, value, sub, stripe }: { label: string; value: string;
 export default function AgencyFinances({
   summary,
   transactions,
+  agencyConfig,
   agencyPix,
   withdrawalMinAmount,
   withdrawalFeePercent = 0,
@@ -94,6 +95,7 @@ export default function AgencyFinances({
 }: {
   summary: AgencyFinanceSummary;
   transactions: AgencyTransaction[];
+  agencyConfig?: import("@/lib/agencyConfig").AgencyConfig;
   agencyPix?: { pix_key_type: string | null; pix_key_value: string | null; pix_holder_name: string | null } | null;
   withdrawalMinAmount: number;
   withdrawalFeePercent?: number;
@@ -102,6 +104,9 @@ export default function AgencyFinances({
 }) {
   const { t } = useT();
   const router = useRouter();
+
+  const showWalletFunding = !agencyConfig || agencyConfig.showWalletFunding;
+  const showCommission    = !agencyConfig || agencyConfig.showCommission;
 
   const walletBalance = summary.walletBalance ?? 0;
   const allocatedToAgents = summary.allocatedToAgents ?? 0;
@@ -300,7 +305,7 @@ export default function AgencyFinances({
         <p className="text-[13px] text-zinc-400 mt-1">{transactions.length} transacoes no total</p>
       </div>
 
-      <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
+      {showWalletFunding && <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
         {withdrawConfirming ? (
           <div className="px-6 py-6 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white space-y-4">
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white">{t("agency_finances_confirm_withdraw_title")}</p>
@@ -542,10 +547,9 @@ export default function AgencyFinances({
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {showWalletFunding && <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
           <div className="px-5 py-4 border-b border-zinc-50">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Saques pendentes</p>
@@ -599,14 +603,16 @@ export default function AgencyFinances({
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <StatCard label="Saldo Total" value={brl(walletBalance)} sub="Saldo bruto em carteira" stripe="from-indigo-500 to-violet-500" />
-        <StatCard label="Disponível para Saque" value={brl(availableBalance)} sub={allocatedToAgents > 0 ? `${brl(allocatedToAgents)} alocado a agentes` : "Saldo disponível em carteira"} stripe="from-emerald-400 to-teal-500" />
-        <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Em custódia" stripe="from-amber-400 to-orange-500" />
-        <StatCard label="Pagamentos Realizados" value={brl(summary.completedPayments)} sub="Pagos ao talento" stripe="from-cyan-400 to-sky-500" />
-      </div>
+      {showWalletFunding && (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <StatCard label="Saldo Total" value={brl(walletBalance)} sub="Saldo bruto em carteira" stripe="from-indigo-500 to-violet-500" />
+          <StatCard label="Disponível para Saque" value={brl(availableBalance)} sub={allocatedToAgents > 0 ? `${brl(allocatedToAgents)} alocado a agentes` : "Saldo disponível em carteira"} stripe="from-emerald-400 to-teal-500" />
+          <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Em custódia" stripe="from-amber-400 to-orange-500" />
+          <StatCard label="Pagamentos Realizados" value={brl(summary.completedPayments)} sub="Pagos ao talento" stripe="from-cyan-400 to-sky-500" />
+        </div>
+      )}
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">

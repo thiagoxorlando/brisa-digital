@@ -121,8 +121,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 7-day free trial: card is captured on the Asaas hosted page but the
+  // first charge is deferred to day 8. This satisfies "card required upfront".
+  const trialStartedAt = new Date();
+  const trialEndsAt = new Date();
+  trialEndsAt.setDate(trialEndsAt.getDate() + 7);
   const nextDueDate = new Date();
-  nextDueDate.setDate(nextDueDate.getDate() + 1);
+  nextDueDate.setDate(nextDueDate.getDate() + 7);
   const nextDueDateStr = nextDueDate.toISOString().slice(0, 10);
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
@@ -163,7 +168,14 @@ export async function POST(req: NextRequest) {
 
   const { error: subUpdateErr } = await supabase
     .from("profiles")
-    .update({ asaas_subscription_id: subscription.id } as Record<string, unknown>)
+    .update({
+      plan:                  requestedPlan,
+      plan_status:           "trialing",
+      asaas_subscription_id: subscription.id,
+      trial_started_at:      trialStartedAt.toISOString(),
+      trial_ends_at:         trialEndsAt.toISOString(),
+      subscription_provider: "asaas",
+    } as Record<string, unknown>)
     .eq("id", user.id);
 
   if (subUpdateErr) {

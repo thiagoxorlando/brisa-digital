@@ -3,6 +3,7 @@ import { brl } from "@/lib/brl";
 import { formatJobLocation } from "@/lib/jobLocation";
 import { unifiedStatusInfo } from "@/lib/bookingStatus";
 import AgentBookingActions from "@/features/agency/AgentBookingActions";
+import type { AgencyConfig } from "@/lib/agencyConfig";
 
 export type PremiumBooking = {
   id: string;
@@ -24,7 +25,7 @@ export type PremiumBooking = {
   paidByName?: string | null;
 };
 
-type Props = { bookings: PremiumBooking[] };
+type Props = { bookings: PremiumBooking[]; agencyConfig?: AgencyConfig };
 
 function fmt(s: string | null) {
   if (!s) return null;
@@ -59,8 +60,10 @@ const AGENT_ESCROW_STATUS = {
   badge: "bg-teal-50 text-teal-700 ring-1 ring-teal-100",
 };
 
-function BookingCard({ booking }: { booking: PremiumBooking }) {
-  const isAgentDeposit = booking.derivedStatus === "aguardando_deposito" && booking.isAgentJobBacked;
+function BookingCard({ booking, agencyConfig }: { booking: PremiumBooking; agencyConfig?: AgencyConfig }) {
+  const showEscrow        = !agencyConfig || agencyConfig.showEscrow;
+  const showCustodyLabels = !agencyConfig || agencyConfig.showCustodyLabels;
+  const isAgentDeposit    = showCustodyLabels && booking.derivedStatus === "aguardando_deposito" && booking.isAgentJobBacked;
   const si         = isAgentDeposit ? AGENT_ESCROW_STATUS : unifiedStatusInfo(booking.derivedStatus);
   const isPaid     = booking.derivedStatus === "pago";
   const isCanceled = booking.derivedStatus === "cancelado";
@@ -74,18 +77,20 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
     ? "bg-gradient-to-r from-teal-400 to-cyan-400"
     : "bg-gradient-to-r from-violet-400 to-indigo-400";
 
-  // Status hint line
-  const hint: Record<string, string> = {
-    aguardando_assinatura: "Aguardando assinatura do contrato pelo talento.",
+  const escrowHints: Record<string, string> = {
     aguardando_deposito:   "Contrato assinado. Aguardando depósito da agência.",
     aguardando_pagamento:  "Fundos em custódia. Aguardando liberação do pagamento.",
+  };
+  const genericHints: Record<string, string> = {
+    aguardando_assinatura: "Aguardando assinatura do contrato pelo talento.",
     pago:                  "Pagamento concluído.",
     cancelado:             "Esta reserva foi cancelada.",
   };
-  // Agent-backed: funds already reserved from agent budget — no deposit action needed.
   const effectiveHint = isAgentDeposit
     ? "Fundos reservados do seu orçamento. Aguardando confirmação do portal para liberar pagamento."
-    : hint[booking.derivedStatus];
+    : showEscrow
+    ? (escrowHints[booking.derivedStatus] ?? genericHints[booking.derivedStatus])
+    : genericHints[booking.derivedStatus];
 
   return (
     <div className={`overflow-hidden rounded-[22px] border bg-white shadow-[0_4px_16px_rgba(15,23,42,0.04)] ${borderCls} ${isCanceled ? "opacity-70" : ""}`}>
@@ -165,8 +170,8 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
           </div>
         </div>
 
-        {/* Agent-pay actions island — only when agent-reserved and still awaiting payment */}
-        {isAgentDeposit && booking.contractId && (
+        {/* Agent-pay actions island — only when agent-reserved and still awaiting payment (escrow mode) */}
+        {showEscrow && isAgentDeposit && booking.contractId && (
           <AgentBookingActions
             contractId={booking.contractId}
             talentName={booking.talentName}
@@ -179,7 +184,7 @@ function BookingCard({ booking }: { booking: PremiumBooking }) {
   );
 }
 
-export default function WorkspacePremiumBookings({ bookings }: Props) {
+export default function WorkspacePremiumBookings({ bookings, agencyConfig }: Props) {
   const active   = bookings.filter((b) => !["pago", "cancelado"].includes(b.derivedStatus));
   const paid     = bookings.filter((b) => b.derivedStatus === "pago");
   const canceled = bookings.filter((b) => b.derivedStatus === "cancelado");
@@ -231,7 +236,7 @@ export default function WorkspacePremiumBookings({ bookings }: Props) {
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Em andamento</p>
           <div className="flex flex-col gap-3">
-            {active.map((b) => <BookingCard key={b.id} booking={b} />)}
+            {active.map((b) => <BookingCard key={b.id} booking={b} agencyConfig={agencyConfig} />)}
           </div>
         </section>
       )}
@@ -240,7 +245,7 @@ export default function WorkspacePremiumBookings({ bookings }: Props) {
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Concluídas</p>
           <div className="flex flex-col gap-3">
-            {paid.map((b) => <BookingCard key={b.id} booking={b} />)}
+            {paid.map((b) => <BookingCard key={b.id} booking={b} agencyConfig={agencyConfig} />)}
           </div>
         </section>
       )}
@@ -249,7 +254,7 @@ export default function WorkspacePremiumBookings({ bookings }: Props) {
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Canceladas</p>
           <div className="flex flex-col gap-3">
-            {canceled.map((b) => <BookingCard key={b.id} booking={b} />)}
+            {canceled.map((b) => <BookingCard key={b.id} booking={b} agencyConfig={agencyConfig} />)}
           </div>
         </section>
       )}

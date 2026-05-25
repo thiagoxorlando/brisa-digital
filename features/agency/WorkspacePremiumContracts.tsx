@@ -8,6 +8,7 @@ import { formatJobLocation } from "@/lib/jobLocation";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 import { resolveContractAmounts } from "@/lib/contractStatus";
 import { getContractComputedState, isCustodyActive } from "@/lib/contractState";
+import type { AgencyConfig } from "@/lib/agencyConfig";
 
 export type PremiumContract = {
   id: string;
@@ -33,10 +34,12 @@ export type PremiumContract = {
   /** Display name of the user who released payment. NULL for legacy rows. */
   paidByName?: string | null;
   activeDisputeId?: string | null;
+  agencyPaymentSentAt?: string | null;
 };
 
 type Props = {
   contracts: PremiumContract[];
+  agencyConfig?: AgencyConfig;
   lang?: string;
 };
 
@@ -72,26 +75,43 @@ function ContractProgress({
   paidAt,
   locale,
   isAgentJobBacked,
+  agencyPaymentSentAt,
+  agencyConfig,
 }: {
   status: string;
   signedAt: string | null;
   paidAt: string | null;
   locale: string;
   isAgentJobBacked: boolean;
+  agencyPaymentSentAt?: string | null;
+  agencyConfig?: AgencyConfig;
 }) {
   if (["cancelled", "rejected"].includes(status)) return null;
+
+  const showEscrow   = !agencyConfig || agencyConfig.showEscrow;
+  const showInternal = agencyConfig?.showInternalConfirmation ?? false;
 
   const atLeastSigned    = ["signed", "confirmed", "paid"].includes(status);
   const atLeastConfirmed = isCustodyActive(status, isAgentJobBacked);
   const isPaid           = status === "paid";
+  const paymentSent      = showInternal && !!agencyPaymentSentAt;
 
-  const steps = [
-    { label: "Enviado",     done: true,              date: null },
-    { label: "Assinado",    done: atLeastSigned,     date: atLeastSigned ? fmt(signedAt, locale) : null },
-    { label: "Em custódia", done: atLeastConfirmed,  date: null },
-    { label: "Pago",        done: isPaid,            date: isPaid ? fmt(paidAt, locale) : null },
-  ];
-  const connectors = [atLeastSigned, atLeastConfirmed, isPaid];
+  const steps = showInternal
+    ? [
+        { label: "Enviado",             done: true,         date: null },
+        { label: "Assinado",            done: atLeastSigned, date: atLeastSigned ? fmt(signedAt, locale) : null },
+        { label: "Pagamento enviado",   done: paymentSent,  date: paymentSent ? fmt(agencyPaymentSentAt!, locale) : null },
+        { label: "Pago",               done: isPaid,       date: isPaid ? fmt(paidAt, locale) : null },
+      ]
+    : [
+        { label: "Enviado",     done: true,              date: null },
+        { label: "Assinado",    done: atLeastSigned,     date: atLeastSigned ? fmt(signedAt, locale) : null },
+        { label: showEscrow ? "Em custódia" : "Confirmado", done: showEscrow ? atLeastConfirmed : atLeastSigned, date: null },
+        { label: "Pago",        done: isPaid,            date: isPaid ? fmt(paidAt, locale) : null },
+      ];
+  const connectors = showInternal
+    ? [atLeastSigned, paymentSent, isPaid]
+    : [atLeastSigned, showEscrow ? atLeastConfirmed : atLeastSigned, isPaid];
 
   return (
     <div className="mt-4 flex items-start">
@@ -129,9 +149,15 @@ function ContractProgress({
   );
 }
 
-function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumContract; locale: string; lang: string; onPaid: (id: string) => void }) {
+function ContractCard({ contract, locale, lang, onPaid, agencyConfig }: { contract: PremiumContract; locale: string; lang: string; onPaid: (id: string) => void; agencyConfig?: AgencyConfig }) {
   const [paying, setPaying] = useState(false);
+  const [markingSent, setMarkingSent] = useState(false);
+  const [localPaymentSentAt, setLocalPaymentSentAt] = useState<string | null>(contract.agencyPaymentSentAt ?? null);
   const { isPaymentEligible, paymentBlockReason } = contract;
+
+  const showEscrow      = !agencyConfig || agencyConfig.showEscrow;
+  const showCommission  = !agencyConfig || agencyConfig.showCommission;
+  const showInternal    = agencyConfig?.showInternalConfirmation ?? false;
 
   const state = getContractComputedState(
     {
@@ -161,6 +187,13 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
     });
     if (res.ok) onPaid(contract.id);
     setPaying(false);
+  }
+
+  async function handleMarkPaymentSent() {
+    setMarkingSent(true);
+    const res = await fetch(`/api/contracts/${contract.id}/confirm-payment-sent`, { method: "POST" });
+    if (res.ok) setLocalPaymentSentAt(new Date().toISOString());
+    setMarkingSent(false);
   }
 
   const borderCls  = isPaid ? "border-emerald-200" : isActive ? "border-amber-200" : "border-zinc-200";
@@ -199,24 +232,30 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
           paidAt={contract.paidAt}
           locale={locale}
           isAgentJobBacked={contract.isAgentJobBacked ?? false}
+          agencyPaymentSentAt={localPaymentSentAt}
+          agencyConfig={agencyConfig}
         />
 
         {/* Financials */}
         <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-[12px]">
           {isPaid ? (
             <>
-              <span>
-                <span className="text-zinc-500">Líquido: </span>
-                <span className="font-bold text-emerald-600">{brl(net)}</span>
-              </span>
+              {showCommission && (
+                <span>
+                  <span className="text-zinc-500">Líquido: </span>
+                  <span className="font-bold text-emerald-600">{brl(net)}</span>
+                </span>
+              )}
               <span>
                 <span className="text-zinc-500">Bruto: </span>
                 <span className="text-zinc-700">{brl(gross)}</span>
               </span>
-              <span>
-                <span className="text-zinc-500">Comissão: </span>
-                <span className="text-zinc-700">{commissionPct}% · {brl(commission)}</span>
-              </span>
+              {showCommission && (
+                <span>
+                  <span className="text-zinc-500">Comissão: </span>
+                  <span className="text-zinc-700">{commissionPct}% · {brl(commission)}</span>
+                </span>
+              )}
             </>
           ) : (
             <span>
@@ -249,7 +288,7 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
             )}
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            {contract.status === "confirmed" && (
+            {showEscrow && contract.status === "confirmed" && (
               <>
                 {isPaymentEligible ? (
                   <button
@@ -275,6 +314,20 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
                   </>
                 )}
               </>
+            )}
+            {showInternal && contract.status === "signed" && !localPaymentSentAt && (
+              <button
+                onClick={handleMarkPaymentSent}
+                disabled={markingSent}
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {markingSent ? "Registrando…" : "Marcar pagamento enviado"}
+              </button>
+            )}
+            {showInternal && localPaymentSentAt && contract.status !== "paid" && (
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+                Pagamento enviado · aguardando talento
+              </span>
             )}
             <div className="flex gap-2 flex-wrap justify-end">
               {contract.jobId && (
@@ -309,7 +362,7 @@ function ContractCard({ contract, locale, lang, onPaid }: { contract: PremiumCon
   );
 }
 
-export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }: Props) {
+export default function WorkspacePremiumContracts({ contracts, agencyConfig, lang = "pt-BR" }: Props) {
   const router = useRouter();
   const locale = lang === "en" ? "en-US" : "pt-BR";
   const [paidIds, setPaidIds] = useState<Set<string>>(new Set());
@@ -380,7 +433,7 @@ export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }:
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Em andamento</p>
           <div className="flex flex-col gap-3">
-            {active.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} />)}
+            {active.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} agencyConfig={agencyConfig} />)}
           </div>
         </section>
       )}
@@ -389,7 +442,7 @@ export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }:
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Concluídos</p>
           <div className="flex flex-col gap-3">
-            {paid.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} />)}
+            {paid.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} agencyConfig={agencyConfig} />)}
           </div>
         </section>
       )}
@@ -398,7 +451,7 @@ export default function WorkspacePremiumContracts({ contracts, lang = "pt-BR" }:
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Cancelados / Rejeitados</p>
           <div className="flex flex-col gap-3">
-            {inactive.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} />)}
+            {inactive.map((c) => <ContractCard key={c.id} contract={c} locale={locale} lang={lang} onPaid={handlePaid} agencyConfig={agencyConfig} />)}
           </div>
         </section>
       )}

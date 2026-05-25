@@ -116,3 +116,9 @@ export function getPixQrCode(paymentId: string) {
     "GET", `/payments/${paymentId}/pixQrCode`,
   );
 }
+
+export function cancelSubscription(subscriptionId: string) {
+  return request<{ id: string; status: string }>(
+    "DELETE", `/subscriptions/${subscriptionId}`,
+  );
+}

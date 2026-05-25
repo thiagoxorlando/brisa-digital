@@ -26,6 +26,9 @@ type AgencyRow = {
   company_name: string | null;
   contact_name: string | null;
   deleted_at: string | null;
+  payment_mode: string | null;
+  commission_percent_override: number | null;
+  escrow_enabled: boolean | null;
 };
 
 type AuthUserRow = { id: string; email?: string };
@@ -123,7 +126,7 @@ export default async function AdminPlansPage() {
       .eq("role", "agency"),
     supabase
       .from("agencies")
-      .select("id, user_id, company_name, contact_name, deleted_at")
+      .select("id, user_id, company_name, contact_name, deleted_at, payment_mode, commission_percent_override, escrow_enabled")
       .is("deleted_at", null),
     fetchPlanChargeRows(supabase),
     Promise.resolve(
@@ -247,6 +250,9 @@ export default async function AdminPlansPage() {
         activeJobCount: activeJobCountMap.get(profile.id) ?? 0,
         isOrphan,
         orphanReason,
+        paymentMode: (agency?.payment_mode as "internal" | "escrow" | null) ?? null,
+        commissionOverride: agency?.commission_percent_override ?? null,
+        escrowEnabled: agency?.escrow_enabled ?? null,
       };
     })
     .sort((a, b) => a.agencyName.localeCompare(b.agencyName, "pt-BR"));

@@ -6,6 +6,9 @@ import AgencyContracts from "@/features/agency/AgencyContracts";
 import type { AgencyContract } from "@/features/agency/AgencyContracts";
 import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
+import { resolveAgencyConfig, defaultEscrowConfig } from "@/lib/agencyConfig";
+import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { parsePlan } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
 
@@ -15,9 +18,16 @@ export default async function AgencyContractsPage() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
+  const [{ data: profileRow }, { data: agencyRow }] = await Promise.all([
+    supabase.from("profiles").select("plan").eq("id", user?.id ?? "").maybeSingle(),
+    supabase.from("agencies").select("payment_mode, commission_percent_override, escrow_enabled, receipt_uploads_enabled").eq("id", user?.id ?? "").maybeSingle(),
+  ]);
+  const planSetting = await getLivePlanSetting(parsePlan((profileRow as Record<string, unknown> | null)?.plan as string | null));
+  const agencyConfig = resolveAgencyConfig(agencyRow as Record<string, unknown> | null, planSetting.commission_percent);
+
   const { data: rows } = await supabase
     .from("contracts")
-    .select("id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at")
+    .select("id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, agency_payment_sent_at")
     .eq("agency_id", user?.id ?? "")
     .order("created_at", { ascending: false });
 
@@ -84,11 +94,11 @@ export default async function AgencyContractsPage() {
     signedContractUrl:     (c as any).signed_contract_url ? buildContractFileAccessUrl(c.id, "signed") : null,
     isPaymentEligible:     release.eligible,
     paymentBlockReason:    release.eligible ? null : (c.job_date ? "Pagamento disponível após a data da vaga." : null),
-    // Open Space: the agency IS the owner, so they can manually override.
     canManualOverride:     true,
     activeDisputeId:       activeDisputeMap.get(c.id)?.id ?? null,
+    agencyPaymentSentAt:   (c as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
   });
   });
 
-  return <AgencyContracts contracts={contracts} />;
+  return <AgencyContracts contracts={contracts} agencyConfig={agencyConfig} />;
 }

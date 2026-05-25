@@ -24,6 +24,7 @@ interface Props {
   planExpiresAt: string | null;
   planCharges: PlanCharge[];
   nextChargeDate: string | null;
+  trialEndsAt?: string | null;
 }
 
 type PlanChangeResponse = {
@@ -332,10 +333,15 @@ export default function BillingDashboard({
   planExpiresAt,
   planCharges,
   nextChargeDate,
+  trialEndsAt,
 }: Props) {
   const isActivePaid = initialPlan !== "free";
   const [activePlan, setActivePlan] = useState<PlanKey>((isActivePaid ? initialPlan : "free") as PlanKey);
   const [activePlanStatus, setActivePlanStatus] = useState(planStatus ?? (isActivePaid ? "active" : "inactive"));
+  const [cancelingSubscription, setCancelingSubscription] = useState(false);
+
+  const isTrialing = activePlanStatus === "trialing";
+  const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86_400_000)) : null;
   const [expiresAt, setExpiresAt] = useState(planExpiresAt);
   const [pendingChange, setPendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
   const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
@@ -421,6 +427,21 @@ export default function BillingDashboard({
     setChangingTo(p);
   }
 
+  async function handleCancelSubscription() {
+    if (!confirm("Tem certeza que deseja cancelar a assinatura? Seu acesso voltará ao plano Free imediatamente.")) return;
+    setCancelingSubscription(true);
+    try {
+      const res = await fetch("/api/agency/subscription/cancel", { method: "POST" });
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
+      if (!res.ok) { showToast(data.error ?? "Erro ao cancelar assinatura.", false); return; }
+      setActivePlan("free");
+      setActivePlanStatus("canceled");
+      showToast("Assinatura cancelada. Você está no plano Free.", true);
+    } finally {
+      setCancelingSubscription(false);
+    }
+  }
+
   function handleSuccess(newPlan: PlanKey, result: PlanChangeResponse) {
     setChangingTo(null);
     if (newPlan === "free") {
@@ -444,6 +465,34 @@ export default function BillingDashboard({
   return (
     <div className="max-w-3xl space-y-8">
       {/* Banners */}
+      {/* Trial countdown banner */}
+      {isTrialing && trialDaysLeft !== null && (
+        <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3.5">
+          <svg className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-indigo-800">
+              {trialDaysLeft > 0
+                ? `Período de teste — ${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""} restante${trialDaysLeft !== 1 ? "s" : ""}`
+                : "Período de teste encerrado"}
+            </p>
+            {trialEndsAt && trialDaysLeft > 0 && (
+              <p className="text-[12px] text-indigo-700 mt-0.5">
+                Cobrança automática a partir de {new Date(trialEndsAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}.{" "}
+                <button
+                  onClick={handleCancelSubscription}
+                  disabled={cancelingSubscription}
+                  className="underline hover:no-underline disabled:opacity-50 cursor-pointer"
+                >
+                  {cancelingSubscription ? "Cancelando..." : "Cancelar antes da cobrança"}
+                </button>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {(activePlanStatus === "past_due" || activePlanStatus === "unpaid") && (
         <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3.5">
           <svg className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

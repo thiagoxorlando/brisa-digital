@@ -7,6 +7,9 @@ import { WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
 import { getOwnerTotalActiveAllocations } from "@/lib/premiumWorkspace.server";
 import { buildAgencyWalletLedgerRows, type AgencyLedgerRow } from "@/lib/readModels/agencyLedger";
+import { resolveAgencyConfig } from "@/lib/agencyConfig";
+import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { parsePlan } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
 
@@ -38,7 +41,7 @@ export default async function AgencyFinancesPage() {
       .limit(200),
     supabase
       .from("agencies")
-      .select("pix_key_type, pix_key_value, pix_holder_name")
+      .select("pix_key_type, pix_key_value, pix_holder_name, payment_mode, commission_percent_override, escrow_enabled, receipt_uploads_enabled")
       .eq("id", user?.id ?? "")
       .single(),
     supabase
@@ -113,6 +116,9 @@ export default async function AgencyFinancesPage() {
     allocatedToAgents: activelyAllocated,
   };
 
+  const planSetting = await getLivePlanSetting(parsePlan((profile as Record<string, unknown> | null)?.plan as string | null));
+  const agencyConfig = resolveAgencyConfig(agencyRow as Record<string, unknown> | null, planSetting.commission_percent);
+
   const feeSettings = await getPlatformSettings([
     "withdrawal_fee_percent",
     "withdrawal_min_fee",
@@ -132,6 +138,7 @@ export default async function AgencyFinancesPage() {
     <AgencyFinances
       summary={summary}
       transactions={transactions}
+      agencyConfig={agencyConfig}
       agencyPix={agencyPix}
       withdrawalMinAmount={effectiveMinWithdrawal}
       withdrawalFeePercent={withdrawalFeePercent}

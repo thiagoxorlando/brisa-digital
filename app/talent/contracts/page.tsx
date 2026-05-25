@@ -17,7 +17,7 @@ export default async function TalentContractsPage() {
   const [contractsResult, subsResult] = await Promise.all([
     supabase
       .from("contracts")
-      .select("id, agency_id, job_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, contract_file_url, signed_contract_url, created_at")
+      .select("id, agency_id, job_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, contract_file_url, signed_contract_url, created_at, agency_payment_sent_at, talent_payment_confirmed_at")
       .eq("talent_id", talentId)
       .order("created_at", { ascending: false }),
     supabase
@@ -112,6 +112,8 @@ export default async function TalentContractsPage() {
     contractFileUrl:   c.contract_file_url ? buildContractFileAccessUrl(c.id, "original") : null,
     signedContractUrl: c.signed_contract_url ? buildContractFileAccessUrl(c.id, "signed") : null,
     activeDisputeId: activeDisputeMap.get(c.id)?.id ?? null,
+    agencyPaymentSentAt: (c as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
+    talentPaymentConfirmedAt: (c as Record<string, unknown>).talent_payment_confirmed_at as string | null ?? null,
   }));
 
   return <TalentContracts contracts={contracts} approvedSubmissions={approvedSubmissions} />;

@@ -47,13 +47,13 @@ export default async function BillingPage() {
   const supabase = createServerClient({ useServiceRole: true });
 
   const [
-    { data: profile, error: profileError },
+    { data: profile, error: profileError }, // note: trial fields added via migration 20260525_trial_fields.sql
     { data: chargeRows, error: chargeError },
     { data: webhookEvents, error: webhookError },
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("plan, plan_status, plan_expires_at, asaas_customer_id")
+      .select("plan, plan_status, plan_expires_at, asaas_customer_id, trial_started_at, trial_ends_at")
       .eq("id", userId)
       .maybeSingle(),
 
@@ -190,6 +190,8 @@ export default async function BillingPage() {
     }
   }
 
+  const trialEndsAt = profileRow?.trial_ends_at as string | null ?? null;
+
   return (
     <BillingDashboard
       plan={planKey}
@@ -197,6 +199,7 @@ export default async function BillingPage() {
       planExpiresAt={planExpiresAt}
       planCharges={charges}
       nextChargeDate={nextChargeDate}
+      trialEndsAt={trialEndsAt}
     />
   );
 }

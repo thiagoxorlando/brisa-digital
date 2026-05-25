@@ -40,6 +40,9 @@ export type AdminPlansAgency = {
   activeJobCount: number;
   isOrphan: boolean;
   orphanReason: string | null;
+  paymentMode: "internal" | "escrow" | null;
+  commissionOverride: number | null;
+  escrowEnabled: boolean | null;
 };
 
 export type PlanSetting = {
@@ -833,6 +836,50 @@ export default function AdminPlans({ agencies, summary, planSettings, planHistor
               </button>
 
               {isExpanded ? (
+                <ExpandedAgencyPanel agency={agency} isExpanded={isExpanded} />
+              ) : null}
+            </div>
+          );
+        })}
+        {filteredAgencies.length === 0 ? (
+          <div className="card px-6 py-14 text-center">
+            <p className="text-[14px] font-semibold text-[#647B7B]">Nenhuma agencia encontrada</p>
+            <p className="text-[12px] text-[#7FA9A8] mt-1">Ajuste a busca ou os filtros para ver outros planos.</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded: boolean }) {
+  const [paymentMode, setPaymentMode] = useState<"internal" | "escrow">(agency.paymentMode ?? "escrow");
+  const [commissionOverride, setCommissionOverride] = useState<string>(agency.commissionOverride !== null ? String(agency.commissionOverride) : "");
+  const [escrowEnabled, setEscrowEnabled] = useState<boolean>(agency.escrowEnabled ?? true);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  async function handleSaveConfig() {
+    setSaving(true);
+    setSaveMsg(null);
+    const body: Record<string, unknown> = {
+      payment_mode: paymentMode,
+      commission_percent_override: commissionOverride === "" ? null : Number(commissionOverride),
+      escrow_enabled: paymentMode === "escrow" ? escrowEnabled : false,
+    };
+    const res = await fetch(`/api/admin/agencies/${agency.id}/config`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    setSaveMsg(res.ok ? "Salvo com sucesso." : "Erro ao salvar.");
+  }
+
+  const totalHistoryCount =
+    agency.paidCharges.length + agency.pendingCharges.length + agency.failedCharges.length;
+
+  return (
                 <div className="border-t border-[#DDE6E6] px-6 py-5 space-y-6 bg-[#FCFDFD]">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <DetailRow label="Asaas customer id" value={agency.asaasCustomerId ?? "—"} mono />
@@ -840,6 +887,61 @@ export default function AdminPlans({ agencies, summary, planSettings, planHistor
                     <DetailRow label="Plano atual" value={agency.currentPlanLabel} />
                     <DetailRow label="Status do plano" value={planStatusLabel(agency.planStatus)} />
                     {agency.email ? <DetailRow label="Email" value={agency.email} mono /> : null}
+                  </div>
+
+                  {/* Payment config editor */}
+                  <div className="rounded-2xl border border-[#DDE6E6] bg-white px-5 py-4 space-y-4">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-[#647B7B]">Configuração de pagamento</p>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-600 mb-1.5">Modo de pagamento</label>
+                        <select
+                          value={paymentMode}
+                          onChange={(e) => setPaymentMode(e.target.value as "internal" | "escrow")}
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-[13px] focus:outline-none focus:border-[#0E7C86]"
+                        >
+                          <option value="internal">Internal (sem custódia)</option>
+                          <option value="escrow">Escrow (custódia BrisaHub)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-600 mb-1.5">Comissão override (%)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          value={commissionOverride}
+                          onChange={(e) => setCommissionOverride(e.target.value)}
+                          placeholder="— (usar padrão do plano)"
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-[13px] focus:outline-none focus:border-[#0E7C86]"
+                        />
+                      </div>
+                      {paymentMode === "escrow" && (
+                        <div className="flex items-center gap-2 self-end pb-1.5">
+                          <input
+                            type="checkbox"
+                            id={`escrow-${agency.id}`}
+                            checked={escrowEnabled}
+                            onChange={(e) => setEscrowEnabled(e.target.checked)}
+                            className="w-4 h-4 rounded"
+                          />
+                          <label htmlFor={`escrow-${agency.id}`} className="text-[13px] font-medium text-zinc-700 cursor-pointer">
+                            Custódia habilitada
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleSaveConfig}
+                        disabled={saving}
+                        className="px-4 py-1.5 rounded-lg bg-[#0E7C86] hover:bg-[#0a6870] text-white text-[12px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {saving ? "Salvando…" : "Salvar configuração"}
+                      </button>
+                      {saveMsg && <p className={`text-[12px] font-medium ${saveMsg.startsWith("Erro") ? "text-rose-600" : "text-emerald-600"}`}>{saveMsg}</p>}
+                    </div>
                   </div>
                   {totalHistoryCount > 0 ? (
                     <div className="space-y-6">
@@ -854,17 +956,5 @@ export default function AdminPlans({ agencies, summary, planSettings, planHistor
                     </div>
                   )}
                 </div>
-              ) : null}
-            </div>
-          );
-        })}
-        {filteredAgencies.length === 0 ? (
-          <div className="card px-6 py-14 text-center">
-            <p className="text-[14px] font-semibold text-[#647B7B]">Nenhuma agencia encontrada</p>
-            <p className="text-[12px] text-[#7FA9A8] mt-1">Ajuste a busca ou os filtros para ver outros planos.</p>
-          </div>
-        ) : null}
-      </div>
-    </div>
   );
 }
