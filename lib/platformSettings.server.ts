@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import type { GlobalPaymentDefaults } from "./agencyConfig";
 
 export type PlatformSettingValue = string | number | boolean | null;
 
@@ -67,6 +68,26 @@ export async function getInternalAutoConfirmDays(): Promise<number> {
  */
 export async function getTrialDurationDays(): Promise<number> {
   return getPlatformSetting<number>("trial_duration_days", 7);
+}
+
+/**
+ * Global payment mode defaults from platform_settings.
+ * These are the fallback when an agency has no per-agency override.
+ */
+export async function getGlobalPaymentDefaults(): Promise<GlobalPaymentDefaults> {
+  const vals = await getPlatformSettings([
+    "default_payment_mode",
+    "default_commission_percent",
+    "default_escrow_enabled",
+    "default_receipt_upload_required",
+  ]);
+  const mode = String(vals["default_payment_mode"] ?? "internal");
+  return {
+    default_payment_mode: mode === "escrow" ? "escrow" : "internal",
+    default_commission_percent: Number(vals["default_commission_percent"] ?? 0),
+    default_escrow_enabled: Boolean(vals["default_escrow_enabled"] ?? false),
+    default_receipt_upload_required: Boolean(vals["default_receipt_upload_required"] ?? false),
+  };
 }
 
 export async function getAllPlatformSettings(): Promise<Record<string, PlatformSettingValue>> {

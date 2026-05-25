@@ -26,6 +26,9 @@ const BOOLEAN_KEYS = new Set([
   "trial_auto_charge_enabled",
   "show_onboarding_checklist",
   "show_feature_guide_cards",
+  // Global payment defaults
+  "default_escrow_enabled",
+  "default_receipt_upload_required",
 ]);
 
 const NUMBER_KEYS = new Set([
@@ -41,9 +44,12 @@ const NUMBER_KEYS = new Set([
   "internal_payment_auto_confirm_days",
   // Trial
   "trial_duration_days",
+  // Global payment defaults
+  "default_commission_percent",
 ]);
 
-const STRING_KEYS = new Set(["platform_name", "support_email"]);
+// STRING_KEYS with optional validation
+const STRING_KEYS = new Set(["platform_name", "support_email", "default_payment_mode"]);
 
 const ALL_KEYS = new Set([...BOOLEAN_KEYS, ...NUMBER_KEYS, ...STRING_KEYS]);
 
@@ -87,6 +93,11 @@ export async function PATCH(req: NextRequest) {
           return NextResponse.json({ error: "platform_name não pode ser vazio." }, { status: 400 });
         }
         value = rawValue.trim();
+      } else if (key === "default_payment_mode") {
+        if (!["internal", "escrow"].includes(String(rawValue))) {
+          return NextResponse.json({ error: "default_payment_mode deve ser 'internal' ou 'escrow'." }, { status: 400 });
+        }
+        value = String(rawValue);
       } else {
         value = rawValue === "" || rawValue === null ? null : String(rawValue).trim();
       }

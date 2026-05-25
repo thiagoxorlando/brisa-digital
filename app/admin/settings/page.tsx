@@ -32,6 +32,10 @@ const DEFAULTS: PlatformSettings = {
   show_onboarding_checklist:           true,
   show_feature_guide_cards:            true,
   internal_payment_auto_confirm_days:  5,
+  default_payment_mode:                "internal" as const,
+  default_commission_percent:          0,
+  default_escrow_enabled:              false,
+  default_receipt_upload_required:     false,
 };
 
 export default async function AdminSettingsPage() {
@@ -66,6 +70,10 @@ export default async function AdminSettingsPage() {
     show_onboarding_checklist:        Boolean(raw["show_onboarding_checklist"] ?? DEFAULTS.show_onboarding_checklist),
     show_feature_guide_cards:         Boolean(raw["show_feature_guide_cards"] ?? DEFAULTS.show_feature_guide_cards),
     internal_payment_auto_confirm_days: Number(raw["internal_payment_auto_confirm_days"] ?? DEFAULTS.internal_payment_auto_confirm_days),
+    default_payment_mode:              (String(raw["default_payment_mode"] ?? DEFAULTS.default_payment_mode) === "escrow" ? "escrow" : "internal") as "internal" | "escrow",
+    default_commission_percent:        Number(raw["default_commission_percent"] ?? DEFAULTS.default_commission_percent),
+    default_escrow_enabled:            Boolean(raw["default_escrow_enabled"] ?? DEFAULTS.default_escrow_enabled),
+    default_receipt_upload_required:   Boolean(raw["default_receipt_upload_required"] ?? DEFAULTS.default_receipt_upload_required),
   };
 
   return (

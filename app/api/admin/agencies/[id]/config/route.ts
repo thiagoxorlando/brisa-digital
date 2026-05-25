@@ -27,15 +27,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const patch: Record<string, unknown> = {};
 
   if (body.payment_mode !== undefined) {
-    if (!["internal", "escrow"].includes(String(body.payment_mode))) {
-      return NextResponse.json({ error: "payment_mode inválido." }, { status: 400 });
+    // null = reset to global platform default
+    if (body.payment_mode !== null && !["internal", "escrow"].includes(String(body.payment_mode))) {
+      return NextResponse.json({ error: "payment_mode inválido. Use 'internal', 'escrow', ou null para padrão global." }, { status: 400 });
     }
-    patch.payment_mode = body.payment_mode;
-    // Auto-sync escrow_enabled when switching modes
+    patch.payment_mode = body.payment_mode ?? null;
+    // Auto-sync escrow_enabled when switching to a concrete mode
     if (body.payment_mode === "internal") patch.escrow_enabled = false;
-    if (body.payment_mode === "escrow" && body.escrow_enabled === undefined) {
-      patch.escrow_enabled = true;
-    }
+    if (body.payment_mode === "escrow" && body.escrow_enabled === undefined) patch.escrow_enabled = true;
   }
 
   if (body.commission_percent_override !== undefined) {

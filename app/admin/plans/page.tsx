@@ -6,6 +6,7 @@ import AdminPlans, {
 } from "@/features/admin/AdminPlans";
 import { getPlanLabel, parsePlan } from "@/lib/plans";
 import { createServerClient } from "@/lib/supabase";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export const metadata: Metadata = { title: "Administracao - Planos - BrisaHub" };
 
@@ -120,6 +121,7 @@ export default async function AdminPlansPage() {
     planSettingsResult,
     planHistoryResult,
     authUsers,
+    globalPaymentDefaults,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -150,6 +152,7 @@ export default async function AdminPlansPage() {
     Promise.resolve(supabase.auth.admin.listUsers({ perPage: 1000 }))
       .then((r) => (r.data?.users ?? []) as { id: string; email?: string }[])
       .catch(() => [] as AuthUserRow[]),
+    getGlobalPaymentDefaults(),
   ]);
 
   const emailMap = new Map<string, string>(authUsers.map((u) => [u.id, u.email ?? ""]));
@@ -313,6 +316,7 @@ export default async function AdminPlansPage() {
   return (
     <AdminPlans
       agencies={agenciesData}
+      globalPaymentDefaults={globalPaymentDefaults}
       summary={summary}
       planSettings={planSettings}
       planHistory={planHistory}

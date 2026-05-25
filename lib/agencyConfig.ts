@@ -5,11 +5,30 @@
  * related to escrow, commission, wallet, and internal-payment display.
  * Import it in server components; pass AgencyConfig as a prop to client components.
  *
+ * Priority chain (highest wins):
+ *   agency row override → global platform defaults → safe hardcoded fallback (internal)
+ *
  * Never write per-page conditions for escrow/commission visibility.
  * Always derive from AgencyConfig.showXxx flags.
  */
 
 export type PaymentMode = "internal" | "escrow";
+
+/** Platform-wide payment defaults stored in platform_settings table. */
+export type GlobalPaymentDefaults = {
+  default_payment_mode: PaymentMode;
+  default_commission_percent: number;
+  default_escrow_enabled: boolean;
+  default_receipt_upload_required: boolean;
+};
+
+/** Safe hardcoded fallback — used when platform_settings is unavailable. */
+export const SAFE_GLOBAL_DEFAULTS: GlobalPaymentDefaults = {
+  default_payment_mode: "internal",
+  default_commission_percent: 0,
+  default_escrow_enabled: false,
+  default_receipt_upload_required: false,
+};
 
 export type AgencyConfig = {
   paymentMode: PaymentMode;
@@ -40,33 +59,53 @@ type AgencyRow = {
   receipt_uploads_enabled?: boolean | null;
 };
 
+/**
+ * Resolves the effective payment configuration for an agency.
+ *
+ * Priority: agency row > globalDefaults > SAFE_GLOBAL_DEFAULTS
+ *
+ * Pass globalDefaults (loaded from platform_settings) in every call site.
+ * Omitting it falls back to SAFE_GLOBAL_DEFAULTS (internal mode, 0 commission).
+ */
 export function resolveAgencyConfig(
   agency: AgencyRow | null | undefined,
   planCommissionPercent: number,
+  globalDefaults?: GlobalPaymentDefaults,
 ): AgencyConfig {
-  const paymentMode: PaymentMode =
-    agency?.payment_mode === "internal" ? "internal" : "escrow";
+  const globals = globalDefaults ?? SAFE_GLOBAL_DEFAULTS;
 
+  // null agency.payment_mode means "use global default"
+  const paymentMode: PaymentMode =
+    agency?.payment_mode === "internal" ? "internal"
+    : agency?.payment_mode === "escrow" ? "escrow"
+    : globals.default_payment_mode;
+
+  // Commission: agency override → plan rate → global default
   const commissionPercent =
     agency?.commission_percent_override != null
       ? Number(agency.commission_percent_override)
-      : planCommissionPercent;
+      : Number.isFinite(planCommissionPercent)
+        ? planCommissionPercent
+        : globals.default_commission_percent;
 
+  // escrow_enabled: agency override → global default (only meaningful when mode=escrow)
   const escrowEnabled =
-    paymentMode === "escrow" && (agency?.escrow_enabled ?? true);
+    paymentMode === "escrow" &&
+    (agency?.escrow_enabled ?? globals.default_escrow_enabled);
 
-  const receiptUploadsEnabled = agency?.receipt_uploads_enabled ?? true;
+  const receiptUploadsEnabled =
+    agency?.receipt_uploads_enabled ?? globals.default_receipt_upload_required;
 
   return {
     paymentMode,
     commissionPercent,
     escrowEnabled,
     receiptUploadsEnabled,
-    showCommission:          commissionPercent > 0,
-    showEscrow:              escrowEnabled,
-    showWalletFunding:       paymentMode === "escrow",
-    showCustodyLabels:       escrowEnabled,
-    showReleasePaymentFlow:  escrowEnabled,
+    showCommission:           commissionPercent > 0,
+    showEscrow:               escrowEnabled,
+    showWalletFunding:        paymentMode === "escrow",
+    showCustodyLabels:        escrowEnabled,
+    showReleasePaymentFlow:   escrowEnabled,
     showInternalConfirmation: paymentMode === "internal",
   };
 }

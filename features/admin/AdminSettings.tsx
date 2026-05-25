@@ -29,6 +29,14 @@ export type PlatformSettings = {
   escrow_timeout_days: number;
   /** Maximum contract/signed-document upload size in MB. */
   upload_max_mb: number;
+  /** Global default payment mode for agencies with no per-agency override. */
+  default_payment_mode: "internal" | "escrow";
+  /** Global default commission percent (fallback when plan commission unavailable). */
+  default_commission_percent: number;
+  /** Global default: whether escrow is enabled for escrow-mode agencies. */
+  default_escrow_enabled: boolean;
+  /** Global default: whether receipt upload is required in internal mode. */
+  default_receipt_upload_required: boolean;
   /** Enable trial for new PRO subscriptions. */
   trials_enabled: boolean;
   /** Auto-charge card when trial ends (Asaas deferred billing). */
@@ -213,6 +221,51 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
         </SettingRow>
         <SettingRow label="Saques PIX automáticos" description="Habilita processamento automático de saques via PIX">
           <Toggle checked={settings.automatic_pix_withdrawals_enabled} onChange={(v) => update("automatic_pix_withdrawals_enabled", v)} />
+        </SettingRow>
+      </Section>
+
+      <Section title="Pagamentos da plataforma">
+        <SettingRow
+          label="Modo de pagamento padrão"
+          description="Padrão global para agências sem override individual. internal = agência paga externamente; escrow = custódia BrisaHub."
+        >
+          <select
+            value={settings.default_payment_mode}
+            onChange={(e) => update("default_payment_mode", e.target.value as "internal" | "escrow")}
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-48"
+          >
+            <option value="internal">Internal (pagamento externo)</option>
+            <option value="escrow">Escrow (custódia BrisaHub)</option>
+          </select>
+        </SettingRow>
+        <SettingRow
+          label="Comissão padrão (%)"
+          description="Comissão global quando o plano não define uma taxa (0 = sem comissão)"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={settings.default_commission_percent}
+              onChange={(e) => update("default_commission_percent", Number(e.target.value))}
+              className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+            />
+            <span className="text-[12px] text-zinc-500">%</span>
+          </div>
+        </SettingRow>
+        <SettingRow
+          label="Custódia habilitada por padrão"
+          description="Para agências em modo escrow sem override, habilita a custódia BrisaHub automaticamente"
+        >
+          <Toggle checked={settings.default_escrow_enabled} onChange={(v) => update("default_escrow_enabled", v)} />
+        </SettingRow>
+        <SettingRow
+          label="Upload de comprovante obrigatório por padrão"
+          description="Para agências em modo internal sem override, exige upload de comprovante de pagamento"
+        >
+          <Toggle checked={settings.default_receipt_upload_required} onChange={(v) => update("default_receipt_upload_required", v)} />
         </SettingRow>
       </Section>
 

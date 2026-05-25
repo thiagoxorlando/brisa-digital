@@ -5,6 +5,7 @@ import { brl } from "@/lib/brl";
 import type { Plan } from "@/lib/plans";
 import { premiumSeatHighlights } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
+import type { GlobalPaymentDefaults } from "@/lib/agencyConfig";
 
 export type AdminPlansCharge = {
   id: string;
@@ -80,6 +81,7 @@ export type PlanSettingHistoryEntry = {
 
 type AdminPlansProps = {
   agencies: AdminPlansAgency[];
+  globalPaymentDefaults: GlobalPaymentDefaults;
   summary: {
     freeCount: number;
     proCount: number;
@@ -673,7 +675,7 @@ function AllPendingCharges({ agencies }: { agencies: AdminPlansAgency[] }) {
   );
 }
 
-export default function AdminPlans({ agencies, summary, planSettings, planHistory, activeByPlan }: AdminPlansProps) {
+export default function AdminPlans({ agencies, globalPaymentDefaults, summary, planSettings, planHistory, activeByPlan }: AdminPlansProps) {
   const { t } = useT();
   const [search, setSearch] = useState("");
   const [planFilter, setPlanFilter] = useState<"all" | Plan>("all");
@@ -837,7 +839,7 @@ export default function AdminPlans({ agencies, summary, planSettings, planHistor
               </button>
 
               {isExpanded ? (
-                <ExpandedAgencyPanel agency={agency} isExpanded={isExpanded} />
+                <ExpandedAgencyPanel agency={agency} isExpanded={isExpanded} globalPaymentDefaults={globalPaymentDefaults} />
               ) : null}
             </div>
           );
@@ -853,8 +855,9 @@ export default function AdminPlans({ agencies, summary, planSettings, planHistor
   );
 }
 
-function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded: boolean }) {
-  const [paymentMode, setPaymentMode] = useState<"internal" | "escrow">(agency.paymentMode ?? "escrow");
+function ExpandedAgencyPanel({ agency, globalPaymentDefaults }: { agency: AdminPlansAgency; isExpanded: boolean; globalPaymentDefaults: GlobalPaymentDefaults }) {
+  // "" = use global platform default (null in DB); explicit value = per-agency override
+  const [paymentModeOverride, setPaymentModeOverride] = useState<"internal" | "escrow" | "">(agency.paymentMode ?? "");
   const [commissionOverride, setCommissionOverride] = useState<string>(agency.commissionOverride !== null ? String(agency.commissionOverride) : "");
   const [escrowEnabled, setEscrowEnabled] = useState<boolean>(agency.escrowEnabled ?? true);
   const [receiptUploadsEnabled, setReceiptUploadsEnabled] = useState<boolean>(agency.receiptUploadsEnabled ?? true);
@@ -870,10 +873,11 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
   async function handleSaveConfig() {
     setSaving(true);
     setSaveMsg(null);
+    const resolvedMode = paymentModeOverride === "" ? null : paymentModeOverride;
     const body: Record<string, unknown> = {
-      payment_mode: paymentMode,
+      payment_mode: resolvedMode,
       commission_percent_override: commissionOverride === "" ? null : Number(commissionOverride),
-      escrow_enabled: paymentMode === "escrow" ? escrowEnabled : false,
+      escrow_enabled: resolvedMode === "escrow" ? escrowEnabled : false,
       receipt_uploads_enabled: receiptUploadsEnabled,
     };
     const res = await fetch(`/api/admin/agencies/${agency.id}/config`, {
@@ -940,13 +944,19 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-600 mb-1.5">Modo de pagamento</label>
                         <select
-                          value={paymentMode}
-                          onChange={(e) => setPaymentMode(e.target.value as "internal" | "escrow")}
+                          value={paymentModeOverride}
+                          onChange={(e) => setPaymentModeOverride(e.target.value as "internal" | "escrow" | "")}
                           className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-[13px] focus:outline-none focus:border-[#0E7C86]"
                         >
-                          <option value="internal">Internal (sem custódia)</option>
+                          <option value="">— Padrão global ({globalPaymentDefaults.default_payment_mode})</option>
+                          <option value="internal">Internal (pagamento externo)</option>
                           <option value="escrow">Escrow (custódia BrisaHub)</option>
                         </select>
+                        {paymentModeOverride === "" && (
+                          <p className="mt-1 text-[10px] text-zinc-400">
+                            Usando padrão global: <strong>{globalPaymentDefaults.default_payment_mode}</strong>
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-600 mb-1.5">Comissão override (%)</label>
@@ -961,7 +971,7 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
                           className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-[13px] focus:outline-none focus:border-[#0E7C86]"
                         />
                       </div>
-                      {paymentMode === "escrow" && (
+                      {(paymentModeOverride === "escrow" || (paymentModeOverride === "" && globalPaymentDefaults.default_payment_mode === "escrow")) && (
                         <div className="flex items-center gap-2 self-end pb-1.5">
                           <input
                             type="checkbox"
@@ -1001,7 +1011,7 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
                   </div>
 
                   {/* Manual payment confirmation — internal mode */}
-                  {paymentMode === "internal" && (
+                  {(paymentModeOverride === "internal" || (paymentModeOverride === "" && globalPaymentDefaults.default_payment_mode === "internal")) && (
                     <div className="rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 space-y-3">
                       <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Confirmar pagamento manualmente</p>
                       <p className="text-[12px] text-amber-600">Use somente quando o talento não responder e o prazo de auto-confirmação não for suficiente. Insira o ID do contrato.</p>

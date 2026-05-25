@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
-import { resolveAgencyConfig, defaultEscrowConfig } from "@/lib/agencyConfig";
+import { resolveAgencyConfig } from "@/lib/agencyConfig";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { parsePlan } from "@/lib/plans";
 
 export async function GET() {
@@ -12,13 +13,14 @@ export async function GET() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const [{ data: profile }, { data: agency }] = await Promise.all([
+  const [{ data: profile }, { data: agency }, globalDefaults] = await Promise.all([
     supabase.from("profiles").select("plan, role").eq("id", user.id).single(),
     supabase
       .from("agencies")
       .select("payment_mode, commission_percent_override, escrow_enabled, receipt_uploads_enabled")
       .eq("id", user.id)
       .maybeSingle(),
+    getGlobalPaymentDefaults(),
   ]);
 
   if (!profile || profile.role !== "agency") {
@@ -31,6 +33,7 @@ export async function GET() {
   const config = resolveAgencyConfig(
     agency as Record<string, unknown> | null,
     planSetting.commission_percent,
+    globalDefaults,
   );
 
   return NextResponse.json(config);
