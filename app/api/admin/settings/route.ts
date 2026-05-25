@@ -33,6 +33,7 @@ const NUMBER_KEYS = new Set([
   "payout_delay_days",
   "escrow_timeout_days",
   "upload_max_mb",
+  "internal_payment_auto_confirm_days",
 ]);
 
 const STRING_KEYS = new Set(["platform_name", "support_email"]);

@@ -27,7 +27,7 @@ export default async function AgencyContractsPage() {
 
   const { data: rows } = await supabase
     .from("contracts")
-    .select("id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, agency_payment_sent_at")
+    .select("id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, agency_payment_sent_at, payment_receipt_url")
     .eq("agency_id", user?.id ?? "")
     .order("created_at", { ascending: false });
 
@@ -97,6 +97,8 @@ export default async function AgencyContractsPage() {
     canManualOverride:     true,
     activeDisputeId:       activeDisputeMap.get(c.id)?.id ?? null,
     agencyPaymentSentAt:   (c as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
+    paymentReceiptUrl:     (c as Record<string, unknown>).payment_receipt_url as string | null
+      ? buildContractFileAccessUrl(c.id, "receipt") : null,
   });
   });
 

@@ -39,7 +39,7 @@ export default async function WorkspaceContractsPage() {
   const jobTitleMap = new Map(allWorkspaceJobs.map((job) => [job.id, job.title ?? "Vaga do workspace"]));
 
   const contractSelect =
-    "id, workspace_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, paid_by_user_id, agency_payment_sent_at";
+    "id, workspace_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, payment_status, contract_file_url, signed_contract_url, created_at, signed_at, agency_signed_at, deposit_paid_at, paid_at, paid_by_user_id, agency_payment_sent_at, payment_receipt_url";
 
   const [workspaceContractsResult, jobJoinContractsResult] = await Promise.all([
     supabase
@@ -168,6 +168,8 @@ const talentIds = [...new Set(
         paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
         activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
         agencyPaymentSentAt: (contract as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
+        paymentReceiptUrl: (contract as Record<string, unknown>).payment_receipt_url as string | null
+          ? buildContractFileAccessUrl(contract.id, "receipt") : null,
       };
     });
 
@@ -222,6 +224,8 @@ const talentIds = [...new Set(
       paidByName: paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
       activeDisputeId: activeDisputeMap.get(contract.id)?.id ?? null,
       agencyPaymentSentAt: (contract as Record<string, unknown>).agency_payment_sent_at as string | null ?? null,
+      paymentReceiptUrl: (contract as Record<string, unknown>).payment_receipt_url as string | null
+        ? buildContractFileAccessUrl(contract.id, "receipt") : null,
     };
   });
 

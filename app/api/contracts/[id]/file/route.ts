@@ -9,7 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const fileType = req.nextUrl.searchParams.get("type") === "signed" ? "signed" : "original";
+  const rawType = req.nextUrl.searchParams.get("type");
+  const fileType: import("@/lib/contractFiles").ContractFileKind =
+    rawType === "signed" ? "signed" : rawType === "receipt" ? "receipt" : "original";
 
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
@@ -20,7 +22,7 @@ export async function GET(
   const [{ data: contract, error: contractError }, { data: caller }] = await Promise.all([
     supabase
       .from("contracts")
-      .select("id, agency_id, talent_id, talent_user_id, job_id, contract_file_url, signed_contract_url")
+      .select("id, agency_id, talent_id, talent_user_id, job_id, contract_file_url, signed_contract_url, payment_receipt_url")
       .eq("id", id)
       .single(),
     supabase
@@ -52,7 +54,10 @@ export async function GET(
     return NextResponse.json({ error: "Voce nao tem permissao para acessar este contrato." }, { status: 403 });
   }
 
-  const fileRef = fileType === "signed" ? contract.signed_contract_url : contract.contract_file_url;
+  const fileRef =
+    fileType === "signed"  ? contract.signed_contract_url  :
+    fileType === "receipt" ? (contract as Record<string, unknown>).payment_receipt_url as string | null :
+    contract.contract_file_url;
   if (!fileRef) {
     return NextResponse.json({ error: "Arquivo do contrato nao encontrado." }, { status: 404 });
   }

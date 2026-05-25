@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
@@ -9,6 +9,9 @@ import { getContractComputedState, isCustodyActive } from "@/lib/contractState";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 import { formatJobLocation } from "@/lib/jobLocation";
 import type { AgencyConfig } from "@/lib/agencyConfig";
+import { supabase } from "@/lib/supabase";
+import { CONTRACTS_BUCKET, buildContractFileAccessUrl } from "@/lib/contractFiles";
+import PaymentTimeline from "@/components/PaymentTimeline";
 
 export type AgencyContract = {
   id: string;
@@ -46,6 +49,8 @@ export type AgencyContract = {
   activeDisputeId?: string | null;
   /** Set when agency has marked external payment as sent (internal payment mode). */
   agencyPaymentSentAt?: string | null;
+  /** Storage path for the uploaded payment receipt/proof (internal payment mode). */
+  paymentReceiptUrl?: string | null;
 };
 
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -156,6 +161,10 @@ function ContractCard({
   const [balanceError,     setBalanceError]     = useState<string | null>(null);
   const [overrideOpen,     setOverrideOpen]     = useState(false);
   const [overrideReason,   setOverrideReason]   = useState("");
+  const [receiptFile,      setReceiptFile]      = useState<File | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptError,     setReceiptError]     = useState<string | null>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   const { t, lang } = useT();
 
   const state = getContractComputedState(
@@ -235,6 +244,49 @@ function ContractCard({
     setActing(null);
   }
 
+  async function handleReceiptUpload(file: File) {
+    setUploadingReceipt(true);
+    setReceiptError(null);
+    try {
+      const initRes = await fetch(`/api/contracts/${c.id}/upload-receipt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, filesize: file.size }),
+      });
+      if (!initRes.ok) {
+        const d = await initRes.json().catch(() => ({})) as { error?: string };
+        setReceiptError(d.error ?? "Erro ao iniciar upload.");
+        return;
+      }
+      const { signedUrl, token, path } = await initRes.json() as { signedUrl: string; token: string; path: string };
+
+      const { error: storageErr } = await supabase.storage
+        .from(CONTRACTS_BUCKET)
+        .uploadToSignedUrl(path, token, file, { contentType: file.type || "application/pdf" });
+
+      if (storageErr) {
+        setReceiptError("Falha ao enviar arquivo. Tente novamente.");
+        return;
+      }
+
+      const confirmRes = await fetch(`/api/contracts/${c.id}/upload-receipt`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path }),
+      });
+      if (confirmRes.ok) {
+        onUpdate(c.id, { paymentReceiptUrl: buildContractFileAccessUrl(c.id, "receipt") });
+        setReceiptFile(null);
+      } else {
+        setReceiptError("Arquivo enviado, mas houve erro ao salvar. Tente novamente.");
+      }
+    } catch {
+      setReceiptError("Erro inesperado ao fazer upload.");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  }
+
   return (
     <div>
       {/* Header row */}
@@ -277,8 +329,54 @@ function ContractCard({
 
         {showInternal && c.status === "signed" && c.agencyPaymentSentAt && (
           <span className="flex-shrink-0 text-[12px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
-            Pagamento enviado · aguardando talento
+            Enviado · aguardando talento
           </span>
+        )}
+
+        {/* Receipt upload button — internal mode, contract signed, no receipt yet */}
+        {showInternal && ["signed", "confirmed"].includes(c.status) && !c.paymentReceiptUrl && (
+          <>
+            <input
+              ref={receiptInputRef}
+              type="file"
+              accept="image/*,application/pdf,.pdf"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (!file) return;
+                if (file.size > 10 * 1024 * 1024) {
+                  setReceiptError("Arquivo maior que 10MB.");
+                  return;
+                }
+                setReceiptFile(file);
+                handleReceiptUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => receiptInputRef.current?.click()}
+              disabled={uploadingReceipt}
+              className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {uploadingReceipt ? "Enviando…" : "Upload comprovante"}
+            </button>
+          </>
+        )}
+
+        {/* Receipt indicator — receipt already uploaded */}
+        {showInternal && c.paymentReceiptUrl && (
+          <a
+            href={c.paymentReceiptUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors whitespace-nowrap"
+            title="Ver comprovante de pagamento"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+            Comprovante
+          </a>
         )}
 
         {/* Pay talent + Cancel for confirmed contracts (escrow mode only) */}
@@ -414,6 +512,16 @@ function ContractCard({
           </button>
         </div>
       )}
+      {receiptError && (
+        <div className="mx-6 mb-3 flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+          <p className="text-[12px] font-semibold text-rose-700 flex-1">{receiptError}</p>
+          <button onClick={() => setReceiptError(null)} className="text-rose-400 hover:text-rose-600 transition-colors cursor-pointer">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Expanded details */}
       {expanded && (
@@ -436,37 +544,103 @@ function ContractCard({
             <Field label={t("contracts_payment_method")} value={c.paymentMethod ?? "—"} />
           </div>
 
-          {/* Signing timeline */}
+          {/* Payment timeline — shows mode-appropriate progress */}
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("contracts_signed")}</p>
-            <div className="flex flex-col gap-2">
-              {[
-                { label: t("contracts_sent"),         date: fmtDate(c.createdAt, lang),              done: true,         sublabel: null },
-                { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt, sublabel: null },
-                { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: isCustodyActive(c.status, c.isAgentJobBacked ?? false), sublabel: null },
-                { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast, sublabel: null },
-                { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt,   sublabel: c.paidByName ? `Pago por ${c.paidByName}` : null },
-              ].map((step, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className={[
-                    "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold",
-                    step.done ? "bg-emerald-500 text-white" : "bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200",
-                  ].join(" ")}>
-                    {step.done ? (
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : i + 1}
-                  </div>
-                  <div>
-                    <p className={`text-[12px] font-medium ${step.done ? "text-zinc-800" : "text-zinc-400"}`}>{step.label}</p>
-                    {step.sublabel && step.done && <p className="text-[11px] font-semibold text-zinc-600">{step.sublabel}</p>}
-                    {step.date && step.done && <p className="text-[10px] text-zinc-400">{step.date}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
+              {showInternal ? "Progresso do pagamento" : t("contracts_signed")}
+            </p>
+            <PaymentTimeline
+              mode={showInternal ? "internal" : "escrow"}
+              status={c.status}
+              signedAt={c.signedAt}
+              depositPaidAt={c.depositPaidAt}
+              agencyPaymentSentAt={c.agencyPaymentSentAt}
+              paidAt={c.paidAt}
+            />
           </div>
+
+          {/* Receipt section — internal mode */}
+          {showInternal && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Comprovante de pagamento</p>
+              {c.paymentReceiptUrl ? (
+                <div className="flex items-center gap-3 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3">
+                  <svg className="w-4 h-4 text-teal-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-[13px] font-semibold text-teal-800 flex-1">Comprovante enviado</p>
+                  <a
+                    href={c.paymentReceiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[12px] font-semibold text-teal-700 hover:text-teal-900 underline underline-offset-2 transition-colors"
+                  >
+                    Ver arquivo
+                  </a>
+                  {!c.agencyPaymentSentAt && (
+                    <button
+                      onClick={() => receiptInputRef.current?.click()}
+                      className="text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer ml-2"
+                    >
+                      Substituir
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 flex items-center gap-3">
+                  <svg className="w-4 h-4 text-zinc-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-[13px] text-zinc-500 flex-1">
+                    Pagamentos são gerenciados externamente pela agência.{" "}
+                    <button
+                      onClick={() => receiptInputRef.current?.click()}
+                      disabled={uploadingReceipt}
+                      className="font-semibold text-[#0E7C86] hover:underline cursor-pointer disabled:opacity-50"
+                    >
+                      {uploadingReceipt ? "Enviando…" : "Fazer upload do comprovante"}
+                    </button>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Signing timeline — escrow mode only */}
+          {showEscrow && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("contracts_signed")}</p>
+              <div className="flex flex-col gap-2">
+                {[
+                  { label: t("contracts_sent"),         date: fmtDate(c.createdAt, lang),              done: true,         sublabel: null },
+                  { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt, sublabel: null },
+                  { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: isCustodyActive(c.status, c.isAgentJobBacked ?? false), sublabel: null },
+                  { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast, sublabel: null },
+                  { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt,   sublabel: c.paidByName ? `Pago por ${c.paidByName}` : null },
+                ].map((step, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className={[
+                      "w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold",
+                      step.done ? "bg-emerald-500 text-white" : "bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200",
+                    ].join(" ")}>
+                      {step.done ? (
+                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : i + 1}
+                    </div>
+                    <div>
+                      <p className={`text-[12px] font-medium ${step.done ? "text-zinc-800" : "text-zinc-400"}`}>{step.label}</p>
+                      {step.sublabel && step.done && <p className="text-[11px] font-semibold text-zinc-600">{step.sublabel}</p>}
+                      {step.date && step.done && <p className="text-[10px] text-zinc-400">{step.date}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {c.jobDescription && (
             <div>
@@ -724,7 +898,7 @@ export default function AgencyContracts({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center">
+        <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center px-6">
           <div className="w-11 h-11 rounded-2xl bg-zinc-50 flex items-center justify-center mx-auto mb-4">
             <svg className="w-5 h-5 text-[#647B7B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
@@ -732,7 +906,11 @@ export default function AgencyContracts({
             </svg>
           </div>
           <p className="text-[14px] font-medium text-zinc-500">{t("contracts_no_contracts")}</p>
-          <p className="text-[13px] text-zinc-400 mt-1">{t("contracts_no_contracts_hint")}</p>
+          <p className="text-[13px] text-zinc-400 mt-1 max-w-sm mx-auto">
+            {agencyConfig?.paymentMode === "internal"
+              ? "Acompanhe aprovações, comprovantes e confirmações de pagamento em um único lugar. Pagamentos são gerenciados diretamente pela sua agência."
+              : t("contracts_no_contracts_hint")}
+          </p>
           <Link
             href="/agency/jobs"
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors mt-4"

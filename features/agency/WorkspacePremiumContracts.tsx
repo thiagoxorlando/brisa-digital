@@ -35,6 +35,7 @@ export type PremiumContract = {
   paidByName?: string | null;
   activeDisputeId?: string | null;
   agencyPaymentSentAt?: string | null;
+  paymentReceiptUrl?: string | null;
 };
 
 type Props = {

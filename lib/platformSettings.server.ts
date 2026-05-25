@@ -53,6 +53,14 @@ export async function getEscrowTimeoutDays(): Promise<number> {
   return getPlatformSetting<number>("escrow_timeout_days", 0);
 }
 
+/**
+ * Days after agency_payment_sent_at before system auto-confirms talent receipt (internal mode).
+ * 0 means auto-confirm is disabled.
+ */
+export async function getInternalAutoConfirmDays(): Promise<number> {
+  return getPlatformSetting<number>("internal_payment_auto_confirm_days", 5);
+}
+
 export async function getAllPlatformSettings(): Promise<Record<string, PlatformSettingValue>> {
   try {
     const supabase = createServerClient({ useServiceRole: true });

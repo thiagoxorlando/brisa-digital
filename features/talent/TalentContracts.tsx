@@ -9,6 +9,7 @@ import { brl } from "@/lib/brl";
 import { useT } from "@/lib/LanguageContext";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 import { formatJobLocation } from "@/lib/jobLocation";
+import PaymentTimeline from "@/components/PaymentTimeline";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ export type TalentContract = {
   activeDisputeId:           string | null;
   agencyPaymentSentAt?:      string | null;
   talentPaymentConfirmedAt?: string | null;
+  paymentReceiptUrl?:        string | null;
 };
 
 export type ApprovedSubmission = {
@@ -336,6 +338,43 @@ function ContractRow({
             </div>
           )}
 
+          {/* Payment timeline — shows progress for internal or escrow mode */}
+          {(c.agencyPaymentSentAt || c.talentPaymentConfirmedAt || ["signed", "confirmed", "paid"].includes(c.status)) && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
+                Progresso do pagamento
+              </p>
+              <PaymentTimeline
+                mode={c.agencyPaymentSentAt || c.talentPaymentConfirmedAt ? "internal" : "escrow"}
+                status={c.status}
+                agencyPaymentSentAt={c.agencyPaymentSentAt}
+                talentPaymentConfirmedAt={c.talentPaymentConfirmedAt}
+                paidAt={c.status === "paid" ? c.talentPaymentConfirmedAt : null}
+              />
+            </div>
+          )}
+
+          {/* Receipt from agency — internal mode only */}
+          {c.paymentReceiptUrl && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">
+                Comprovante da agência
+              </p>
+              <a
+                href={c.paymentReceiptUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-[12px] font-semibold text-teal-700 hover:text-teal-900 bg-teal-50 border border-teal-200 hover:border-teal-300 px-3 py-2 rounded-lg transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Ver comprovante de pagamento
+              </a>
+            </div>
+          )}
+
           {/* ── File version indicator ── */}
           {(hasOriginal || hasSigned) && (
             <div className="space-y-2">
@@ -538,15 +577,25 @@ function ContractRow({
 
             {/* Internal payment confirmation */}
             {c.agencyPaymentSentAt && !c.talentPaymentConfirmedAt && !isPending && c.status !== "paid" && (
-              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
-                <svg className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-[13px] font-semibold text-emerald-800 flex-1">{t("agency_contracts_payment_confirmed_banner")}</p>
+              <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <svg className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-emerald-800">A agência confirmou o envio do pagamento</p>
+                    <p className="text-[12px] text-emerald-600 mt-0.5">
+                      Confirme o recebimento para encerrar o contrato.
+                      {c.paymentReceiptUrl && (
+                        <> · <a href={c.paymentReceiptUrl} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">Ver comprovante</a></>
+                      )}
+                    </p>
+                  </div>
+                </div>
                 <button
                   onClick={() => onAction(c.id, "confirm_payment_received")}
                   disabled={acting === c.id}
-                  className="flex-shrink-0 px-3 py-1.5 text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="w-full px-3 py-2 text-[13px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {acting === c.id ? "Confirmando…" : "Confirmar recebimento"}
                 </button>

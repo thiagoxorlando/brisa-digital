@@ -32,6 +32,7 @@ export type WorkspaceTalentContract = {
   activeDisputeId: string | null;
   agencyPaymentSentAt?: string | null;
   talentPaymentConfirmedAt?: string | null;
+  paymentReceiptUrl?: string | null;
 };
 
 type Props = {

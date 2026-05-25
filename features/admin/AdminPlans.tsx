@@ -43,6 +43,7 @@ export type AdminPlansAgency = {
   paymentMode: "internal" | "escrow" | null;
   commissionOverride: number | null;
   escrowEnabled: boolean | null;
+  receiptUploadsEnabled: boolean | null;
 };
 
 export type PlanSetting = {
@@ -856,8 +857,12 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
   const [paymentMode, setPaymentMode] = useState<"internal" | "escrow">(agency.paymentMode ?? "escrow");
   const [commissionOverride, setCommissionOverride] = useState<string>(agency.commissionOverride !== null ? String(agency.commissionOverride) : "");
   const [escrowEnabled, setEscrowEnabled] = useState<boolean>(agency.escrowEnabled ?? true);
+  const [receiptUploadsEnabled, setReceiptUploadsEnabled] = useState<boolean>(agency.receiptUploadsEnabled ?? true);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
+  const [contractIdToConfirm, setContractIdToConfirm] = useState("");
 
   async function handleSaveConfig() {
     setSaving(true);
@@ -866,6 +871,7 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
       payment_mode: paymentMode,
       commission_percent_override: commissionOverride === "" ? null : Number(commissionOverride),
       escrow_enabled: paymentMode === "escrow" ? escrowEnabled : false,
+      receipt_uploads_enabled: receiptUploadsEnabled,
     };
     const res = await fetch(`/api/admin/agencies/${agency.id}/config`, {
       method: "PATCH",
@@ -874,6 +880,21 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
     });
     setSaving(false);
     setSaveMsg(res.ok ? "Salvo com sucesso." : "Erro ao salvar.");
+  }
+
+  async function handleManualConfirm() {
+    const id = contractIdToConfirm.trim();
+    if (!id) return;
+    setConfirmingPayment(true);
+    setConfirmMsg(null);
+    const res = await fetch(`/api/admin/contracts/${id}/confirm-payment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agency_id: agency.id }),
+    });
+    setConfirmingPayment(false);
+    const data = await res.json().catch(() => ({})) as { error?: string };
+    setConfirmMsg(res.ok ? "Pagamento confirmado manualmente." : (data.error ?? "Erro ao confirmar."));
   }
 
   const totalHistoryCount =
@@ -892,7 +913,7 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
                   {/* Payment config editor */}
                   <div className="rounded-2xl border border-[#DDE6E6] bg-white px-5 py-4 space-y-4">
                     <p className="text-[11px] font-bold uppercase tracking-widest text-[#647B7B]">Configuração de pagamento</p>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-600 mb-1.5">Modo de pagamento</label>
                         <select
@@ -931,6 +952,18 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
                           </label>
                         </div>
                       )}
+                      <div className="flex items-center gap-2 self-end pb-1.5">
+                        <input
+                          type="checkbox"
+                          id={`receipt-${agency.id}`}
+                          checked={receiptUploadsEnabled}
+                          onChange={(e) => setReceiptUploadsEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded"
+                        />
+                        <label htmlFor={`receipt-${agency.id}`} className="text-[13px] font-medium text-zinc-700 cursor-pointer">
+                          Upload de comprovante
+                        </label>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <button
@@ -943,6 +976,35 @@ function ExpandedAgencyPanel({ agency }: { agency: AdminPlansAgency; isExpanded:
                       {saveMsg && <p className={`text-[12px] font-medium ${saveMsg.startsWith("Erro") ? "text-rose-600" : "text-emerald-600"}`}>{saveMsg}</p>}
                     </div>
                   </div>
+
+                  {/* Manual payment confirmation — internal mode */}
+                  {paymentMode === "internal" && (
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50 px-5 py-4 space-y-3">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Confirmar pagamento manualmente</p>
+                      <p className="text-[12px] text-amber-600">Use somente quando o talento não responder e o prazo de auto-confirmação não for suficiente. Insira o ID do contrato.</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <input
+                          type="text"
+                          value={contractIdToConfirm}
+                          onChange={(e) => setContractIdToConfirm(e.target.value)}
+                          placeholder="UUID do contrato"
+                          className="flex-1 min-w-0 rounded-lg border border-amber-200 px-3 py-1.5 text-[13px] bg-white focus:outline-none focus:border-amber-400"
+                        />
+                        <button
+                          onClick={handleManualConfirm}
+                          disabled={confirmingPayment || !contractIdToConfirm.trim()}
+                          className="flex-shrink-0 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {confirmingPayment ? "Confirmando…" : "Confirmar"}
+                        </button>
+                      </div>
+                      {confirmMsg && (
+                        <p className={`text-[12px] font-medium ${confirmMsg.includes("Erro") || confirmMsg.includes("erro") ? "text-rose-600" : "text-emerald-600"}`}>
+                          {confirmMsg}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {totalHistoryCount > 0 ? (
                     <div className="space-y-6">
                       <ChargeSection title="Pagas" charges={agency.paidCharges} />
