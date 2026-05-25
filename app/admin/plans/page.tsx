@@ -79,6 +79,28 @@ type PlanHistoryRow = {
   new_extra_agent_seat_price: number | null;
 };
 
+async function fetchAgencyRows(supabase: ReturnType<typeof createServerClient>) {
+  const baseSelect = "id, user_id, company_name, contact_name, deleted_at";
+  const withConfig = await supabase
+    .from("agencies")
+    .select(`${baseSelect}, payment_mode, commission_percent_override, escrow_enabled, receipt_uploads_enabled`)
+    .is("deleted_at", null);
+
+  if (!withConfig.error) return (withConfig.data ?? []) as AgencyRow[];
+  // If the error mentions one of the new columns, fall back to the base columns.
+  if (
+    withConfig.error.message.includes("payment_mode") ||
+    withConfig.error.message.includes("commission_percent") ||
+    withConfig.error.message.includes("escrow_enabled") ||
+    withConfig.error.message.includes("receipt_uploads")
+  ) {
+    const fallback = await supabase.from("agencies").select(baseSelect).is("deleted_at", null);
+    if (fallback.error) throw fallback.error;
+    return (fallback.data ?? []) as AgencyRow[];
+  }
+  throw withConfig.error;
+}
+
 async function fetchPlanChargeRows(supabase: ReturnType<typeof createServerClient>) {
   const baseSelect = "id, user_id, amount, description, created_at, status, payment_id, processed_at, provider";
   const withInvoice = await supabase
@@ -116,7 +138,7 @@ export default async function AdminPlansPage() {
 
   const [
     { data: profiles },
-    { data: agencies },
+    agencies,
     chargeRows,
     planSettingsResult,
     planHistoryResult,
@@ -127,10 +149,7 @@ export default async function AdminPlansPage() {
       .from("profiles")
       .select("id, plan, plan_status, plan_expires_at, asaas_customer_id, asaas_subscription_id, deleted_at, is_frozen")
       .eq("role", "agency"),
-    supabase
-      .from("agencies")
-      .select("id, user_id, company_name, contact_name, deleted_at, payment_mode, commission_percent_override, escrow_enabled, receipt_uploads_enabled")
-      .is("deleted_at", null),
+    fetchAgencyRows(supabase),
     fetchPlanChargeRows(supabase),
     Promise.resolve(
       supabase
@@ -159,7 +178,7 @@ export default async function AdminPlansPage() {
   const authUserIdSet = new Set(authUsers.map((u) => u.id));
 
   const agencyMap = new Map<string, AgencyRow>();
-  for (const agency of (agencies ?? []) as AgencyRow[]) {
+  for (const agency of agencies) {
     const ownerId = agency.user_id ?? agency.id;
     if (ownerId) agencyMap.set(ownerId, agency);
   }
