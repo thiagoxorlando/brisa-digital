@@ -21,7 +21,13 @@ export type NotificationKey =
   | "dispute_under_review"
   | "dispute_resolved_refund"
   | "dispute_resolved_release"
-  | "dispute_closed";
+  | "dispute_closed"
+  | "trial_started"
+  | "trial_ending_soon"
+  | "subscription_activated"
+  | "subscription_canceled"
+  | "payment_failed"
+  | "trial_extended";
 
 export type NotificationTemplate = {
   key: NotificationKey;
@@ -116,6 +122,48 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     titlePt: "Disputa encerrada",
     bodyPt: "A disputa do contrato {contractId} foi encerrada.",
     defaultLink: "/admin/disputes/{disputeId}",
+  },
+  trial_started: {
+    key: "trial_started",
+    channel: "billing",
+    titlePt: "Trial iniciado",
+    bodyPt: "Seu trial de {days} dias começou. Você tem acesso completo ao plano {plan} até {endsAt}.",
+    defaultLink: "/agency/billing",
+  },
+  trial_ending_soon: {
+    key: "trial_ending_soon",
+    channel: "billing",
+    titlePt: "Trial encerrando em breve",
+    bodyPt: "Seu trial encerra em {days} dias. A cobrança de {price} será feita automaticamente.",
+    defaultLink: "/agency/billing",
+  },
+  subscription_activated: {
+    key: "subscription_activated",
+    channel: "billing",
+    titlePt: "Assinatura ativada",
+    bodyPt: "Seu plano {plan} está ativo. Próxima cobrança em {nextDue}.",
+    defaultLink: "/agency/billing",
+  },
+  subscription_canceled: {
+    key: "subscription_canceled",
+    channel: "billing",
+    titlePt: "Assinatura cancelada",
+    bodyPt: "Sua assinatura foi cancelada. Você voltou ao plano gratuito.",
+    defaultLink: "/agency/billing",
+  },
+  payment_failed: {
+    key: "payment_failed",
+    channel: "billing",
+    titlePt: "Falha no pagamento",
+    bodyPt: "Não foi possível cobrar sua assinatura. Atualize seu cartão para continuar usando o plano {plan}.",
+    defaultLink: "/agency/billing",
+  },
+  trial_extended: {
+    key: "trial_extended",
+    channel: "billing",
+    titlePt: "Trial estendido",
+    bodyPt: "Seu trial foi estendido por {days} dias. Novo encerramento: {endsAt}.",
+    defaultLink: "/agency/billing",
   },
 };
 

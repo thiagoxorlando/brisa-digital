@@ -69,7 +69,14 @@ export function getContractPaymentStatus(contract: {
   return STATUS_MAP[contract.status] ?? "pending";
 }
 
-export function contractStatusLabel(status: ContractPaymentStatus, lang: StatusLang = "pt-BR"): string {
+export function contractStatusLabel(
+  status: ContractPaymentStatus,
+  lang: StatusLang = "pt-BR",
+  paymentMode?: "internal" | "escrow",
+): string {
+  if (paymentMode === "internal" && status === "signed" && lang === "pt-BR") {
+    return "Aguardando pagamento externo";
+  }
   return STATUS_LABELS[lang][status];
 }
 

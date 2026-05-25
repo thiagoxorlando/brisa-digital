@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { cancelSubscription } from "@/lib/asaas";
+import { notify } from "@/lib/notify";
+import { renderNotificationTemplate } from "@/lib/notificationTemplates";
 
 export async function POST() {
   const session = await createSessionClient();
@@ -35,6 +37,13 @@ export async function POST() {
       trial_ends_at: null,
     } as Record<string, unknown>)
     .eq("id", user.id);
+
+  try {
+    const { title, body, link } = renderNotificationTemplate("subscription_canceled", {});
+    await notify([user.id], "billing", `${title}: ${body}`, link, `subscription_canceled:${user.id}`);
+  } catch (err) {
+    console.warn("[subscription/cancel] subscription_canceled notify failed (non-fatal):", String(err));
+  }
 
   console.log("[subscription/cancel] agency canceled subscription", {
     userId: user.id,

@@ -29,6 +29,18 @@ export type PlatformSettings = {
   escrow_timeout_days: number;
   /** Maximum contract/signed-document upload size in MB. */
   upload_max_mb: number;
+  /** Enable trial for new PRO subscriptions. */
+  trials_enabled: boolean;
+  /** Auto-charge card when trial ends (Asaas deferred billing). */
+  trial_auto_charge_enabled: boolean;
+  /** Trial duration in days for new PRO subscriptions. */
+  trial_duration_days: number;
+  /** Show launch checklist on agency dashboard. */
+  show_onboarding_checklist: boolean;
+  /** Show feature guide cards on agency pages. */
+  show_feature_guide_cards: boolean;
+  /** Days after agency_payment_sent_at before contract auto-confirms in internal mode. 0 = disabled. */
+  internal_payment_auto_confirm_days: number;
 };
 
 function Toggle({
@@ -287,6 +299,46 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
         </SettingRow>
         <SettingRow label="Plano Premium" description="Habilita o plano Premium (informativo — use plan_settings para disponibilidade real)">
           <Toggle checked={settings.premium_plan_enabled} onChange={(v) => update("premium_plan_enabled", v)} />
+        </SettingRow>
+      </Section>
+
+      <Section title="Trial e assinatura">
+        <SettingRow label="Trial habilitado" description="Novas assinaturas PRO recebem trial gratuito antes da primeira cobrança">
+          <Toggle checked={settings.trials_enabled} onChange={(v) => update("trials_enabled", v)} />
+        </SettingRow>
+        <SettingRow label="Cobrança automática no fim do trial" description="Cobra o cartão automaticamente ao encerrar o trial (Asaas deferred billing)">
+          <Toggle checked={settings.trial_auto_charge_enabled} onChange={(v) => update("trial_auto_charge_enabled", v)} />
+        </SettingRow>
+        <SettingRow label="Duração do trial (dias)" description="Dias de trial concedidos ao iniciar uma assinatura PRO">
+          <input
+            type="number"
+            min={1}
+            max={365}
+            step={1}
+            value={settings.trial_duration_days}
+            onChange={(e) => update("trial_duration_days", Number(e.target.value))}
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+          />
+        </SettingRow>
+        <SettingRow label="Auto-confirmação pagamento interno (dias)" description="Dias após agency_payment_sent_at antes do contrato ser confirmado automaticamente (0 = desativado)">
+          <input
+            type="number"
+            min={0}
+            max={90}
+            step={1}
+            value={settings.internal_payment_auto_confirm_days}
+            onChange={(e) => update("internal_payment_auto_confirm_days", Number(e.target.value))}
+            className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-24"
+          />
+        </SettingRow>
+      </Section>
+
+      <Section title="Onboarding">
+        <SettingRow label="Checklist de lançamento" description="Exibe o checklist de primeiros passos no painel da agência">
+          <Toggle checked={settings.show_onboarding_checklist} onChange={(v) => update("show_onboarding_checklist", v)} />
+        </SettingRow>
+        <SettingRow label="Cards de guia de recursos" description="Exibe cards contextuais de ajuda nas páginas da agência">
+          <Toggle checked={settings.show_feature_guide_cards} onChange={(v) => update("show_feature_guide_cards", v)} />
         </SettingRow>
       </Section>
 

@@ -26,6 +26,12 @@ const DEFAULTS: PlatformSettings = {
   payout_delay_days:                   0,
   escrow_timeout_days:                 0,
   upload_max_mb:                       20,
+  trials_enabled:                      true,
+  trial_auto_charge_enabled:           true,
+  trial_duration_days:                 7,
+  show_onboarding_checklist:           true,
+  show_feature_guide_cards:            true,
+  internal_payment_auto_confirm_days:  5,
 };
 
 export default async function AdminSettingsPage() {
@@ -54,6 +60,12 @@ export default async function AdminSettingsPage() {
     payout_delay_days:                Number(raw["payout_delay_days"] ?? DEFAULTS.payout_delay_days),
     escrow_timeout_days:              Number(raw["escrow_timeout_days"] ?? DEFAULTS.escrow_timeout_days),
     upload_max_mb:                    Number(raw["upload_max_mb"] ?? DEFAULTS.upload_max_mb),
+    trials_enabled:                   Boolean(raw["trials_enabled"] ?? DEFAULTS.trials_enabled),
+    trial_auto_charge_enabled:        Boolean(raw["trial_auto_charge_enabled"] ?? DEFAULTS.trial_auto_charge_enabled),
+    trial_duration_days:              Number(raw["trial_duration_days"] ?? DEFAULTS.trial_duration_days),
+    show_onboarding_checklist:        Boolean(raw["show_onboarding_checklist"] ?? DEFAULTS.show_onboarding_checklist),
+    show_feature_guide_cards:         Boolean(raw["show_feature_guide_cards"] ?? DEFAULTS.show_feature_guide_cards),
+    internal_payment_auto_confirm_days: Number(raw["internal_payment_auto_confirm_days"] ?? DEFAULTS.internal_payment_auto_confirm_days),
   };
 
   return (

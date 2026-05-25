@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { buildPlanSettingsFallback, formatPlanCommission, formatPlanMonthlyPrice } from "@/lib/planSettings.shared";
+import { buildPlanSettingsFallback, formatPlanMonthlyPrice } from "@/lib/planSettings.shared";
 
 const FALLBACKS = buildPlanSettingsFallback();
 const FREE_FALLBACK = FALLBACKS.free;
@@ -19,7 +19,6 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
   const [freeHireLimit, setFreeHireLimit] = useState(FREE_FALLBACK.max_hires_per_job);
   const [proAvailable, setProAvailable] = useState(PRO_FALLBACK.is_available);
   const [proPrice, setProPrice] = useState(formatPlanMonthlyPrice(PRO_FALLBACK.price));
-  const [proCommission, setProCommission] = useState(formatPlanCommission(PRO_FALLBACK.commission_percent));
 
   useEffect(() => {
     void fetch("/api/plan-settings").then(async (res) => {
@@ -32,7 +31,6 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
       if (data.pro) {
         setProAvailable(data.pro.is_available);
         setProPrice(formatPlanMonthlyPrice(data.pro.price));
-        setProCommission(formatPlanCommission(data.pro.commission_percent));
       }
     }).catch(() => undefined);
   }, []);
@@ -56,8 +54,8 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
   const features = !proAvailable
     ? ["Em breve"]
     : variant === "hiring"
-      ? ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", `Comissao da plataforma de ${proCommission}`]
-      : ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Historico completo de pagamentos e contratos"];
+      ? ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Upload de comprovantes de pagamento", "7 dias grátis na primeira assinatura"]
+      : ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Historico completo de contratos"];
 
   function handleUpgrade() {
     if (!proAvailable) return;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 import { brl } from "@/lib/brl";
-import { buildPlanSettingsFallback, formatPlanCommission, formatPlanMonthlyPrice, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,12 +44,11 @@ const PLANS = [
     period: "",
     badge: null,
     gradient: "from-zinc-300 to-zinc-400",
-    headline: "Versao de teste",
-    commission: `${PLAN_DEFINITIONS.free.commissionLabel} de comissao`,
+    headline: "Para conhecer a plataforma",
     features: [
       "1 vaga ativa",
       "Ate 3 contratacoes por vaga",
-      "Somente vagas publicas",
+      "Contratos digitais",
     ],
   },
   {
@@ -60,13 +59,12 @@ const PLANS = [
     period: "/mes",
     badge: "POPULAR" as const,
     gradient: "from-indigo-500 to-violet-600",
-    headline: "Sistema completo de contratacao",
-    commission: `${PLAN_DEFINITIONS.pro.commissionLabel} de comissao`,
+    headline: "Operacao completa sem limites · 7 dias gratis",
     features: [
-      "Vagas publicas ilimitadas",
+      "Vagas ilimitadas",
       "Contratacoes ilimitadas",
-      "Marketplace e descoberta de talentos",
-      "Historico completo de contratos e pagamentos",
+      "Upload de comprovantes de pagamento",
+      "Historico completo de contratos",
     ],
   },
   {
@@ -78,7 +76,6 @@ const PLANS = [
     badge: null,
     gradient: "from-violet-500 to-purple-700",
     headline: "Espaço Premium para operação privada da agência",
-    commission: `${PLAN_DEFINITIONS.premium.commissionLabel} de comissao`,
     features: [
       "Espaço Premium com branding próprio",
       "Vagas privadas por convite",
@@ -370,8 +367,9 @@ export default function BillingDashboard({
     const setting = effectiveSetting(p);
     return setting.is_available ? formatPlanMonthlyPrice(setting.price) : "Em breve";
   }
-  function effectiveCommission(p: PlanDef) {
-    return `${formatPlanCommission(effectiveSetting(p).commission_percent)} de comissao`;
+  function effectiveTrialLabel(p: PlanDef) {
+    if (p.key === "pro") return "7 dias grátis";
+    return null;
   }
 
   const currentPlanDef = getPlanDef(activePlan);
@@ -666,10 +664,9 @@ export default function BillingDashboard({
                     <span className="text-[1.75rem] font-bold tracking-tighter text-zinc-900">{effectivePriceLabel(p)}</span>
                   </div>
                   {available ? (
-                    <p className={[
-                      "text-[11px] font-semibold mb-4",
-                      p.key === "free" ? "text-zinc-400" : "text-indigo-600",
-                    ].join(" ")}>{effectiveCommission(p)}</p>
+                    <p className="text-[11px] font-semibold mb-4 text-indigo-600">
+                      {effectiveTrialLabel(p) ?? ""}
+                    </p>
                   ) : (
                     <p className="text-[11px] font-semibold mb-4 text-zinc-400">Em breve</p>
                   )}

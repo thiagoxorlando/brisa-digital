@@ -6,6 +6,8 @@ import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
 import { parsePlan, PLAN_KEYS, type Plan } from "@/lib/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { getTrialDurationDays } from "@/lib/platformSettings.server";
+import { notify } from "@/lib/notify";
+import { renderNotificationTemplate } from "@/lib/notificationTemplates";
 
 function extractAsaasError(err: unknown): string {
   try {
@@ -208,6 +210,18 @@ export async function POST(req: NextRequest) {
         err: chargeErr.message,
       });
     }
+  }
+
+  // Notify user that trial has started (non-fatal)
+  try {
+    const { title, body, link } = renderNotificationTemplate("trial_started", {
+      days: String(trialDays),
+      plan: planLabel,
+      endsAt: trialEndsAt.toLocaleDateString("pt-BR"),
+    });
+    await notify([user.id], "billing", `${title}: ${body}`, link, `trial_started:${user.id}:${subscription.id}`);
+  } catch (err) {
+    console.warn("[asaas/plan/checkout] trial_started notify failed (non-fatal):", String(err));
   }
 
   console.log("[asaas/plan/checkout] subscription created", {
