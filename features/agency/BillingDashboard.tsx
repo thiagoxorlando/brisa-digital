@@ -743,7 +743,7 @@ export default function BillingDashboard({
                         : isLoading
                         ? "Aguarde..."
                         : p.key === "pro" && activePlan === "free" && proTrialEnabled
-                          ? "Iniciar teste grÃ¡tis"
+                          ? "Iniciar teste grátis"
                         : p.key === "premium" && activePlan === "free"
                           ? "Escolher Premium"
                         : activePlan === "free"

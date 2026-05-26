@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
-import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
+import {
+  createSubscription,
+  getSubscriptionPayments,
+  listCustomerSubscriptions,
+} from "@/lib/asaas";
 import {
   fetchAgencySubscriptionProfile,
   startAgencyPlanTrial,
@@ -37,6 +41,11 @@ function extractAsaasError(err: unknown): string {
     // ignore malformed payloads
   }
   return err instanceof Error ? err.message : String(err);
+}
+
+function serializeErr(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  try { return JSON.stringify(err); } catch { return String(err); }
 }
 
 function parseCheckoutInput(body: Record<string, unknown>): ProCheckoutInput {
@@ -94,7 +103,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (planSettingError) {
-    console.error("[asaas/plan/checkout] failed to load plan_settings:", planSettingError.message);
+    console.error("[asaas/plan/checkout] plan_settings fetch failed:", planSettingError.message);
     return NextResponse.json({ error: "Plano invalido." }, { status: 400 });
   }
   if (!planSetting) {
@@ -125,15 +134,17 @@ export async function POST(req: NextRequest) {
   ]);
 
   const profileRaw = (profileResult.data ?? null) as Record<string, unknown> | null;
-  const agencyRaw = (agencyResult.data ?? null) as Record<string, unknown> | null;
+  const agencyRaw  = (agencyResult.data ?? null) as Record<string, unknown> | null;
   const holderDefaultName =
     String(agencyRaw?.contact_name ?? "").trim() ||
-    String(profileRaw?.full_name ?? "").trim() ||
+    String(profileRaw?.full_name  ?? "").trim() ||
     "Agencia";
   const planLabel = String(planSetting.name ?? requestedPlan);
 
-  const existingSubId = subscriptionProfile?.asaas_subscription_id ?? null;
-  const currentStatus = String(subscriptionProfile?.plan_status ?? "").toLowerCase();
+  const existingSubId  = subscriptionProfile?.asaas_subscription_id ?? null;
+  const currentStatus  = String(subscriptionProfile?.plan_status ?? "").toLowerCase();
+
+  // Guard: subscription is already active — don't create a duplicate
   if (existingSubId && (currentStatus === "trialing" || currentStatus === "active")) {
     return NextResponse.json(
       { error: "Sua assinatura ja esta em andamento. Acesse a pagina de cobranca para gerencia-la." },
@@ -171,6 +182,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── Non-PRO path ──────────────────────────────────────────────────────────────
   if (requestedPlan !== "pro") {
     if (existingSubId) {
       try {
@@ -252,53 +264,167 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: invoiceUrl });
   }
 
+  // ── PRO path ─────────────────────────────────────────────────────────────────
+  // Compute trial window first — used by both recovery and new-subscription paths.
+  const trialsEnabled          = Boolean(platformSettings.trials_enabled           ?? true);
+  const trialAutoChargeEnabled = Boolean(platformSettings.trial_auto_charge_enabled ?? true);
+  const trialDurationDays      = Math.max(1, Number(platformSettings.trial_duration_days ?? 7));
+  const trialDays              = trialsEnabled && trialAutoChargeEnabled ? trialDurationDays : 0;
+  const now                    = new Date();
+  const trialEndsAt            = new Date(now.getTime());
+  trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+  const nextDueDateStr         = (trialDays > 0 ? trialEndsAt : now).toISOString().slice(0, 10);
+  const remoteIp               = getRequestIp(req);
+
+  // ── Recovery detection ───────────────────────────────────────────────────────
+  // If the profile has no subscription_id, search Asaas to find a dangling
+  // subscription from a previous partial-failure attempt (DB write failed but
+  // Asaas subscription was created successfully).
+  let resolvedSubId = existingSubId;
+  if (!resolvedSubId) {
+    try {
+      const customerSubs = await listCustomerSubscriptions(customerId);
+      const expected     = `plan:pro:${user.id}`;
+      const found        = (customerSubs.data ?? []).find((s) => s.externalReference === expected);
+      if (found) {
+        resolvedSubId = found.id;
+        console.log("[asaas/plan/checkout] recovery:found_existing_subscription", {
+          userId: user.id,
+          customerId,
+          subscriptionId: resolvedSubId,
+        });
+      }
+    } catch (err) {
+      console.warn("[asaas/plan/checkout] recovery:subscription_search_failed (non-fatal)", {
+        userId: user.id,
+        customerId,
+        error: serializeErr(err),
+      });
+    }
+  }
+
+  // ── Recovery path ─────────────────────────────────────────────────────────────
+  // Found an existing Asaas subscription but profile was never updated.
+  // Activate the trial using the existing subscription — no new card charge.
+  if (resolvedSubId && currentStatus !== "trialing" && currentStatus !== "active") {
+    let recoveryPaymentId: string | undefined;
+    try {
+      const rPayments   = await getSubscriptionPayments(resolvedSubId);
+      recoveryPaymentId = rPayments.data?.[0]?.id;
+    } catch {
+      // non-fatal — proceed without a payment ID
+    }
+
+    try {
+      if (trialDays > 0) {
+        await startAgencyPlanTrial({
+          supabase,
+          userId:         user.id,
+          planKey:        "pro",
+          customerId,
+          subscriptionId: resolvedSubId,
+          paymentId:      recoveryPaymentId,
+          paymentValue:   planPrice,
+          trialStartedAt: now.toISOString(),
+          trialEndsAt:    trialEndsAt.toISOString(),
+        });
+        console.log("[asaas/plan/checkout] recovery:trial_activated", {
+          userId: user.id, customerId, subscriptionId: resolvedSubId, recoveryPaymentId,
+        });
+        return NextResponse.json({
+          ok:            true,
+          mode:          "trialing",
+          plan:          "pro",
+          planStatus:    "trialing",
+          trialEndsAt:   trialEndsAt.toISOString(),
+          nextChargeDate: trialEndsAt.toISOString(),
+          subscriptionId: resolvedSubId,
+          paymentId:      recoveryPaymentId ?? null,
+        });
+      } else {
+        await updateAgencySubscriptionProfile(supabase, user.id, {
+          plan:                  "pro",
+          plan_status:           "pending",
+          plan_expires_at:       nextDueDateStr,
+          asaas_customer_id:     customerId,
+          asaas_subscription_id: resolvedSubId,
+          subscription_provider: "asaas",
+          trial_started_at:      null,
+          trial_ends_at:         null,
+        });
+        await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
+        console.log("[asaas/plan/checkout] recovery:pending_activated", {
+          userId: user.id, customerId, subscriptionId: resolvedSubId,
+        });
+        return NextResponse.json({
+          ok:             true,
+          mode:           "pending_confirmation",
+          plan:           "pro",
+          planStatus:     "pending",
+          nextChargeDate: nextDueDateStr,
+          subscriptionId: resolvedSubId,
+          paymentId:      recoveryPaymentId ?? null,
+        });
+      }
+    } catch (err) {
+      console.error("[asaas/plan/checkout] recovery:activation_failed", {
+        step:           "recovery_activate",
+        userId:         user.id,
+        customerId,
+        subscriptionId: resolvedSubId,
+        recoveryPaymentId,
+        error:          serializeErr(err),
+      });
+      return NextResponse.json(
+        {
+          error:
+            "Sua assinatura existe mas nao foi possivel ativa-la automaticamente. " +
+            "Entre em contato com o suporte informando: " + resolvedSubId,
+        },
+        { status: 500 },
+      );
+    }
+  }
+
+  // ── New subscription path ─────────────────────────────────────────────────────
+  // Parse and validate card input (only needed when creating a new subscription).
   const checkoutInput = parseCheckoutInput({
     ...body,
     holderName: body.holderName ?? holderDefaultName,
-    cpfCnpj: body.cpfCnpj ?? cleanDoc,
-    phone: body.phone ?? rawPhone,
+    cpfCnpj:    body.cpfCnpj    ?? cleanDoc,
+    phone:      body.phone      ?? rawPhone,
   });
   const validationError = validateProCheckoutInput(checkoutInput);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  const trialsEnabled = Boolean(platformSettings.trials_enabled ?? true);
-  const trialAutoChargeEnabled = Boolean(platformSettings.trial_auto_charge_enabled ?? true);
-  const trialDurationDays = Math.max(1, Number(platformSettings.trial_duration_days ?? 7));
-  const trialDays = trialsEnabled && trialAutoChargeEnabled ? trialDurationDays : 0;
-  const now = new Date();
-  const trialEndsAt = new Date(now.getTime());
-  trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-  const nextDueDateStr = (trialDays > 0 ? trialEndsAt : now).toISOString().slice(0, 10);
-  const remoteIp = getRequestIp(req);
-
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
   try {
     subscription = await createSubscription({
-      customer: customerId,
-      billingType: "CREDIT_CARD",
-      value: planPrice,
-      nextDueDate: nextDueDateStr,
-      cycle: "MONTHLY",
-      description: `Assinatura ${planLabel} - BrisaHub`,
+      customer:          customerId,
+      billingType:       "CREDIT_CARD",
+      value:             planPrice,
+      nextDueDate:       nextDueDateStr,
+      cycle:             "MONTHLY",
+      description:       `Assinatura ${planLabel} - BrisaHub`,
       externalReference: `plan:${requestedPlan}:${user.id}`,
       creditCard: {
-        holderName: checkoutInput.holderName,
-        number: checkoutInput.cardNumber,
+        holderName:  checkoutInput.holderName,
+        number:      checkoutInput.cardNumber,
         expiryMonth: checkoutInput.expiryMonth,
-        expiryYear: checkoutInput.expiryYear,
-        ccv: checkoutInput.ccv,
+        expiryYear:  checkoutInput.expiryYear,
+        ccv:         checkoutInput.ccv,
       },
       creditCardHolderInfo: {
-        name: checkoutInput.holderName,
-        email: user.email ?? "",
-        cpfCnpj: checkoutInput.cpfCnpj,
-        postalCode: checkoutInput.postalCode,
-        addressNumber: checkoutInput.addressNumber,
+        name:              checkoutInput.holderName,
+        email:             user.email ?? "",
+        cpfCnpj:           checkoutInput.cpfCnpj,
+        postalCode:        checkoutInput.postalCode,
+        addressNumber:     checkoutInput.addressNumber,
         addressComplement: checkoutInput.addressComplement || null,
-        phone: checkoutInput.phone,
-        mobilePhone: checkoutInput.phone,
+        phone:             checkoutInput.phone,
+        mobilePhone:       checkoutInput.phone,
       },
       remoteIp: remoteIp === "unknown" ? "127.0.0.1" : remoteIp,
     });
@@ -313,87 +439,143 @@ export async function POST(req: NextRequest) {
     const payments = await getSubscriptionPayments(subscription.id);
     firstPaymentId = payments.data?.[0]?.id;
   } catch (err) {
-    console.error("[asaas/plan/checkout] getSubscriptionPayments failed:", String(err));
+    console.warn("[asaas/plan/checkout] getSubscriptionPayments failed (non-fatal)", {
+      userId: user.id,
+      subscriptionId: subscription.id,
+      error: serializeErr(err),
+    });
   }
 
   if (trialDays > 0) {
     const trialStartedAt = now.toISOString();
     const trialEndsAtIso = trialEndsAt.toISOString();
 
-    await startAgencyPlanTrial({
-      supabase,
-      userId: user.id,
-      planKey: "pro",
-      customerId,
-      subscriptionId: subscription.id,
-      paymentId: firstPaymentId,
-      paymentValue: planPrice,
-      trialStartedAt,
-      trialEndsAt: trialEndsAtIso,
-    });
+    try {
+      await startAgencyPlanTrial({
+        supabase,
+        userId:         user.id,
+        planKey:        "pro",
+        customerId,
+        subscriptionId: subscription.id,
+        paymentId:      firstPaymentId,
+        paymentValue:   planPrice,
+        trialStartedAt,
+        trialEndsAt:    trialEndsAtIso,
+      });
+    } catch (trialErr) {
+      // Asaas subscription created but local DB update failed.
+      // Save Asaas IDs to profile so the recovery path works on next retry.
+      console.error("[asaas/plan/checkout] start_trial failed", {
+        step:           "start_trial",
+        userId:         user.id,
+        customerId,
+        subscriptionId: subscription.id,
+        firstPaymentId,
+        error:          serializeErr(trialErr),
+      });
+      void supabase
+        .from("profiles")
+        .update({ asaas_customer_id: customerId, asaas_subscription_id: subscription.id } as Record<string, unknown>)
+        .eq("id", user.id)
+        .then(() => undefined, () => undefined);
+      return NextResponse.json(
+        {
+          error:
+            "Assinatura criada no Asaas mas o trial nao foi ativado. " +
+            "Va para Configuracoes → Cobranca e clique em Iniciar teste gratis para ativar. " +
+            "(ref: " + subscription.id + ")",
+        },
+        { status: 500 },
+      );
+    }
 
     console.log("[asaas/plan/checkout] pro trial started", {
-      userId: user.id,
-      plan: requestedPlan,
-      price: planPrice,
-      billingMode: "trialing",
-      nextDueDate: nextDueDateStr,
-      trialEndsAt: trialEndsAtIso,
+      userId:         user.id,
+      plan:           requestedPlan,
+      price:          planPrice,
+      billingMode:    "trialing",
+      nextDueDate:    nextDueDateStr,
+      trialEndsAt:    trialEndsAtIso,
       subscriptionId: subscription.id,
       firstPaymentId,
     });
 
     return NextResponse.json({
-      ok: true,
-      mode: "trialing",
-      plan: "pro",
-      planStatus: "trialing",
-      trialEndsAt: trialEndsAtIso,
+      ok:             true,
+      mode:           "trialing",
+      plan:           "pro",
+      planStatus:     "trialing",
+      trialEndsAt:    trialEndsAtIso,
       nextChargeDate: trialEndsAtIso,
       subscriptionId: subscription.id,
-      paymentId: firstPaymentId ?? null,
+      paymentId:      firstPaymentId ?? null,
     });
   }
 
-  await updateAgencySubscriptionProfile(supabase, user.id, {
-    plan: "pro",
-    plan_status: "pending",
-    plan_expires_at: nextDueDateStr,
-    asaas_customer_id: customerId,
-    asaas_subscription_id: subscription.id,
-    subscription_provider: "asaas",
-    trial_started_at: null,
-    trial_ends_at: null,
-  });
-  await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
+  // Immediate PRO (trials disabled)
+  try {
+    await updateAgencySubscriptionProfile(supabase, user.id, {
+      plan:                  "pro",
+      plan_status:           "pending",
+      plan_expires_at:       nextDueDateStr,
+      asaas_customer_id:     customerId,
+      asaas_subscription_id: subscription.id,
+      subscription_provider: "asaas",
+      trial_started_at:      null,
+      trial_ends_at:         null,
+    });
+    await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
+  } catch (err) {
+    console.error("[asaas/plan/checkout] profile_update failed", {
+      step:           "profile_update",
+      userId:         user.id,
+      customerId,
+      subscriptionId: subscription.id,
+      firstPaymentId,
+      error:          serializeErr(err),
+    });
+    void supabase
+      .from("profiles")
+      .update({ asaas_customer_id: customerId, asaas_subscription_id: subscription.id } as Record<string, unknown>)
+      .eq("id", user.id)
+      .then(() => undefined, () => undefined);
+    return NextResponse.json(
+      {
+        error:
+          "Assinatura criada mas o perfil nao foi atualizado. " +
+          "Va para Configuracoes → Cobranca e tente novamente. (ref: " + subscription.id + ")",
+      },
+      { status: 500 },
+    );
+  }
 
   if (firstPaymentId) {
     const { error: chargeErr } = await supabase.from("wallet_transactions").insert({
-      user_id: user.id,
-      type: "plan_charge",
-      amount: planPrice,
+      user_id:     user.id,
+      type:        "plan_charge",
+      amount:      planPrice,
       description: `Assinatura ${planLabel} - BrisaHub`,
-      payment_id: firstPaymentId,
-      provider: "asaas",
-      status: "pending",
+      payment_id:  firstPaymentId,
+      provider:    "asaas",
+      status:      "pending",
     } as Record<string, unknown>);
 
     if (chargeErr && chargeErr.code !== "23505") {
       console.error("[asaas/plan/checkout] immediate pro plan_charge insert failed (non-fatal)", {
-        userId: user.id,
+        userId:    user.id,
         paymentId: firstPaymentId,
-        err: chargeErr.message,
+        err:       chargeErr.message,
       });
     }
   }
 
   return NextResponse.json({
-    ok: true,
-    mode: "pending_confirmation",
-    plan: "pro",
-    planStatus: "pending",
+    ok:             true,
+    mode:           "pending_confirmation",
+    plan:           "pro",
+    planStatus:     "pending",
     nextChargeDate: nextDueDateStr,
     subscriptionId: subscription.id,
-    paymentId: firstPaymentId ?? null,
+    paymentId:      firstPaymentId ?? null,
   });
 }

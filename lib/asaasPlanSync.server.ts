@@ -64,8 +64,12 @@ function findPlanChargeStatusForAsaasEvent(event: string) {
   }
 }
 
-function isMissingColumnError(error: { message?: string } | null | undefined) {
+function isMissingColumnError(error: { message?: string; code?: string } | null | undefined) {
   const message = String(error?.message ?? "");
+  const code    = String(error?.code    ?? "");
+  // PGRST204: PostgREST schema-cache miss — "Could not find the 'X' column of 'profiles'"
+  if (code === "PGRST204" && message.toLowerCase().includes("profiles")) return true;
+  // Postgres native: "column X does not exist" (both SELECT and UPDATE formats)
   if (!message.includes("does not exist")) return false;
   // SELECT format: "column profiles.trial_started_at does not exist"
   // UPDATE format: "column \"trial_started_at\" of relation \"profiles\" does not exist"

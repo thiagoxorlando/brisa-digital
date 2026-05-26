@@ -74,6 +74,7 @@ export type AsaasSubscriptionResponse = {
   nextDueDate?: string;
   billingType: string;
   creditCardToken?: string;
+  externalReference?: string;
 };
 
 export type AsaasSubscriptionPayment = {
@@ -152,5 +153,11 @@ export function getPixQrCode(paymentId: string) {
 export function cancelSubscription(subscriptionId: string) {
   return request<{ id: string; status: string }>(
     "DELETE", `/subscriptions/${subscriptionId}`,
+  );
+}
+
+export function listCustomerSubscriptions(customerId: string) {
+  return request<{ data: AsaasSubscriptionResponse[]; totalCount?: number }>(
+    "GET", `/subscriptions?customer=${encodeURIComponent(customerId)}`,
   );
 }
