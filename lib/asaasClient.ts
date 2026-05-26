@@ -13,8 +13,6 @@ type AsaasRequestOptions = {
 };
 
 const OFFICIAL_ASAAS_PROD_URL = "https://api.asaas.com/v3";
-const OFFICIAL_ASAAS_SANDBOX_URL = "https://api-sandbox.asaas.com/v3";
-const LEGACY_ASAAS_SANDBOX_URL = "https://sandbox.asaas.com/api/v3";
 
 export class AsaasApiError extends Error {
   constructor(
@@ -26,39 +24,28 @@ export class AsaasApiError extends Error {
   }
 }
 
-function normalizeAsaasBaseUrl(rawBaseUrl: string | undefined, env: string) {
+function normalizeAsaasBaseUrl(rawBaseUrl: string | undefined) {
   const trimmed = (rawBaseUrl ?? "").trim().replace(/\/+$/, "");
-  const fallback = env === "sandbox" ? OFFICIAL_ASAAS_SANDBOX_URL : OFFICIAL_ASAAS_PROD_URL;
+  const fallback = OFFICIAL_ASAAS_PROD_URL;
 
   if (!trimmed) {
     return { baseUrl: fallback, normalizedFrom: null as string | null };
-  }
-
-  if (trimmed === LEGACY_ASAAS_SANDBOX_URL) {
-    return { baseUrl: OFFICIAL_ASAAS_SANDBOX_URL, normalizedFrom: trimmed };
   }
 
   if (trimmed === "https://api.asaas.com") {
     return { baseUrl: OFFICIAL_ASAAS_PROD_URL, normalizedFrom: trimmed };
   }
 
-  if (trimmed === "https://api-sandbox.asaas.com") {
-    return { baseUrl: OFFICIAL_ASAAS_SANDBOX_URL, normalizedFrom: trimmed };
-  }
-
   return { baseUrl: trimmed, normalizedFrom: null as string | null };
 }
 
 export function getAsaasConfigSummary() {
-  const env = (process.env.ASAAS_ENV ?? "").trim().toLowerCase() === "sandbox" ? "sandbox" : "production";
-  const { baseUrl, normalizedFrom } = normalizeAsaasBaseUrl(process.env.ASAAS_API_URL, env);
-  const usingSandbox = baseUrl.includes("api-sandbox.asaas.com");
+  const env = "production";
+  const { baseUrl, normalizedFrom } = normalizeAsaasBaseUrl(process.env.ASAAS_API_URL);
   return {
     env,
     baseUrl,
-    usingSandbox,
     normalizedFrom,
-    webhookConfigured: Boolean(process.env.ASAAS_WEBHOOK_TOKEN?.trim()),
   };
 }
 
@@ -92,11 +79,24 @@ function redactAsaasPayload(value: AsaasJson | undefined): AsaasJson | undefined
   return redacted;
 }
 
+function summarizeAsaasError(data: unknown) {
+  const value = redactAsaasPayload(data as AsaasJson);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, AsaasJson>;
+  return {
+    message: typeof record.message === "string" ? record.message : null,
+    errors: Array.isArray(record.errors) ? record.errors : null,
+  };
+}
+
 export async function asaas<T = unknown>(
   path: string,
   init?: AsaasRequestOptions,
 ): Promise<T> {
-  const { env, baseUrl, usingSandbox, normalizedFrom } = getAsaasConfigSummary();
+  const { env, baseUrl, normalizedFrom } = getAsaasConfigSummary();
   const apiKey = process.env.ASAAS_API_KEY?.trim() ?? "";
 
   if (!apiKey) {
@@ -114,23 +114,6 @@ export async function asaas<T = unknown>(
   const parsedBody = parseRequestBody(init?.body);
   const endpoint = path.startsWith("/") ? path : `/${path}`;
   const method = (init?.method ?? (parsedBody === undefined ? "GET" : "POST")).toUpperCase();
-  const billingType =
-    parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody) && "billingType" in parsedBody
-      ? String((parsedBody as Record<string, unknown>).billingType ?? "")
-      : null;
-
-  console.log("[asaas] request", {
-    env,
-    baseUrl,
-    endpoint,
-    billingType,
-    usingSandbox,
-    method,
-  });
-
-  if (endpoint.startsWith("/subscriptions") && parsedBody !== undefined) {
-    console.log("[asaas] subscription payload", redactAsaasPayload(parsedBody));
-  }
 
   const res = await fetch(`${baseUrl}${endpoint}`, {
     method,
@@ -157,9 +140,9 @@ export async function asaas<T = unknown>(
       env,
       baseUrl,
       endpoint,
+      method,
       status: res.status,
-      usingSandbox,
-      body: redactAsaasPayload(data as AsaasJson),
+      body: summarizeAsaasError(data),
     });
     throw new AsaasApiError(res.status, data);
   }

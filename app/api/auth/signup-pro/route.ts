@@ -19,7 +19,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
-import { getAsaasConfigSummary } from "@/lib/asaasClient";
 import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
 import {
   startAgencyPlanTrial,
@@ -237,25 +236,17 @@ async function handleSignupPro(req: NextRequest) {
   const expiryYearRaw = String(cardData.expiryYear ?? "").trim();
   const expiryYear    = expiryYearRaw.length === 2 ? `20${expiryYearRaw}` : expiryYearRaw;
   const holderName = String(cardData.holderName ?? "").trim();
-  const { usingSandbox, baseUrl, env } = getAsaasConfigSummary();
-  const remoteIpResolution = resolveAsaasRemoteIp(req, usingSandbox);
+  const remoteIp = resolveAsaasRemoteIp(req);
 
   if (!holderName) {
     return NextResponse.json({ error: "Informe o nome do titular exatamente como no cartao." }, { status: 400 });
   }
-  if (!remoteIpResolution.remoteIp) {
+  if (!remoteIp) {
     return NextResponse.json(
       { error: "Nao foi possivel identificar o IP do comprador. Recarregue a pagina e tente novamente." },
       { status: 400 },
     );
   }
-
-  console.log("[signup-pro] asaas subscription preflight", {
-    env,
-    baseUrl,
-    usingSandbox,
-    remoteIpSource: remoteIpResolution.source,
-  });
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
   try {
@@ -284,7 +275,7 @@ async function handleSignupPro(req: NextRequest) {
         phone:             cardPhone,
         mobilePhone:       cardPhone,
       },
-      remoteIp: remoteIpResolution.remoteIp,
+      remoteIp,
     });
   } catch (err) {
     const msg = extractErrorMessage(err);

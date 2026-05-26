@@ -2,7 +2,6 @@ import type { NextRequest } from "next/server";
 
 const IPV4_SEGMENT = "(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
 const IPV4_REGEX = new RegExp(`^${IPV4_SEGMENT}(\\.${IPV4_SEGMENT}){3}$`);
-const ASAAS_SANDBOX_REMOTE_IP_FALLBACK = "203.0.113.10";
 
 function stripIpDecorators(value: string) {
   const trimmed = value.trim().replace(/^for=/i, "").replace(/^"|"$/g, "");
@@ -60,15 +59,10 @@ export function resolveClientIpv4(req: Pick<NextRequest, "headers">): string | n
   return fallbackCandidate ?? null;
 }
 
-export function resolveAsaasRemoteIp(req: Pick<NextRequest, "headers">, usingSandbox: boolean) {
+export function resolveAsaasRemoteIp(req: Pick<NextRequest, "headers">) {
   const clientIp = resolveClientIpv4(req);
   if (clientIp) {
-    return { remoteIp: clientIp, source: "request" as const };
+    return clientIp;
   }
-
-  if (usingSandbox) {
-    return { remoteIp: ASAAS_SANDBOX_REMOTE_IP_FALLBACK, source: "sandbox-fallback" as const };
-  }
-
-  return { remoteIp: null, source: "missing" as const };
+  return null;
 }

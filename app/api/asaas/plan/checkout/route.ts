@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
-import { getAsaasConfigSummary } from "@/lib/asaasClient";
 import {
   createSubscription,
   getSubscriptionPayments,
@@ -275,8 +274,7 @@ export async function POST(req: NextRequest) {
   const trialEndsAt            = new Date(now.getTime());
   trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
   const nextDueDateStr         = (trialDays > 0 ? trialEndsAt : now).toISOString().slice(0, 10);
-  const { usingSandbox, baseUrl, env } = getAsaasConfigSummary();
-  const remoteIpResolution = resolveAsaasRemoteIp(req, usingSandbox);
+  const remoteIp = resolveAsaasRemoteIp(req);
 
   // ── Recovery detection ───────────────────────────────────────────────────────
   // If the profile has no subscription_id, search Asaas to find a dangling
@@ -400,19 +398,12 @@ export async function POST(req: NextRequest) {
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
-  if (!remoteIpResolution.remoteIp) {
+  if (!remoteIp) {
     return NextResponse.json(
       { error: "Nao foi possivel identificar o IP do comprador. Recarregue a pagina e tente novamente." },
       { status: 400 },
     );
   }
-
-  console.log("[asaas/plan/checkout] subscription preflight", {
-    env,
-    baseUrl,
-    usingSandbox,
-    remoteIpSource: remoteIpResolution.source,
-  });
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
   try {
@@ -441,7 +432,7 @@ export async function POST(req: NextRequest) {
         phone:             checkoutInput.phone,
         mobilePhone:       checkoutInput.phone,
       },
-      remoteIp: remoteIpResolution.remoteIp,
+      remoteIp,
     });
   } catch (err) {
     const desc = extractAsaasError(err);
