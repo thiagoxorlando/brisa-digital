@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
+import { fetchAgencySubscriptionProfile } from "@/lib/asaasPlanSync.server";
 import { resolvePlanInfo, type Plan } from "@/lib/plans";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { formatPlanCommission, formatTalentShareLabel } from "@/lib/planSettings.shared";
@@ -12,21 +13,14 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const supabase = createServerClient({ useServiceRole: true });
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("plan, plan_status, trial_started_at, trial_ends_at, plan_expires_at, subscription_provider")
-    .eq("id", user.id)
-    .single();
-
-  const profileRow = profile as Record<string, unknown> | null;
+  const profileRow = await fetchAgencySubscriptionProfile(supabase, user.id);
   const plan = ((profileRow?.plan as string | null) ?? "free") as Plan;
-  const trialEndsAt = (profileRow?.trial_ends_at as string | null) ?? null;
+  const trialEndsAt = profileRow?.trial_ends_at ?? null;
   const subscriptionStatus = getSubscriptionStatus({
     plan,
-    plan_status:    (profileRow?.plan_status as string | null) ?? null,
+    plan_status:    profileRow?.plan_status ?? null,
     trial_ends_at:  trialEndsAt,
-    plan_expires_at: (profileRow?.plan_expires_at as string | null) ?? null,
+    plan_expires_at: profileRow?.plan_expires_at ?? null,
   });
   const planStatus = subscriptionStatus;
 
@@ -49,9 +43,9 @@ export async function GET() {
     plan_label:              liveSetting.name,
     plan_status:             planStatus,
     subscription_status:     subscriptionStatus,
-    subscription_provider:   (profileRow?.subscription_provider as string | null) ?? "asaas",
-    plan_expires_at:         (profileRow?.plan_expires_at as string | null) ?? null,
-    trial_started_at:        (profileRow?.trial_started_at as string | null) ?? null,
+    subscription_provider:   profileRow?.subscription_provider ?? "asaas",
+    plan_expires_at:         profileRow?.plan_expires_at ?? null,
+    trial_started_at:        profileRow?.trial_started_at ?? null,
     trial_ends_at:           trialEndsAt,
     is_trialing:             subscriptionStatus === "trialing",
     trial_days_remaining:    trialDaysRemaining,

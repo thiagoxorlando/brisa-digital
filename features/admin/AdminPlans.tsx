@@ -869,6 +869,9 @@ function ExpandedAgencyPanel({ agency, globalPaymentDefaults }: { agency: AdminP
   const [trialExtendDays, setTrialExtendDays] = useState("7");
   const [extendingTrial, setExtendingTrial] = useState(false);
   const [extendMsg, setExtendMsg] = useState<string | null>(null);
+  const [syncingPlanPayment, setSyncingPlanPayment] = useState(false);
+  const [planPaymentId, setPlanPaymentId] = useState("");
+  const [planSyncMsg, setPlanSyncMsg] = useState<string | null>(null);
 
   async function handleSaveConfig() {
     setSaving(true);
@@ -922,6 +925,28 @@ function ExpandedAgencyPanel({ agency, globalPaymentDefaults }: { agency: AdminP
     setConfirmingPayment(false);
     const data = await res.json().catch(() => ({})) as { error?: string };
     setConfirmMsg(res.ok ? "Pagamento confirmado manualmente." : (data.error ?? "Erro ao confirmar."));
+  }
+
+  async function handlePlanPaymentSync() {
+    const paymentId = planPaymentId.trim();
+    if (!paymentId) return;
+
+    setSyncingPlanPayment(true);
+    setPlanSyncMsg(null);
+
+    const res = await fetch("/api/admin/plans/sync-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentId, agencyId: agency.id }),
+    });
+
+    setSyncingPlanPayment(false);
+    const data = await res.json().catch(() => ({})) as { error?: string; plan?: string };
+    setPlanSyncMsg(
+      res.ok
+        ? `Assinatura sincronizada com sucesso${data.plan ? ` (${String(data.plan).toUpperCase()})` : ""}.`
+        : (data.error ?? "Erro ao sincronizar pagamento do plano."),
+    );
   }
 
   const totalHistoryCount =
@@ -1068,6 +1093,34 @@ function ExpandedAgencyPanel({ agency, globalPaymentDefaults }: { agency: AdminP
                     {extendMsg && (
                       <p className={`text-[12px] font-medium ${extendMsg.includes("Erro") || extendMsg.includes("erro") ? "text-rose-600" : "text-emerald-600"}`}>
                         {extendMsg}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 space-y-3">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-700">Re-sync Asaas</p>
+                    <p className="text-[12px] text-emerald-700">
+                      Use quando a fatura foi paga no Asaas, mas o plano nao virou Pro/ativo no sistema.
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        value={planPaymentId}
+                        onChange={(e) => setPlanPaymentId(e.target.value)}
+                        placeholder="pay_xxxxxxxxxxxxxxxx"
+                        className="flex-1 min-w-0 rounded-lg border border-emerald-200 px-3 py-1.5 text-[13px] bg-white focus:outline-none focus:border-emerald-400"
+                      />
+                      <button
+                        onClick={handlePlanPaymentSync}
+                        disabled={syncingPlanPayment || !planPaymentId.trim()}
+                        className="flex-shrink-0 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        {syncingPlanPayment ? "Sincronizando..." : "Sincronizar pagamento"}
+                      </button>
+                    </div>
+                    {planSyncMsg && (
+                      <p className={`text-[12px] font-medium ${planSyncMsg.includes("Erro") || planSyncMsg.includes("erro") ? "text-rose-600" : "text-emerald-700"}`}>
+                        {planSyncMsg}
                       </p>
                     )}
                   </div>

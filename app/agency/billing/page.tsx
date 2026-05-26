@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
+import { fetchAgencySubscriptionProfile } from "@/lib/asaasPlanSync.server";
 import BillingDashboard from "@/features/agency/BillingDashboard";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 
@@ -23,12 +25,12 @@ function AgentBillingScreen({ workspaceName }: { workspaceName: string }) {
       <p className="text-[13px] text-zinc-400 max-w-sm">
         O plano é gerenciado pelo proprietário do workspace. Não é necessário adquirir um plano separado.
       </p>
-      <a
+      <Link
         href="/agency/workspace"
         className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[13px] font-semibold transition-colors"
       >
         Ir para o Espaço Premium
-      </a>
+      </Link>
     </div>
   );
 }
@@ -47,16 +49,9 @@ export default async function BillingPage() {
   const supabase = createServerClient({ useServiceRole: true });
 
   const [
-    { data: profile, error: profileError }, // note: trial fields added via migration 20260525_trial_fields.sql
     { data: chargeRows, error: chargeError },
     { data: webhookEvents, error: webhookError },
   ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("plan, plan_status, plan_expires_at, asaas_customer_id, trial_started_at, trial_ends_at")
-      .eq("id", userId)
-      .maybeSingle(),
-
     // payment_id stores Asaas payment ID — column exists since 20260417 migration.
     // Avoid selecting invoice_url / asaas_payment_id which may not exist in production.
     supabase
@@ -78,9 +73,16 @@ export default async function BillingPage() {
       .limit(200),
   ]);
 
-  if (profileError) {
-    console.error("[billing] profile load failed", { userId, err: profileError.message });
+  let profileRow: Awaited<ReturnType<typeof fetchAgencySubscriptionProfile>> = null;
+  try {
+    profileRow = await fetchAgencySubscriptionProfile(supabase, userId);
+  } catch (error) {
+    console.error("[billing] profile load failed", {
+      userId,
+      err: error instanceof Error ? error.message : String(error),
+    });
   }
+
   if (chargeError) {
     console.error("[billing] wallet_transactions query failed", { userId, err: chargeError.message });
   }
@@ -88,8 +90,7 @@ export default async function BillingPage() {
     console.error("[billing] asaas_webhook_events query failed", { err: webhookError.message });
   }
 
-  const profileRow = profile as Record<string, unknown> | null;
-  const asaasCustomerId = (profileRow?.asaas_customer_id as string | null) ?? null;
+  const asaasCustomerId = profileRow?.asaas_customer_id ?? null;
 
 
   type PlanCharge = {
@@ -177,8 +178,8 @@ export default async function BillingPage() {
   //   1. Use plan_expires_at if set (authoritative).
   //   2. Otherwise derive from the latest paid charge: same day + 1 month.
   //   3. Only for active paid plans — free plan has no next charge.
-  const planExpiresAt = profileRow?.plan_expires_at as string | null ?? null;
-  const planKey       = profileRow?.plan as string ?? "free";
+  const planExpiresAt = profileRow?.plan_expires_at ?? null;
+  const planKey       = profileRow?.plan ?? "free";
 
   let nextChargeDate: string | null = null;
   if (planKey !== "free" && !planExpiresAt) {
@@ -190,12 +191,12 @@ export default async function BillingPage() {
     }
   }
 
-  const trialEndsAt = profileRow?.trial_ends_at as string | null ?? null;
+  const trialEndsAt = profileRow?.trial_ends_at ?? null;
 
   return (
     <BillingDashboard
       plan={planKey}
-      planStatus={profileRow?.plan_status as string | null ?? null}
+      planStatus={profileRow?.plan_status ?? null}
       planExpiresAt={planExpiresAt}
       planCharges={charges}
       nextChargeDate={nextChargeDate}

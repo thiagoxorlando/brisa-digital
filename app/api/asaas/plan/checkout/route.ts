@@ -3,11 +3,10 @@ import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
 import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
+import { updateAgencySubscriptionProfile } from "@/lib/asaasPlanSync.server";
 import { parsePlan, PLAN_KEYS, type Plan } from "@/lib/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { getTrialDurationDays } from "@/lib/platformSettings.server";
-import { notify } from "@/lib/notify";
-import { renderNotificationTemplate } from "@/lib/notificationTemplates";
 
 function extractAsaasError(err: unknown): string {
   try {
@@ -124,14 +123,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Free trial: card is captured on the Asaas hosted page but the
-  // first charge is deferred by trial_duration_days. Satisfies "card required upfront".
-  const trialDays = await getTrialDurationDays();
-  const trialStartedAt = new Date();
-  const trialEndsAt = new Date();
-  trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+  const trialOffsetDays = await getTrialDurationDays();
   const nextDueDate = new Date();
-  nextDueDate.setDate(nextDueDate.getDate() + trialDays);
+  nextDueDate.setDate(nextDueDate.getDate() + trialOffsetDays);
   const nextDueDateStr = nextDueDate.toISOString().slice(0, 10);
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
@@ -170,24 +164,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Erro ao obter link de pagamento." }, { status: 500 });
   }
 
-  const { error: subUpdateErr } = await supabase
-    .from("profiles")
-    .update({
-      plan:                  requestedPlan,
-      plan_status:           "trialing",
+  try {
+    await updateAgencySubscriptionProfile(supabase, user.id, {
+      asaas_customer_id: customerId,
       asaas_subscription_id: subscription.id,
-      trial_started_at:      trialStartedAt.toISOString(),
-      trial_ends_at:         trialEndsAt.toISOString(),
       subscription_provider: "asaas",
-    } as Record<string, unknown>)
-    .eq("id", user.id);
-
-  if (subUpdateErr) {
+    });
+  } catch (error) {
     console.error("[asaas/plan/checkout] failed to store subscription id (non-fatal)", {
       userId: user.id,
       plan: requestedPlan,
       subscriptionId: subscription.id,
-      err: subUpdateErr.message,
+      err: error instanceof Error ? error.message : String(error),
     });
   }
 
@@ -210,18 +198,6 @@ export async function POST(req: NextRequest) {
         err: chargeErr.message,
       });
     }
-  }
-
-  // Notify user that trial has started (non-fatal)
-  try {
-    const { title, body, link } = renderNotificationTemplate("trial_started", {
-      days: String(trialDays),
-      plan: planLabel,
-      endsAt: trialEndsAt.toLocaleDateString("pt-BR"),
-    });
-    await notify([user.id], "billing", `${title}: ${body}`, link, `trial_started:${user.id}:${subscription.id}`);
-  } catch (err) {
-    console.warn("[asaas/plan/checkout] trial_started notify failed (non-fatal):", String(err));
   }
 
   console.log("[asaas/plan/checkout] subscription created", {

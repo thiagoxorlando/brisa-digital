@@ -86,7 +86,19 @@ export function createPayment(data: AsaasPaymentInput) {
 }
 
 export function getPayment(id: string) {
-  return request<{ id: string; status: string; value: number; billingType: string; paymentDate?: string }>(
+  return request<{
+    id: string;
+    status: string;
+    value: number;
+    billingType: string;
+    paymentDate?: string;
+    dueDate?: string;
+    customer?: string;
+    externalReference?: string;
+    subscription?: string;
+    subscriptionId?: string;
+    invoiceUrl?: string;
+  }>(
     "GET", `/payments/${id}`,
   );
 }

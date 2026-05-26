@@ -59,7 +59,7 @@ const PLANS = [
     period: "/mes",
     badge: "POPULAR" as const,
     gradient: "from-indigo-500 to-violet-600",
-    headline: "Operacao completa sem limites · 7 dias gratis",
+    headline: "Operacao completa sem limites",
     features: [
       "Vagas ilimitadas",
       "Contratacoes ilimitadas",
@@ -368,7 +368,6 @@ export default function BillingDashboard({
     return setting.is_available ? formatPlanMonthlyPrice(setting.price) : "Em breve";
   }
   function effectiveTrialLabel(p: PlanDef) {
-    if (p.key === "pro") return "7 dias grátis";
     return null;
   }
 

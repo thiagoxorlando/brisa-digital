@@ -113,9 +113,8 @@ export default async function AdminFinancesPage() {
       .eq("role", "agency"),
     supabase
       .from("wallet_transactions")
-      .select("id, user_id, amount, created_at")
-      .eq("type", "payment")
-      .ilike("description", "%Plano%")
+      .select("id, user_id, amount, created_at, status")
+      .eq("type", "plan_charge")
       .order("created_at", { ascending: false }),
     supabase
       .from("agencies")
@@ -434,6 +433,7 @@ export default async function AdminFinancesPage() {
 
   const planPaymentsMap = new Map<string, { total: number; lastPayment: string | null }>();
   for (const payment of planPaymentsData ?? []) {
+    if (payment.status !== "paid") continue;
     const current = planPaymentsMap.get(payment.user_id) ?? { total: 0, lastPayment: null };
     planPaymentsMap.set(payment.user_id, {
       total: current.total + Math.abs(payment.amount ?? 0),
@@ -490,7 +490,9 @@ export default async function AdminFinancesPage() {
     })
     .sort((left, right) => (planOrder[left.plan] ?? 2) - (planOrder[right.plan] ?? 2));
 
-  const planPayments: FinancesPlanPayment[] = (planPaymentsData ?? []).map((payment) => ({
+  const planPayments: FinancesPlanPayment[] = (planPaymentsData ?? [])
+    .filter((payment) => payment.status === "paid")
+    .map((payment) => ({
     id: payment.id,
     userId: payment.user_id,
     agencyName: allAgencyNameMap.get(payment.user_id) ?? "Agencia sem nome",
@@ -499,7 +501,9 @@ export default async function AdminFinancesPage() {
     createdAt: payment.created_at ?? "",
   }));
 
-  const totalSubscriptionRevenue = (planPaymentsData ?? []).reduce((sum, payment) => sum + Math.abs(payment.amount ?? 0), 0);
+  const totalSubscriptionRevenue = (planPaymentsData ?? [])
+    .filter((payment) => payment.status === "paid")
+    .reduce((sum, payment) => sum + Math.abs(payment.amount ?? 0), 0);
   const totalTalentWalletBalance = (talentWalletsData ?? []).reduce((sum, w) => sum + (w.wallet_balance ?? 0), 0);
   const minimumRequired = contractsEscrowValue + totalAgencyWalletBalance + totalTalentWalletBalance;
 

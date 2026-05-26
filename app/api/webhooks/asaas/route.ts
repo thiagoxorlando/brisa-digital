@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
+import {
+  parsePlanExternalReference,
+  syncAgencyPlanFromAsaasPayment,
+} from "@/lib/asaasPlanSync.server";
 
 // POST /api/webhooks/asaas
 //
@@ -196,37 +200,32 @@ export async function POST(req: NextRequest) {
     const payment = body.payment;
 
     if (payment?.id) {
-      const extRef = payment.externalReference ?? "";
-      if (extRef.startsWith("plan:")) {
-        const parts = extRef.split(":");
-        const planKey = parts[1] ?? "";
-        const userId = parts[2] ?? "";
+      const parsedPlanRef = parsePlanExternalReference(payment.externalReference);
+      if (parsedPlanRef) {
+        const { planKey, userId } = parsedPlanRef;
+        const planLabel = planKey === "premium" ? "Premium" : "PRO";
+        const { error: planInsertErr } = await supabase.from("wallet_transactions").insert({
+          user_id: userId,
+          type: "plan_charge",
+          amount: payment.value,
+          description: `Assinatura ${planLabel} - BrisaHub`,
+          payment_id: payment.id,
+          provider: "asaas",
+          status: "pending",
+        } as Record<string, unknown>);
 
-        if ((planKey === "pro" || planKey === "premium") && userId) {
-          const planLabel = planKey === "premium" ? "Premium" : "PRO";
-          const { error: planInsertErr } = await supabase.from("wallet_transactions").insert({
-            user_id: userId,
-            type: "plan_charge",
-            amount: payment.value,
-            description: `Assinatura ${planLabel} - BrisaHub`,
-            payment_id: payment.id,
-            provider: "asaas",
-            status: "pending",
-          } as Record<string, unknown>);
-
-          if (planInsertErr && planInsertErr.code !== "23505") {
-            log("warn", "[asaas webhook] PAYMENT_CREATED plan_charge insert failed (non-fatal)", {
-              userId,
-              paymentId: payment.id,
-              err: planInsertErr.message,
-            });
-          } else {
-            log("info", "[asaas webhook] PAYMENT_CREATED - pending plan_charge recorded", {
-              userId,
-              planKey,
-              paymentId: payment.id,
-            });
-          }
+        if (planInsertErr && planInsertErr.code !== "23505") {
+          log("warn", "[asaas webhook] PAYMENT_CREATED plan_charge insert failed (non-fatal)", {
+            userId,
+            paymentId: payment.id,
+            err: planInsertErr.message,
+          });
+        } else {
+          log("info", "[asaas webhook] PAYMENT_CREATED - pending plan_charge recorded", {
+            userId,
+            planKey,
+            paymentId: payment.id,
+          });
         }
       }
     }
@@ -260,114 +259,44 @@ export async function POST(req: NextRequest) {
     }
 
     if (!tx) {
-      const extRef = payment.externalReference ?? "";
-      if (extRef.startsWith("plan:")) {
-        const parts = extRef.split(":");
-        const planKey = parts[1] ?? "";
-        const userId = parts[2] ?? "";
-
-        if ((planKey === "pro" || planKey === "premium") && userId) {
-          let planExpiresAt: string | null = null;
-          if (payment.dueDate) {
-            const next = new Date(payment.dueDate);
-            next.setMonth(next.getMonth() + 1);
-            planExpiresAt = next.toISOString();
-          }
-
-          const profileUpdate: Record<string, unknown> = { plan: planKey, plan_status: "active" };
-          if (planExpiresAt) {
-            profileUpdate.plan_expires_at = planExpiresAt;
-          }
-
-          const { error: planErr } = await supabase
-            .from("profiles")
-            .update(profileUpdate)
-            .eq("id", userId);
-
-          if (planErr) {
-            log("error", "[asaas webhook] plan activation failed", {
-              userId,
-              planKey,
-              asaasPaymentId,
-              err: planErr.message,
-            });
-            return NextResponse.json({ error: "Plan activation failed" }, { status: 500 });
-          }
-
-          const { data: existingCharge, error: chargeLookupErr } = await supabase
-            .from("wallet_transactions")
-            .select("id, status")
-            .eq("payment_id", asaasPaymentId)
-            .eq("type", "plan_charge")
-            .maybeSingle();
-
-          if (chargeLookupErr) {
-            log("warn", "[asaas webhook] plan_charge lookup failed (non-fatal)", {
-              asaasPaymentId,
-              err: chargeLookupErr.message,
-            });
-          }
-
-          if (existingCharge) {
-            if (existingCharge.status !== "paid") {
-              const { error: updateErr } = await supabase
-                .from("wallet_transactions")
-                .update({ status: "paid", processed_at: now } as Record<string, unknown>)
-                .eq("id", existingCharge.id);
-
-              if (updateErr) {
-                log("warn", "[asaas webhook] plan_charge status update failed (non-fatal)", {
-                  chargeId: existingCharge.id,
-                  err: updateErr.message,
-                });
-              } else {
-                log("info", "[asaas webhook] plan_charge marked paid", {
-                  chargeId: existingCharge.id,
-                });
-              }
-            }
-          } else {
-            const planLabel = planKey === "premium" ? "Premium" : "PRO";
-            const { error: fallbackInsertErr } = await supabase.from("wallet_transactions").insert({
-              user_id: userId,
-              type: "plan_charge",
-              amount: payment.value,
-              description: `Assinatura ${planLabel} - BrisaHub`,
-              payment_id: asaasPaymentId,
-              provider: "asaas",
-              status: "paid",
-              processed_at: now,
-            } as Record<string, unknown>);
-
-            if (fallbackInsertErr) {
-              if (fallbackInsertErr.code === "23505") {
-                log("info", "[asaas webhook] plan_charge already exists - skipping fallback insert", {
-                  asaasPaymentId,
-                });
-              } else {
-                log("warn", "[asaas webhook] plan_charge fallback insert failed (non-fatal)", {
-                  userId,
-                  asaasPaymentId,
-                  err: fallbackInsertErr.message,
-                });
-              }
-            } else {
-              log("info", "[asaas webhook] plan_charge inserted via fallback", {
-                userId,
-                asaasPaymentId,
-              });
-            }
-          }
-
-          log("info", "[asaas webhook] plan activated", {
-            userId,
-            planKey,
-            asaasPaymentId,
+      const parsedPlanRef = parsePlanExternalReference(payment.externalReference);
+      if (parsedPlanRef) {
+        try {
+          const syncResult = await syncAgencyPlanFromAsaasPayment({
+            supabase,
+            payment: {
+              id: payment.id,
+              status: payment.status,
+              value: payment.value,
+              customer: payment.customer,
+              dueDate: payment.dueDate,
+              externalReference: payment.externalReference,
+              subscriptionId: payment.subscriptionId,
+            },
+            now,
           });
-        } else {
-          log("warn", "[asaas webhook] ignored - unrecognized plan ref", { extRef, asaasPaymentId });
-        }
 
+          if (!syncResult.ok) {
+            log("warn", "[asaas webhook] plan payment not synced", {
+              asaasPaymentId,
+              ...syncResult,
+            });
+          } else {
+            log("info", "[asaas webhook] plan activated", {
+              userId: syncResult.userId,
+              planKey: syncResult.planKey,
+              asaasPaymentId,
+              planExpiresAt: syncResult.planExpiresAt,
+            });
+          }
+        } catch (error) {
+          log("error", "[asaas webhook] plan activation failed", {
+            asaasPaymentId,
+            extRef: payment.externalReference ?? "",
+            err: error instanceof Error ? error.message : String(error),
+          });
+          return NextResponse.json({ error: "Plan activation failed" }, { status: 500 });
+        }
         return okProcessed();
       }
 
