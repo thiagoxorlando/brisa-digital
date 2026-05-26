@@ -12,6 +12,7 @@ import { formatCpf, formatCpfCnpj, isValidCpf, isValidCpfCnpj, normalizeCpfCnpj,
 import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
+import ProTrialCheckoutModal, { type ProTrialCheckoutPayload } from "@/features/agency/ProTrialCheckoutModal";
 
 type LivePlans = Record<Plan, PublicPlanSetting>;
 
@@ -276,6 +277,8 @@ function SignupPageContent() {
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [manualCheckMsg, setManualCheckMsg] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showTrialModal, setShowTrialModal] = useState(false);
+  const [trialSubmitting, setTrialSubmitting] = useState(false);
 
   const [livePlans, setLivePlans] = useState<LivePlans>(buildPlanSettingsFallback);
   useEffect(() => {
@@ -427,6 +430,23 @@ function SignupPageContent() {
     }
   }
 
+  async function handleTrialCheckoutSubmit(payload: ProTrialCheckoutPayload) {
+    setTrialSubmitting(true);
+    const res = await fetch("/api/asaas/plan/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan: "pro", ...payload }),
+    });
+    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; trialEndsAt?: string };
+    if (!res.ok || !json.ok) {
+      setTrialSubmitting(false);
+      throw new Error(json.error ?? t("signup_error_payment"));
+    }
+    const params = new URLSearchParams({ plan: "pro" });
+    if (nextPath) params.set("next", nextPath);
+    router.push(`/onboarding?${params.toString()}`);
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setServerError("");
@@ -445,8 +465,9 @@ function SignupPageContent() {
       return;
     }
 
+    // Only open a payment tab for non-PRO paid plans (premium) that return a hosted checkout URL
     let paymentWindow: Window | null = null;
-    if (account.role === "agency" && selectedPlan.price > 0) {
+    if (account.role === "agency" && selectedPlan.price > 0 && agency.plan !== "pro") {
       paymentWindow = window.open("", "_blank", "noopener,noreferrer");
     }
 
@@ -471,11 +492,19 @@ function SignupPageContent() {
       let logoUrl: string | undefined;
 
       if (account.role === "talent" && avatar) {
-        avatarUrl = await uploadAsset(avatar, `avatars/${data.user.id}.${avatar.name.split(".").pop()}`);
+        try {
+          avatarUrl = await uploadAsset(avatar, `avatars/${data.user.id}.${avatar.name.split(".").pop()}`);
+        } catch {
+          // avatar upload is optional — continue without it
+        }
       }
 
       if (account.role === "agency" && logo) {
-        logoUrl = await uploadAsset(logo, `agency-avatars/${data.user.id}.${logo.name.split(".").pop()}`);
+        try {
+          logoUrl = await uploadAsset(logo, `agency-avatars/${data.user.id}.${logo.name.split(".").pop()}`);
+        } catch {
+          // logo upload is optional — continue without it
+        }
       }
 
       const payload =
@@ -545,6 +574,13 @@ function SignupPageContent() {
       }
 
       await linkReferral(data.user.id);
+
+      if (account.role === "agency" && agency.plan === "pro") {
+        // PRO uses in-app card collection modal — no hosted checkout / new tab
+        setShowTrialModal(true);
+        setLoading(false);
+        return;
+      }
 
       if (account.role === "agency" && selectedPlan.price > 0) {
         const checkoutRes = await fetch("/api/asaas/plan/checkout", {
@@ -643,6 +679,7 @@ function SignupPageContent() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-[#061214] text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
         <section className="relative overflow-hidden border-b border-white/8 px-6 py-10 lg:w-[44%] lg:border-b-0 lg:border-r lg:px-10 lg:py-12">
@@ -1127,6 +1164,22 @@ function SignupPageContent() {
         </section>
       </div>
     </div>
+
+    {showTrialModal && (
+      <ProTrialCheckoutModal
+        email={account.email.trim()}
+        planLabel={selectedPlan.name}
+        priceLabel={formatPlanMonthlyPrice(selectedPlan.price, lang)}
+        trialDays={7}
+        initialHolderName={agency.responsibleName.trim()}
+        initialCpfCnpj={formatCpfCnpj(agency.cpfCnpj)}
+        initialPhone={agency.phone.trim()}
+        submitting={trialSubmitting}
+        onClose={() => { if (!trialSubmitting) setShowTrialModal(false); }}
+        onSubmit={handleTrialCheckoutSubmit}
+      />
+    )}
+    </>
   );
 }
 

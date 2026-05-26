@@ -764,7 +764,7 @@
   signup_already_account: "Já tem uma conta?",
   signup_signin_link: "Entrar",
   signup_payment_title_prefix: "Aguardando confirmação do plano",
-  signup_payment_desc: "Finalize o pagamento na aba do Asaas. Assim que a assinatura for confirmada, você seguirá automaticamente para a página de onboarding.",
+  signup_payment_desc: "Finalize o pagamento na aba que foi aberta. Assim que a assinatura for confirmada, você seguirá automaticamente para a página de onboarding.",
   signup_payment_popup_blocked: "Não foi possível abrir a aba de pagamento. Use o botão abaixo para abrir novamente.",
   signup_payment_reopen: "Abrir pagamento novamente",
   signup_payment_check: "Verificar pagamento",
