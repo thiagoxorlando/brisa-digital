@@ -126,6 +126,11 @@ const primaryLink =
 const ghostLink =
   "inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/8 px-6 py-4 text-[15px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-white/12";
 
+function scrollToSection(id: string) {
+  if (typeof document === "undefined") return;
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function GridTexture() {
   return (
     <div
@@ -271,7 +276,7 @@ export default function Home() {
 
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-20 border-b border-white/8 bg-[#061214]/95 px-5 backdrop-blur-md lg:px-10">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between">
+        <div className="mx-auto flex h-16 max-w-7xl items-center">
           <Link href="/" aria-label="BrisaHub">
             <Image
               src={heroBrandImage}
@@ -281,7 +286,28 @@ export default function Home() {
               className="h-auto w-full max-w-[80px]"
             />
           </Link>
-          <div className="flex items-center gap-2">
+
+          {/* Center section links — hidden on mobile */}
+          <div className="hidden flex-1 items-center justify-center gap-0.5 md:flex">
+            {(
+              [
+                { id: "como-funciona",  label: "Como funciona"   },
+                { id: "funcionalidades", label: "Funcionalidades" },
+                { id: "workspace",      label: "Workspace"       },
+                { id: "planos",         label: "Planos"          },
+              ] as const
+            ).map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => scrollToSection(id)}
+                className="rounded-xl px-3 py-2 text-[13px] font-semibold text-white/50 transition-colors hover:bg-white/8 hover:text-white cursor-pointer"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="ml-auto flex items-center gap-2 md:ml-0">
             <LanguageSelector variant="dark" />
             <Link
               href="/login"
@@ -544,7 +570,7 @@ export default function Home() {
       </section>
 
       {/* ── How it works ── */}
-      <section className="relative overflow-hidden px-5 py-20 lg:px-10">
+      <section id="como-funciona" className="relative overflow-hidden px-5 py-20 lg:px-10 scroll-mt-20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_50%,rgba(39,193,214,0.08),transparent_40%)]" />
         <GridTexture />
         <div className="relative mx-auto max-w-7xl">
@@ -580,7 +606,7 @@ export default function Home() {
       </section>
 
       {/* ── Premium Workspace ── */}
-      <section className="relative overflow-hidden px-5 py-24 lg:px-10">
+      <section id="workspace" className="relative overflow-hidden px-5 py-24 lg:px-10 scroll-mt-20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(39,193,214,0.10),transparent_40%),radial-gradient(circle_at_10%_80%,rgba(26,188,156,0.08),transparent_40%)]" />
         <GridTexture />
         <div className="relative mx-auto max-w-7xl">
@@ -664,7 +690,7 @@ export default function Home() {
       </section>
 
       {/* ── Features ── */}
-      <section className="relative overflow-hidden px-5 py-20 lg:px-10">
+      <section id="funcionalidades" className="relative overflow-hidden px-5 py-20 lg:px-10 scroll-mt-20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_60%,rgba(26,188,156,0.10),transparent_35%),radial-gradient(circle_at_90%_40%,rgba(39,193,214,0.07),transparent_35%)]" />
         <GridTexture />
         <div className="relative mx-auto max-w-7xl">
@@ -818,7 +844,7 @@ export default function Home() {
       </section>
 
       {/* ── Plans ── */}
-      <section className="relative overflow-hidden px-5 pb-20 pt-24 lg:px-10 lg:pt-28">
+      <section id="planos" className="relative overflow-hidden px-5 pb-20 pt-24 lg:px-10 lg:pt-28 scroll-mt-20">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(26,188,156,0.12),transparent_40%)]" />
         <GridTexture />
         <div className="relative mx-auto max-w-7xl">
