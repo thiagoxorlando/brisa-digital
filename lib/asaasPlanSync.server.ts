@@ -53,6 +53,17 @@ export type AsaasPlanPayment = {
   subscriptionId?: string;
 };
 
+function findPlanChargeStatusForAsaasEvent(event: string) {
+  switch (event) {
+    case "PAYMENT_OVERDUE":
+      return "overdue";
+    case "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED":
+      return "failed";
+    default:
+      return "pending";
+  }
+}
+
 function isMissingColumnError(error: { message?: string } | null | undefined) {
   const message = String(error?.message ?? "");
   return message.includes("does not exist") && message.includes("profiles.");
@@ -179,6 +190,140 @@ export async function syncAgencyLegacySubscriptionStatus(
   if (result.error) {
     throw result.error;
   }
+}
+
+export async function startAgencyPlanTrial(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  planKey: "pro" | "premium";
+  customerId: string;
+  subscriptionId: string;
+  paymentId?: string;
+  paymentValue: number;
+  trialStartedAt: string;
+  trialEndsAt: string;
+}) {
+  const {
+    supabase,
+    userId,
+    planKey,
+    customerId,
+    subscriptionId,
+    paymentId,
+    paymentValue,
+    trialStartedAt,
+    trialEndsAt,
+  } = params;
+
+  const planLabel = planKey === "premium" ? "Premium" : "PRO";
+
+  await updateAgencySubscriptionProfile(supabase, userId, {
+    plan: planKey,
+    plan_status: "trialing",
+    plan_expires_at: trialEndsAt,
+    asaas_customer_id: customerId,
+    asaas_subscription_id: subscriptionId,
+    subscription_provider: "asaas",
+    trial_started_at: trialStartedAt,
+    trial_ends_at: trialEndsAt,
+  });
+  await syncAgencyLegacySubscriptionStatus(supabase, userId, "trialing");
+
+  if (!paymentId) {
+    return;
+  }
+
+  const { data: existingCharge, error: chargeLookupError } = await supabase
+    .from("wallet_transactions")
+    .select("id")
+    .eq("payment_id", paymentId)
+    .eq("type", "plan_charge")
+    .maybeSingle();
+
+  if (chargeLookupError) throw chargeLookupError;
+
+  if (existingCharge) {
+    const { error: chargeUpdateError } = await supabase
+      .from("wallet_transactions")
+      .update({
+        status: "pending",
+        amount: paymentValue,
+        provider: "asaas",
+      } as Record<string, unknown>)
+      .eq("id", existingCharge.id);
+
+    if (chargeUpdateError) throw chargeUpdateError;
+    return;
+  }
+
+  const { error: chargeInsertError } = await supabase
+    .from("wallet_transactions")
+    .insert({
+      user_id: userId,
+      type: "plan_charge",
+      amount: paymentValue,
+      status: "pending",
+      payment_id: paymentId,
+      description: `Assinatura ${planLabel} - BrisaHub`,
+      provider: "asaas",
+    } as Record<string, unknown>);
+
+  if (chargeInsertError && chargeInsertError.code !== "23505") {
+    throw chargeInsertError;
+  }
+}
+
+export async function syncAgencyPlanPaymentIssue(params: {
+  supabase: SupabaseClient;
+  payment: AsaasPlanPayment;
+  event: "PAYMENT_OVERDUE" | "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED";
+}) {
+  const { supabase, payment, event } = params;
+  const parsed = parsePlanExternalReference(payment.externalReference);
+
+  if (!parsed) {
+    return { ok: false as const, reason: "missing_plan_reference" as const };
+  }
+
+  await updateAgencySubscriptionProfile(supabase, parsed.userId, {
+    plan: parsed.planKey,
+    plan_status: "past_due",
+    asaas_customer_id: payment.customer ?? null,
+    asaas_subscription_id: payment.subscriptionId ?? payment.subscription ?? null,
+    subscription_provider: "asaas",
+  });
+  await syncAgencyLegacySubscriptionStatus(supabase, parsed.userId, "past_due");
+
+  const { data: existingCharge, error: chargeLookupError } = await supabase
+    .from("wallet_transactions")
+    .select("id")
+    .eq("payment_id", payment.id)
+    .eq("type", "plan_charge")
+    .maybeSingle();
+
+  if (chargeLookupError) throw chargeLookupError;
+
+  const nextStatus = findPlanChargeStatusForAsaasEvent(event);
+
+  if (existingCharge) {
+    const { error: chargeUpdateError } = await supabase
+      .from("wallet_transactions")
+      .update({
+        status: nextStatus,
+        provider: "asaas",
+      } as Record<string, unknown>)
+      .eq("id", existingCharge.id);
+
+    if (chargeUpdateError) throw chargeUpdateError;
+  }
+
+  return {
+    ok: true as const,
+    ...parsed,
+    paymentId: payment.id,
+    planStatus: "past_due" as const,
+    chargeStatus: nextStatus,
+  };
 }
 
 export async function syncAgencyPlanFromAsaasPayment(params: {

@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
 import {
   parsePlanExternalReference,
+  syncAgencyPlanPaymentIssue,
   syncAgencyPlanFromAsaasPayment,
 } from "@/lib/asaasPlanSync.server";
 
@@ -305,6 +306,41 @@ export async function POST(req: NextRequest) {
     }
 
     if (tx.type !== "deposit") {
+      if (tx.type === "plan_charge") {
+        const parsedPlanRef = parsePlanExternalReference(payment.externalReference);
+        if (parsedPlanRef) {
+          try {
+            const syncResult = await syncAgencyPlanFromAsaasPayment({
+              supabase,
+              payment: {
+                id: payment.id,
+                status: payment.status,
+                value: payment.value,
+                customer: payment.customer,
+                dueDate: payment.dueDate,
+                externalReference: payment.externalReference,
+                subscriptionId: payment.subscriptionId,
+              },
+              now,
+            });
+
+            if (syncResult.ok) {
+              log("info", "[asaas webhook] plan charge promoted to active", {
+                userId: syncResult.userId,
+                planKey: syncResult.planKey,
+                asaasPaymentId,
+              });
+            }
+          } catch (error) {
+            log("error", "[asaas webhook] plan charge activation failed", {
+              asaasPaymentId,
+              err: error instanceof Error ? error.message : String(error),
+            });
+            return NextResponse.json({ error: "Plan activation failed" }, { status: 500 });
+          }
+        }
+      }
+
       log("info", "[asaas webhook] ignored - transaction is not a deposit", {
         txId: tx.id,
         type: tx.type,
@@ -370,6 +406,50 @@ export async function POST(req: NextRequest) {
     })().catch((err) => log("warn", "[asaas deposit] notifyAdmins failed (non-fatal)", { err: String(err) }));
 
     return NextResponse.json({ ok: true });
+  }
+
+  if (event === "PAYMENT_OVERDUE" || event === "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED") {
+    const payment = body.payment;
+
+    if (!payment?.id) {
+      log("warn", "[asaas webhook] ignored payment issue - missing payment object", { event, eventId });
+      return okProcessed();
+    }
+
+    try {
+      const result = await syncAgencyPlanPaymentIssue({
+        supabase,
+        payment: {
+          id: payment.id,
+          status: payment.status,
+          value: payment.value,
+          customer: payment.customer,
+          dueDate: payment.dueDate,
+          externalReference: payment.externalReference,
+          subscriptionId: payment.subscriptionId,
+        },
+        event,
+      });
+
+      if (result.ok) {
+        log("warn", "[asaas webhook] plan payment issue synced", {
+          event,
+          userId: result.userId,
+          planKey: result.planKey,
+          paymentId: result.paymentId,
+          chargeStatus: result.chargeStatus,
+        });
+      }
+    } catch (error) {
+      log("error", "[asaas webhook] plan payment issue sync failed", {
+        event,
+        paymentId: payment.id,
+        err: error instanceof Error ? error.message : String(error),
+      });
+      return NextResponse.json({ error: "Plan payment issue sync failed" }, { status: 500 });
+    }
+
+    return okProcessed();
   }
 
   const newStatus = TRANSFER_EVENT_STATUS[event];

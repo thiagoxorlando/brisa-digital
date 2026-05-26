@@ -54,7 +54,7 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
   const features = !proAvailable
     ? ["Em breve"]
     : variant === "hiring"
-      ? ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Upload de comprovantes de pagamento", "Cobranca imediata via Asaas"]
+      ? ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Upload de comprovantes de pagamento", "Checkout seguro para ativacao do PRO"]
       : ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Historico completo de contratos"];
 
   function handleUpgrade() {

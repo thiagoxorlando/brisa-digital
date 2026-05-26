@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 import { brl } from "@/lib/brl";
 import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import ProTrialCheckoutModal, { type ProTrialCheckoutPayload } from "@/features/agency/ProTrialCheckoutModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,12 +26,24 @@ interface Props {
   planCharges: PlanCharge[];
   nextChargeDate: string | null;
   trialEndsAt?: string | null;
+  proTrialEnabled?: boolean;
+  proTrialDays?: number;
+  checkoutDefaults?: {
+    email: string;
+    holderName: string;
+    cpfCnpj: string;
+    phone: string;
+  };
 }
 
 type PlanChangeResponse = {
   effectiveAt?: string;
   url?: string;
   provider?: string;
+  mode?: string;
+  planStatus?: string;
+  trialEndsAt?: string | null;
+  nextChargeDate?: string | null;
 };
 
 // ── Plan definitions (UI only) ────────────────────────────────────────────────
@@ -135,6 +148,8 @@ function chargeStatusLabel(status: string | null) {
   switch (status) {
     case "paid":      return "Pago";
     case "pending":   return "Pendente";
+    case "overdue":
+    case "past_due":  return "Em atraso";
     case "failed":    return "Falhou";
     case "cancelled": return "Cancelado";
     default:          return status ?? "—";
@@ -145,6 +160,9 @@ function chargeStatusColor(status: string | null) {
   switch (status) {
     case "paid":    return "text-emerald-700 bg-emerald-50";
     case "pending": return "text-amber-700 bg-amber-50";
+    case "overdue":
+    case "past_due":
+    case "failed":  return "text-rose-700 bg-rose-50";
     default:        return "text-zinc-600 bg-zinc-100";
   }
 }
@@ -331,6 +349,9 @@ export default function BillingDashboard({
   planCharges,
   nextChargeDate,
   trialEndsAt,
+  proTrialEnabled = true,
+  proTrialDays = 7,
+  checkoutDefaults,
 }: Props) {
   const isActivePaid = initialPlan !== "free";
   const [activePlan, setActivePlan] = useState<PlanKey>((isActivePaid ? initialPlan : "free") as PlanKey);
@@ -338,8 +359,9 @@ export default function BillingDashboard({
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
 
   const isTrialing = activePlanStatus === "trialing";
-  const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86_400_000)) : null;
-  const [expiresAt] = useState(planExpiresAt);
+  const [currentTrialEndsAt, setCurrentTrialEndsAt] = useState<string | null>(trialEndsAt ?? null);
+  const trialDaysLeft = currentTrialEndsAt ? Math.max(0, Math.ceil((new Date(currentTrialEndsAt).getTime() - Date.now()) / 86_400_000)) : null;
+  const [expiresAt, setExpiresAt] = useState(planExpiresAt);
   const [pendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
   const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -347,6 +369,7 @@ export default function BillingDashboard({
   const [proLoading, setProLoading] = useState(false);
   const [premiumLoading, setPremiumLoading] = useState(false);
   const [receiptCharge, setReceiptCharge] = useState<PlanCharge | null>(null);
+  const [showProCheckout, setShowProCheckout] = useState(false);
 
   const [livePlans, setLivePlans] = useState<LivePlanMap>(buildPlanSettingsFallback);
   useEffect(() => {
@@ -368,8 +391,8 @@ export default function BillingDashboard({
     return setting.is_available ? formatPlanMonthlyPrice(setting.price) : "Em breve";
   }
   function effectiveTrialLabel(p: PlanDef) {
-    if (p.key === "free") return null;
-    return "Cobranca imediata no checkout";
+    if (p.key !== "pro" || !proTrialEnabled) return null;
+    return `${proTrialDays} dias gratis`;
   }
 
   const currentPlanDef = getPlanDef(activePlan);
@@ -381,7 +404,7 @@ export default function BillingDashboard({
     setTimeout(() => setToast(null), 5000);
   }
 
-  async function handleAsaasCheckout(plan: PlanKey) {
+  async function handleAsaasCheckout(plan: PlanKey, payload?: ProTrialCheckoutPayload) {
     const setting = livePlans[plan] ?? buildPlanSettingsFallback()[plan];
     if (!setting.is_available) {
       showToast("Este plano ainda não está disponível.", false);
@@ -398,14 +421,34 @@ export default function BillingDashboard({
     const res = await fetch("/api/asaas/plan/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan, ...(payload ?? {}) }),
     });
-    const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
+    const data = await res.json().catch(() => ({})) as PlanChangeResponse & { error?: string };
 
     if (plan === "pro") setProLoading(false);
     else setPremiumLoading(false);
 
-    if (!res.ok || !data.url) {
+    if (!res.ok) {
+      showToast(data.error ?? "Erro ao iniciar pagamento. Tente novamente.", false);
+      return;
+    }
+
+    if (plan === "pro" && data.mode === "trialing") {
+      setActivePlan("pro");
+      setActivePlanStatus(data.planStatus ?? "trialing");
+      setCurrentTrialEndsAt(data.trialEndsAt ?? null);
+      setExpiresAt(data.nextChargeDate ?? data.trialEndsAt ?? null);
+      setShowProCheckout(false);
+      showToast(
+        data.trialEndsAt
+          ? `Teste gratis ativo. Primeira cobranca em ${fmtDate(data.trialEndsAt)}.`
+          : "Teste gratis ativo.",
+        true,
+      );
+      return;
+    }
+
+    if (!data.url) {
       showToast(data.error ?? "Erro ao iniciar pagamento. Tente novamente.", false);
       return;
     }
@@ -420,6 +463,7 @@ export default function BillingDashboard({
     }
     if (p.key === "free" && activePlan !== "free") { setChangingTo(p); return; }
     if (p.key === activePlan) return;
+    if (p.key === "pro") { setShowProCheckout(true); return; }
     if (setting.price > 0) { void handleAsaasCheckout(p.key); return; }
     setChangingTo(p);
   }
@@ -451,12 +495,12 @@ export default function BillingDashboard({
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-indigo-800">
               {trialDaysLeft > 0
-                ? `Período de teste — ${trialDaysLeft} dia${trialDaysLeft !== 1 ? "s" : ""} restante${trialDaysLeft !== 1 ? "s" : ""}`
+                ? "Teste grátis ativo"
                 : "Período de teste encerrado"}
             </p>
-            {trialEndsAt && trialDaysLeft > 0 && (
+            {currentTrialEndsAt && trialDaysLeft > 0 && (
               <p className="text-[12px] text-indigo-700 mt-0.5">
-                Cobrança automática a partir de {new Date(trialEndsAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}.{" "}
+                Primeira cobrança em {new Date(currentTrialEndsAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}.{" "}
                 <button
                   onClick={handleCancelSubscription}
                   disabled={cancelingSubscription}
@@ -533,6 +577,22 @@ export default function BillingDashboard({
       {receiptCharge && (
         <ReceiptModal charge={receiptCharge} onClose={() => setReceiptCharge(null)} />
       )}
+      {showProCheckout && checkoutDefaults && (
+        <ProTrialCheckoutModal
+          email={checkoutDefaults.email}
+          planLabel={effectiveSetting(getPlanDef("pro")).name}
+          priceLabel={effectivePriceLabel(getPlanDef("pro"))}
+          trialDays={proTrialDays}
+          initialHolderName={checkoutDefaults.holderName}
+          initialCpfCnpj={checkoutDefaults.cpfCnpj}
+          initialPhone={checkoutDefaults.phone}
+          submitting={proLoading}
+          onClose={() => setShowProCheckout(false)}
+          onSubmit={async (payload) => {
+            await handleAsaasCheckout("pro", payload);
+          }}
+        />
+      )}
 
       {/* Page title */}
       <div>
@@ -548,7 +608,11 @@ export default function BillingDashboard({
             <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{effectiveSetting(currentPlanDef).name}</p>
             <p className="text-[13px] text-zinc-500">
               Status: <strong className="text-zinc-800">{planStatusLabel(activePlanStatus ?? "inactive")}</strong>
-              {expiresAt && activePlan !== "free" ? ` · renova em ${fmtDate(expiresAt)}` : ""}
+              {isTrialing && currentTrialEndsAt
+                ? ` · primeira cobranca em ${fmtDate(currentTrialEndsAt)}`
+                : expiresAt && activePlan !== "free"
+                  ? ` · renova em ${fmtDate(expiresAt)}`
+                  : ""}
             </p>
             <p className="text-[13px] text-zinc-400">Pagamentos processados com segurança via Asaas.</p>
           </div>
@@ -563,12 +627,6 @@ export default function BillingDashboard({
               </button>
             </div>
           )}
-        </div>
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-[12px] font-semibold text-amber-800">Checkout atual: cobranca imediata</p>
-          <p className="mt-1 text-[12px] text-amber-700">
-            O checkout do Asaas cobra o primeiro pagamento no momento da confirmacao. O plano PRO e ativado apos a confirmacao do pagamento.
-          </p>
         </div>
       </div>
 
@@ -592,7 +650,7 @@ export default function BillingDashboard({
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Planos</p>
           {expiresAt && activePlan !== "free" && (
-            <p className="text-[12px] text-zinc-400">Renova em {fmtDate(expiresAt)}</p>
+            <p className="text-[12px] text-zinc-400">{isTrialing ? `Primeira cobranca em ${fmtDate(expiresAt)}` : `Renova em ${fmtDate(expiresAt)}`}</p>
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -684,6 +742,8 @@ export default function BillingDashboard({
                         ? "Em breve"
                         : isLoading
                         ? "Aguarde..."
+                        : p.key === "pro" && activePlan === "free" && proTrialEnabled
+                          ? "Iniciar teste grÃ¡tis"
                         : p.key === "premium" && activePlan === "free"
                           ? "Escolher Premium"
                         : activePlan === "free"
@@ -746,10 +806,14 @@ export default function BillingDashboard({
               <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">
                 {effectivePriceLabel(currentPlanDef)}
               </p>
-              <p className="text-[13px] text-zinc-600">Renovacao do plano {effectiveSetting(currentPlanDef).name}</p>
+              <p className="text-[13px] text-zinc-600">
+                {isTrialing
+                  ? `Primeira cobranca do plano ${effectiveSetting(currentPlanDef).name}`
+                  : `Renovacao do plano ${effectiveSetting(currentPlanDef).name}`}
+              </p>
               <p className="text-[12px] text-zinc-400">{fmtDate((expiresAt ?? nextChargeDate)!)}</p>
               <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                {expiresAt ? "Agendada" : "Prevista"}
+                {isTrialing ? "Trial" : expiresAt ? "Agendada" : "Prevista"}
               </span>
             </div>
           ) : (

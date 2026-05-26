@@ -354,13 +354,13 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
       </Section>
 
       <Section title="Trial e assinatura">
-        <SettingRow label="Trial habilitado" description="No checkout hospedado atual do Asaas esta configuração não cria trial automático real. Hoje ela só faz sentido para trials manuais/admin.">
+        <SettingRow label="Trial habilitado" description="Novas assinaturas PRO recebem trial gratuito antes da primeira cobrança quando o checkout transparente estiver ativo.">
           <Toggle checked={settings.trials_enabled} onChange={(v) => update("trials_enabled", v)} />
         </SettingRow>
-        <SettingRow label="Cobrança automática no fim do trial" description="Requer captura ou validação direta do cartão na criação da assinatura. O checkout hospedado atual continua cobrando imediatamente.">
+        <SettingRow label="Cobrança automática no fim do trial" description="Valida o cartão no início e agenda a primeira cobrança para o fim do trial usando a assinatura recorrente do Asaas.">
           <Toggle checked={settings.trial_auto_charge_enabled} onChange={(v) => update("trial_auto_charge_enabled", v)} />
         </SettingRow>
-        <SettingRow label="Duração do trial (dias)" description="Valor mantido para fluxos manuais de trial. Não altera a primeira cobrança do checkout Asaas atual.">
+        <SettingRow label="Duração do trial (dias)" description="Dias de trial concedidos ao iniciar uma assinatura PRO.">
           <input
             type="number"
             min={1}

@@ -46,6 +46,25 @@ export type AsaasSubscriptionInput = {
   cycle: "MONTHLY";
   description?: string;
   externalReference?: string;
+  creditCard?: {
+    holderName: string;
+    number: string;
+    expiryMonth: string;
+    expiryYear: string;
+    ccv: string;
+  };
+  creditCardHolderInfo?: {
+    name: string;
+    email: string;
+    cpfCnpj: string;
+    postalCode: string;
+    addressNumber: string;
+    addressComplement?: string | null;
+    phone?: string | null;
+    mobilePhone?: string | null;
+  };
+  creditCardToken?: string;
+  remoteIp?: string;
 };
 
 export type AsaasSubscriptionResponse = {
@@ -54,6 +73,7 @@ export type AsaasSubscriptionResponse = {
   value: number;
   nextDueDate?: string;
   billingType: string;
+  creditCardToken?: string;
 };
 
 export type AsaasSubscriptionPayment = {
