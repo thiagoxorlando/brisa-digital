@@ -66,7 +66,10 @@ function findPlanChargeStatusForAsaasEvent(event: string) {
 
 function isMissingColumnError(error: { message?: string } | null | undefined) {
   const message = String(error?.message ?? "");
-  return message.includes("does not exist") && message.includes("profiles.");
+  if (!message.includes("does not exist")) return false;
+  // SELECT format: "column profiles.trial_started_at does not exist"
+  // UPDATE format: "column \"trial_started_at\" of relation \"profiles\" does not exist"
+  return message.includes("profiles");
 }
 
 function toProfileRow(row: Record<string, unknown> | null | undefined): AgencySubscriptionProfile | null {
