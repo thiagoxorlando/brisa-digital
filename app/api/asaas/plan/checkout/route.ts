@@ -6,7 +6,6 @@ import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
 import { updateAgencySubscriptionProfile } from "@/lib/asaasPlanSync.server";
 import { parsePlan, PLAN_KEYS, type Plan } from "@/lib/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
-import { getTrialDurationDays } from "@/lib/platformSettings.server";
 
 function extractAsaasError(err: unknown): string {
   try {
@@ -123,10 +122,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const trialOffsetDays = await getTrialDurationDays();
-  const nextDueDate = new Date();
-  nextDueDate.setDate(nextDueDate.getDate() + trialOffsetDays);
-  const nextDueDateStr = nextDueDate.toISOString().slice(0, 10);
+  // Hosted Asaas checkout charges when the payer adds the card later, regardless
+  // of a future nextDueDate. Until we implement direct card validation at
+  // subscription creation, keep this flow explicitly immediate.
+  const nextDueDateStr = new Date().toISOString().slice(0, 10);
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
   try {
@@ -204,6 +203,8 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     plan: requestedPlan,
     price: planPrice,
+    billingMode: "immediate",
+    nextDueDate: nextDueDateStr,
     subscriptionId: subscription.id,
     firstPaymentId,
   });

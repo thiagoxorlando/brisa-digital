@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useT } from "@/lib/LanguageContext";
 
 export type PlatformSettings = {
   platform_name: string;
@@ -110,7 +109,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function AdminSettings({ initialSettings }: { initialSettings: PlatformSettings }) {
-  const { t } = useT();
   const [settings, setSettings] = useState<PlatformSettings>(initialSettings);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -356,13 +354,13 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
       </Section>
 
       <Section title="Trial e assinatura">
-        <SettingRow label="Trial habilitado" description="Novas assinaturas PRO recebem trial gratuito antes da primeira cobrança">
+        <SettingRow label="Trial habilitado" description="No checkout hospedado atual do Asaas esta configuração não cria trial automático real. Hoje ela só faz sentido para trials manuais/admin.">
           <Toggle checked={settings.trials_enabled} onChange={(v) => update("trials_enabled", v)} />
         </SettingRow>
-        <SettingRow label="Cobrança automática no fim do trial" description="Cobra o cartão automaticamente ao encerrar o trial (Asaas deferred billing)">
+        <SettingRow label="Cobrança automática no fim do trial" description="Requer captura ou validação direta do cartão na criação da assinatura. O checkout hospedado atual continua cobrando imediatamente.">
           <Toggle checked={settings.trial_auto_charge_enabled} onChange={(v) => update("trial_auto_charge_enabled", v)} />
         </SettingRow>
-        <SettingRow label="Duração do trial (dias)" description="Dias de trial concedidos ao iniciar uma assinatura PRO">
+        <SettingRow label="Duração do trial (dias)" description="Valor mantido para fluxos manuais de trial. Não altera a primeira cobrança do checkout Asaas atual.">
           <input
             type="number"
             min={1}

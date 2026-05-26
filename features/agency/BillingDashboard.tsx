@@ -339,8 +339,8 @@ export default function BillingDashboard({
 
   const isTrialing = activePlanStatus === "trialing";
   const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86_400_000)) : null;
-  const [expiresAt, setExpiresAt] = useState(planExpiresAt);
-  const [pendingChange, setPendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
+  const [expiresAt] = useState(planExpiresAt);
+  const [pendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
   const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(getBillingReturnBanner);
@@ -368,13 +368,13 @@ export default function BillingDashboard({
     return setting.is_available ? formatPlanMonthlyPrice(setting.price) : "Em breve";
   }
   function effectiveTrialLabel(p: PlanDef) {
-    return null;
+    if (p.key === "free") return null;
+    return "Cobranca imediata no checkout";
   }
 
   const currentPlanDef = getPlanDef(activePlan);
   const isCancellationScheduled = activePlan !== "free" && activePlanStatus === "cancelling";
   const latestCharge = planCharges[0] ?? null;
-  const paidCharges = planCharges.filter((c) => c.status === "paid");
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok });
@@ -437,26 +437,6 @@ export default function BillingDashboard({
     } finally {
       setCancelingSubscription(false);
     }
-  }
-
-  function handleSuccess(newPlan: PlanKey, result: PlanChangeResponse) {
-    setChangingTo(null);
-    if (newPlan === "free") {
-      const effectiveAt = result.effectiveAt ?? (() => {
-        const date = new Date();
-        date.setDate(date.getDate() + 30);
-        return date.toISOString();
-      })();
-      setActivePlanStatus("cancelling");
-      setPendingChange({ plan: newPlan, effectiveAt });
-      showToast(`Cancelamento agendado. Acesso ate ${fmtDate(effectiveAt)}.`, true);
-      return;
-    }
-    setActivePlan(newPlan);
-    setActivePlanStatus("active");
-    setPendingChange(null);
-    setExpiresAt(result.effectiveAt ?? expiresAt);
-    showToast(`Plano ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)} atualizado.`, true);
   }
 
   return (
@@ -583,6 +563,12 @@ export default function BillingDashboard({
               </button>
             </div>
           )}
+        </div>
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-[12px] font-semibold text-amber-800">Checkout atual: cobranca imediata</p>
+          <p className="mt-1 text-[12px] text-amber-700">
+            O checkout do Asaas cobra o primeiro pagamento no momento da confirmacao. O plano PRO e ativado apos a confirmacao do pagamento.
+          </p>
         </div>
       </div>
 

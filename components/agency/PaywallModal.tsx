@@ -47,14 +47,14 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
   const freeJobsCopy = freeLimit === null ? "vagas ativas ilimitadas" : `${freeLimit} vaga${freeLimit === 1 ? " ativa" : "s ativas"}`;
   const freeHiresCopy = freeHireLimit === null ? "contratacoes ilimitadas por vaga" : `${freeHireLimit} contratacao${freeHireLimit === 1 ? "" : "es"} por vaga`;
   const message = !proAvailable
-    ? "O plano Pro estará disponível em breve."
+    ? "O plano Pro estara disponivel em breve."
     : variant === "hiring"
       ? `O plano gratuito permite ate ${freeJobsCopy} e ${freeHiresCopy}. Faca upgrade para o plano Pro e remova os limites.`
       : `Gerencie vagas e contratacoes sem limites com o plano Pro por ${proPrice}.`;
   const features = !proAvailable
     ? ["Em breve"]
     : variant === "hiring"
-      ? ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Upload de comprovantes de pagamento", "7 dias grátis na primeira assinatura"]
+      ? ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Upload de comprovantes de pagamento", "Cobranca imediata via Asaas"]
       : ["Vagas ilimitadas", "Contratacoes ilimitadas por vaga", "Historico completo de contratos"];
 
   function handleUpgrade() {
