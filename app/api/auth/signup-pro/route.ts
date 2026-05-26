@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
+import { getAsaasConfigSummary } from "@/lib/asaasClient";
 import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
 import {
   startAgencyPlanTrial,
@@ -28,6 +29,7 @@ import {
 import { getPlatformSettings } from "@/lib/platformSettings.server";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { buildRateLimitKey, checkRateLimit, getRequestIp } from "@/lib/rateLimit";
+import { resolveAsaasRemoteIp } from "@/lib/requestIp";
 
 const TERMS_VERSION = "terms_v1_2026_05";
 
@@ -234,6 +236,26 @@ async function handleSignupPro(req: NextRequest) {
   // ── Step 3: Asaas subscription with card ──────────────────────────────────
   const expiryYearRaw = String(cardData.expiryYear ?? "").trim();
   const expiryYear    = expiryYearRaw.length === 2 ? `20${expiryYearRaw}` : expiryYearRaw;
+  const holderName = String(cardData.holderName ?? "").trim();
+  const { usingSandbox, baseUrl, env } = getAsaasConfigSummary();
+  const remoteIpResolution = resolveAsaasRemoteIp(req, usingSandbox);
+
+  if (!holderName) {
+    return NextResponse.json({ error: "Informe o nome do titular exatamente como no cartao." }, { status: 400 });
+  }
+  if (!remoteIpResolution.remoteIp) {
+    return NextResponse.json(
+      { error: "Nao foi possivel identificar o IP do comprador. Recarregue a pagina e tente novamente." },
+      { status: 400 },
+    );
+  }
+
+  console.log("[signup-pro] asaas subscription preflight", {
+    env,
+    baseUrl,
+    usingSandbox,
+    remoteIpSource: remoteIpResolution.source,
+  });
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
   try {
@@ -246,14 +268,14 @@ async function handleSignupPro(req: NextRequest) {
       description:       "Assinatura PRO - BrisaHub",
       externalReference: `plan:pro:${user.id}`,
       creditCard: {
-        holderName:  String(cardData.holderName ?? ""),
+        holderName,
         number:      digitsOnly(String(cardData.cardNumber ?? "")),
         expiryMonth: digitsOnly(String(cardData.expiryMonth ?? "")).slice(0, 2),
         expiryYear:  digitsOnly(expiryYear).slice(0, 4),
         ccv:         digitsOnly(String(cardData.ccv ?? "")).slice(0, 4),
       },
       creditCardHolderInfo: {
-        name:              String(cardData.holderName ?? responsibleName),
+        name:              holderName,
         email:             user.email ?? "",
         cpfCnpj:           cardCpfCnpj,
         postalCode:        digitsOnly(String(cardData.postalCode ?? "")).slice(0, 8),
@@ -262,7 +284,7 @@ async function handleSignupPro(req: NextRequest) {
         phone:             cardPhone,
         mobilePhone:       cardPhone,
       },
-      remoteIp: ip === "unknown" ? "127.0.0.1" : ip,
+      remoteIp: remoteIpResolution.remoteIp,
     });
   } catch (err) {
     const msg = extractErrorMessage(err);

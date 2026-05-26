@@ -88,10 +88,7 @@ async function patchCpfCnpjIfMissing(customerId: string, userId: string): Promis
   }
 
   try {
-    await asaas(`/customers/${customerId}`, {
-      method: "PUT",
-      body:   JSON.stringify({ cpfCnpj: document }),
-    });
+    await asaas(`/customers/${customerId}`, { method: "PUT", body: { cpfCnpj: document } });
     console.log("[ensureAsaasCustomer] patched cpfCnpj on customer:", customerId);
   } catch (err) {
     console.warn(
@@ -175,7 +172,7 @@ export async function ensureAsaasCustomer(
     try {
       const created = await asaas<AsaasCustomerRecord>("/customers", {
         method: "POST",
-        body:   JSON.stringify(body),
+        body,
       });
       customerId = created.id;
       console.log("[ensureAsaasCustomer] created customer:", customerId);

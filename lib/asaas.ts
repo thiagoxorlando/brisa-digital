@@ -1,24 +1,16 @@
-const BASE_URL = process.env.ASAAS_API_URL!;
-const API_KEY  = process.env.ASAAS_API_KEY!;
+import { asaas, AsaasApiError } from "./asaasClient";
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "access_token": API_KEY,
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    const message = data?.errors?.[0]?.description ?? data?.message ?? `Asaas error ${res.status}`;
-    throw new Error(message);
+  try {
+    return await asaas<T>(path, { method, body });
+  } catch (error) {
+    if (error instanceof AsaasApiError) {
+      const data = error.body as { errors?: { description?: string }[]; message?: string } | undefined;
+      const message = data?.errors?.[0]?.description ?? data?.message ?? `Asaas error ${error.status}`;
+      throw new Error(message);
+    }
+    throw error;
   }
-
-  return data as T;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────

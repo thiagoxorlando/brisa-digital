@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
+import { getAsaasConfigSummary } from "@/lib/asaasClient";
 import {
   createSubscription,
   getSubscriptionPayments,
@@ -16,7 +17,7 @@ import {
 import { parsePlan, PLAN_KEYS, type Plan } from "@/lib/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
-import { getRequestIp } from "@/lib/rateLimit";
+import { resolveAsaasRemoteIp } from "@/lib/requestIp";
 
 type ProCheckoutInput = {
   holderName: string;
@@ -274,7 +275,8 @@ export async function POST(req: NextRequest) {
   const trialEndsAt            = new Date(now.getTime());
   trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
   const nextDueDateStr         = (trialDays > 0 ? trialEndsAt : now).toISOString().slice(0, 10);
-  const remoteIp               = getRequestIp(req);
+  const { usingSandbox, baseUrl, env } = getAsaasConfigSummary();
+  const remoteIpResolution = resolveAsaasRemoteIp(req, usingSandbox);
 
   // ── Recovery detection ───────────────────────────────────────────────────────
   // If the profile has no subscription_id, search Asaas to find a dangling
@@ -398,6 +400,19 @@ export async function POST(req: NextRequest) {
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
+  if (!remoteIpResolution.remoteIp) {
+    return NextResponse.json(
+      { error: "Nao foi possivel identificar o IP do comprador. Recarregue a pagina e tente novamente." },
+      { status: 400 },
+    );
+  }
+
+  console.log("[asaas/plan/checkout] subscription preflight", {
+    env,
+    baseUrl,
+    usingSandbox,
+    remoteIpSource: remoteIpResolution.source,
+  });
 
   let subscription: Awaited<ReturnType<typeof createSubscription>>;
   try {
@@ -426,7 +441,7 @@ export async function POST(req: NextRequest) {
         phone:             checkoutInput.phone,
         mobilePhone:       checkoutInput.phone,
       },
-      remoteIp: remoteIp === "unknown" ? "127.0.0.1" : remoteIp,
+      remoteIp: remoteIpResolution.remoteIp,
     });
   } catch (err) {
     const desc = extractAsaasError(err);
