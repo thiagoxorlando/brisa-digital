@@ -432,16 +432,52 @@ function SignupPageContent() {
 
   async function handleTrialCheckoutSubmit(payload: ProTrialCheckoutPayload) {
     setTrialSubmitting(true);
-    const res = await fetch("/api/asaas/plan/checkout", {
+
+    const res = await fetch("/api/auth/signup-pro", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan: "pro", ...payload }),
+      body: JSON.stringify({
+        email:         account.email.trim(),
+        password:      account.password,
+        termsAccepted: account.termsAccepted,
+        agency: {
+          agencyName:      agency.agencyName.trim(),
+          responsibleName: agency.responsibleName.trim(),
+          cpfCnpj:         normalizeCpfCnpj(agency.cpfCnpj),
+          phone:           agency.phone.trim(),
+          country:         agency.country.trim(),
+          city:            agency.city.trim(),
+          state:           agency.state.trim(),
+          website:         agency.website.trim()     || null,
+          description:     agency.description.trim() || null,
+        },
+        card: payload,
+      }),
     });
-    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; trialEndsAt?: string };
+
+    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; code?: string };
+
     if (!res.ok || !json.ok) {
       setTrialSubmitting(false);
+      if (json.code === "email_already_registered") {
+        setShowTrialModal(false);
+        setShowSignInPrompt(true);
+        return;
+      }
       throw new Error(json.error ?? t("signup_error_payment"));
     }
+
+    // Account created and card validated — sign in to establish session
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email:    account.email.trim(),
+      password: account.password,
+    });
+
+    if (signInError) {
+      setTrialSubmitting(false);
+      throw new Error(signInError.message);
+    }
+
     const params = new URLSearchParams({ plan: "pro" });
     if (nextPath) params.set("next", nextPath);
     router.push(`/onboarding?${params.toString()}`);
@@ -457,6 +493,12 @@ function SignupPageContent() {
       return;
     }
 
+    // PRO: collect card BEFORE creating any account — the modal calls /api/auth/signup-pro atomically
+    if (account.role === "agency" && agency.plan === "pro") {
+      setShowTrialModal(true);
+      return;
+    }
+
     setLoading(true);
 
     if (refToken && referredEmail && account.role === "talent" && account.email.trim().toLowerCase() !== referredEmail) {
@@ -467,7 +509,7 @@ function SignupPageContent() {
 
     // Only open a payment tab for non-PRO paid plans (premium) that return a hosted checkout URL
     let paymentWindow: Window | null = null;
-    if (account.role === "agency" && selectedPlan.price > 0 && agency.plan !== "pro") {
+    if (account.role === "agency" && selectedPlan.price > 0) {
       paymentWindow = window.open("", "_blank", "noopener,noreferrer");
     }
 
@@ -574,13 +616,6 @@ function SignupPageContent() {
       }
 
       await linkReferral(data.user.id);
-
-      if (account.role === "agency" && agency.plan === "pro") {
-        // PRO uses in-app card collection modal — no hosted checkout / new tab
-        setShowTrialModal(true);
-        setLoading(false);
-        return;
-      }
 
       if (account.role === "agency" && selectedPlan.price > 0) {
         const checkoutRes = await fetch("/api/asaas/plan/checkout", {
