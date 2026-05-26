@@ -100,11 +100,12 @@ function safeNextPath(value: string | null) {
   return value;
 }
 
-function loginHref(refToken: string | null, jobId: string | null, nextPath: string | null) {
+function loginHref(refToken: string | null, jobId: string | null, nextPath: string | null, email?: string) {
   const params = new URLSearchParams();
   if (refToken) params.set("ref", refToken);
   if (jobId) params.set("job", jobId);
   if (nextPath) params.set("next", nextPath);
+  if (email) params.set("email", email);
   const qs = params.toString();
   return qs ? `/login?${qs}` : "/login";
 }
@@ -268,6 +269,7 @@ function SignupPageContent() {
   const [customOtherText, setCustomOtherText] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState("");
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [loading, setLoading] = useState(false);
   const [waitingForPayment, setWaitingForPayment] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
@@ -320,6 +322,7 @@ function SignupPageContent() {
     setAccount((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
     setServerError("");
+    setShowSignInPrompt(false);
   }
 
   function setTalentField<K extends keyof TalentForm>(key: K, value: TalentForm[K]) {
@@ -455,7 +458,11 @@ function SignupPageContent() {
 
       if (signUpError || !data.user) {
         paymentWindow?.close();
-        setServerError(signUpError?.message ?? t("signup_error_account"));
+        if (signUpError && /already registered/i.test(signUpError.message)) {
+          setShowSignInPrompt(true);
+        } else {
+          setServerError(signUpError?.message ?? t("signup_error_account"));
+        }
         setLoading(false);
         return;
       }
@@ -1083,7 +1090,20 @@ function SignupPageContent() {
                     <FieldError error={errors.termsAccepted} />
                   </SectionCard>
 
-                  {serverError ? <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">{serverError}</div> : null}
+                  {showSignInPrompt ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+                      <p className="text-[13px] font-semibold text-amber-800">{t("signup_duplicate_email_title")}</p>
+                      <p className="mt-1 text-[13px] text-amber-700">{t("signup_duplicate_email_body")}</p>
+                      <Link
+                        href={loginHref(refToken, jobId, nextPath, account.email.trim())}
+                        className="mt-3 inline-flex items-center rounded-xl bg-amber-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-amber-700 transition-colors"
+                      >
+                        {t("signup_duplicate_sign_in")}
+                      </Link>
+                    </div>
+                  ) : serverError ? (
+                    <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-[13px] text-rose-600">{serverError}</div>
+                  ) : null}
 
                   <div className="space-y-3">
                     <button

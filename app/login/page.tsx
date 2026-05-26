@@ -43,6 +43,11 @@ function LoginPageContent() {
   const [referredEmail,  setReferredEmail]  = useState<string | null>(null);
 
   useEffect(() => {
+    const emailParam = searchParams.get("email");
+    if (emailParam) setEmail(decodeURIComponent(emailParam));
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!refToken) return;
     void fetch(`/api/referrals/info?token=${encodeURIComponent(refToken)}`)
       .then(async (res) => {
