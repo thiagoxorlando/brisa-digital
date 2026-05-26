@@ -437,8 +437,6 @@ function SignupPageContent() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email:         account.email.trim(),
-        password:      account.password,
         termsAccepted: account.termsAccepted,
         agency: {
           agencyName:      agency.agencyName.trim(),
@@ -455,29 +453,14 @@ function SignupPageContent() {
       }),
     });
 
-    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; code?: string };
+    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
 
     if (!res.ok || !json.ok) {
       setTrialSubmitting(false);
-      if (json.code === "email_already_registered") {
-        setShowTrialModal(false);
-        setShowSignInPrompt(true);
-        return;
-      }
       throw new Error(json.error ?? t("signup_error_payment"));
     }
 
-    // Account created and card validated — sign in to establish session
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email:    account.email.trim(),
-      password: account.password,
-    });
-
-    if (signInError) {
-      setTrialSubmitting(false);
-      throw new Error(signInError.message);
-    }
-
+    // Session already established by signUp in handleSubmit — go to onboarding
     const params = new URLSearchParams({ plan: "pro" });
     if (nextPath) params.set("next", nextPath);
     router.push(`/onboarding?${params.toString()}`);
@@ -493,8 +476,46 @@ function SignupPageContent() {
       return;
     }
 
-    // PRO: collect card BEFORE creating any account — the modal calls /api/auth/signup-pro atomically
+    // PRO: create auth user first (for session), then show card modal
     if (account.role === "agency" && agency.plan === "pro") {
+      setLoading(true);
+
+      const { data: suData, error: suError } = await supabase.auth.signUp({
+        email:    account.email.trim(),
+        password: account.password,
+      });
+
+      if (suError || !suData.user) {
+        if (suError && /already registered/i.test(suError.message)) {
+          // Possible retry from a previously failed card attempt — sign in and check for profile
+          const { data: siData } = await supabase.auth.signInWithPassword({
+            email:    account.email.trim(),
+            password: account.password,
+          });
+
+          if (siData.user) {
+            const { data: prof } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", siData.user.id)
+              .maybeSingle();
+
+            if (!prof?.role) {
+              // No profile → retry scenario; session established, show modal
+              setLoading(false);
+              setShowTrialModal(true);
+              return;
+            }
+          }
+          setShowSignInPrompt(true);
+        } else {
+          setServerError(suError?.message ?? t("signup_error_account"));
+        }
+        setLoading(false);
+        return;
+      }
+
+      setLoading(false);
       setShowTrialModal(true);
       return;
     }

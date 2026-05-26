@@ -1,20 +1,23 @@
 /**
  * POST /api/auth/signup-pro
  *
- * Atomic PRO agency signup.
- * Order of operations:
- *   1. Create Supabase auth user (admin API)
- *   2. Create minimal profile row (required by ensureAsaasCustomer)
- *   3. Create Asaas customer + subscription with card
- *   4. On Asaas failure → delete profile + auth user → return Asaas error
- *   5. On success → create agency row, finalize profile, start trial
+ * Finalises an atomic PRO agency signup.
+ * The caller (client) must have an active Supabase session BEFORE calling this
+ * endpoint — it calls supabase.auth.signUp() client-side first to get a userId,
+ * then passes control here.
  *
- * The account does NOT exist until card validation passes, so failed
- * attempts leave no residue and the user can retry with corrected card data.
+ * Steps:
+ *   1. Verify authenticated session
+ *   2. Guard: no existing profile (idempotent retry is safe)
+ *   3. Create minimal profile row (required by ensureAsaasCustomer)
+ *   4. Create Asaas customer + subscription with card
+ *   5. On Asaas failure → delete profile → return real Asaas error
+ *   6. On success → finalize profile + create agency + start trial
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { createSessionClient } from "@/lib/supabase.server";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
 import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
 import {
@@ -28,50 +31,48 @@ import { buildRateLimitKey, checkRateLimit, getRequestIp } from "@/lib/rateLimit
 
 const TERMS_VERSION = "terms_v1_2026_05";
 
-function asaasError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-async function cleanupUser(supabase: ReturnType<typeof createServerClient>, userId: string) {
+async function deleteProfile(supabase: ReturnType<typeof createServerClient>, userId: string) {
   try {
     await supabase.from("profiles").delete().eq("id", userId);
   } catch (e) {
     console.warn("[signup-pro] cleanup profile delete failed:", String(e));
   }
-  try {
-    const { error } = await supabase.auth.admin.deleteUser(userId);
-    if (error) console.warn("[signup-pro] cleanup auth delete failed:", error.message);
-  } catch (e) {
-    console.warn("[signup-pro] cleanup auth delete exception:", String(e));
-  }
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    return await handleSignupPro(req);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[signup-pro] unhandled error:", msg);
+    return NextResponse.json({ error: `Erro interno: ${msg}` }, { status: 500 });
+  }
+}
+
+async function handleSignupPro(req: NextRequest) {
+  // ── Auth check ────────────────────────────────────────────────────────────
+  const session = await createSessionClient();
+  const { data: { user } } = await session.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Sessão não encontrada. Recarregue a página e tente novamente." }, { status: 401 });
+  }
+
   const supabase = createServerClient({ useServiceRole: true });
   const ip = getRequestIp(req);
 
   const rl = checkRateLimit({
-    key: buildRateLimitKey("signup-pro", ip),
-    limit: 5,
+    key: buildRateLimitKey("signup-pro", ip, user.id),
+    limit: 10,
     windowMs: 15 * 60 * 1000,
-    message: "Muitas tentativas de cadastro. Tente novamente em alguns minutos.",
+    message: "Muitas tentativas. Tente novamente em alguns minutos.",
   });
   if (rl) return rl;
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-
-  const email = String(body.email ?? "").trim().toLowerCase();
-  const password = String(body.password ?? "");
   const termsAccepted = body.termsAccepted === true;
   const agencyData = (body.agency ?? {}) as Record<string, unknown>;
-  const cardData  = (body.card   ?? {}) as Record<string, unknown>;
+  const cardData   = (body.card   ?? {}) as Record<string, unknown>;
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "E-mail e senha são obrigatórios." }, { status: 400 });
-  }
-  if (password.length < 6) {
-    return NextResponse.json({ error: "A senha deve ter no mínimo 6 caracteres." }, { status: 400 });
-  }
   if (!termsAccepted) {
     return NextResponse.json({ error: "Você precisa aceitar os Termos de Uso para continuar." }, { status: 400 });
   }
@@ -88,7 +89,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "CPF/CNPJ inválido." }, { status: 400 });
   }
 
-  // ── Platform trial settings ────────────────────────────────────────────────
+  // ── Guard: if profile with role already exists, this is a duplicate call ──
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("role, plan")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existingProfile?.role && existingProfile.role !== "agency") {
+    return NextResponse.json({ error: "Conta já configurada com outro tipo de acesso." }, { status: 409 });
+  }
+  if (existingProfile?.plan && existingProfile.plan !== "free") {
+    return NextResponse.json({ error: "Este usuário já possui um plano ativo." }, { status: 409 });
+  }
+
+  // ── Platform settings + PRO plan ─────────────────────────────────────────
   const [platformSettings, planSettingResult] = await Promise.all([
     getPlatformSettings(["trials_enabled", "trial_duration_days", "trial_auto_charge_enabled"]),
     supabase
@@ -108,73 +123,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Configuração de preço inválida para o plano PRO." }, { status: 400 });
   }
 
-  const trialsEnabled         = Boolean(platformSettings.trials_enabled          ?? true);
+  const trialsEnabled          = Boolean(platformSettings.trials_enabled           ?? true);
   const trialAutoChargeEnabled = Boolean(platformSettings.trial_auto_charge_enabled ?? true);
-  const trialDurationDays     = Math.max(1, Number(platformSettings.trial_duration_days ?? 7));
-  const trialDays             = trialsEnabled && trialAutoChargeEnabled ? trialDurationDays : 0;
+  const trialDurationDays      = Math.max(1, Number(platformSettings.trial_duration_days ?? 7));
+  const trialDays              = trialsEnabled && trialAutoChargeEnabled ? trialDurationDays : 0;
 
-  const now          = new Date();
-  const trialEndsAt  = new Date(now.getTime());
+  const now         = new Date();
+  const trialEndsAt = new Date(now.getTime());
   trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
   const nextDueDateStr = (trialDays > 0 ? trialEndsAt : now).toISOString().slice(0, 10);
 
-  // ── Step 1: Create Supabase auth user ────────────────────────────────────
-  const { data: createData, error: createError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { role: "agency" },
-  });
-
-  if (createError) {
-    const msg = createError.message.toLowerCase();
-    if (msg.includes("already") || msg.includes("exists") || msg.includes("registered")) {
-      return NextResponse.json(
-        { error: "Este e-mail já está cadastrado. Faça login para continuar.", code: "email_already_registered" },
-        { status: 409 },
-      );
-    }
-    console.error("[signup-pro] createUser failed:", createError.message);
-    return NextResponse.json({ error: createError.message }, { status: 400 });
-  }
-
-  const userId = createData.user.id;
-
-  // ── Step 2: Minimal profile row (required by ensureAsaasCustomer) ─────────
+  // ── Step 1: Minimal profile (needed by ensureAsaasCustomer) ──────────────
   const { error: profileInitErr } = await supabase
     .from("profiles")
-    .upsert({ id: userId, role: "agency" }, { onConflict: "id" });
+    .upsert({ id: user.id, role: "agency" }, { onConflict: "id" });
 
   if (profileInitErr) {
     console.error("[signup-pro] profile init failed:", profileInitErr.message);
-    await cleanupUser(supabase, userId);
     return NextResponse.json({ error: "Erro ao inicializar perfil. Tente novamente." }, { status: 500 });
   }
 
-  // ── Step 3: Asaas customer ────────────────────────────────────────────────
+  // ── Step 2: Asaas customer ────────────────────────────────────────────────
   const cardCpfCnpj = normalizeCpfCnpj(String(cardData.cpfCnpj ?? agencyCpfCnpj));
   const cardPhone   = digitsOnly(String(cardData.phone ?? agencyPhone));
 
   let customerId: string;
   try {
     customerId = await ensureAsaasCustomer(
-      userId,
+      user.id,
       responsibleName || agencyName,
-      email,
+      user.email ?? "",
       cardCpfCnpj,
       cardPhone,
     );
   } catch (err) {
-    const desc = asaasError(err);
+    const desc = err instanceof Error ? err.message : String(err);
     console.error("[signup-pro] ensureAsaasCustomer failed:", desc);
-    await cleanupUser(supabase, userId);
+    await deleteProfile(supabase, user.id);
     return NextResponse.json(
       { error: desc || "Não foi possível registrar no sistema de pagamento. Confira CPF/CNPJ e tente novamente." },
       { status: 422 },
     );
   }
 
-  // ── Step 4: Create subscription with card ────────────────────────────────
+  // ── Step 3: Create subscription with card ────────────────────────────────
   const expiryYearRaw = String(cardData.expiryYear ?? "").trim();
   const expiryYear    = expiryYearRaw.length === 2 ? `20${expiryYearRaw}` : expiryYearRaw;
 
@@ -187,7 +179,7 @@ export async function POST(req: NextRequest) {
       nextDueDate:       nextDueDateStr,
       cycle:             "MONTHLY",
       description:       `Assinatura PRO - BrisaHub`,
-      externalReference: `plan:pro:${userId}`,
+      externalReference: `plan:pro:${user.id}`,
       creditCard: {
         holderName:  String(cardData.holderName ?? ""),
         number:      digitsOnly(String(cardData.cardNumber ?? "")),
@@ -197,7 +189,7 @@ export async function POST(req: NextRequest) {
       },
       creditCardHolderInfo: {
         name:              String(cardData.holderName ?? responsibleName),
-        email,
+        email:             user.email ?? "",
         cpfCnpj:           cardCpfCnpj,
         postalCode:        digitsOnly(String(cardData.postalCode ?? "")).slice(0, 8),
         addressNumber:     String(cardData.addressNumber ?? ""),
@@ -208,39 +200,39 @@ export async function POST(req: NextRequest) {
       remoteIp: ip === "unknown" ? "127.0.0.1" : ip,
     });
   } catch (err) {
-    const desc = asaasError(err);
+    const desc = err instanceof Error ? err.message : String(err);
     console.error("[signup-pro] createSubscription failed:", desc);
-    await cleanupUser(supabase, userId);
+    await deleteProfile(supabase, user.id);
     return NextResponse.json(
       { error: desc || "Cartão recusado. Verifique os dados e tente novamente." },
       { status: 422 },
     );
   }
 
-  // ── Step 5: First payment ID (non-fatal) ─────────────────────────────────
+  // ── Step 4: First payment ID ──────────────────────────────────────────────
   let firstPaymentId: string | undefined;
   try {
     const payments = await getSubscriptionPayments(subscription.id);
     firstPaymentId = payments.data?.[0]?.id;
   } catch (err) {
-    console.warn("[signup-pro] getSubscriptionPayments failed (non-fatal):", String(err));
+    console.warn("[signup-pro] getSubscriptionPayments non-fatal:", String(err));
   }
 
-  // ── Step 6: Finalize profile ──────────────────────────────────────────────
+  // ── Step 5: Finalize profile ──────────────────────────────────────────────
   const fullName = agencyName || responsibleName;
   const { error: profileUpdateErr } = await supabase
     .from("profiles")
     .update({ full_name: fullName, cpf_cnpj: agencyCpfCnpj })
-    .eq("id", userId);
+    .eq("id", user.id);
 
   if (profileUpdateErr) {
-    console.error("[signup-pro] profile update failed (non-fatal):", profileUpdateErr.message);
+    console.error("[signup-pro] profile update non-fatal:", profileUpdateErr.message);
   }
 
-  // ── Step 7: Create agency row ─────────────────────────────────────────────
+  // ── Step 6: Create agency row ─────────────────────────────────────────────
   const agencyPayload: Record<string, unknown> = {
-    id:                  userId,
-    user_id:             userId,
+    id:                  user.id,
+    user_id:             user.id,
     company_name:        agencyName,
     contact_name:        responsibleName,
     phone:               agencyPhone,
@@ -258,17 +250,17 @@ export async function POST(req: NextRequest) {
     .upsert(agencyPayload, { onConflict: "id" });
 
   if (agencyErr) {
-    console.error("[signup-pro] agency upsert failed (non-fatal):", agencyErr.message);
+    console.error("[signup-pro] agency upsert non-fatal:", agencyErr.message);
   }
 
-  // ── Step 8: Trial / subscription status ──────────────────────────────────
-  const trialStartedAt  = now.toISOString();
-  const trialEndsAtIso  = trialEndsAt.toISOString();
+  // ── Step 7: Trial / subscription status ──────────────────────────────────
+  const trialStartedAt = now.toISOString();
+  const trialEndsAtIso = trialEndsAt.toISOString();
 
   if (trialDays > 0) {
     await startAgencyPlanTrial({
       supabase,
-      userId,
+      userId:        user.id,
       planKey:       "pro",
       customerId,
       subscriptionId: subscription.id,
@@ -278,7 +270,7 @@ export async function POST(req: NextRequest) {
       trialEndsAt:    trialEndsAtIso,
     });
   } else {
-    await updateAgencySubscriptionProfile(supabase, userId, {
+    await updateAgencySubscriptionProfile(supabase, user.id, {
       plan:                  "pro",
       plan_status:           "pending",
       plan_expires_at:       nextDueDateStr,
@@ -286,13 +278,13 @@ export async function POST(req: NextRequest) {
       asaas_subscription_id: subscription.id,
       subscription_provider: "asaas",
     });
-    await syncAgencyLegacySubscriptionStatus(supabase, userId, "pending");
+    await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
   }
 
-  // ── Step 9: Terms acceptance ──────────────────────────────────────────────
+  // ── Step 8: Terms acceptance ──────────────────────────────────────────────
   await supabase.from("terms_acceptances").upsert(
     {
-      user_id:       userId,
+      user_id:       user.id,
       terms_version: TERMS_VERSION,
       accepted_at:   now.toISOString(),
       ip_address:    ip,
@@ -302,7 +294,7 @@ export async function POST(req: NextRequest) {
   );
 
   console.log("[signup-pro] PRO trial started", {
-    userId,
+    userId: user.id,
     planPrice,
     trialDays,
     subscriptionId: subscription.id,
