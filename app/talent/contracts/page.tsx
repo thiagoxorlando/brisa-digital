@@ -46,7 +46,10 @@ export default async function TalentContractsPage() {
       .map((job) => [job.id, { title: job.title ?? "Vaga sem titulo", agencyId: job.agency_id ?? "" }]),
   );
 
-  const filteredRows = rows.filter((contract) => !contract.job_id || openJobMap.has(contract.job_id));
+  // Show ALL contracts — workspace contracts are visible here even though the
+  // workspace portal provides a richer view. Submissions stay filtered to open
+  // market jobs since workspace submissions are managed in the workspace portal.
+  const filteredRows = rows;
   const filteredSubRows = subRows.filter((submission) => submission.job_id && openJobMap.has(submission.job_id));
   const contractJobIds = new Set(filteredRows.map((c) => c.job_id).filter(Boolean));
 

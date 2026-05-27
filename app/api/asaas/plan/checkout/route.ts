@@ -8,6 +8,13 @@ import {
   listCustomerSubscriptions,
 } from "@/lib/asaas";
 import {
+  isLikelyEmail,
+  isValidAsaasExpiryDate,
+  isValidAsaasExpiryMonth,
+  normalizeAsaasExpiryMonth,
+  normalizeAsaasExpiryYear,
+} from "@/lib/asaasCard";
+import {
   fetchAgencySubscriptionProfile,
   startAgencyPlanTrial,
   syncAgencyLegacySubscriptionStatus,
@@ -51,9 +58,6 @@ function serializeErr(err: unknown): string {
 
 // PhoneInput stores "+CC localNum" — strip country-code prefix before sending to Asaas.
 function parseCheckoutInput(body: Record<string, unknown>): ProCheckoutInput {
-  const expiryYearRaw = String(body.expiryYear ?? "").trim();
-  const normalizedYear = expiryYearRaw.length === 2 ? `20${expiryYearRaw}` : expiryYearRaw;
-
   return {
     holderName: String(body.holderName ?? "").trim(),
     cpfCnpj: normalizeCpfCnpj(String(body.cpfCnpj ?? "").trim()),
@@ -62,24 +66,28 @@ function parseCheckoutInput(body: Record<string, unknown>): ProCheckoutInput {
     addressNumber: String(body.addressNumber ?? "").trim(),
     addressComplement: String(body.addressComplement ?? "").trim(),
     cardNumber: digitsOnly(String(body.cardNumber ?? "")),
-    expiryMonth: digitsOnly(String(body.expiryMonth ?? "")).slice(0, 2),
-    expiryYear: digitsOnly(normalizedYear).slice(0, 4),
+    expiryMonth: normalizeAsaasExpiryMonth(String(body.expiryMonth ?? "")),
+    expiryYear: normalizeAsaasExpiryYear(String(body.expiryYear ?? "")),
     ccv: digitsOnly(String(body.ccv ?? "")).slice(0, 4),
   };
 }
 
-function validateProCheckoutInput(input: ProCheckoutInput) {
+function validateProCheckoutInput(input: ProCheckoutInput, email: string | undefined) {
   if (input.holderName.length < 2) return "Informe o nome do titular como no cartao.";
+  if (isLikelyEmail(input.holderName) || input.holderName.toLowerCase() === (email ?? "").trim().toLowerCase()) {
+    return "Informe o nome do titular, nao o e-mail.";
+  }
   if (!isValidCpfCnpj(input.cpfCnpj)) return "CPF/CNPJ do titular invalido.";
   if (!isValidAsaasMobilePhone(input.phone)) return "Informe um telefone valido do titular com DDD.";
   if (input.postalCode.length !== 8) return "Informe um CEP valido com 8 digitos.";
   if (!input.addressNumber) return "Informe o numero do endereco do titular.";
-  if (input.cardNumber.length < 13) return "Informe um numero de cartao valido.";
-  if (!input.expiryMonth || Number(input.expiryMonth) < 1 || Number(input.expiryMonth) > 12) {
+  if (input.cardNumber.length < 13 || input.cardNumber.length > 19) return "Informe um numero de cartao valido.";
+  if (!isValidAsaasExpiryMonth(input.expiryMonth)) {
     return "Informe um mes de validade valido.";
   }
-  if (input.expiryYear.length !== 4) return "Informe um ano de validade valido.";
-  if (input.ccv.length < 3) return "Informe um codigo de seguranca valido.";
+  if (input.expiryYear.length !== 4) return "Informe um ano de validade valido com 4 digitos.";
+  if (!isValidAsaasExpiryDate(input.expiryMonth, input.expiryYear)) return "O cartao informado esta vencido.";
+  if (input.ccv.length < 3 || input.ccv.length > 4) return "Informe um codigo de seguranca valido.";
   return null;
 }
 
@@ -403,7 +411,7 @@ export async function POST(req: NextRequest) {
     cpfCnpj:    body.cpfCnpj    ?? cleanDoc,
     phone:      body.phone      ?? rawPhone,
   });
-  const validationError = validateProCheckoutInput(checkoutInput);
+  const validationError = validateProCheckoutInput(checkoutInput, user.email);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }

@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from "react";
 import PhoneInput from "@/components/ui/PhoneInput";
-import { formatCpfCnpj } from "@/lib/cpf";
+import {
+  isLikelyEmail,
+  isValidAsaasExpiryDate,
+  isValidAsaasExpiryMonth,
+  normalizeAsaasExpiryMonth,
+  normalizeAsaasExpiryYear,
+} from "@/lib/asaasCard";
+import { normalizeAsaasMobilePhone } from "@/lib/asaasPhone";
+import { formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
 
 export type ProTrialCheckoutPayload = {
   holderName: string;
@@ -77,48 +85,116 @@ export default function ProTrialCheckoutModal({
   const [expiryYear, setExpiryYear] = useState("");
   const [ccv, setCcv] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  const isValid = useMemo(() => {
-    return (
-      holderName.trim().length >= 2 &&
-      cpfCnpj.replace(/\D/g, "").length >= 11 &&
-      phone.replace(/\D/g, "").length >= 10 &&
-      postalCode.replace(/\D/g, "").length === 8 &&
-      addressNumber.trim().length >= 1 &&
-      cardNumber.replace(/\D/g, "").length >= 13 &&
-      Number(expiryMonth) >= 1 &&
-      Number(expiryMonth) <= 12 &&
-      expiryYear.replace(/\D/g, "").length >= 2 &&
-      ccv.replace(/\D/g, "").length >= 3
-    );
-  }, [addressNumber, cardNumber, ccv, cpfCnpj, expiryMonth, expiryYear, holderName, phone, postalCode]);
+  const normalizedHolderName = holderName.trim();
+  const normalizedCpfCnpj = normalizeCpfCnpj(cpfCnpj);
+  const normalizedPhone = useMemo(() => normalizeAsaasMobilePhone(phone), [phone]);
+  const normalizedPostalCode = postalCode.replace(/\D/g, "");
+  const normalizedCardNumber = cardNumber.replace(/\D/g, "");
+  const normalizedExpiryMonth = normalizeAsaasExpiryMonth(expiryMonth);
+  const normalizedExpiryYear = normalizeAsaasExpiryYear(expiryYear);
+  const normalizedCcv = ccv.replace(/\D/g, "");
+  const isPhoneValid = normalizedPhone.length === 10 || normalizedPhone.length === 11;
+  const holderMatchesEmail = normalizedHolderName.toLowerCase() === email.trim().toLowerCase();
+
+  const validationError = useMemo(() => {
+    if (normalizedHolderName.length < 2) {
+      return "Informe o nome do titular como esta no cartao.";
+    }
+
+    if (holderMatchesEmail || isLikelyEmail(normalizedHolderName)) {
+      return "Informe o nome do titular, nao o e-mail.";
+    }
+
+    if (!isValidCpfCnpj(normalizedCpfCnpj)) {
+      return "Informe um CPF ou CNPJ valido.";
+    }
+
+    if (!isPhoneValid) {
+      return "Informe um telefone valido com DDD.";
+    }
+
+    if (normalizedPostalCode.length !== 8) {
+      return "Informe um CEP valido com 8 digitos.";
+    }
+
+    if (!addressNumber.trim()) {
+      return "Informe o numero do endereco.";
+    }
+
+    if (normalizedCardNumber.length < 13 || normalizedCardNumber.length > 19) {
+      return "Informe um numero de cartao valido.";
+    }
+
+    if (!isValidAsaasExpiryMonth(normalizedExpiryMonth)) {
+      return "Informe um mes de validade valido entre 01 e 12.";
+    }
+
+    if (normalizedExpiryYear.length !== 4) {
+      return "Informe o ano com 4 digitos, como 2034.";
+    }
+
+    if (!isValidAsaasExpiryDate(normalizedExpiryMonth, normalizedExpiryYear)) {
+      return "O cartao informado esta vencido.";
+    }
+
+    if (normalizedCcv.length < 3 || normalizedCcv.length > 4) {
+      return "Informe um CVV valido com 3 ou 4 digitos.";
+    }
+
+    return null;
+  }, [
+    addressNumber,
+    holderMatchesEmail,
+    normalizedCardNumber,
+    normalizedCcv,
+    normalizedCpfCnpj,
+    normalizedExpiryMonth,
+    normalizedExpiryYear,
+    normalizedHolderName,
+    normalizedPostalCode,
+    isPhoneValid,
+  ]);
+
+  const canSubmit = !validationError && !submitting && !loading;
+  const inlineError = attemptedSubmit ? validationError ?? error : error;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!isValid || submitting) return;
+    setAttemptedSubmit(true);
     setError("");
 
+    if (!canSubmit) return;
+
+    setLoading(true);
+
     try {
-      const expiryYearDigits = expiryYear.replace(/\D/g, "");
       await onSubmit({
-        holderName: holderName.trim(),
-        cpfCnpj,
-        phone,
-        postalCode,
+        holderName: normalizedHolderName,
+        cpfCnpj: normalizedCpfCnpj,
+        phone: normalizedPhone,
+        postalCode: normalizedPostalCode,
         addressNumber: addressNumber.trim(),
         addressComplement: addressComplement.trim(),
-        cardNumber,
-        expiryMonth,
-        expiryYear: expiryYearDigits.length === 2 ? `20${expiryYearDigits}` : expiryYearDigits,
-        ccv,
+        cardNumber: normalizedCardNumber,
+        expiryMonth: normalizedExpiryMonth,
+        expiryYear: normalizedExpiryYear,
+        ccv: normalizedCcv,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel iniciar o teste gratis.");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-xl rounded-3xl bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
@@ -132,7 +208,7 @@ export default function ProTrialCheckoutModal({
                 Validamos seu cartao hoje e a primeira cobranca acontece em {trialDays} dias.
               </p>
             </div>
-            <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors">
+            <button onClick={onClose} className="text-zinc-400 transition-colors hover:text-zinc-700">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -149,7 +225,9 @@ export default function ProTrialCheckoutModal({
         <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Nome do titular</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                Nome do titular
+              </label>
               <input
                 type="text"
                 value={holderName}
@@ -160,7 +238,9 @@ export default function ProTrialCheckoutModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">CPF/CNPJ</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                CPF/CNPJ
+              </label>
               <input
                 type="text"
                 value={cpfCnpj}
@@ -173,18 +253,24 @@ export default function ProTrialCheckoutModal({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Email</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                Email
+              </label>
               <input type="email" value={email} disabled className={`${INPUT_CLS} bg-zinc-50 text-zinc-500`} />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Telefone</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                Telefone
+              </label>
               <PhoneInput value={phone} onChange={setPhone} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">CEP</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                CEP
+              </label>
               <input
                 type="text"
                 value={postalCode}
@@ -194,7 +280,9 @@ export default function ProTrialCheckoutModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Numero</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                Numero
+              </label>
               <input
                 type="text"
                 value={addressNumber}
@@ -204,7 +292,9 @@ export default function ProTrialCheckoutModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Complemento</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                Complemento
+              </label>
               <input
                 type="text"
                 value={addressComplement}
@@ -216,7 +306,9 @@ export default function ProTrialCheckoutModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Numero do cartao</label>
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+              Numero do cartao
+            </label>
             <input
               type="text"
               value={cardNumber}
@@ -230,7 +322,9 @@ export default function ProTrialCheckoutModal({
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Mes</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                Mes
+              </label>
               <input
                 type="text"
                 value={expiryMonth}
@@ -242,19 +336,24 @@ export default function ProTrialCheckoutModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Ano</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                Ano
+              </label>
               <input
                 type="text"
                 value={expiryYear}
                 onChange={(event) => setExpiryYear(formatExpiryYear(event.target.value))}
+                onBlur={() => setExpiryYear(normalizeAsaasExpiryYear(expiryYear))}
                 autoComplete="cc-exp-year"
                 inputMode="numeric"
                 className={INPUT_CLS}
-                placeholder="AAAA"
+                placeholder="AA ou AAAA"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">CVV</label>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+                CVV
+              </label>
               <input
                 type="text"
                 value={ccv}
@@ -267,9 +366,14 @@ export default function ProTrialCheckoutModal({
             </div>
           </div>
 
-          {error && (
+          {inlineError && (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[12px] text-rose-700">
-              {error}
+              <p className="font-semibold">{inlineError}</p>
+              {!validationError && (
+                <p className="mt-1 text-rose-600">
+                  Confira numero do cartao, validade, CVV, nome do titular e CPF/CNPJ.
+                </p>
+              )}
             </div>
           )}
 
@@ -283,15 +387,16 @@ export default function ProTrialCheckoutModal({
             </button>
             <button
               type="submit"
-              disabled={!isValid || submitting}
+              disabled={!canSubmit}
               className="flex-1 rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-3 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Validando cartao..." : "Iniciar teste gratis"}
+              {submitting || loading ? "Validando cartao..." : "Iniciar teste gratis"}
             </button>
           </div>
 
           <p className="text-center text-[11px] text-zinc-400">
-            Os dados do cartao sao usados apenas para autorizar a assinatura no Asaas e nao sao armazenados no BrisaHub.
+            Os dados do cartao sao usados apenas para autorizar a assinatura no Asaas e nao sao armazenados no
+            BrisaHub.
           </p>
         </form>
       </div>

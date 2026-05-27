@@ -20,6 +20,13 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
 import { createSubscription, getSubscriptionPayments, listCustomerSubscriptions } from "@/lib/asaas";
+import {
+  isLikelyEmail,
+  isValidAsaasExpiryDate,
+  isValidAsaasExpiryMonth,
+  normalizeAsaasExpiryMonth,
+  normalizeAsaasExpiryYear,
+} from "@/lib/asaasCard";
 import { isValidAsaasMobilePhone, normalizeAsaasMobilePhone } from "@/lib/asaasPhone";
 import {
   startAgencyPlanTrial,
@@ -330,13 +337,33 @@ async function handleSignupPro(req: NextRequest) {
   }
 
   // ── Step 3: Asaas subscription with card ──────────────────────────────────
-  const expiryYearRaw = String(cardData.expiryYear ?? "").trim();
-  const expiryYear    = expiryYearRaw.length === 2 ? `20${expiryYearRaw}` : expiryYearRaw;
   const holderName = String(cardData.holderName ?? "").trim();
+  const cardNumber = digitsOnly(String(cardData.cardNumber ?? ""));
+  const expiryMonth = normalizeAsaasExpiryMonth(String(cardData.expiryMonth ?? ""));
+  const expiryYear = normalizeAsaasExpiryYear(String(cardData.expiryYear ?? ""));
+  const ccv = digitsOnly(String(cardData.ccv ?? "")).slice(0, 4);
   const remoteIp = resolveAsaasRemoteIp(req);
 
-  if (!holderName) {
+  if (holderName.length < 2) {
     return NextResponse.json({ error: "Informe o nome do titular exatamente como no cartao." }, { status: 400 });
+  }
+  if (isLikelyEmail(holderName) || holderName.toLowerCase() === (user.email ?? "").trim().toLowerCase()) {
+    return NextResponse.json({ error: "Informe o nome do titular, nao o e-mail." }, { status: 400 });
+  }
+  if (cardNumber.length < 13 || cardNumber.length > 19) {
+    return NextResponse.json({ error: "Informe um numero de cartao valido." }, { status: 400 });
+  }
+  if (!isValidAsaasExpiryMonth(expiryMonth)) {
+    return NextResponse.json({ error: "Informe um mes de validade valido entre 01 e 12." }, { status: 400 });
+  }
+  if (expiryYear.length !== 4) {
+    return NextResponse.json({ error: "Informe o ano com 4 digitos, como 2034." }, { status: 400 });
+  }
+  if (!isValidAsaasExpiryDate(expiryMonth, expiryYear)) {
+    return NextResponse.json({ error: "O cartao informado esta vencido." }, { status: 400 });
+  }
+  if (ccv.length < 3 || ccv.length > 4) {
+    return NextResponse.json({ error: "Informe um CVV valido com 3 ou 4 digitos." }, { status: 400 });
   }
   if (!remoteIp) {
     return NextResponse.json(
@@ -357,10 +384,10 @@ async function handleSignupPro(req: NextRequest) {
       externalReference: `plan:pro:${user.id}`,
       creditCard: {
         holderName,
-        number:      digitsOnly(String(cardData.cardNumber ?? "")),
-        expiryMonth: digitsOnly(String(cardData.expiryMonth ?? "")).slice(0, 2),
-        expiryYear:  digitsOnly(expiryYear).slice(0, 4),
-        ccv:         digitsOnly(String(cardData.ccv ?? "")).slice(0, 4),
+        number:      cardNumber,
+        expiryMonth,
+        expiryYear,
+        ccv,
       },
       creditCardHolderInfo: {
         name:              holderName,
