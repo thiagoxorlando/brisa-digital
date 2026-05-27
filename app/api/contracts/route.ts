@@ -8,10 +8,10 @@ import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { isJobFull, JOB_FULL_MESSAGE, JOB_UNAVAILABLE_MESSAGE } from "@/lib/jobAvailability";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import {
-  getExistingContractColumns,
   resolveContractCreationAccess,
 } from "@/lib/contractCreationAccess.server";
 import { resolveWorkspaceLifecycleByJobId, talentWorkspaceContractsHref } from "@/lib/workspaceLifecycle";
+import { ensureContractForBooking } from "@/lib/ensureContractForBooking.server";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -185,37 +185,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: bookingErr.message }, { status: 400 });
   }
 
-  const contractInsert: Record<string, unknown> = {
-    booking_id:         booking.id,
-    job_id:             job_id             ?? null,
-    talent_id:          resolvedTalentUserId,
-    talent_user_id:     resolvedTalentUserId,
-    agency_id:          resolvedAgencyId,
-    workspace_id:       resolvedWorkspaceId,
-    created_by_user_id: resolvedCreatedByUserId,
-    job_date:           job_date           ?? null,
-    job_time:           job_time           ?? null,
-    location:           location           ?? null,
-    job_description:    job_description    ?? null,
-    payment_amount:     amount,
-    commission_amount,
-    net_amount,
-    payment_method:     payment_method     ?? null,
-    additional_notes:   additional_notes   ?? null,
-    contract_file_url:  contract_file_url  ?? null,
-    status:             "sent",
-  };
-
-  const { data: contract, error } = await supabase
-    .from("contracts")
-    .insert(contractInsert)
-    .select()
-    .single();
-
-  if (error) {
-    console.error("[POST /api/contracts]", error);
+  let contract;
+  try {
+    contract = await ensureContractForBooking({
+      supabase,
+      booking: {
+        id: booking.id,
+        job_id: job_id ?? null,
+        agency_id: resolvedAgencyId,
+        talent_user_id: resolvedTalentUserId,
+        job_title: jobTitle,
+        price: amount,
+      },
+      overrides: {
+        workspace_id: resolvedWorkspaceId,
+        created_by_user_id: resolvedCreatedByUserId,
+        job_date: job_date ?? null,
+        job_time: job_time ?? null,
+        location: location ?? null,
+        job_description: job_description ?? null,
+        payment_amount: amount,
+        payment_method: payment_method ?? null,
+        additional_notes: additional_notes ?? null,
+        contract_file_url: contract_file_url ?? null,
+        status: "sent",
+      },
+    });
+  } catch (contractError) {
+    const message = contractError instanceof Error ? contractError.message : "Contract creation failed";
+    console.error("[POST /api/contracts]", message);
     await supabase.from("bookings").delete().eq("id", booking.id);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   console.log("[contracts] created row", {

@@ -1,6 +1,6 @@
 import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
-import type { ApprovedSubmission, TalentContract, TalentReservationFallback } from "@/features/talent/TalentContracts";
+import type { ApprovedSubmission, TalentContract } from "@/features/talent/TalentContracts";
 import type { createServerClient } from "@/lib/supabase";
 
 type AdminSupabaseClient = ReturnType<typeof createServerClient>;
@@ -24,22 +24,6 @@ type ContractRow = {
   agency_payment_sent_at?: string | null;
   talent_payment_confirmed_at?: string | null;
   payment_receipt_url?: string | null;
-};
-
-type BookingContractRow = ContractRow & {
-  net_amount?: number | null;
-  commission_amount?: number | null;
-};
-
-type BookingRow = {
-  id: string;
-  job_id?: string | null;
-  job_title?: string | null;
-  agency_id?: string | null;
-  status?: string | null;
-  price?: number | null;
-  created_at?: string | null;
-  contracts?: BookingContractRow[] | null;
 };
 
 type SubmissionRow = {
@@ -82,46 +66,12 @@ export async function loadTalentContractsPageData(
 ): Promise<{
   contracts: TalentContract[];
   approvedSubmissions: ApprovedSubmission[];
-  reservationFallbacks: TalentReservationFallback[];
 }> {
-  const contractSelect = [
-    "id",
-    "booking_id",
-    "agency_id",
-    "job_id",
-    "job_date",
-    "job_time",
-    "location",
-    "job_description",
-    "payment_amount",
-    "payment_method",
-    "additional_notes",
-    "status",
-    "contract_file_url",
-    "signed_contract_url",
-    "created_at",
-    "agency_payment_sent_at",
-    "talent_payment_confirmed_at",
-    "payment_receipt_url",
-  ].join(", ");
-
-  const [contractsResult, bookingsResult, subsResult] = await Promise.all([
+  const [contractsResult, subsResult] = await Promise.all([
     supabase
       .from("contracts")
-      .select(contractSelect)
+      .select("id, booking_id, agency_id, job_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, contract_file_url, signed_contract_url, created_at, agency_payment_sent_at, talent_payment_confirmed_at, payment_receipt_url")
       .or(`talent_id.eq.${talentId},talent_user_id.eq.${talentId}`)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("bookings")
-      .select(`
-        id, job_id, job_title, agency_id, status, price, created_at,
-        contracts!contracts_booking_id_fkey (
-          ${contractSelect},
-          net_amount,
-          commission_amount
-        )
-      `)
-      .eq("talent_user_id", talentId)
       .order("created_at", { ascending: false }),
     supabase
       .from("submissions")
@@ -131,24 +81,13 @@ export async function loadTalentContractsPageData(
   ]);
 
   if (contractsResult.error) console.error("[TalentContractsPage] contracts:", contractsResult.error.message);
-  if (bookingsResult.error) console.error("[TalentContractsPage] bookings:", bookingsResult.error.message);
   if (subsResult.error) console.error("[TalentContractsPage] submissions:", subsResult.error.message);
 
   const directContracts = (contractsResult.data ?? []) as ContractRow[];
-  const bookings = (bookingsResult.data ?? []) as BookingRow[];
   const submissionRows = (subsResult.data ?? []) as SubmissionRow[];
-
-  const bookingContracts = bookings.flatMap((booking) =>
-    (Array.isArray(booking.contracts) ? booking.contracts : []).map((contract) => ({
-      ...contract,
-      booking_id: contract.booking_id ?? booking.id,
-    })),
-  );
 
   const allJobIds = [...new Set([
     ...directContracts.map((contract) => contract.job_id),
-    ...bookingContracts.map((contract) => contract.job_id),
-    ...bookings.map((booking) => booking.job_id),
     ...submissionRows.map((submission) => submission.job_id),
   ].filter((id): id is string => Boolean(id)))];
 
@@ -170,15 +109,7 @@ export async function loadTalentContractsPageData(
     [...jobMap.entries()].filter(([, job]) => !job.workspaceId),
   );
 
-  const contractMap = new Map<string, ContractRow>();
-  for (const contract of directContracts) contractMap.set(contract.id, contract);
-  for (const contract of bookingContracts) {
-    if (!contractMap.has(contract.id)) {
-      contractMap.set(contract.id, contract);
-    }
-  }
-
-  const allContracts = [...contractMap.values()].sort((a, b) => {
+  const allContracts = [...directContracts].sort((a, b) => {
     const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
     const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
     return bTime - aTime;
@@ -188,7 +119,6 @@ export async function loadTalentContractsPageData(
 
   const agencyIds = [...new Set([
     ...allContracts.map((contract) => contract.agency_id),
-    ...bookings.map((booking) => booking.agency_id),
   ].filter((id): id is string => Boolean(id)))];
 
   const agencyMap = new Map<string, string>();
@@ -225,31 +155,10 @@ export async function loadTalentContractsPageData(
     })
     .filter((row): row is ApprovedSubmission => Boolean(row));
 
-  const reservationFallbacks = bookings
-    .filter((booking) => {
-      if (!booking.job_id || !openJobMap.has(booking.job_id)) return false;
-      const bookingContractsForRow = Array.isArray(booking.contracts) ? booking.contracts : [];
-      return bookingContractsForRow.length === 0;
-    })
-    .map((booking) => ({
-      reservationId: booking.id,
-      contractId: null,
-      contractStatus: null,
-      jobId: booking.job_id ?? null,
-      jobTitle: booking.job_title ?? openJobMap.get(booking.job_id ?? "")?.title ?? "Reserva",
-      agencyName: booking.agency_id ? (agencyMap.get(booking.agency_id) ?? "Agência") : "Agência",
-      paymentAmount: booking.price ?? 0,
-      createdAt: booking.created_at ?? "",
-      bookingStatus: booking.status ?? "pending",
-    }));
-
   const queryCount = {
     contracts: directContracts.length,
-    bookingContracts: bookingContracts.length,
-    bookings: bookings.length,
     mergedContracts: contracts.length,
     approvedSubmissions: approvedSubmissions.length,
-    reservationFallbacks: reservationFallbacks.length,
   };
 
   console.info("[TalentContractsPage] summary", {
@@ -270,19 +179,8 @@ export async function loadTalentContractsPageData(
     });
   }
 
-  for (const fallback of reservationFallbacks) {
-    console.warn("[TalentContractsPage] missing-contract-linkage", {
-      talentId,
-      reservationId: fallback.reservationId,
-      contractId: fallback.contractId,
-      contractStatus: fallback.contractStatus,
-      queryCount,
-    });
-  }
-
   return {
     contracts,
     approvedSubmissions,
-    reservationFallbacks,
   };
 }

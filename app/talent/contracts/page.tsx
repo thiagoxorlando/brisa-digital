@@ -15,7 +15,6 @@ export default async function TalentContractsPage() {
     <TalentContracts
       contracts={data.contracts}
       approvedSubmissions={data.approvedSubmissions}
-      reservationFallbacks={data.reservationFallbacks}
     />
   );
 }

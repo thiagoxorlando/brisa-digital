@@ -35,18 +35,6 @@ export type TalentContract = {
   paymentReceiptUrl?:        string | null;
 };
 
-export type TalentReservationFallback = {
-  reservationId: string;
-  contractId: string | null;
-  contractStatus: string | null;
-  jobId: string | null;
-  jobTitle: string;
-  agencyName: string;
-  paymentAmount: number;
-  createdAt: string;
-  bookingStatus: string;
-};
-
 export type ApprovedSubmission = {
   submissionId: string;
   jobId:        string;
@@ -192,40 +180,6 @@ function openOrDownload(c: TalentContract) {
   } else {
     downloadFallback(c);
   }
-}
-
-function ReservationFallbackRow({ reservation }: { reservation: TalentReservationFallback }) {
-  const { t } = useT();
-
-  return (
-    <div className="bg-white rounded-2xl border border-amber-200 shadow-[0_0_0_3px_rgba(251,191,36,0.08),0_4px_16px_rgba(0,0,0,0.04)] overflow-hidden">
-      <div className="flex items-center gap-4 px-5 py-4">
-        <div className="flex-1 min-w-0">
-          <p className="text-[14px] font-semibold text-zinc-900 truncate">{reservation.agencyName}</p>
-          <p className="text-[12px] text-zinc-400 mt-0.5">
-            {t("contracts_received_at")} {fmtDate(reservation.createdAt)}
-          </p>
-        </div>
-
-        <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0 hidden sm:block">
-          {brl(reservation.paymentAmount)}
-        </p>
-
-        <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0 bg-violet-50 text-violet-700 ring-1 ring-violet-100">
-          {t("booking_status_awaiting_signature")}
-        </span>
-      </div>
-
-      <div className="border-t border-zinc-50 px-6 py-5 space-y-3">
-        <div>
-          <p className="text-[13px] font-medium text-zinc-800">{reservation.jobTitle}</p>
-          <p className="text-[12px] text-zinc-500 mt-1">
-            Reserva criada, mas o contrato ainda não foi vinculado. Ela continua visível aqui até a agência finalizar o contrato.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ── Contract row ──────────────────────────────────────────────────────────────
@@ -687,17 +641,14 @@ function ContractRow({
 export default function TalentContracts({
   contracts: initial,
   approvedSubmissions: initialSubs = [],
-  reservationFallbacks: initialReservationFallbacks = [],
 }: {
   contracts:            TalentContract[];
   approvedSubmissions?: ApprovedSubmission[];
-  reservationFallbacks?: TalentReservationFallback[];
 }) {
   const { t } = useT();
   const router = useRouter();
   const [contracts, setContracts]     = useState<TalentContract[]>(initial);
   const [pendingSubs, setPendingSubs] = useState<ApprovedSubmission[]>(initialSubs);
-  const [reservationFallbacks, setReservationFallbacks] = useState<TalentReservationFallback[]>(initialReservationFallbacks);
   const [acting, setActing]           = useState<string | null>(null);
   const [acceptingJob, setAcceptingJob] = useState<string | null>(null);
   const [toast, setToast]             = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -748,7 +699,6 @@ export default function TalentContracts({
             : c
           )
         );
-        setReservationFallbacks((prev) => prev.filter((reservation) => reservation.contractId !== id));
         showToast(
           extra
             ? t("contracts_signed_toast")
@@ -807,16 +757,11 @@ export default function TalentContracts({
 
   const now = new Date();
   const filteredContracts = contracts.filter((c) => periodMatches(c.createdAt, period));
-  const filteredReservationFallbacks = reservationFallbacks.filter((reservation) => periodMatches(reservation.createdAt, period));
 
   const pending = filteredContracts.filter((c) => getTalentContractBucket(c.status, c.jobDate, now) === "pending");
   const active  = filteredContracts.filter((c) => getTalentContractBucket(c.status, c.jobDate, now) === "active");
   const done    = filteredContracts.filter((c) => getTalentContractBucket(c.status, c.jobDate, now) === "done");
   const history = filteredContracts.filter((c) => getTalentContractBucket(c.status, c.jobDate, now) === "history");
-  const pendingItems = [
-    ...pending.map((contract) => ({ kind: "contract" as const, contract })),
-    ...filteredReservationFallbacks.map((reservation) => ({ kind: "reservation" as const, reservation })),
-  ];
 
   return (
     <div className="max-w-3xl space-y-8">
@@ -896,18 +841,16 @@ export default function TalentContracts({
         <div className="flex items-center gap-2">
           <h2 className="text-[13px] font-semibold text-zinc-700">{t("contracts_awaiting_action")}</h2>
           <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-            {pendingItems.length}
+            {pending.length}
           </span>
         </div>
-        {pendingItems.length > 0 ? (
+        {pending.length > 0 ? (
           <div className="space-y-2">
-            {visibleItems(pendingItems, showAllPending).map((item) =>
-              item.kind === "contract"
-                ? <ContractRow key={item.contract.id} contract={item.contract} onAction={handleAction} acting={acting} />
-                : <ReservationFallbackRow key={`reservation-${item.reservation.reservationId}`} reservation={item.reservation} />
-            )}
+            {visibleItems(pending, showAllPending).map((c) => (
+              <ContractRow key={c.id} contract={c} onAction={handleAction} acting={acting} />
+            ))}
             <ShowMoreButton
-              total={pendingItems.length}
+              total={pending.length}
               expanded={showAllPending}
               onClick={() => setShowAllPending((value) => !value)}
             />
@@ -980,17 +923,14 @@ export default function TalentContracts({
         </section>
       )}
 
-      {(contracts.length > 0 || reservationFallbacks.length > 0) &&
-        filteredContracts.length === 0 &&
-        filteredReservationFallbacks.length === 0 &&
-        pendingSubs.length === 0 && (
+      {contracts.length > 0 && filteredContracts.length === 0 && pendingSubs.length === 0 && (
         <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
           <p className="text-[14px] font-medium text-zinc-500">{t("contracts_none_in_period")}</p>
           <p className="text-[13px] text-zinc-400 mt-1">{t("contracts_adjust_filter")}</p>
         </div>
       )}
 
-      {contracts.length === 0 && pendingSubs.length === 0 && reservationFallbacks.length === 0 && (
+      {contracts.length === 0 && pendingSubs.length === 0 && (
         <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center">
           <p className="text-[14px] font-medium text-zinc-500">{t("contracts_no_contracts")}</p>
           <p className="text-[13px] text-zinc-400 mt-1">{t("contracts_empty_hint")}</p>

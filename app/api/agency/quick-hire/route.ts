@@ -5,6 +5,7 @@ import { notify, notifyAdmins } from "@/lib/notify";
 import { requireJobLimit } from "@/lib/requireActiveSubscription";
 import { resolvePlanInfo } from "@/lib/plans";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { ensureContractForBooking } from "@/lib/ensureContractForBooking.server";
 
 export async function POST(req: NextRequest) {
   const { talent_id, agency_id } = await req.json();
@@ -129,28 +130,31 @@ export async function POST(req: NextRequest) {
     netAmount: net_amount,
   });
 
-  const { data: contract, error: contractErr } = await supabase
-    .from("contracts")
-    .insert({
-      booking_id:       booking.id,
-      job_id:           job.id,
-      talent_id,
-      agency_id:        agencyId,
-      job_date:         today,
-      job_description:  `Job rápido: ${role}`,
-      payment_amount:   amount,
-      commission_amount,
-      net_amount,
-      status:           "sent",
-    })
-    .select("id")
-    .single();
-
-  if (contractErr) {
+  let contract;
+  try {
+    contract = await ensureContractForBooking({
+      supabase,
+      booking: {
+        id: booking.id,
+        job_id: job.id,
+        agency_id: agencyId,
+        talent_user_id: talent_id,
+        job_title: job.title,
+        price: amount,
+      },
+      overrides: {
+        job_date: today,
+        job_description: `Job rápido: ${role}`,
+        payment_amount: amount,
+        status: "sent",
+      },
+    });
+  } catch (contractError) {
     await supabase.from("bookings").delete().eq("id", booking.id);
     await supabase.from("jobs").delete().eq("id", job.id);
-    console.error("[POST /api/agency/quick-hire] contract insert", contractErr);
-    return NextResponse.json({ error: contractErr.message }, { status: 400 });
+    const message = contractError instanceof Error ? contractError.message : "Contract creation failed";
+    console.error("[POST /api/agency/quick-hire] contract insert", message);
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   // 4 ─ Notify talent with rehire message
