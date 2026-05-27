@@ -13,6 +13,7 @@ import {
   syncAgencyLegacySubscriptionStatus,
   updateAgencySubscriptionProfile,
 } from "@/lib/asaasPlanSync.server";
+import { isValidAsaasMobilePhone, normalizeAsaasMobilePhone } from "@/lib/asaasPhone";
 import { parsePlan, PLAN_KEYS, type Plan } from "@/lib/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
@@ -48,6 +49,7 @@ function serializeErr(err: unknown): string {
   try { return JSON.stringify(err); } catch { return String(err); }
 }
 
+// PhoneInput stores "+CC localNum" — strip country-code prefix before sending to Asaas.
 function parseCheckoutInput(body: Record<string, unknown>): ProCheckoutInput {
   const expiryYearRaw = String(body.expiryYear ?? "").trim();
   const normalizedYear = expiryYearRaw.length === 2 ? `20${expiryYearRaw}` : expiryYearRaw;
@@ -55,7 +57,7 @@ function parseCheckoutInput(body: Record<string, unknown>): ProCheckoutInput {
   return {
     holderName: String(body.holderName ?? "").trim(),
     cpfCnpj: normalizeCpfCnpj(String(body.cpfCnpj ?? "").trim()),
-    phone: digitsOnly(String(body.phone ?? "")),
+    phone: normalizeAsaasMobilePhone(String(body.phone ?? "")),
     postalCode: digitsOnly(String(body.postalCode ?? "")).slice(0, 8),
     addressNumber: String(body.addressNumber ?? "").trim(),
     addressComplement: String(body.addressComplement ?? "").trim(),
@@ -69,7 +71,7 @@ function parseCheckoutInput(body: Record<string, unknown>): ProCheckoutInput {
 function validateProCheckoutInput(input: ProCheckoutInput) {
   if (input.holderName.length < 2) return "Informe o nome do titular como no cartao.";
   if (!isValidCpfCnpj(input.cpfCnpj)) return "CPF/CNPJ do titular invalido.";
-  if (input.phone.length < 10) return "Informe um telefone valido do titular.";
+  if (!isValidAsaasMobilePhone(input.phone)) return "Informe um telefone valido do titular com DDD.";
   if (input.postalCode.length !== 8) return "Informe um CEP valido com 8 digitos.";
   if (!input.addressNumber) return "Informe o numero do endereco do titular.";
   if (input.cardNumber.length < 13) return "Informe um numero de cartao valido.";
@@ -168,7 +170,14 @@ export async function POST(req: NextRequest) {
   const rawPhone = requestedPlan === "pro"
     ? String(body.phone ?? "").trim() || String(agencyRaw?.phone ?? "").trim()
     : String(agencyRaw?.phone ?? "").trim();
-  const mobilePhone = rawPhone ? digitsOnly(rawPhone) : undefined;
+  const mobilePhone = rawPhone ? normalizeAsaasMobilePhone(rawPhone) : undefined;
+
+  if (mobilePhone && !isValidAsaasMobilePhone(mobilePhone)) {
+    return NextResponse.json(
+      { error: "Informe um telefone valido com DDD para o titular do cartao." },
+      { status: 400 },
+    );
+  }
 
   let customerId: string;
   try {

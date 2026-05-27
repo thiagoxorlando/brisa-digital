@@ -1,4 +1,5 @@
 import { asaas, AsaasApiError } from "./asaasClient";
+import { isValidAsaasMobilePhone, normalizeAsaasMobilePhone } from "./asaasPhone";
 import { createServerClient } from "./supabase";
 import { isValidCpfCnpj, normalizeCpfCnpj } from "./cpf";
 
@@ -112,6 +113,11 @@ export async function ensureAsaasCustomer(
   mobilePhone?: string,
 ): Promise<string> {
   const supabase = createServerClient({ useServiceRole: true });
+  const normalizedMobilePhone = mobilePhone ? normalizeAsaasMobilePhone(mobilePhone) : undefined;
+
+  if (normalizedMobilePhone && !isValidAsaasMobilePhone(normalizedMobilePhone)) {
+    throw new AsaasCustomerError("customer_phone_invalid", "Informe um telefone valido com DDD.");
+  }
 
   // Resolve document now — needed for both create and patch paths
   const resolvedDoc = cpfCnpj
@@ -161,12 +167,12 @@ export async function ensureAsaasCustomer(
       externalReference: userId,
     };
     if (resolvedDoc) body.cpfCnpj = resolvedDoc;
-    if (mobilePhone) body.mobilePhone = mobilePhone;
+    if (normalizedMobilePhone) body.mobilePhone = normalizedMobilePhone;
 
     console.log("[ensureAsaasCustomer] creating customer", {
       name: body.name,
       hasCpfCnpj: !!resolvedDoc,
-      hasMobilePhone: !!mobilePhone,
+      hasMobilePhone: !!normalizedMobilePhone,
     });
 
     try {

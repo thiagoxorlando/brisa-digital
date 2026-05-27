@@ -1,3 +1,4 @@
+import { getSubscriptionPayments, listCustomerSubscriptions, type AsaasSubscriptionResponse } from "@/lib/asaas";
 import { createServerClient } from "@/lib/supabase";
 
 type SupabaseClient = ReturnType<typeof createServerClient>;
@@ -53,6 +54,8 @@ export type AsaasPlanPayment = {
   subscriptionId?: string;
 };
 
+type AsaasPlanSubscription = Pick<AsaasSubscriptionResponse, "id" | "value" | "nextDueDate" | "externalReference">;
+
 function findPlanChargeStatusForAsaasEvent(event: string) {
   switch (event) {
     case "PAYMENT_OVERDUE":
@@ -104,6 +107,23 @@ function computePlanExpiresAt(dueDate: string | undefined) {
   return nextChargeDate.toISOString();
 }
 
+function computeTrialEndsAtFromDueDate(dueDate: string | undefined, nowIso: string) {
+  if (!dueDate) return null;
+  const due = new Date(`${dueDate}T23:59:59.999Z`);
+  if (Number.isNaN(due.getTime())) return null;
+
+  const now = new Date(nowIso);
+  if (Number.isNaN(now.getTime())) return due.toISOString();
+
+  due.setUTCHours(
+    now.getUTCHours(),
+    now.getUTCMinutes(),
+    now.getUTCSeconds(),
+    now.getUTCMilliseconds(),
+  );
+  return due.toISOString();
+}
+
 export function isAsaasPlanPaymentConfirmed(status: string | undefined | null) {
   return PLAN_PAYMENT_SUCCESS_STATUSES.has(String(status ?? "").toUpperCase());
 }
@@ -113,7 +133,8 @@ export function parsePlanExternalReference(externalReference: string | undefined
   if (!extRef.startsWith("plan:")) return null;
 
   const [, rawPlanKey, userId] = extRef.split(":");
-  const planKey = rawPlanKey === "premium" ? "premium" : rawPlanKey === "pro" ? "pro" : null;
+  const planKey: "pro" | "premium" | null =
+    rawPlanKey === "premium" ? "premium" : rawPlanKey === "pro" ? "pro" : null;
 
   if (!planKey || !userId) return null;
 
@@ -280,6 +301,55 @@ export async function startAgencyPlanTrial(params: {
   }
 }
 
+export async function syncAgencyTrialFromAsaasSubscription(params: {
+  supabase: SupabaseClient;
+  subscription: AsaasPlanSubscription;
+  customerId?: string | null;
+  paymentId?: string;
+  now?: string;
+}) {
+  const { supabase, subscription, customerId, paymentId } = params;
+  const now = params.now ?? new Date().toISOString();
+  const parsed = parsePlanExternalReference(subscription.externalReference);
+
+  if (!parsed) {
+    return { ok: false as const, reason: "missing_plan_reference" as const };
+  }
+
+  const trialEndsAt = computeTrialEndsAtFromDueDate(subscription.nextDueDate, now);
+  if (!trialEndsAt) {
+    return {
+      ok: false as const,
+      reason: "missing_trial_due_date" as const,
+      subscriptionId: subscription.id,
+      ...parsed,
+    };
+  }
+
+  const profile = await fetchAgencySubscriptionProfile(supabase, parsed.userId);
+  const resolvedCustomerId = customerId ?? profile?.asaas_customer_id ?? "";
+
+  await startAgencyPlanTrial({
+    supabase,
+    userId: parsed.userId,
+    planKey: parsed.planKey,
+    customerId: resolvedCustomerId,
+    subscriptionId: subscription.id,
+    paymentId,
+    paymentValue: Number(subscription.value ?? 0),
+    trialStartedAt: now,
+    trialEndsAt,
+  });
+
+  return {
+    ok: true as const,
+    ...parsed,
+    subscriptionId: subscription.id,
+    paymentId: paymentId ?? null,
+    trialEndsAt,
+  };
+}
+
 export async function syncAgencyPlanPaymentIssue(params: {
   supabase: SupabaseClient;
   payment: AsaasPlanPayment;
@@ -417,5 +487,62 @@ export async function syncAgencyPlanFromAsaasPayment(params: {
     paymentId: payment.id,
     paymentStatus: String(payment.status ?? ""),
     planExpiresAt: profilePatch.plan_expires_at as string | null,
+  };
+}
+
+export async function recoverAgencyTrialingFromAsaas(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  profile?: AgencySubscriptionProfile | null;
+  now?: string;
+}) {
+  const { supabase, userId } = params;
+  const now = params.now ?? new Date().toISOString();
+  const profile = params.profile ?? await fetchAgencySubscriptionProfile(supabase, userId);
+
+  if (!profile) {
+    return { ok: false as const, reason: "missing_profile" as const };
+  }
+
+  const status = String(profile.plan_status ?? "").toLowerCase();
+  if (profile.plan !== "free" && (status === "trialing" || status === "active")) {
+    return { ok: false as const, reason: "already_active" as const };
+  }
+
+  if (!profile.asaas_customer_id) {
+    return { ok: false as const, reason: "missing_customer_id" as const };
+  }
+
+  const subscriptions = await listCustomerSubscriptions(profile.asaas_customer_id);
+  const expectedRef = `plan:pro:${userId}`;
+  const subscription =
+    (subscriptions.data ?? []).find((item) => item.id === profile.asaas_subscription_id) ??
+    (subscriptions.data ?? []).find((item) => item.externalReference === expectedRef);
+
+  if (!subscription) {
+    return { ok: false as const, reason: "missing_subscription" as const };
+  }
+
+  const pendingPayments = await getSubscriptionPayments(subscription.id).catch(() => ({ data: [] as { id: string }[] }));
+  const firstPaymentId = pendingPayments.data?.[0]?.id;
+
+  const result = await syncAgencyTrialFromAsaasSubscription({
+    supabase,
+    subscription,
+    customerId: profile.asaas_customer_id,
+    paymentId: firstPaymentId,
+    now,
+  });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  return {
+    ok: true as const,
+    userId,
+    subscriptionId: subscription.id,
+    paymentId: firstPaymentId ?? null,
+    trialEndsAt: result.trialEndsAt,
   };
 }

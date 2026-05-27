@@ -19,7 +19,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { ensureAsaasCustomer } from "@/lib/asaasCustomer";
-import { createSubscription, getSubscriptionPayments } from "@/lib/asaas";
+import { createSubscription, getSubscriptionPayments, listCustomerSubscriptions } from "@/lib/asaas";
+import { isValidAsaasMobilePhone, normalizeAsaasMobilePhone } from "@/lib/asaasPhone";
 import {
   startAgencyPlanTrial,
   updateAgencySubscriptionProfile,
@@ -208,7 +209,17 @@ async function handleSignupPro(req: NextRequest) {
 
   // ── Step 2: Asaas customer ─────────────────────────────────────────────────
   const cardCpfCnpj = normalizeCpfCnpj(String(cardData.cpfCnpj ?? agencyCpfCnpj));
-  const cardPhone   = digitsOnly(String(cardData.phone ?? agencyPhone));
+  // PhoneInput stores "+CC localNum" — strip the country-code prefix so Asaas
+  // receives only the local number (e.g. "54996869875", not "5554996869875").
+  const rawCardPhone = String(cardData.phone ?? agencyPhone).trim();
+  const cardPhone    = normalizeAsaasMobilePhone(rawCardPhone);
+
+  if (!isValidAsaasMobilePhone(cardPhone)) {
+    return NextResponse.json(
+      { error: "Informe um telefone valido com DDD para o titular do cartao." },
+      { status: 400 },
+    );
+  }
 
   let customerId: string;
   try {
@@ -230,6 +241,92 @@ async function handleSignupPro(req: NextRequest) {
       { error: msg || "Não foi possível registrar no sistema de pagamento. Confira CPF/CNPJ e tente novamente." },
       { status: 422 },
     );
+  }
+
+  // Recovery: if a previous attempt already created the Asaas subscription,
+  // activate local trialing state instead of creating a duplicate subscription.
+  let resolvedSubscriptionId: string | null = null;
+  try {
+    const customerSubs = await listCustomerSubscriptions(customerId);
+    const expectedRef = `plan:pro:${user.id}`;
+    const found = (customerSubs.data ?? []).find((subscription) => subscription.externalReference === expectedRef);
+    if (found?.id) {
+      resolvedSubscriptionId = found.id;
+      console.log("[signup-pro] recovery:found_existing_subscription", {
+        userId: user.id,
+        customerId,
+        subscriptionId: resolvedSubscriptionId,
+      });
+    }
+  } catch (error) {
+    console.warn("[signup-pro] recovery:subscription_search_failed", {
+      userId: user.id,
+      customerId,
+      error: serializeForLog(error),
+    });
+  }
+
+  if (resolvedSubscriptionId) {
+    let recoveryPaymentId: string | undefined;
+    try {
+      const payments = await getSubscriptionPayments(resolvedSubscriptionId);
+      recoveryPaymentId = payments.data?.[0]?.id;
+    } catch (error) {
+      console.warn("[signup-pro] recovery:get_payments_failed", {
+        userId: user.id,
+        subscriptionId: resolvedSubscriptionId,
+        error: serializeForLog(error),
+      });
+    }
+
+    try {
+      if (trialDays > 0) {
+        await startAgencyPlanTrial({
+          supabase,
+          userId: user.id,
+          planKey: "pro",
+          customerId,
+          subscriptionId: resolvedSubscriptionId,
+          paymentId: recoveryPaymentId,
+          paymentValue: planPrice,
+          trialStartedAt: now.toISOString(),
+          trialEndsAt: trialEndsAt.toISOString(),
+        });
+      } else {
+        await updateAgencySubscriptionProfile(supabase, user.id, {
+          plan:                  "pro",
+          plan_status:           "pending",
+          plan_expires_at:       nextDueDateStr,
+          asaas_customer_id:     customerId,
+          asaas_subscription_id: resolvedSubscriptionId,
+          subscription_provider: "asaas",
+        });
+        await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
+      }
+
+      console.log("[signup-pro] recovery:activation_success", {
+        userId: user.id,
+        customerId,
+        subscriptionId: resolvedSubscriptionId,
+        paymentId: recoveryPaymentId ?? null,
+        planStatus: trialDays > 0 ? "trialing" : "pending",
+      });
+
+      return NextResponse.json({
+        ok: true,
+        recovered: true,
+        subscriptionId: resolvedSubscriptionId,
+        paymentId: recoveryPaymentId ?? null,
+      });
+    } catch (error) {
+      console.error("[signup-pro] recovery:activation_failed", {
+        userId: user.id,
+        customerId,
+        subscriptionId: resolvedSubscriptionId,
+        paymentId: recoveryPaymentId ?? null,
+        error: serializeForLog(error),
+      });
+    }
   }
 
   // ── Step 3: Asaas subscription with card ──────────────────────────────────
@@ -363,6 +460,13 @@ async function handleSignupPro(req: NextRequest) {
         trialStartedAt,
         trialEndsAt:    trialEndsAtIso,
       });
+      console.log("[signup-pro] activation_success", {
+        userId: user.id,
+        customerId,
+        subscriptionId: subscription.id,
+        paymentId: firstPaymentId ?? null,
+        planStatus: "trialing",
+      });
     } else {
       await updateAgencySubscriptionProfile(supabase, user.id, {
         plan:                  "pro",
@@ -373,6 +477,13 @@ async function handleSignupPro(req: NextRequest) {
         subscription_provider: "asaas",
       });
       await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
+      console.log("[signup-pro] activation_success", {
+        userId: user.id,
+        customerId,
+        subscriptionId: subscription.id,
+        paymentId: firstPaymentId ?? null,
+        planStatus: "pending",
+      });
     }
   } catch (err) {
     // Subscription already created in Asaas — log with subscriptionId for manual recovery if needed.

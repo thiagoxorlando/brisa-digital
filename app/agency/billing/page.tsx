@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
-import { fetchAgencySubscriptionProfile } from "@/lib/asaasPlanSync.server";
+import { fetchAgencySubscriptionProfile, recoverAgencyTrialingFromAsaas } from "@/lib/asaasPlanSync.server";
 import BillingDashboard from "@/features/agency/BillingDashboard";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
@@ -91,6 +91,25 @@ export default async function BillingPage() {
   let profileRow: Awaited<ReturnType<typeof fetchAgencySubscriptionProfile>> = null;
   try {
     profileRow = await fetchAgencySubscriptionProfile(supabase, userId);
+    if (profileRow && profileRow.plan === "free" && profileRow.asaas_customer_id) {
+      const recovery = await recoverAgencyTrialingFromAsaas({
+        supabase,
+        userId,
+        profile: profileRow,
+      });
+
+      if (recovery.ok) {
+        console.log("[billing] recovered free account to trialing", {
+          userId,
+          subscriptionId: recovery.subscriptionId,
+          paymentId: recovery.paymentId,
+          trialEndsAt: recovery.trialEndsAt,
+        });
+        profileRow = await fetchAgencySubscriptionProfile(supabase, userId);
+      } else if (recovery.reason !== "already_active" && recovery.reason !== "missing_subscription") {
+        console.warn("[billing] recovery skipped", { userId, reason: recovery.reason });
+      }
+    }
   } catch (error) {
     console.error("[billing] profile load failed", {
       userId,

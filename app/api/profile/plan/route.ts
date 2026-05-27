@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
-import { fetchAgencySubscriptionProfile } from "@/lib/asaasPlanSync.server";
+import { fetchAgencySubscriptionProfile, recoverAgencyTrialingFromAsaas } from "@/lib/asaasPlanSync.server";
 import { resolvePlanInfo, type Plan } from "@/lib/plans";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { formatPlanCommission, formatTalentShareLabel } from "@/lib/planSettings.shared";
@@ -13,7 +13,26 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
   const supabase = createServerClient({ useServiceRole: true });
-  const profileRow = await fetchAgencySubscriptionProfile(supabase, user.id);
+  let profileRow = await fetchAgencySubscriptionProfile(supabase, user.id);
+  if (profileRow && profileRow.plan === "free" && profileRow.asaas_customer_id) {
+    const recovery = await recoverAgencyTrialingFromAsaas({
+      supabase,
+      userId: user.id,
+      profile: profileRow,
+    });
+
+    if (recovery.ok) {
+      console.log("[profile/plan] recovered free account to trialing", {
+        userId: user.id,
+        subscriptionId: recovery.subscriptionId,
+        paymentId: recovery.paymentId,
+        trialEndsAt: recovery.trialEndsAt,
+      });
+      profileRow = await fetchAgencySubscriptionProfile(supabase, user.id);
+    } else if (recovery.reason !== "already_active" && recovery.reason !== "missing_subscription") {
+      console.warn("[profile/plan] recovery skipped", { userId: user.id, reason: recovery.reason });
+    }
+  }
   const plan = ((profileRow?.plan as string | null) ?? "free") as Plan;
   const trialEndsAt = profileRow?.trial_ends_at ?? null;
   const subscriptionStatus = getSubscriptionStatus({

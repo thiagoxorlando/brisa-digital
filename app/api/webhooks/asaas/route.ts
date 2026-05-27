@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
 import {
   parsePlanExternalReference,
+  syncAgencyTrialFromAsaasSubscription,
   syncAgencyPlanPaymentIssue,
   syncAgencyPlanFromAsaasPayment,
 } from "@/lib/asaasPlanSync.server";
@@ -44,6 +45,14 @@ interface AsaasWebhookBody {
   eventId?: string;
   event: string;
   payment?: AsaasPayment;
+  subscription?: {
+    id: string;
+    status?: string;
+    customer?: string;
+    value?: number;
+    nextDueDate?: string;
+    externalReference?: string;
+  };
   transfer?: AsaasTransfer;
 }
 
@@ -70,7 +79,10 @@ function isDuplicateKeyError(error: unknown) {
 
 export async function POST(req: NextRequest) {
   const webhookToken = process.env.ASAAS_WEBHOOK_TOKEN;
-  const incoming = req.headers.get("asaas-access-token") ?? "";
+  const incoming =
+    req.headers.get("x-asaas-access-token") ??
+    req.headers.get("asaas-access-token") ??
+    "";
 
   if (!webhookToken) {
     if (process.env.NODE_ENV === "production") {
@@ -80,7 +92,10 @@ export async function POST(req: NextRequest) {
 
     log("warn", "[asaas webhook] ASAAS_WEBHOOK_TOKEN missing in development; accepting request for local testing");
   } else if (incoming !== webhookToken) {
-    log("warn", "[asaas webhook] invalid or missing token");
+    log("warn", "[asaas webhook] invalid or missing token", {
+      hasXHeader: Boolean(req.headers.get("x-asaas-access-token")),
+      hasLegacyHeader: Boolean(req.headers.get("asaas-access-token")),
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -100,7 +115,15 @@ export async function POST(req: NextRequest) {
     body.transfer?.id ||
     crypto.randomUUID();
 
-  log("info", "[asaas webhook] received", { event, eventId });
+  log("info", "[asaas webhook] received", {
+    event,
+    eventId,
+    paymentId: body.payment?.id ?? null,
+    subscriptionId: body.subscription?.id ?? body.payment?.subscriptionId ?? null,
+    customer: body.subscription?.customer ?? body.payment?.customer ?? null,
+    status: body.subscription?.status ?? body.payment?.status ?? body.transfer?.status ?? null,
+    externalReference: body.subscription?.externalReference ?? body.payment?.externalReference ?? null,
+  });
 
   const supabase = createServerClient({ useServiceRole: true });
   const now = new Date().toISOString();
@@ -203,6 +226,46 @@ export async function POST(req: NextRequest) {
     if (payment?.id) {
       const parsedPlanRef = parsePlanExternalReference(payment.externalReference);
       if (parsedPlanRef) {
+        try {
+          const syncResult = await syncAgencyTrialFromAsaasSubscription({
+            supabase,
+            subscription: {
+              id: payment.subscriptionId ?? payment.id,
+              value: payment.value,
+              nextDueDate: payment.dueDate,
+              externalReference: payment.externalReference,
+            },
+            customerId: payment.customer ?? null,
+            paymentId: payment.id,
+            now,
+          });
+
+          if (syncResult.ok) {
+            log("info", "[asaas webhook] trial activation success", {
+              event,
+              userId: syncResult.userId,
+              planKey: syncResult.planKey,
+              paymentId: payment.id,
+              subscriptionId: syncResult.subscriptionId,
+              trialEndsAt: syncResult.trialEndsAt,
+            });
+          } else {
+            log("warn", "[asaas webhook] trial activation skipped", {
+              event,
+              paymentId: payment.id,
+              subscriptionId: payment.subscriptionId ?? null,
+              reason: syncResult.reason,
+            });
+          }
+        } catch (error) {
+          log("error", "[asaas webhook] trial activation failed", {
+            event,
+            paymentId: payment.id,
+            subscriptionId: payment.subscriptionId ?? null,
+            err: error instanceof Error ? error.message : String(error),
+          });
+        }
+
         const { planKey, userId } = parsedPlanRef;
         const planLabel = planKey === "premium" ? "Premium" : "PRO";
         const { error: planInsertErr } = await supabase.from("wallet_transactions").insert({
@@ -229,6 +292,52 @@ export async function POST(req: NextRequest) {
           });
         }
       }
+    }
+
+    return okProcessed();
+  }
+
+  if (event === "SUBSCRIPTION_CREATED") {
+    const subscription = body.subscription;
+
+    if (!subscription?.id) {
+      log("warn", "[asaas webhook] ignored - missing subscription object", { event, eventId });
+      return okProcessed();
+    }
+
+    try {
+      const syncResult = await syncAgencyTrialFromAsaasSubscription({
+        supabase,
+        subscription: {
+          id: subscription.id,
+          value: Number(subscription.value ?? 0),
+          nextDueDate: subscription.nextDueDate,
+          externalReference: subscription.externalReference,
+        },
+        customerId: subscription.customer ?? null,
+        now,
+      });
+
+      if (!syncResult.ok) {
+        log("warn", "[asaas webhook] subscription created without activation", {
+          subscriptionId: subscription.id,
+          reason: syncResult.reason,
+          externalReference: subscription.externalReference ?? null,
+        });
+      } else {
+        log("info", "[asaas webhook] subscription created and trial activated", {
+          userId: syncResult.userId,
+          planKey: syncResult.planKey,
+          subscriptionId: subscription.id,
+          trialEndsAt: syncResult.trialEndsAt,
+        });
+      }
+    } catch (error) {
+      log("error", "[asaas webhook] subscription activation failed", {
+        subscriptionId: subscription.id,
+        err: error instanceof Error ? error.message : String(error),
+      });
+      return NextResponse.json({ error: "Subscription activation failed" }, { status: 500 });
     }
 
     return okProcessed();

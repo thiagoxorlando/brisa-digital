@@ -26,14 +26,14 @@ export async function requireActiveSubscription(agencyId: string): Promise<NextR
   // Any non-free plan is considered active (admin grants, paid subscriptions)
   if (profile?.plan && profile.plan !== "free") return null;
 
-  // Legacy fallback: agencies.subscription_status = 'active'
+  // Legacy fallback: agencies.subscription_status mirrors paid/trial access.
   const { data: agency } = await supabase
     .from("agencies")
     .select("subscription_status")
     .eq("id", agencyId)
     .single();
 
-  if (agency?.subscription_status === "active") return null;
+  if (agency?.subscription_status === "active" || agency?.subscription_status === "trialing") return null;
 
   return NextResponse.json(
     { error: "Assinatura inativa. Reative seu plano para realizar esta ação." },
