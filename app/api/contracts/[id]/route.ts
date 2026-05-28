@@ -175,6 +175,25 @@ export async function PATCH(
       );
     }
 
+    // Guard: internal-payment agencies do not use escrow deposit.
+    // Checking here prevents the wrong notification and wrong status transition
+    // even if the UI accidentally exposes this action in internal mode.
+    const { data: agencyRow } = await supabase
+      .from("agencies")
+      .select("payment_mode, escrow_enabled")
+      .eq("id", contract.agency_id ?? "")
+      .maybeSingle();
+
+    const paymentMode    = (agencyRow as Record<string, unknown> | null)?.payment_mode as string | null ?? "escrow";
+    const escrowEnabled  = (agencyRow as Record<string, unknown> | null)?.escrow_enabled as boolean | null;
+
+    if (paymentMode === "internal" || escrowEnabled === false) {
+      return NextResponse.json(
+        { error: "Este contrato usa pagamento direto. Use 'Marcar pagamento enviado' em vez de depósito em garantia." },
+        { status: 422 },
+      );
+    }
+
     const required = Number(contract.payment_amount ?? 0);
 
     const { data: result, error: rpcErr } = await supabase.rpc("confirm_booking_escrow", {
