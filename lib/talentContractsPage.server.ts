@@ -67,11 +67,27 @@ export async function loadTalentContractsPageData(
   contracts: TalentContract[];
   approvedSubmissions: ApprovedSubmission[];
 }> {
+  // Fetch bookings for this talent so we can also match contracts by booking_id.
+  // This covers cases where a contract's talent_user_id was set to a profile ID
+  // rather than the auth user ID (agency-side creation flows).
+  const { data: talentBookings } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("talent_user_id", talentId)
+    .is("deleted_at", null);
+
+  const bookingIds = (talentBookings ?? []).map((b: { id: string }) => b.id);
+
+  const contractFilter = bookingIds.length > 0
+    ? `talent_id.eq.${talentId},talent_user_id.eq.${talentId},booking_id.in.(${bookingIds.join(",")})`
+    : `talent_id.eq.${talentId},talent_user_id.eq.${talentId}`;
+
   const [contractsResult, subsResult] = await Promise.all([
     supabase
       .from("contracts")
       .select("id, booking_id, agency_id, job_id, job_date, job_time, location, job_description, payment_amount, payment_method, additional_notes, status, contract_file_url, signed_contract_url, created_at, agency_payment_sent_at, talent_payment_confirmed_at, payment_receipt_url")
-      .or(`talent_id.eq.${talentId},talent_user_id.eq.${talentId}`)
+      .or(contractFilter)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false }),
     supabase
       .from("submissions")
