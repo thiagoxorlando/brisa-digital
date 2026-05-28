@@ -181,9 +181,22 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (bookingErr) {
-    console.error("[POST /api/contracts] booking insert", bookingErr);
+    console.error("[POST /api/contracts] booking_insert_failed", {
+      agencyId: resolvedAgencyId,
+      talentUserId: resolvedTalentUserId,
+      jobId: job_id ?? null,
+      error: bookingErr.message,
+      code: bookingErr.code,
+    });
     return NextResponse.json({ error: bookingErr.message }, { status: 400 });
   }
+
+  console.info("[POST /api/contracts] booking_created", {
+    bookingId: booking.id,
+    agencyId: resolvedAgencyId,
+    talentUserId: resolvedTalentUserId,
+    jobId: job_id ?? null,
+  });
 
   let contract;
   try {

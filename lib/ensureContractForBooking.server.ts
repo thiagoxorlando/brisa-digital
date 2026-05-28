@@ -78,6 +78,13 @@ export async function ensureContractForBooking({
   booking,
   overrides = {},
 }: EnsureContractForBookingArgs) {
+  console.info("[ensureContractForBooking] called", {
+    bookingId: booking.id,
+    agencyId: booking.agency_id,
+    talentUserId: booking.talent_user_id,
+    jobId: booking.job_id,
+  });
+
   const existingResult = await supabase
     .from("contracts")
     .select(`
@@ -92,6 +99,11 @@ export async function ensureContractForBooking({
     .limit(2);
 
   if (existingResult.error) {
+    console.error("[ensureContractForBooking] existing_check_failed", {
+      bookingId: booking.id,
+      error: existingResult.error.message,
+      code: existingResult.error.code,
+    });
     throw new Error(existingResult.error.message);
   }
 
@@ -257,12 +269,23 @@ export async function ensureContractForBooking({
     .single();
 
   if (insertError) {
+    console.error("[ensureContractForBooking] insert_failed", {
+      bookingId: booking.id,
+      agencyId: booking.agency_id,
+      talentUserId: booking.talent_user_id,
+      error: insertError.message,
+      code: insertError.code,
+      details: insertError.details,
+      payloadKeys: Object.keys(insertPayload),
+    });
     throw new Error(insertError.message);
   }
 
   console.info("[ensureContractForBooking] created_contract", {
     bookingId: booking.id,
     contractId: createdContract.id,
+    contractTalentUserId: (createdContract as Record<string, unknown>).talent_user_id ?? null,
+    contractAgencyId: (createdContract as Record<string, unknown>).agency_id ?? null,
     contractStatus: createdContract.status ?? null,
   });
 

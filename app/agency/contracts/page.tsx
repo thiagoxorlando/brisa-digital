@@ -57,14 +57,9 @@ export default async function AgencyContractsPage() {
       : Promise.resolve(),
   ]);
 
-  const openSpaceContractIds = contracts_data
-    .filter((c) => !c.job_id || jobMap.has(c.job_id))
-    .map((c) => c.id);
-
-  const activeDisputeMap = await batchGetActiveDisputes(openSpaceContractIds);
+  const activeDisputeMap = await batchGetActiveDisputes(contracts_data.map((c) => c.id));
 
   const contracts: AgencyContract[] = contracts_data
-    .filter((c) => !c.job_id || jobMap.has(c.job_id))
     .map((c) => {
       const release = checkPaymentReleaseEligibility(
         { status: c.status ?? "", job_date: c.job_date ?? null },
