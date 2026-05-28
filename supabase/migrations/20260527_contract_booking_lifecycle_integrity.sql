@@ -126,7 +126,7 @@ BEGIN
           ELSE COALESCE(p.plan, 'free')
         END
       WHERE b.deleted_at IS NULL
-        AND COALESCE(b.status, 'pending') = 'pending'
+        AND COALESCE(b.status, 'pending') IN ('pending', 'pending_payment', 'confirmed', 'paid')
         AND c.id IS NULL
         AND b.talent_user_id IS NOT NULL
         AND b.agency_id IS NOT NULL
