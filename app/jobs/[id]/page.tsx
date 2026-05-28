@@ -72,8 +72,8 @@ async function getJobAvailability(
 }
 
 function UnavailableJobState({
-  title = "Vaga nÃ£o disponÃ­vel.",
-  description = "Esta vaga pode ter sido encerrada, removida ou nÃ£o estÃ¡ disponÃ­vel para compartilhamento pÃºblico.",
+  title = "Vaga não disponível.",
+  description = "Esta vaga pode ter sido encerrada, removida ou não está disponível para compartilhamento público.",
 }: {
   title?: string;
   description?: string;
