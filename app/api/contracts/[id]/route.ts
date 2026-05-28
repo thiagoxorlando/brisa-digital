@@ -19,6 +19,7 @@ import { type DisputeStatus } from "@/lib/disputePolicy";
 import { getCancellationOutcome } from "@/lib/cancellationPolicy";
 import { logAdminAction } from "@/lib/auditLog";
 import { renderNotificationTemplate } from "@/lib/notificationTemplates";
+import { isEscrowFlow } from "@/lib/isEscrowFlow.server";
 
 const ALLOWED_ACTIONS = [
   "reject", "agency_sign", "pay",
@@ -176,18 +177,10 @@ export async function PATCH(
     }
 
     // Guard: internal-payment agencies do not use escrow deposit.
-    // Checking here prevents the wrong notification and wrong status transition
-    // even if the UI accidentally exposes this action in internal mode.
-    const { data: agencyRow } = await supabase
-      .from("agencies")
-      .select("payment_mode, escrow_enabled")
-      .eq("id", contract.agency_id ?? "")
-      .maybeSingle();
-
-    const paymentMode    = (agencyRow as Record<string, unknown> | null)?.payment_mode as string | null ?? "escrow";
-    const escrowEnabled  = (agencyRow as Record<string, unknown> | null)?.escrow_enabled as boolean | null;
-
-    if (paymentMode === "internal" || escrowEnabled === false) {
+    // isEscrowFlow() handles missing columns (PGRST204) gracefully by
+    // failing open (treating unknown agencies as escrow-mode).
+    const escrow = await isEscrowFlow(supabase, contract.agency_id ?? null);
+    if (!escrow) {
       return NextResponse.json(
         { error: "Este contrato usa pagamento direto. Use 'Marcar pagamento enviado' em vez de depósito em garantia." },
         { status: 422 },
@@ -209,6 +202,13 @@ export async function PATCH(
     const r = result as { ok: boolean; already_processed?: boolean; error?: string; required?: number; available?: number };
 
     if (!r.ok) {
+      if (r.error === "internal_payment_mode") {
+        // RPC-level guard (defence in depth): agency is internal-payment mode.
+        return NextResponse.json(
+          { error: "Este contrato usa pagamento direto. Use 'Marcar pagamento enviado' em vez de depósito em garantia." },
+          { status: 422 }
+        );
+      }
       if (r.error === "insufficient_balance") {
         return NextResponse.json(
           { error: "insufficient_balance", required: r.required, available: r.available },
