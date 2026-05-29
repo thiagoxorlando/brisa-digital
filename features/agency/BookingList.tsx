@@ -8,6 +8,7 @@ import { unifiedStatusInfo, type UnifiedBookingStatus } from "@/lib/bookingStatu
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import Avatar from "@/components/ui/Avatar";
 import { brl } from "@/lib/brl";
+import type { AgencyConfig } from "@/lib/agencyConfig";
 
 export type Booking = {
   id:              string;
@@ -83,11 +84,13 @@ function BookingRow({
   onStatusChange,
   focusBookingId,
   financesHref,
+  agencyConfig,
 }: {
   booking: Booking;
   onStatusChange: (id: string, derivedStatus: string) => void;
   focusBookingId?: string;
   financesHref: string;
+  agencyConfig?: AgencyConfig;
 }) {
   const { t } = useT();
   const [acting, setActing]             = useState<"confirm" | "pay" | "agent_pay" | "cancel" | null>(null);
@@ -96,8 +99,10 @@ function BookingRow({
   const [earlyPayWarning, setEarlyPayWarning] = useState(false);
   const [apiError, setApiError]         = useState<string | null>(null);
 
-  const unified        = booking.derivedStatus as UnifiedBookingStatus;
-  const st             = unifiedStatusInfo(unified);
+  const isEscrow = !agencyConfig || agencyConfig.showEscrow;
+  const paymentMode = isEscrow ? "escrow" : "internal";
+  const unified = booking.derivedStatus as UnifiedBookingStatus;
+  const st      = unifiedStatusInfo(unified, "pt-BR", paymentMode);
   const jobDate        = formatJobDate(booking.jobDate);
   const canCancelBooking =
     Boolean(booking.contractId) &&
@@ -252,7 +257,7 @@ function BookingRow({
             </>
           )}
 
-          {unified === "aguardando_deposito" && (
+          {unified === "aguardando_deposito" && isEscrow && (
             <>
               {booking.isAgentJobBacked ? (
                 // Agent-backed: skip deposit step, pay directly from agent commitment
@@ -307,6 +312,30 @@ function BookingRow({
             </>
           )}
 
+          {unified === "aguardando_deposito" && !isEscrow && (
+            // Internal payment mode: contract is signed, no escrow deposit needed.
+            // Agency acts via the contracts page (Marcar pagamento enviado).
+            <>
+              <span className="rounded-xl border border-teal-100 bg-teal-50 px-3 py-1.5 text-[12px] font-semibold text-teal-700">
+                Contrato Assinado
+              </span>
+              {booking.contractId && (
+                <a
+                  href={`/agency/contracts?focus=${booking.contractId}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-colors"
+                >
+                  Ver contrato
+                </a>
+              )}
+              {canCancelBooking && (
+                <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
+                  {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                </button>
+              )}
+            </>
+          )}
+
           {unified === "aguardando_pagamento" && (
             earlyPayWarning ? (
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -354,8 +383,8 @@ function BookingRow({
         </svg>
       </div>
 
-      {/* Insufficient balance banner */}
-      {balanceError && (
+      {/* Insufficient balance banner — escrow mode only */}
+      {balanceError && isEscrow && (
         <div className="mx-6 mb-3 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -429,8 +458,8 @@ function BookingRow({
             )}
           </div>
 
-          {/* Block confirm warning */}
-          {unified === "aguardando_deposito" && booking.hasContractFile && !booking.hasSignedContract && (
+          {/* Block confirm warning — escrow mode only */}
+          {unified === "aguardando_deposito" && isEscrow && booking.hasContractFile && !booking.hasSignedContract && (
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
               <svg className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -484,14 +513,17 @@ export default function BookingList({
   bookings: initial,
   focusBookingId,
   financesHref = "/agency/finances",
+  agencyConfig,
 }: {
   bookings: Booking[];
   focusBookingId?: string;
   financesHref?: string;
+  agencyConfig?: AgencyConfig;
 }) {
   const [bookings, setBookings] = useState(initial);
   const { t } = useT();
   const router = useRouter();
+  const isEscrow = !agencyConfig || agencyConfig.showEscrow;
 
   // Sync when server re-renders with fresh props (after router.refresh())
   useEffect(() => { setBookings(initial); }, [initial]);
@@ -522,7 +554,11 @@ export default function BookingList({
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80 mb-2">{t("portal_agency")}</p>
           <h1 className="text-[2rem] font-black tracking-[-0.04em] leading-tight">{t("page_bookings")}</h1>
-          <p className="text-[13px] text-white/70 mt-2">Acompanhe assinatura, custódia e liberação de pagamento por reserva.</p>
+          <p className="text-[13px] text-white/70 mt-2">
+          {isEscrow
+            ? "Acompanhe assinatura, custódia e liberação de pagamento por reserva."
+            : "Acompanhe assinatura e pagamento direto por reserva."}
+        </p>
         </div>
         <div className="flex items-center gap-3">
           {refreshing && (
@@ -540,25 +576,33 @@ export default function BookingList({
       </div>
 
       <Section title="Aguardando Assinatura" count={signature.length} empty={t("bookings_no_bookings")}>
-        {signature.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} />)}
+        {signature.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
-      <Section title="Aguardando Depósito" count={deposit.length}
-        total={deposit.reduce((s, b) => s + b.totalValue, 0)} empty={t("bookings_no_bookings")}>
-        {deposit.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} />)}
+      <Section
+        title={isEscrow ? "Aguardando Depósito" : "Contratos Assinados"}
+        count={deposit.length}
+        total={deposit.reduce((s, b) => s + b.totalValue, 0)}
+        empty={t("bookings_no_bookings")}
+      >
+        {deposit.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
-      <Section title="Aguardando Pagamento" count={payment.length}
-        total={payment.reduce((s, b) => s + b.totalValue, 0)} empty={t("bookings_no_bookings")}>
-        {payment.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} />)}
+      <Section
+        title={isEscrow ? "Aguardando Pagamento" : "Pagamento em Andamento"}
+        count={payment.length}
+        total={payment.reduce((s, b) => s + b.totalValue, 0)}
+        empty={t("bookings_no_bookings")}
+      >
+        {payment.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
       <Section title={t("status_paid")} count={paid.length} total={paidTotal} empty={t("bookings_no_bookings")}>
-        {paid.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} />)}
+        {paid.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
       <Section title={t("status_cancelled")} count={cancelled.length} empty={t("bookings_no_bookings")}>
-        {cancelled.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} />)}
+        {cancelled.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
     </div>
   );

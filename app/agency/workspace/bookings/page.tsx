@@ -123,7 +123,7 @@ export default async function WorkspaceBookingsPage() {
         paidByName:       paidByUserId ? (actorNameMap.get(paidByUserId) ?? null) : null,
       };
     });
-    return <BookingList bookings={bookings} financesHref="/agency/workspace/wallet" />;
+    return <BookingList bookings={bookings} financesHref="/agency/workspace/wallet" agencyConfig={agencyConfig} />;
   }
 
   // Agent → polished premium view

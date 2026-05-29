@@ -156,6 +156,18 @@ const UNIFIED_LABELS: Record<StatusLang, Record<UnifiedBookingStatus, string>> =
   },
 };
 
+// Labels for internal (direct) payment mode — no escrow/deposit language.
+const INTERNAL_UNIFIED_LABELS: Record<StatusLang, Partial<Record<UnifiedBookingStatus, string>>> = {
+  "pt-BR": {
+    aguardando_deposito:  "Contrato Assinado",
+    aguardando_pagamento: "Pagamento em Andamento",
+  },
+  en: {
+    aguardando_deposito:  "Contract Signed",
+    aguardando_pagamento: "Payment in Progress",
+  },
+};
+
 const UNIFIED_BADGES: Record<UnifiedBookingStatus, string> = {
   aguardando_assinatura: "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
   aguardando_deposito:   "bg-sky-50     text-sky-700     ring-1 ring-sky-100",
@@ -167,10 +179,13 @@ const UNIFIED_BADGES: Record<UnifiedBookingStatus, string> = {
 export function unifiedStatusInfo(
   status: UnifiedBookingStatus | string | null | undefined,
   lang: StatusLang = "pt-BR",
+  paymentMode: "escrow" | "internal" = "escrow",
 ): UnifiedStatusInfo {
   const key = (status as UnifiedBookingStatus) ?? "aguardando_assinatura";
-  const labels = UNIFIED_LABELS[lang] ?? UNIFIED_LABELS["pt-BR"];
-  const label = labels[key] ?? UNIFIED_LABELS["pt-BR"][key] ?? String(status ?? "");
+  const escrowLabels = UNIFIED_LABELS[lang] ?? UNIFIED_LABELS["pt-BR"];
+  const internalOverrides = INTERNAL_UNIFIED_LABELS[lang] ?? INTERNAL_UNIFIED_LABELS["pt-BR"];
+  const modeLabels = paymentMode === "internal" ? { ...escrowLabels, ...internalOverrides } : escrowLabels;
+  const label = modeLabels[key] ?? escrowLabels[key] ?? String(status ?? "");
   const badge = UNIFIED_BADGES[key] ?? UNIFIED_BADGES["aguardando_assinatura"];
   return { label, badge, section: key };
 }
