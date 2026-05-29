@@ -1016,7 +1016,7 @@ export const en: Record<string, string> = {
   admin_unfreeze:        "Unfreeze",
   admin_trash_btn:       "Trash",
   admin_add_balance:     "+ Balance",
-  admin_debit_balance:   "âˆ' Balance",
+  admin_debit_balance:   "− Balance",
   admin_saving:          "Saving...",
   admin_sort_default:    "Default",
   admin_sort_earnings:   "Earnings / balance",

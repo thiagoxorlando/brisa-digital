@@ -634,7 +634,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
 
       <div className="overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+          <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-100">
                 <th className="px-4 py-3.5">
@@ -657,8 +657,8 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                 <th className="hidden px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400 lg:table-cell">{t("admin_earnings_balance")}</th>
                 <th className="hidden px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400 lg:table-cell">{t("admin_spending")}</th>
                 <th className="hidden px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400 xl:table-cell">{t("admin_commission_col")}</th>
-                <th className="px-6 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("admin_change_role")}</th>
-                <th className="w-36 px-4 py-3.5" />
+                <th className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("admin_change_role")}</th>
+                <th className="w-24 px-3 py-3.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
@@ -800,7 +800,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                       )}
                     </td>
 
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4">
                       <select
                         value={user.role}
                         disabled={updating === user.id}
@@ -814,10 +814,11 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                       {updating === user.id ? <span className="ml-2 text-[11px] text-zinc-400">Salvando...</span> : null}
                     </td>
 
-                    <td className="whitespace-nowrap px-4 py-4 text-right" onClick={(event) => event.stopPropagation()}>
-                      <div className="flex flex-nowrap items-center justify-end gap-1">
+                    <td className="whitespace-nowrap px-3 py-4 text-right" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
                         {user.role === "agency" ? (
                           <>
+                            {/* + Balance */}
                             <button
                               onClick={() => {
                                 setCreditModal({ userId: user.id, name: user.name, balance: user.walletBalance });
@@ -825,10 +826,13 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                                 setCreditNote("");
                               }}
                               title={t("admin_add_balance")}
-                              className="rounded-lg px-2 py-1 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
                             >
-                              {t("admin_add_balance")}
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
                             </button>
+                            {/* − Balance */}
                             <button
                               onClick={() => {
                                 setDebitModal({ userId: user.id, name: user.name, balance: user.walletBalance });
@@ -837,32 +841,44 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                                 setDebitError("");
                               }}
                               title={t("admin_debit_balance")}
-                              className="rounded-lg px-2 py-1 text-[11px] font-medium text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700"
                             >
-                              {t("admin_debit_balance")}
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                              </svg>
                             </button>
                           </>
                         ) : null}
 
+                        {/* Freeze / Unfreeze */}
                         <button
                           onClick={() => toggleFreeze(user)}
                           disabled={updating === user.id}
                           title={user.isFrozen ? t("admin_unfreeze") : t("admin_freeze")}
                           className={[
-                            "rounded-lg px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-50",
+                            "flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:opacity-50",
                             user.isFrozen
                               ? "text-sky-600 hover:bg-sky-50 hover:text-sky-800"
                               : "text-zinc-400 hover:bg-sky-50 hover:text-sky-600",
                           ].join(" ")}
                         >
-                          {user.isFrozen ? t("admin_unfreeze") : t("admin_freeze")}
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {user.isFrozen
+                              ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 018 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                              : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zM10 7a2 2 0 114 0" />
+                            }
+                          </svg>
                         </button>
 
+                        {/* Trash */}
                         <button
                           onClick={() => setDeleting(user.id)}
-                          className="rounded-lg px-2 py-1 text-[11px] font-medium text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-700"
+                          title={t("admin_trash_btn")}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-700"
                         >
-                          {t("admin_trash_btn")}
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </div>
                     </td>

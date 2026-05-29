@@ -919,7 +919,7 @@
   admin_unfreeze:        "Descongelar",
   admin_trash_btn:       "Lixeira",
   admin_add_balance:     "+ Saldo",
-  admin_debit_balance:   "âˆ' Saldo",
+  admin_debit_balance:   "− Saldo",
   admin_saving:          "Salvando...",
   admin_sort_default:    "Padrao",
   admin_sort_earnings:   "Ganhos / saldo",
