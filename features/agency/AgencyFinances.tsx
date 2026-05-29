@@ -102,7 +102,7 @@ export default function AgencyFinances({
   withdrawalMinFee?: number;
   profileCpfCnpj: string;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
 
   const showWalletFunding = !agencyConfig || agencyConfig.showWalletFunding;
@@ -300,9 +300,9 @@ export default function AgencyFinances({
   return (
     <div className="max-w-6xl space-y-8">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Visao Geral</p>
-        <h1 className="text-[2rem] font-black tracking-[-0.04em] text-zinc-950 leading-tight">Financeiro</h1>
-        <p className="text-[13px] text-zinc-400 mt-1">{transactions.length} transacoes no total</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("agency_finances_overview")}</p>
+        <h1 className="text-[2rem] font-black tracking-[-0.04em] text-zinc-950 leading-tight">{t("agency_finances_heading")}</h1>
+        <p className="text-[13px] text-zinc-400 mt-1">{transactions.length} {t("agency_finances_transactions_label").toLowerCase()}</p>
       </div>
 
       {showWalletFunding && <div className="bg-white rounded-[1.75rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_18px_46px_rgba(7,17,13,0.08)] overflow-hidden">
@@ -346,19 +346,19 @@ export default function AgencyFinances({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">Saldo na Plataforma</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80">{t("agency_finances_balance_label")}</p>
                   {walletRefreshing && (
                     <span className="flex items-center gap-1 text-[10px] text-white/70">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                      Atualizando...
+                      {t("agency_finances_updating")}
                     </span>
                   )}
                 </div>
                 <p className="text-[3rem] font-black tracking-[-0.07em] text-white leading-none">{brl(availableBalance)}</p>
                 <p className="text-[12px] text-white/70 mt-1">
                   {allocatedToAgents > 0
-                    ? `Disponível · ${brl(allocatedToAgents)} alocado a agentes`
-                    : "Saldo disponível para saque"}
+                    ? t("agency_finances_balance_hint_agents").replace("{amount}", brl(allocatedToAgents))
+                    : t("agency_finances_balance_hint_simple")}
                 </p>
               </div>
               {withdrawDone && (
@@ -366,7 +366,7 @@ export default function AgencyFinances({
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
-                  Solicitado
+                  {t("agency_finances_requested_badge")}
                 </div>
               )}
             </div>
@@ -407,7 +407,7 @@ export default function AgencyFinances({
                   </button>
                 </div>
                 {withdrawAmountNum > availableBalance && (
-                  <p className="text-[11px] text-rose-100">Valor superior ao saldo disponível.</p>
+                  <p className="text-[11px] text-rose-100">{t("agency_finances_exceeds_balance")}</p>
                 )}
                 {withdrawAmountNum > 0 && withdrawAmountNum < withdrawalMinAmount && (
                   <p className="text-[11px] text-white/80">
@@ -424,7 +424,7 @@ export default function AgencyFinances({
 
         <div className="px-6 pt-5 pb-6 space-y-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Depositar fundos</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("agency_finances_deposit_heading")}</p>
             <p className="text-[12px] text-zinc-400 mt-1">{t("agency_finances_deposit_pix_info")}</p>
           </div>
 
@@ -434,7 +434,7 @@ export default function AgencyFinances({
                 <p className="text-[12px] text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">{depositError}</p>
               )}
               <div>
-                <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">CPF ou CNPJ</label>
+                <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("agency_finances_cpfcnpj_label")}</label>
                 <input
                   type="text"
                   value={depositCpfCnpj}
@@ -442,7 +442,7 @@ export default function AgencyFinances({
                     setDepositCpfCnpj(formatCpfCnpj(e.target.value));
                     if (depositError) setDepositError("");
                   }}
-                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  placeholder={t("agency_finances_cpfcnpj_placeholder")}
                   className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:bg-white focus:outline-none transition-colors"
                 />
               </div>
@@ -464,7 +464,7 @@ export default function AgencyFinances({
                   disabled={Boolean(depositLoading || !depositAmount || Number(depositAmount) < 10)}
                   className="flex items-center gap-2 bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4] disabled:bg-none text-white text-[13px] font-bold px-5 py-2.5 rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
                 >
-                  {depositLoading ? "Gerando..." : "Gerar PIX"}
+                  {depositLoading ? t("agency_finances_generating_pix") : t("agency_finances_generate_pix_btn")}
                 </button>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -486,7 +486,7 @@ export default function AgencyFinances({
                 <svg className="w-4 h-4 text-teal-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-[13px] font-semibold text-teal-800">Cobrança PIX gerada. Pague para creditar seu saldo.</p>
+                <p className="text-[13px] font-semibold text-teal-800">{t("agency_finances_pix_created")}</p>
               </div>
 
               {depositResult.invoiceUrl && (
@@ -499,13 +499,13 @@ export default function AgencyFinances({
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
-                  Abrir cobrança
+                  {t("agency_finances_open_charge")}
                 </a>
               )}
 
               {depositResult.pixCopyPaste && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">PIX Copia e Cola</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("agency_finances_pix_copy_paste_label")}</p>
                   <div className="flex gap-2">
                     <input
                       readOnly
@@ -521,7 +521,7 @@ export default function AgencyFinances({
                       }}
                       className="flex-shrink-0 text-[12px] font-semibold px-3 py-2 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 rounded-xl text-zinc-700 transition-colors cursor-pointer"
                     >
-                      {pixCopied ? "Copiado!" : "Copiar"}
+                      {pixCopied ? t("agency_finances_copied") : t("agency_finances_copy")}
                     </button>
                   </div>
                 </div>
@@ -542,7 +542,7 @@ export default function AgencyFinances({
                 onClick={() => { setDepositResult(null); setDepositError(""); }}
                 className="text-[12px] font-semibold text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
               >
-                Gerar novo PIX
+                {t("agency_finances_new_pix")}
               </button>
             </div>
           )}
@@ -552,17 +552,17 @@ export default function AgencyFinances({
       {showWalletFunding && <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
           <div className="px-5 py-4 border-b border-zinc-50">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Saques pendentes</p>
-            <p className="text-[12px] text-zinc-400 mt-1">Valores ja debitados da carteira e aguardando processamento manual.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("agency_finances_pending_withdrawals_label")}</p>
+            <p className="text-[12px] text-zinc-400 mt-1">{t("agency_finances_pending_withdrawals_desc")}</p>
           </div>
           {pendingWithdrawals.length === 0 ? (
-            <div className="px-5 py-8 text-[13px] text-zinc-400">Nenhum saque pendente no momento.</div>
+            <div className="px-5 py-8 text-[13px] text-zinc-400">{t("agency_finances_no_pending_withdrawals")}</div>
           ) : (
             <div className="divide-y divide-zinc-50">
               {pendingWithdrawals.map((transaction) => (
                 <div key={transaction.id} className="px-5 py-4 flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-zinc-900">{transaction.description ?? "Saque solicitado"}</p>
+                    <p className="text-[13px] font-semibold text-zinc-900">{transaction.description ?? t("agency_finances_withdrawal_default_desc")}</p>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
                       {withdrawalStatusLabel(transaction.withdrawalStatus ?? "pending")} · {fmtDate(transaction.date)}
                     </p>
@@ -579,17 +579,17 @@ export default function AgencyFinances({
 
         <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
           <div className="px-5 py-4 border-b border-zinc-50">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Historico de saques</p>
-            <p className="text-[12px] text-zinc-400 mt-1">Ultimos saques pagos ou cancelados.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("agency_finances_withdrawal_history_label")}</p>
+            <p className="text-[12px] text-zinc-400 mt-1">{t("agency_finances_withdrawal_history_desc")}</p>
           </div>
           {withdrawalHistory.length === 0 ? (
-            <div className="px-5 py-8 text-[13px] text-zinc-400">Nenhum saque processado ainda.</div>
+            <div className="px-5 py-8 text-[13px] text-zinc-400">{t("agency_finances_no_processed_withdrawals")}</div>
           ) : (
             <div className="divide-y divide-zinc-50">
               {withdrawalHistory.slice(0, 5).map((transaction) => (
                 <div key={transaction.id} className="px-5 py-4 flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-zinc-900">{transaction.description ?? "Saque"}</p>
+                    <p className="text-[13px] font-semibold text-zinc-900">{transaction.description ?? t("agency_finances_withdrawal_default")}</p>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
                       {withdrawalStatusLabel(transaction.withdrawalStatus ?? "paid")} · {fmtDate(transaction.processedAt ?? transaction.date)}
                     </p>
@@ -607,26 +607,26 @@ export default function AgencyFinances({
 
       {showWalletFunding && (
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <StatCard label="Saldo Total" value={brl(walletBalance)} sub="Saldo bruto em carteira" stripe="from-indigo-500 to-violet-500" />
-          <StatCard label="Disponível para Saque" value={brl(availableBalance)} sub={allocatedToAgents > 0 ? `${brl(allocatedToAgents)} alocado a agentes` : "Saldo disponível em carteira"} stripe="from-emerald-400 to-teal-500" />
-          <StatCard label="Pagamentos Pendentes" value={brl(summary.pendingPayments)} sub="Em custódia" stripe="from-amber-400 to-orange-500" />
-          <StatCard label="Pagamentos Realizados" value={brl(summary.completedPayments)} sub="Pagos ao talento" stripe="from-cyan-400 to-sky-500" />
+          <StatCard label={t("agency_finances_stat_balance")} value={brl(walletBalance)} sub={t("agency_finances_stat_balance_sub")} stripe="from-indigo-500 to-violet-500" />
+          <StatCard label={t("agency_finances_stat_available")} value={brl(availableBalance)} sub={allocatedToAgents > 0 ? t("agency_finances_balance_hint_agents").replace("{amount}", brl(allocatedToAgents)) : t("agency_finances_stat_available_sub")} stripe="from-emerald-400 to-teal-500" />
+          <StatCard label={t("agency_finances_stat_pending")} value={brl(summary.pendingPayments)} sub={t("agency_finances_stat_pending_sub")} stripe="from-amber-400 to-orange-500" />
+          <StatCard label={t("agency_finances_stat_completed")} value={brl(summary.completedPayments)} sub={t("agency_finances_stat_completed_sub")} stripe="from-cyan-400 to-sky-500" />
         </div>
       )}
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Transações</p>
-            <p className="text-[12px] text-zinc-400 mt-1">{(!agencyConfig || agencyConfig.showEscrow) ? "Depósitos, custódia, pagamentos e movimentações da carteira." : "Comprovantes, confirmações e histórico operacional de pagamentos."}</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">{t("agency_finances_transactions_label")}</p>
+            <p className="text-[12px] text-zinc-400 mt-1">{(!agencyConfig || agencyConfig.showEscrow) ? t("agency_finances_transactions_desc_escrow") : t("agency_finances_transactions_desc_internal")}</p>
           </div>
           <span className="text-[12px] font-semibold text-zinc-400">{transactions.length} itens</span>
         </div>
 
         {transactions.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center">
-            <p className="text-[14px] font-medium text-zinc-500">Nenhuma transação ainda</p>
-            <p className="text-[13px] text-zinc-400 mt-1">Reservas e movimentações da carteira aparecerão aqui.</p>
+            <p className="text-[14px] font-medium text-zinc-500">{t("agency_finances_no_transactions")}</p>
+            <p className="text-[13px] text-zinc-400 mt-1">{t("agency_finances_no_transactions_sub")}</p>
           </div>
         ) : (
           <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] overflow-hidden">
@@ -634,18 +634,18 @@ export default function AgencyFinances({
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-zinc-100">
-                    <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Descrição</th>
-                    <th className="text-right px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Valor</th>
-                    <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">Tipo</th>
-                    <th className="text-right px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">Data</th>
+                    <th className="text-left px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">{t("table_col_description")}</th>
+                    <th className="text-right px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">{t("table_col_amount")}</th>
+                    <th className="text-left px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest">{t("table_col_type")}</th>
+                    <th className="text-right px-6 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-widest hidden sm:table-cell">{t("table_col_date")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.map((transaction) => {
                     const isWithdrawal = transaction.status === "withdrawal";
                     const label = transaction.kind === "wallet"
-                      ? transaction.description ?? ledgerEntryLabel(transaction.status)
-                      : transaction.talent || transaction.description || "Reserva";
+                      ? transaction.description ?? ledgerEntryLabel(transaction.status, t)
+                      : transaction.talent || transaction.description || t("ledger_confirmed");
                     const isExpanded = expandedTransactionId === transaction.id;
                     const receiptAvailable = Boolean(transaction.id && transaction.date && transaction.amount !== undefined);
 
@@ -663,7 +663,7 @@ export default function AgencyFinances({
                                 type="button"
                                 onClick={() => setExpandedTransactionId((current) => current === transaction.id ? null : transaction.id)}
                                 className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition-colors hover:border-zinc-300 hover:text-zinc-700 cursor-pointer"
-                                aria-label={isExpanded ? "Recolher transação" : "Expandir transação"}
+                                aria-label={isExpanded ? t("aria_collapse_transaction") : t("aria_expand_transaction")}
                               >
                                 <svg className={`h-3.5 w-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -689,12 +689,12 @@ export default function AgencyFinances({
                           </td>
                           <td className="px-4 py-4">
                             <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${ledgerEntryTone(transaction.status)}`}>
-                              {ledgerEntryLabel(transaction.status)}
+                              {ledgerEntryLabel(transaction.status, t)}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right hidden sm:table-cell">
                             <p className="text-[12px] text-zinc-400">
-                              {new Date(transaction.date).toLocaleDateString("pt-BR", { month: "short", day: "numeric" })}
+                              {new Date(transaction.date).toLocaleDateString(lang, { month: "short", day: "numeric" })}
                             </p>
                           </td>
                         </tr>
@@ -703,30 +703,30 @@ export default function AgencyFinances({
                             <td colSpan={4} className="px-6 py-4">
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
-                                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Detalhes</p>
+                                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("detail_section_details")}</p>
                                   <div className="mt-3 space-y-2 text-[13px] text-zinc-700">
-                                    <p><strong>ID:</strong> {transaction.id}</p>
-                                    <p><strong>Data e hora:</strong> {fmtDateTime(transaction.processedAt ?? transaction.date)}</p>
-                                    <p><strong>Valor:</strong> {brl(Math.abs(transaction.amount))}</p>
-                                    <p><strong>Status:</strong> {transaction.withdrawalStatus ? withdrawalStatusLabel(transaction.withdrawalStatus) : ledgerEntryLabel(transaction.status)}</p>
-                                    <p><strong>Provedor:</strong> {transaction.provider ?? "BrisaHub"}</p>
-                                    {transaction.providerStatus && <p><strong>Status do provedor:</strong> {transaction.providerStatus}</p>}
+                                    <p><strong>{t("detail_id")}:</strong> {transaction.id}</p>
+                                    <p><strong>{t("detail_datetime")}:</strong> {fmtDateTime(transaction.processedAt ?? transaction.date)}</p>
+                                    <p><strong>{t("detail_value")}:</strong> {brl(Math.abs(transaction.amount))}</p>
+                                    <p><strong>{t("detail_status")}:</strong> {transaction.withdrawalStatus ? withdrawalStatusLabel(transaction.withdrawalStatus) : ledgerEntryLabel(transaction.status, t)}</p>
+                                    <p><strong>{t("detail_provider")}:</strong> {transaction.provider ?? "BrisaHub"}</p>
+                                    {transaction.providerStatus && <p><strong>{t("detail_provider_status")}:</strong> {transaction.providerStatus}</p>}
                                   </div>
                                 </div>
                                 <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3">
-                                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Referências</p>
+                                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("detail_section_refs")}</p>
                                   <div className="mt-3 space-y-2 text-[13px] text-zinc-700">
-                                    <p><strong>Descrição:</strong> {transaction.description ?? "—"}</p>
-                                    <p><strong>Vaga relacionada:</strong> {transaction.job || "—"}</p>
-                                    <p><strong>Reserva relacionada:</strong> {transaction.bookingId ?? "—"}</p>
-                                    <p><strong>Referência de pagamento:</strong> {transaction.href ?? "—"}</p>
+                                    <p><strong>{t("detail_description")}:</strong> {transaction.description ?? "—"}</p>
+                                    <p><strong>{t("detail_related_job")}:</strong> {transaction.job || "—"}</p>
+                                    <p><strong>{t("detail_related_booking")}:</strong> {transaction.bookingId ?? "—"}</p>
+                                    <p><strong>{t("detail_payment_ref")}:</strong> {transaction.href ?? "—"}</p>
                                     {transaction.href && (
                                       <button
                                         type="button"
                                         onClick={() => router.push(transaction.href!)}
                                         className="inline-flex items-center rounded-xl border border-zinc-200 px-3 py-2 text-[12px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 cursor-pointer"
                                       >
-                                        Abrir referência
+                                        {t("action_open_reference")}
                                       </button>
                                     )}
                                   </div>
@@ -739,7 +739,7 @@ export default function AgencyFinances({
                                     onClick={() => { void downloadReceipt(transaction); }}
                                     className="inline-flex items-center rounded-xl bg-[#1F2D2E] px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#2A3D3E] cursor-pointer"
                                   >
-                                    Baixar comprovante
+                                    {t("action_download_receipt")}
                                   </button>
                                 ) : (
                                   <button
@@ -747,7 +747,7 @@ export default function AgencyFinances({
                                     disabled
                                     className="inline-flex items-center rounded-xl bg-zinc-100 px-4 py-2.5 text-[13px] font-semibold text-zinc-400 cursor-not-allowed"
                                   >
-                                    Comprovante indisponível
+                                    {t("agency_finances_receipt_unavailable")}
                                   </button>
                                 )}
                               </div>

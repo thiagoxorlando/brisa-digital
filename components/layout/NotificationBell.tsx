@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useT } from "@/lib/LanguageContext";
+import { translateNotification } from "@/lib/translateNotification";
 
 type NotifType =
   | "contract"
@@ -310,7 +311,7 @@ export default function NotificationBell() {
                   <TypeIcon type={n.type} />
                   <div className="flex-1 min-w-0 pt-0.5">
                     <p className={`text-[13px] leading-snug ${n.is_read ? "text-zinc-500" : "text-zinc-800 font-medium"}`}>
-                      {n.message}
+                      {translateNotification(n.message, lang)}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p className="text-[11px] text-zinc-400">{formatTime(n.created_at, lang)}</p>

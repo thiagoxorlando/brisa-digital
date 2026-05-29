@@ -287,7 +287,34 @@ export function buildAgencyWalletLedgerRows(
 // Single source of truth for transaction type/status labels and badge tones
 // consumed by AgencyFinances and any future ledger views.
 
-const LEDGER_LABEL: Record<string, string> = {
+// Map status keys → translation keys (ledger_*).
+// Used by ledgerEntryLabel() to produce translatable labels.
+const LEDGER_KEY: Record<string, string> = {
+  paid:                      "ledger_paid",
+  completed:                 "ledger_paid",
+  confirmed:                 "ledger_confirmed",
+  pending_payment:           "ledger_pending_payment",
+  pending:                   "ledger_pending",
+  cancelled:                 "ledger_cancelled",
+  deposit:                   "ledger_deposit",
+  payment:                   "ledger_payment",
+  payout:                    "ledger_payout",
+  withdrawal:                "ledger_withdrawal",
+  escrow_lock:               "ledger_escrow_lock",
+  escrow_released:           "ledger_escrow_released",
+  escrow_cancelled:          "ledger_escrow_cancelled",
+  escrow_refunded:           "ledger_escrow_refunded",
+  refund:                    "ledger_refund",
+  referral_commission:       "ledger_referral_commission",
+  agent_allocation:          "ledger_agent_allocation",
+  agent_allocation_reversal: "ledger_agent_allocation_reversal",
+  agent_job_commitment:      "ledger_agent_job_commitment",
+  agent_job_release:         "ledger_agent_job_release",
+  agent_job_settlement:      "ledger_agent_job_settlement",
+};
+
+// PT fallback labels used when no translator is passed.
+const LEDGER_LABEL_PT: Record<string, string> = {
   paid:                      "Pago",
   completed:                 "Pago",
   confirmed:                 "Reservado",
@@ -303,7 +330,7 @@ const LEDGER_LABEL: Record<string, string> = {
   escrow_cancelled:          "Custódia cancelada",
   escrow_refunded:           "Reembolsado",
   refund:                    "Reembolso",
-  referral_commission:       "Comissao de indicacao",
+  referral_commission:       "Comissão de indicação",
   agent_allocation:          "Alocação a agente",
   agent_allocation_reversal: "Retorno de agente",
   agent_job_commitment:      "Reserva por agente",
@@ -335,8 +362,15 @@ const LEDGER_TONE: Record<string, string> = {
   agent_job_settlement:      "bg-violet-50  text-violet-700  ring-1 ring-violet-100",
 };
 
-export function ledgerEntryLabel(key: string): string {
-  return LEDGER_LABEL[key] ?? key;
+/** Returns the human-readable label for a ledger entry type.
+ *  Pass the t() function from useT() to get the user's current language.
+ *  Omitting t falls back to Portuguese. */
+export function ledgerEntryLabel(key: string, t?: (k: string) => string): string {
+  if (t) {
+    const tKey = LEDGER_KEY[key];
+    if (tKey) return t(tKey as never);
+  }
+  return LEDGER_LABEL_PT[key] ?? key;
 }
 
 export function ledgerEntryTone(key: string): string {
