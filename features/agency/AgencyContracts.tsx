@@ -265,7 +265,8 @@ function ContractCard({
         .uploadToSignedUrl(path, token, file, { contentType: file.type || "application/pdf" });
 
       if (storageErr) {
-        setReceiptError("Falha ao enviar arquivo. Tente novamente.");
+        console.error("[upload-receipt] storage upload failed", { contractId: c.id, path, message: storageErr.message });
+        setReceiptError(storageErr.message || "Falha ao enviar arquivo. Tente novamente.");
         return;
       }
 
