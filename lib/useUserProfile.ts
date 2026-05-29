@@ -35,6 +35,10 @@ export function useUserProfile(): UserProfile {
         user.email?.split("@")[0] ?? "";
       setAgentName(metaName);
 
+      // Role is still loading — don't query the wrong table.
+      // This effect re-runs once role resolves (dependency array includes role).
+      if (role === null) { setLoading(false); return; }
+
       if (role === "talent") {
         const { data } = await supabase
           .from("talent_profiles")
