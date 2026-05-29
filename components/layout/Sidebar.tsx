@@ -416,8 +416,13 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideEscr
   const { t } = useT();
   const { isPremium, isWorkspaceAgent } = useSubscription();
   const agencyConfig = useAgencyConfig();
+  // Infer role from pathname when role hasn't loaded yet (avoids disputes flash on SSR/initial render)
+  const inferredRole = role ?? (
+    pathname.startsWith("/talent") ? "talent" :
+    pathname.startsWith("/admin")  ? "admin"  : "agency"
+  );
   // Agency in internal mode: hide disputes (no escrow intermediary for disputes)
-  const hideAgencyDisputes = role === "agency" && agencyConfig.paymentMode === "internal";
+  const hideAgencyDisputes = inferredRole === "agency" && agencyConfig.paymentMode === "internal";
   function filterNav(items: NavItem[]) {
     return items.filter((item) => {
       if (hideAgencyDisputes && item.href.includes("/disputes")) return false;
@@ -491,10 +496,6 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideEscr
     router.push("/");
   }
 
-  const inferredRole = role ?? (
-    pathname.startsWith("/talent") ? "talent" :
-    pathname.startsWith("/admin")  ? "admin"  : "agency"
-  );
   const portalLabel =
     inferredRole === "talent" ? t("portal_talent") :
     inferredRole === "admin"  ? t("portal_admin")  : t("portal_agency");
