@@ -8,6 +8,7 @@ import { checkPaymentReleaseEligibility } from "@/lib/paymentReleasePolicy";
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
 import { resolveAgencyConfig, defaultEscrowConfig } from "@/lib/agencyConfig";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { parsePlan } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
@@ -18,12 +19,13 @@ export default async function AgencyContractsPage() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  const [{ data: profileRow }, { data: agencyRow }] = await Promise.all([
+  const [{ data: profileRow }, { data: agencyRow }, globalDefaults] = await Promise.all([
     supabase.from("profiles").select("plan").eq("id", user?.id ?? "").maybeSingle(),
     supabase.from("agencies").select("payment_mode, commission_percent_override, escrow_enabled, receipt_uploads_enabled").eq("id", user?.id ?? "").maybeSingle(),
+    getGlobalPaymentDefaults(),
   ]);
   const planSetting = await getLivePlanSetting(parsePlan((profileRow as Record<string, unknown> | null)?.plan as string | null));
-  const agencyConfig = resolveAgencyConfig(agencyRow as Record<string, unknown> | null, planSetting.commission_percent);
+  const agencyConfig = resolveAgencyConfig(agencyRow as Record<string, unknown> | null, planSetting.commission_percent, globalDefaults);
 
   const { data: rows } = await supabase
     .from("contracts")
