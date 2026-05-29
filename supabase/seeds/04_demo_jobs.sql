@@ -27,7 +27,7 @@ VALUES
   ('c0000003-0000-4000-8000-000000000003','a0000001-0000-4000-8000-000000000001',
    'Campanha Institucional — Marca de Cosméticos',
    'Influenciadoras de beleza para campanha de lançamento de linha skincare. Conteúdo para feed, stories e reels. 2 posts + 5 stories por talento.',
-   'Influencer',2500.00,'2026-06-08','2026-06-14','São Paulo, SP','in_progress',4,
+   'Influencer',2500.00,'2026-06-08','2026-06-14','São Paulo, SP','open',4,
    now()-interval'12 days',NULL),
 
   ('c0000003-0000-4000-8000-000000000004','a0000001-0000-4000-8000-000000000001',
@@ -70,7 +70,7 @@ VALUES
   ('c0000003-0000-4000-8000-000000000010','a0000001-0000-4000-8000-000000000002',
    'Parceria Influenciadora — Lançamento App Fintech',
    'Influenciadoras com perfil financeiro/lifestyle para campanha de lançamento. 1 reels + 3 stories por semana por 4 semanas.',
-   'Influencer',3200.00,'2026-06-07','2026-06-12','Remoto','in_progress',3,
+   'Influencer',3200.00,'2026-06-07','2026-06-12','Remoto','open',3,
    now()-interval'15 days',NULL),
 
   ('c0000003-0000-4000-8000-000000000011','a0000001-0000-4000-8000-000000000002',
@@ -113,7 +113,7 @@ VALUES
   ('c0000003-0000-4000-8000-000000000017','a0000001-0000-4000-8000-000000000003',
    'Campanha Digital — E-commerce de Moda',
    'Modelos para campanha completa de loja online. Produtos nas categorias casual, festa e trabalho. Shooting em estúdio SP.',
-   'Model',4800.00,'2026-06-09','2026-06-13','São Paulo, SP','in_progress',4,
+   'Model',4800.00,'2026-06-09','2026-06-13','São Paulo, SP','open',4,
    now()-interval'18 days',NULL),
 
   ('c0000003-0000-4000-8000-000000000018','a0000001-0000-4000-8000-000000000003',
@@ -187,7 +187,7 @@ VALUES
   ('c0000003-0000-4000-8000-000000000029','a0000001-0000-4000-8000-000000000005',
    'Lookbook Streetwear — Coleção Urbana',
    'Modelos com estilo urbano para lookbook de marca streetwear. Locações nas ruas de BH.',
-   'Model',1500.00,'2026-06-16','2026-06-21','Belo Horizonte, MG','in_progress',3,
+   'Model',1500.00,'2026-06-16','2026-06-21','Belo Horizonte, MG','open',3,
    now()-interval'14 days',NULL),
 
   ('c0000003-0000-4000-8000-000000000030','a0000001-0000-4000-8000-000000000005',
