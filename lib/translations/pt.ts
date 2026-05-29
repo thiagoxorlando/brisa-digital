@@ -1388,4 +1388,25 @@
   agency_finances_receipt_unavailable: "Comprovante indisponível",
   aria_expand_transaction:   "Expandir transação",
   aria_collapse_transaction: "Recolher transação",
+
+  // ── Internal payment mode — landing page variants ──────────────────────────
+  landing_metric1_value_internal: "Direto",
+  landing_metric1_desc_internal:  "Pagamentos diretos entre agência e talento, com registro de comprovantes",
+  landing_hiw_step3_desc_internal: "Confirme a reserva e gere contrato digital para formalizar o acordo antes do início do trabalho.",
+  landing_feat1_desc_internal:    "Registre acordos com contratos digitais, faça upload de comprovantes e mantenha o histórico de cada contratação.",
+  landing_trust1_desc_internal:   "Contratos digitais registram o acordo entre as partes antes do pagamento, com histórico completo e comprovantes arquivados.",
+  landing_ws4_title_internal:     "Carteira e pagamentos",
+  landing_ws4_desc_internal:      "Acompanhe alocações de agentes, comprovantes e o fluxo completo de pagamentos diretos da sua operação.",
+
+  // ── Internal payment mode — onboarding agency variants ────────────────────
+  onboarding_agency_step4_title_internal: "Confirme a reserva",
+  onboarding_agency_step4_body_internal:  "Com o contrato assinado pelo talento, confirme a reserva para sinalizar que o trabalho está formalizado.",
+  onboarding_agency_step5_title_internal: "Registre o pagamento",
+  onboarding_agency_step5_body_internal:  "Após a conclusão, marque o pagamento como enviado e aguarde a confirmação do talento para encerrar o contrato.",
+
+  // ── Internal payment mode — onboarding talent variants ────────────────────
+  onboarding_talent_step4_title_internal: "Confirme o recebimento",
+  onboarding_talent_step4_body_internal:  "Quando a agência registrar o pagamento, confirme o recebimento para encerrar o contrato.",
+  onboarding_talent_step5_title_internal: "Contrato encerrado",
+  onboarding_talent_step5_body_internal:  "Após confirmar o recebimento, o contrato é encerrado e o histórico fica registrado na sua área de contratos.",
 };

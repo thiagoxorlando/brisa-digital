@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import OnboardingFlow from "./OnboardingFlow";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 type Props = { searchParams: Promise<{ next?: string; plan?: string }> };
 
@@ -48,11 +49,14 @@ export default async function OnboardingPage({ searchParams }: Props) {
     redirect("/agency/first-job");
   }
 
+  const { default_payment_mode } = await getGlobalPaymentDefaults();
+
   return (
     <OnboardingFlow
       role={profile.role as "agency" | "talent"}
       nextPath={nextPath}
       initialPlan={plan === "pro" ? "pro" : "free"}
+      paymentMode={default_payment_mode}
     />
   );
 }

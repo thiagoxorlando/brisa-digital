@@ -105,12 +105,15 @@ const TALENT_ICON_TONES = [
 export default function OnboardingFlow({
   role,
   nextPath,
+  paymentMode = "escrow",
 }: {
   role: Role;
   nextPath: string | null;
   initialPlan: "free" | "pro";
+  paymentMode?: "escrow" | "internal";
 }) {
   const { t } = useT();
+  const isEscrow = paymentMode === "escrow";
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -118,16 +121,32 @@ export default function OnboardingFlow({
     { title: t("onboarding_agency_step1_title"), body: t("onboarding_agency_step1_body"), ...AGENCY_ICON_TONES[0] },
     { title: t("onboarding_agency_step2_title"), body: t("onboarding_agency_step2_body"), ...AGENCY_ICON_TONES[1] },
     { title: t("onboarding_agency_step3_title"), body: t("onboarding_agency_step3_body"), ...AGENCY_ICON_TONES[2] },
-    { title: t("onboarding_agency_step4_title"), body: t("onboarding_agency_step4_body"), ...AGENCY_ICON_TONES[3] },
-    { title: t("onboarding_agency_step5_title"), body: t("onboarding_agency_step5_body"), ...AGENCY_ICON_TONES[4] },
+    {
+      title: t(isEscrow ? "onboarding_agency_step4_title" : "onboarding_agency_step4_title_internal"),
+      body:  t(isEscrow ? "onboarding_agency_step4_body"  : "onboarding_agency_step4_body_internal"),
+      ...AGENCY_ICON_TONES[3],
+    },
+    {
+      title: t(isEscrow ? "onboarding_agency_step5_title" : "onboarding_agency_step5_title_internal"),
+      body:  t(isEscrow ? "onboarding_agency_step5_body"  : "onboarding_agency_step5_body_internal"),
+      ...AGENCY_ICON_TONES[4],
+    },
   ];
 
   const talentCards: StepCard[] = [
     { title: t("onboarding_talent_step1_title"), body: t("onboarding_talent_step1_body"), ...TALENT_ICON_TONES[0] },
     { title: t("onboarding_talent_step2_title"), body: t("onboarding_talent_step2_body"), ...TALENT_ICON_TONES[1] },
     { title: t("onboarding_talent_step3_title"), body: t("onboarding_talent_step3_body"), ...TALENT_ICON_TONES[2] },
-    { title: t("onboarding_talent_step4_title"), body: t("onboarding_talent_step4_body"), ...TALENT_ICON_TONES[3] },
-    { title: t("onboarding_talent_step5_title"), body: t("onboarding_talent_step5_body"), ...TALENT_ICON_TONES[4] },
+    {
+      title: t(isEscrow ? "onboarding_talent_step4_title" : "onboarding_talent_step4_title_internal"),
+      body:  t(isEscrow ? "onboarding_talent_step4_body"  : "onboarding_talent_step4_body_internal"),
+      ...TALENT_ICON_TONES[3],
+    },
+    {
+      title: t(isEscrow ? "onboarding_talent_step5_title" : "onboarding_talent_step5_title_internal"),
+      body:  t(isEscrow ? "onboarding_talent_step5_body"  : "onboarding_talent_step5_body_internal"),
+      ...TALENT_ICON_TONES[4],
+    },
   ];
 
   const cards = role === "agency" ? agencyCards : talentCards;

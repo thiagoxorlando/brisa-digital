@@ -154,18 +154,20 @@ export default function Home() {
   const [checking, setChecking] = useState(true);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [livePlans, setLivePlans] = useState<LivePlanMap>(buildPlanSettingsFallback);
+  const [paymentMode, setPaymentMode] = useState<"escrow" | "internal">("escrow");
+  const isEscrow = paymentMode === "escrow";
 
   // ── Translated data arrays ────────────────────────────────────────────────
 
   const howItWorks = [
     { step: "01", title: t("landing_hiw_step1_title"), description: t("landing_hiw_step1_desc") },
     { step: "02", title: t("landing_hiw_step2_title"), description: t("landing_hiw_step2_desc") },
-    { step: "03", title: t("landing_hiw_step3_title"), description: t("landing_hiw_step3_desc") },
+    { step: "03", title: t("landing_hiw_step3_title"), description: t(isEscrow ? "landing_hiw_step3_desc" : "landing_hiw_step3_desc_internal") },
     { step: "04", title: t("landing_hiw_step4_title"), description: t("landing_hiw_step4_desc") },
   ];
 
   const features = [
-    { title: t("landing_feat1_title"), description: t("landing_feat1_desc"), icon: FEATURE_ICON_PATHS[0] },
+    { title: t("landing_feat1_title"), description: t(isEscrow ? "landing_feat1_desc" : "landing_feat1_desc_internal"), icon: FEATURE_ICON_PATHS[0] },
     { title: t("landing_feat2_title"), description: t("landing_feat2_desc"), icon: FEATURE_ICON_PATHS[1] },
     { title: t("landing_feat3_title"), description: t("landing_feat3_desc"), icon: FEATURE_ICON_PATHS[2] },
     { title: t("landing_feat4_title"), description: t("landing_feat4_desc"), icon: FEATURE_ICON_PATHS[3] },
@@ -187,7 +189,7 @@ export default function Home() {
     { title: t("landing_ws1_title"), desc: t("landing_ws1_desc"), icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" },
     { title: t("landing_ws2_title"), desc: t("landing_ws2_desc"), icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" },
     { title: t("landing_ws3_title"), desc: t("landing_ws3_desc"), icon: "M7 11V8a5 5 0 0110 0v3M6 11h12v10H6V11zm6 4v2" },
-    { title: t("landing_ws4_title"), desc: t("landing_ws4_desc"), icon: "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" },
+    { title: t(isEscrow ? "landing_ws4_title" : "landing_ws4_title_internal"), desc: t(isEscrow ? "landing_ws4_desc" : "landing_ws4_desc_internal"), icon: "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" },
     { title: t("landing_ws5_title"), desc: t("landing_ws5_desc"), icon: "M7 3h7l4 4v14H7V3zm7 0v5h5M9 13h6M9 17h6M9 9h2" },
     { title: t("landing_ws6_title"), desc: t("landing_ws6_desc"), icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
   ];
@@ -200,7 +202,7 @@ export default function Home() {
   ];
 
   const trustPillars = [
-    { title: t("landing_trust1_title"), description: t("landing_trust1_desc") },
+    { title: t("landing_trust1_title"), description: t(isEscrow ? "landing_trust1_desc" : "landing_trust1_desc_internal") },
     { title: t("landing_trust2_title"), description: t("landing_trust2_desc") },
     { title: t("landing_trust3_title"), description: t("landing_trust3_desc") },
   ];
@@ -260,6 +262,14 @@ export default function Home() {
       if (!res.ok) return;
       const data = await res.json() as LivePlanMap;
       setLivePlans((prev) => ({ ...prev, ...data }));
+    }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void fetch("/api/platform/mode").then(async (res) => {
+      if (!res.ok) return;
+      const { mode } = await res.json() as { mode: "escrow" | "internal" };
+      if (mode === "internal") setPaymentMode("internal");
     }).catch(() => undefined);
   }, []);
 
@@ -490,7 +500,7 @@ export default function Home() {
             <div className="overflow-hidden rounded-[1.5rem] border border-[#1ABC9C]/18 bg-white/[0.055] shadow-[0_8px_48px_rgba(0,0,0,0.45),0_0_0_1px_rgba(26,188,156,0.07)] backdrop-blur-md">
               <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.07] lg:grid-cols-4 lg:divide-y-0">
                 {[
-                  { path: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", value: "Escrow", desc: t("landing_metric1_desc") },
+                  { path: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", value: isEscrow ? "Escrow" : t("landing_metric1_value_internal"), desc: t(isEscrow ? "landing_metric1_desc" : "landing_metric1_desc_internal") },
                   { path: "M17 20v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm13 9v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75", value: "Portal", desc: t("landing_metric2_desc") },
                   { path: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z", value: "PT/EN", desc: t("landing_metric3_desc") },
                   { path: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z", value: "100% Digital", desc: t("landing_metric4_desc") },

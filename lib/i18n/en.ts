@@ -1435,4 +1435,25 @@ export const en: Record<string, string> = {
   agency_finances_receipt_unavailable: "Receipt unavailable",
   aria_expand_transaction:   "Expand transaction",
   aria_collapse_transaction: "Collapse transaction",
+
+  // ── Internal payment mode — landing page variants ──────────────────────────
+  landing_metric1_value_internal: "Direct",
+  landing_metric1_desc_internal:  "Direct payments between agency and talent, with proof of payment records",
+  landing_hiw_step3_desc_internal: "Confirm the booking and generate a digital contract to formalize the agreement before work begins.",
+  landing_feat1_desc_internal:    "Formalize agreements with digital contracts, upload payment receipts and keep a complete history of every hire.",
+  landing_trust1_desc_internal:   "Digital contracts record the agreement between both parties before payment, with full history and receipts on file.",
+  landing_ws4_title_internal:     "Wallet and payments",
+  landing_ws4_desc_internal:      "Track agent allocations, payment receipts and the full direct-payment flow for your operation.",
+
+  // ── Internal payment mode — onboarding agency variants ────────────────────
+  onboarding_agency_step4_title_internal: "Confirm the booking",
+  onboarding_agency_step4_body_internal:  "With the talent's signature in place, confirm the booking to signal that the work is formally agreed.",
+  onboarding_agency_step5_title_internal: "Record the payment",
+  onboarding_agency_step5_body_internal:  "After delivery, mark the payment as sent and wait for the talent to confirm receipt to close the contract.",
+
+  // ── Internal payment mode — onboarding talent variants ────────────────────
+  onboarding_talent_step4_title_internal: "Confirm receipt",
+  onboarding_talent_step4_body_internal:  "Once the agency marks the payment as sent, confirm receipt to close the contract.",
+  onboarding_talent_step5_title_internal: "Contract closed",
+  onboarding_talent_step5_body_internal:  "After confirming receipt, the contract is closed and the record is stored in your contracts area.",
 };
