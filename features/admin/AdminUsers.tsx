@@ -632,33 +632,28 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
-        <div className="overflow-x-auto">
+      {/* ── Redesigned: 5-column layout that fits without horizontal scroll ── */}
+      {/* Col 1: checkbox  Col 2: user+email+badges  Col 3: plan+date
+          Col 4: financials  Col 5: role-select+actions                   */}
+        <div className="overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
+        <div>
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-100">
-                <th className="px-4 py-3.5">
+                <th className="w-10 px-4 py-3">
                   <input
                     type="checkbox"
                     checked={allFilteredSelected}
-                    ref={(node) => {
-                      if (node) node.indeterminate = someFilteredSelected;
-                    }}
+                    ref={(node) => { if (node) node.indeterminate = someFilteredSelected; }}
                     onChange={toggleSelectAllFiltered}
                     aria-label="Selecionar usuarios filtrados"
                     className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
                   />
                 </th>
-                <th className="px-6 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("admin_users")}</th>
-                <th className="hidden px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 sm:table-cell">Email</th>
-                <th className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("admin_role_label")}</th>
-                <th className="hidden px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 sm:table-cell">{t("admin_plan_label")}</th>
-                <th className="hidden px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 md:table-cell">{t("admin_joined_label")}</th>
-                <th className="hidden px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400 lg:table-cell">{t("admin_earnings_balance")}</th>
-                <th className="hidden px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400 lg:table-cell">{t("admin_spending")}</th>
-                <th className="hidden px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400 xl:table-cell">{t("admin_commission_col")}</th>
-                <th className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("admin_change_role")}</th>
-                <th className="w-24 px-3 py-3.5" />
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("admin_users")}</th>
+                <th className="hidden px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-widest text-zinc-400 md:table-cell">{t("admin_plan_label")} · {t("admin_joined_label")}</th>
+                <th className="hidden px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400 lg:table-cell">{t("admin_earnings_balance")} · {t("admin_spending")}</th>
+                <th className="w-48 px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("admin_change_role")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
@@ -671,7 +666,8 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                     onClick={(event) => handleRowClick(user, event)}
                     className={["cursor-pointer transition-colors hover:bg-zinc-50/60", user.isFrozen ? "opacity-60" : ""].join(" ")}
                   >
-                    <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}>
+                    {/* Col 1 — checkbox */}
+                    <td className="w-10 px-4 py-3.5" onClick={(event) => event.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedIds.has(user.id)}
@@ -680,206 +676,131 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                         className="h-4 w-4 cursor-pointer rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
                       />
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+
+                    {/* Col 2 — user: avatar + name + email + all badges */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-3 min-w-0">
                         <Avatar name={user.name || user.email} imageUrl={user.avatarUrl} size="sm" />
                         <div className="min-w-0">
-                          <p className="max-w-[160px] truncate text-[13px] font-semibold text-zinc-900">
-                            {user.name || <span className="font-normal text-zinc-400">{t("admin_no_name")}</span>}
-                          </p>
-                          {user.isFrozen ? (
-                            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-600 ring-1 ring-sky-100">
-                              <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              {t("admin_frozen")}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="truncate text-[13px] font-semibold text-zinc-900 max-w-[180px]">
+                              {user.name || <span className="font-normal text-zinc-400">{t("admin_no_name")}</span>}
+                            </p>
+                            <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${roleTone}`}>
+                              {user.role}
                             </span>
-                          ) : null}
+                            {user.isFrozen && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-600 ring-1 ring-sky-100">
+                                <svg className="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                </svg>
+                                {t("admin_frozen")}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 truncate text-[11px] text-zinc-400 max-w-[240px]">{user.email}</p>
+                          {/* sub-role badges */}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {user.premiumRole === "owner" && <span className="inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-violet-100">Main Agent Premium</span>}
+                            {user.premiumRole === "agent" && <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100">Agent Premium</span>}
+                            {user.premiumRole === "premium_talent" && user.marketplaceVisible === false && <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-100">Portal-only</span>}
+                            {user.premiumRole === "premium_talent" && user.marketplaceVisible !== false && <span className="inline-flex rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-100">Premium</span>}
+                            {user.premiumRole === null && user.role === "talent" && <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 ring-1 ring-emerald-100">Open</span>}
+                            {user.premiumRole === null && user.role === "agency" && <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 ring-1 ring-blue-100">Open</span>}
+                          </div>
                         </div>
                       </div>
                     </td>
 
-                    <td className="hidden px-4 py-4 sm:table-cell">
-                      <span className="block max-w-[200px] truncate text-[13px] text-zinc-500">{user.email}</span>
+                    {/* Col 3 — plan + date (stacked, hidden on mobile) */}
+                    <td className="hidden px-4 py-3.5 md:table-cell">
+                      <div className="space-y-1.5">
+                        {user.role === "agency" ? (
+                          <span className={["inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize",
+                            user.plan === "pro" ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
+                            : user.plan === "premium" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
+                            : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200"].join(" ")}>
+                            {user.plan ?? "free"}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-400">—</span>
+                        )}
+                        <p className="text-[11px] text-zinc-400">{formatDate(user.created_at)}</p>
+                      </div>
                     </td>
 
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${roleTone}`}>
-                          {user.role}
-                        </span>
-                        {user.premiumRole === "owner" && (
-                          <span className="inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-violet-100">Main Agent Premium</span>
+                    {/* Col 4 — balance + spending stacked (hidden on mobile) */}
+                    <td className="hidden px-4 py-3.5 text-right lg:table-cell">
+                      <div className="space-y-1">
+                        {user.role !== "admin" ? (
+                          <FinancialCell
+                            value={user.walletBalance}
+                            tone={user.walletBalance > 0 ? "text-emerald-700" : "text-zinc-500"}
+                            note={t("admin_wallet_balance")}
+                            zeroLabel="R$ 0"
+                          />
+                        ) : <span className="text-[13px] text-zinc-400">—</span>}
+                        {user.role === "agency" && user.totalSpent > 0 && (
+                          <FinancialCell
+                            value={user.totalSpent}
+                            tone="text-zinc-700"
+                            note={t("admin_confirmed_spending")}
+                          />
                         )}
-                        {user.premiumRole === "agent" && (
-                          <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100">Agent Premium</span>
-                        )}
-                        {user.premiumRole === "premium_talent" && user.marketplaceVisible === false && (
-                          <span className="inline-flex rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-100">Portal-only Talent</span>
-                        )}
-                        {user.premiumRole === "premium_talent" && user.marketplaceVisible !== false && (
-                          <span className="inline-flex rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-100">Talent Premium</span>
-                        )}
-                        {user.premiumRole === null && user.role === "talent" && (
-                          <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 ring-1 ring-emerald-100">Talent Open</span>
-                        )}
-                        {user.premiumRole === null && user.role === "agency" && (
-                          <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600 ring-1 ring-blue-100">Agency Open</span>
+                        {user.role === "talent" && user.commissionGenerated > 0 && (
+                          <FinancialCell
+                            value={user.commissionGenerated}
+                            tone="text-violet-700"
+                            note={t("admin_platform_commission")}
+                          />
                         )}
                       </div>
                     </td>
 
-                    <td className="hidden px-4 py-4 sm:table-cell">
-                      {user.role === "agency" ? (
-                        <span
-                          className={[
-                            "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize",
-                            user.plan === "pro"
-                              ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100"
-                              : user.plan === "premium"
-                                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
-                                : "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200",
-                          ].join(" ")}
-                        >
-                          {user.plan ?? "free"}
-                        </span>
-                      ) : (
-                        <span className="text-[11px] text-[#647B7B]">—</span>
-                      )}
-                    </td>
-
-                    <td className="hidden px-4 py-4 md:table-cell">
-                      <span className="text-[12px] text-zinc-400">{formatDate(user.created_at)}</span>
-                    </td>
-
-                    <td className="hidden px-4 py-4 text-right lg:table-cell">
-                      {user.role === "agency" ? (
-                        <FinancialCell
-                          value={user.walletBalance}
-                          tone={user.walletBalance > 0 ? "text-emerald-700" : "text-zinc-500"}
-                          note={t("admin_wallet_balance")}
-                          zeroLabel="R$ 0"
-                        />
-                      ) : user.role === "talent" ? (
-                        <FinancialCell
-                          value={user.walletBalance}
-                          tone={user.walletBalance > 0 ? "text-emerald-700" : "text-zinc-500"}
-                          note={t("admin_wallet_current")}
-                          zeroLabel="R$ 0"
-                        />
-                      ) : (
-                        <span className="text-[13px] text-[#647B7B]">—</span>
-                      )}
-                    </td>
-
-                    <td className="hidden px-4 py-4 text-right lg:table-cell">
-                      {user.role === "agency" ? (
-                        <FinancialCell
-                          value={user.totalSpent}
-                          tone={user.totalSpent > 0 ? "text-zinc-900" : "text-[#647B7B]"}
-                          note={t("admin_confirmed_spending")}
-                        />
-                      ) : (
-                        <span className="text-[13px] text-[#647B7B]">—</span>
-                      )}
-                    </td>
-
-                    <td className="hidden px-4 py-4 text-right xl:table-cell">
-                      {user.role === "talent" ? (
-                        <FinancialCell
-                          value={user.commissionGenerated}
-                          tone={user.commissionGenerated > 0 ? "text-violet-700" : "text-[#647B7B]"}
-                          note={t("admin_platform_commission")}
-                        />
-                      ) : (
-                        <span className="text-[13px] text-[#647B7B]">—</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <select
-                        value={user.role}
-                        disabled={updating === user.id}
-                        onChange={(event) => changeRole(user.id, event.target.value)}
-                        className="cursor-pointer rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-[12px] text-zinc-700 transition-colors hover:border-zinc-300 focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="talent">talent</option>
-                        <option value="agency">agency</option>
-                        <option value="admin">admin</option>
-                      </select>
-                      {updating === user.id ? <span className="ml-2 text-[11px] text-zinc-400">Salvando...</span> : null}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-4 text-right" onClick={(event) => event.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        {user.role === "agency" ? (
-                          <>
-                            {/* + Balance */}
-                            <button
-                              onClick={() => {
-                                setCreditModal({ userId: user.id, name: user.name, balance: user.walletBalance });
-                                setCreditAmount("");
-                                setCreditNote("");
-                              }}
-                              title={t("admin_add_balance")}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                              </svg>
-                            </button>
-                            {/* − Balance */}
-                            <button
-                              onClick={() => {
-                                setDebitModal({ userId: user.id, name: user.name, balance: user.walletBalance });
-                                setDebitAmount("");
-                                setDebitReason("");
-                                setDebitError("");
-                              }}
-                              title={t("admin_debit_balance")}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                              </svg>
-                            </button>
-                          </>
-                        ) : null}
-
-                        {/* Freeze / Unfreeze */}
-                        <button
-                          onClick={() => toggleFreeze(user)}
+                    {/* Col 5 — role select + icon actions */}
+                    <td className="w-48 px-4 py-3.5 text-right" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        <select
+                          value={user.role}
                           disabled={updating === user.id}
-                          title={user.isFrozen ? t("admin_unfreeze") : t("admin_freeze")}
-                          className={[
-                            "flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:opacity-50",
-                            user.isFrozen
-                              ? "text-sky-600 hover:bg-sky-50 hover:text-sky-800"
-                              : "text-zinc-400 hover:bg-sky-50 hover:text-sky-600",
-                          ].join(" ")}
+                          onChange={(event) => changeRole(user.id, event.target.value)}
+                          className="cursor-pointer rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-[12px] text-zinc-700 transition-colors hover:border-zinc-300 focus:border-zinc-900 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            {user.isFrozen
-                              ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 018 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                              : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zM10 7a2 2 0 114 0" />
-                            }
-                          </svg>
-                        </button>
+                          <option value="talent">talent</option>
+                          <option value="agency">agency</option>
+                          <option value="admin">admin</option>
+                        </select>
 
-                        {/* Trash */}
-                        <button
-                          onClick={() => setDeleting(user.id)}
-                          title={t("admin_trash_btn")}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-700"
-                        >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          {user.role === "agency" && <>
+                            <button onClick={() => { setCreditModal({ userId: user.id, name: user.name, balance: user.walletBalance }); setCreditAmount(""); setCreditNote(""); }}
+                              title={t("admin_add_balance")}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50">
+                              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                            <button onClick={() => { setDebitModal({ userId: user.id, name: user.name, balance: user.walletBalance }); setDebitAmount(""); setDebitReason(""); setDebitError(""); }}
+                              title={t("admin_debit_balance")}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50">
+                              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 12H4" /></svg>
+                            </button>
+                          </>}
+                          <button onClick={() => toggleFreeze(user)} disabled={updating === user.id}
+                            title={user.isFrozen ? t("admin_unfreeze") : t("admin_freeze")}
+                            className={["flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:opacity-50",
+                              user.isFrozen ? "text-sky-600 hover:bg-sky-50" : "text-zinc-300 hover:bg-sky-50 hover:text-sky-600"].join(" ")}>
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {user.isFrozen
+                                ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 018 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                                : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zM10 7a2 2 0 114 0" />}
+                            </svg>
+                          </button>
+                          <button onClick={() => setDeleting(user.id)} title={t("admin_trash_btn")}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-300 transition-colors hover:bg-amber-50 hover:text-amber-600">
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -888,7 +809,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
 
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-16 text-center">
+                  <td colSpan={5} className="px-6 py-16 text-center">
                     <p className="text-[14px] font-medium text-zinc-500">{t("admin_no_users_found")}</p>
                     <p className="mt-1 text-[13px] text-zinc-400">{t("admin_no_users_hint")}</p>
                   </td>
