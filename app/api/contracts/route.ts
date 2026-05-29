@@ -252,9 +252,9 @@ export async function POST(req: NextRequest) {
       .eq("id", resolvedAgencyId)
       .single();
     const agencyName = agencyProfile?.full_name ?? "a agencia";
-    await notify(resolvedTalentUserId, "rehire", `Voce foi contratado novamente por ${agencyName}`, talentContractsHref);
+    await notify(resolvedTalentUserId, "rehire", `Você foi contratado novamente por ${agencyName}`, talentContractsHref);
   } else {
-    await notify(resolvedTalentUserId, "contract", "Voce recebeu um novo contrato", talentContractsHref);
+    await notify(resolvedTalentUserId, "contract", "Você recebeu um novo contrato", talentContractsHref);
   }
 
   await notifyAdmins(

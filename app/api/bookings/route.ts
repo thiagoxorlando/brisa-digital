@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
   await notify(
     user.id,
     "booking",
-    "Voce foi reservado!",
+    "Você foi reservado!",
     talentWorkspaceContractsHref(workspaceLifecycle?.workspaceSlug),
   );
   await notifyAdmins(
