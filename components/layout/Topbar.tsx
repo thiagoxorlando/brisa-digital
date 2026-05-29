@@ -121,9 +121,7 @@ export default function Topbar({ onMenuClick, homeHref }: TopbarProps) {
       <div className="h-[2px] bg-gradient-to-r from-[#1ABC9C]/40 via-[#27C1D6]/50 to-transparent" />
       <div className="flex items-center justify-between px-6 py-4">
       <div className="flex min-w-0 items-center gap-4">
-        <Link href={dashboardHref} className="hidden flex-shrink-0 items-center lg:flex">
-          <Logo size="md" />
-        </Link>
+        {/* Logo removed from topbar — already shown in sidebar */}
         <button
           onClick={onMenuClick}
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-[#647B7B] transition-colors hover:bg-[#E6F0F0] hover:text-[#1F2D2E] lg:hidden"
