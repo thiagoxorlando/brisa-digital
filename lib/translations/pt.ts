@@ -1389,6 +1389,36 @@
   aria_expand_transaction:   "Expandir transação",
   aria_collapse_transaction: "Recolher transação",
 
+  // ── Screenshot showcase tabs ────────────────────────────────────────────
+  landing_tab_dashboard:       "Dashboard",
+  landing_tab_jobs:            "Vagas",
+  landing_tab_talent:          "Talentos",
+  landing_tab_bookings:        "Reservas",
+  landing_tab_contracts:       "Contratos",
+  landing_tab_finances:        "Financeiro",
+  landing_tab_portal:          "Portal Talento",
+
+  landing_tab_dashboard_title: "Visão geral da operação em tempo real",
+  landing_tab_dashboard_desc:  "Acompanhe reservas ativas, vagas abertas, saldo em carteira e toda a movimentação da agência em um único painel intuitivo.",
+
+  landing_tab_jobs_title:      "Publique vagas com briefing completo",
+  landing_tab_jobs_desc:       "Defina perfil, data, cachê e entregáveis. Receba candidaturas e indicações centralizadas — sem mensagens espalhadas.",
+
+  landing_tab_talent_title:    "Descubra e contrate os melhores talentos",
+  landing_tab_talent_desc:     "Explore perfis com fotos, categorias e histórico de trabalhos. Recontrate com um clique usando o histórico de colaborações.",
+
+  landing_tab_bookings_title:  "Gerencie reservas do início ao fim",
+  landing_tab_bookings_desc:   "Acompanhe cada reserva por estágio: assinatura pendente, confirmada, em andamento e concluída. Tudo em um só lugar.",
+
+  landing_tab_contracts_title: "Contratos digitais para cada contratação",
+  landing_tab_contracts_desc:  "Cada reserva gera um contrato com valor, entregáveis e aceite bilateral. Histórico completo, sempre acessível.",
+
+  landing_tab_finances_title:  "Financeiro completo sem planilhas",
+  landing_tab_finances_desc:   "Depósitos, custódia, pagamentos e saques registrados automaticamente. Saldo em carteira e histórico de transações em tempo real.",
+
+  landing_tab_portal_title:    "Portal exclusivo para talentos",
+  landing_tab_portal_desc:     "Talentos acessam um ambiente com identidade da agência. Vagas, contratos e histórico de trabalhos em um só lugar.",
+
   // ── Internal payment mode — landing page variants ──────────────────────────
   landing_metric1_value_internal: "Direto",
   landing_metric1_desc_internal:  "Pagamentos diretos entre agência e talento, com registro de comprovantes",

@@ -1436,6 +1436,36 @@ export const en: Record<string, string> = {
   aria_expand_transaction:   "Expand transaction",
   aria_collapse_transaction: "Collapse transaction",
 
+  // ── Screenshot showcase tabs ────────────────────────────────────────────
+  landing_tab_dashboard:       "Dashboard",
+  landing_tab_jobs:            "Jobs",
+  landing_tab_talent:          "Talent",
+  landing_tab_bookings:        "Bookings",
+  landing_tab_contracts:       "Contracts",
+  landing_tab_finances:        "Finances",
+  landing_tab_portal:          "Talent Portal",
+
+  landing_tab_dashboard_title: "Your operation at a glance",
+  landing_tab_dashboard_desc:  "Track active bookings, open jobs, wallet balance and all agency activity in one clean dashboard — updated in real time.",
+
+  landing_tab_jobs_title:      "Post jobs with a complete brief",
+  landing_tab_jobs_desc:       "Set profile, date, fee and deliverables. Receive applications and referrals in one centralized queue — no scattered messages.",
+
+  landing_tab_talent_title:    "Discover and hire the best talent",
+  landing_tab_talent_desc:     "Browse profiles with photos, categories and work history. Rehire with one click using your collaboration history.",
+
+  landing_tab_bookings_title:  "Manage bookings end to end",
+  landing_tab_bookings_desc:   "Track every booking by stage: pending signature, confirmed, in progress and completed — all in one place.",
+
+  landing_tab_contracts_title: "Digital contracts for every hire",
+  landing_tab_contracts_desc:  "Every booking generates a contract with amount, deliverables and bilateral acceptance. Full history, always accessible.",
+
+  landing_tab_finances_title:  "Complete financials without spreadsheets",
+  landing_tab_finances_desc:   "Deposits, payments, receipts and withdrawals recorded automatically. Wallet balance and transaction history in real time.",
+
+  landing_tab_portal_title:    "Private portal for your talents",
+  landing_tab_portal_desc:     "Talents access a branded environment with your agency identity. Jobs, contracts and work history in one place.",
+
   // ── Internal payment mode — landing page variants ──────────────────────────
   landing_metric1_value_internal: "Direct",
   landing_metric1_desc_internal:  "Direct payments between agency and talent, with proof of payment records",

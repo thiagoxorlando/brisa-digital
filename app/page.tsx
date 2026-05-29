@@ -10,10 +10,18 @@ import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights,
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
 import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
-import dashboardScreenshot from "@/public/landing/dashboard.png";
-import financesScreenshot from "@/public/landing/finances.png";
-import jobsScreenshot from "@/public/landing/jobs.png";
-import talentScreenshot from "@/public/landing/talent.png";
+// Real BrisaHub product screenshots
+import ssAgencyDashboard  from "@/public/images/screenshots/agencydashboard.png";
+import ssAgencyJobs       from "@/public/images/screenshots/agencyjobs.png";
+import ssAgencyJobDetail  from "@/public/images/screenshots/agencyjobid.png";
+import ssAgencyTalent     from "@/public/images/screenshots/agencytalent.png";
+import ssAgencyBookings   from "@/public/images/screenshots/agencybookings.png";
+import ssAgencyContracts  from "@/public/images/screenshots/agencycontracts.png";
+import ssAgencyFinances   from "@/public/images/screenshots/agencyfinances.png";
+import ssTalentDashboard  from "@/public/images/screenshots/talentdashboard.png";
+import ssTalentBookings   from "@/public/images/screenshots/talentbookings.png";
+import ssTalentContracts  from "@/public/images/screenshots/talentcontracts.png";
+import ssTalentFinances   from "@/public/images/screenshots/talentfinances.png";
 
 const FEATURE_ICON_PATHS = [
   "M12 3l7 4v5c0 4.5-2.9 8.5-7 9-4.1-.5-7-4.5-7-9V7l7-4z",
@@ -27,10 +35,63 @@ const FEATURE_ICON_PATHS = [
   "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129",
 ] as const;
 
-const SHOWCASE_IMAGES = [
-  { image: jobsScreenshot,     altKey: "landing_alt_jobs",      width: jobsScreenshot.width,     height: jobsScreenshot.height,     sizes: "(min-width: 1024px) 58vw, 92vw" },
-  { image: financesScreenshot, altKey: "landing_alt_finances",  width: financesScreenshot.width, height: financesScreenshot.height, sizes: "(min-width: 1024px) 34vw, 92vw" },
-  { image: talentScreenshot,   altKey: "landing_alt_talents",   width: talentScreenshot.width,   height: talentScreenshot.height,   sizes: "(min-width: 1024px) 34vw, 92vw" },
+const SHOWCASE_TABS_STATIC = [
+  {
+    id: "dashboard",
+    labelKey: "landing_tab_dashboard",
+    image: ssAgencyDashboard,
+    eyebrowKey: "landing_showcase_jobs_eyebrow",
+    titleKey:   "landing_tab_dashboard_title",
+    descKey:    "landing_tab_dashboard_desc",
+  },
+  {
+    id: "jobs",
+    labelKey: "landing_tab_jobs",
+    image: ssAgencyJobs,
+    eyebrowKey: "landing_showcase_jobs_eyebrow",
+    titleKey:   "landing_tab_jobs_title",
+    descKey:    "landing_tab_jobs_desc",
+  },
+  {
+    id: "talent",
+    labelKey: "landing_tab_talent",
+    image: ssAgencyTalent,
+    eyebrowKey: "landing_showcase_tal_eyebrow",
+    titleKey:   "landing_tab_talent_title",
+    descKey:    "landing_tab_talent_desc",
+  },
+  {
+    id: "bookings",
+    labelKey: "landing_tab_bookings",
+    image: ssAgencyBookings,
+    eyebrowKey: "landing_showcase_jobs_eyebrow",
+    titleKey:   "landing_tab_bookings_title",
+    descKey:    "landing_tab_bookings_desc",
+  },
+  {
+    id: "contracts",
+    labelKey: "landing_tab_contracts",
+    image: ssAgencyContracts,
+    eyebrowKey: "landing_showcase_jobs_eyebrow",
+    titleKey:   "landing_tab_contracts_title",
+    descKey:    "landing_tab_contracts_desc",
+  },
+  {
+    id: "finances",
+    labelKey: "landing_tab_finances",
+    image: ssAgencyFinances,
+    eyebrowKey: "landing_showcase_fin_eyebrow",
+    titleKey:   "landing_tab_finances_title",
+    descKey:    "landing_tab_finances_desc",
+  },
+  {
+    id: "portal",
+    labelKey: "landing_tab_portal",
+    image: ssTalentDashboard,
+    eyebrowKey: "landing_showcase_tal_eyebrow",
+    titleKey:   "landing_tab_portal_title",
+    descKey:    "landing_tab_portal_desc",
+  },
 ] as const;
 
 // ── Reusable primitives ───────────────────────────────────────────────────────
@@ -106,14 +167,14 @@ function ProductPreview({ alt }: { alt: string }) {
       <div className="absolute -right-6 bottom-8 h-44 w-44 rounded-full bg-[#27C1D6]/10 blur-3xl lg:-right-8 lg:h-56 lg:w-56" />
       <div className="relative rounded-[2.1rem] bg-[linear-gradient(135deg,rgba(26,188,156,0.20),rgba(255,255,255,0.06)_42%,rgba(255,255,255,0.02))] p-px shadow-[0_22px_54px_rgba(0,0,0,0.32)]">
         <ScreenshotFrame
-          src={dashboardScreenshot}
+          src={ssAgencyDashboard}
           alt={alt}
-          width={dashboardScreenshot.width}
-          height={dashboardScreenshot.height}
+          width={ssAgencyDashboard.width}
+          height={ssAgencyDashboard.height}
           priority
           className="rounded-[2rem] bg-white/[0.04] backdrop-blur-sm"
           sizes="(min-width: 1024px) 52vw, 94vw"
-          aspectRatio={`${dashboardScreenshot.width} / ${dashboardScreenshot.height}`}
+          aspectRatio={`${ssAgencyDashboard.width} / ${ssAgencyDashboard.height}`}
         />
       </div>
     </div>
@@ -155,6 +216,7 @@ export default function Home() {
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [livePlans, setLivePlans] = useState<LivePlanMap>(buildPlanSettingsFallback);
   const [paymentMode, setPaymentMode] = useState<"escrow" | "internal">("escrow");
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
   const isEscrow = paymentMode === "escrow";
 
   // ── Translated data arrays ────────────────────────────────────────────────
@@ -215,11 +277,14 @@ export default function Home() {
     t("landing_biz_smb"),
   ];
 
-  const showcase = [
-    { ...SHOWCASE_IMAGES[0], alt: t(SHOWCASE_IMAGES[0].altKey), eyebrow: t("landing_showcase_jobs_eyebrow"), title: t("landing_showcase_jobs_title"), description: t("landing_showcase_jobs_desc") },
-    { ...SHOWCASE_IMAGES[1], alt: t(SHOWCASE_IMAGES[1].altKey), eyebrow: t("landing_showcase_fin_eyebrow"),  title: t("landing_showcase_fin_title"),  description: t("landing_showcase_fin_desc")  },
-    { ...SHOWCASE_IMAGES[2], alt: t(SHOWCASE_IMAGES[2].altKey), eyebrow: t("landing_showcase_tal_eyebrow"),  title: t("landing_showcase_tal_title"),  description: t("landing_showcase_tal_desc")  },
-  ];
+  const showcaseTabs = SHOWCASE_TABS_STATIC.map((tab) => ({
+    ...tab,
+    label:   t(tab.labelKey   as never),
+    eyebrow: t(tab.eyebrowKey as never),
+    title:   t(tab.titleKey   as never),
+    desc:    t(tab.descKey    as never),
+  }));
+  const activeShowcase = showcaseTabs.find((t) => t.id === activeTab) ?? showcaseTabs[0];
 
   const plans = [
     { key: "free"    as const, audience: t("landing_plan_free_audience"),    summary: t("landing_plan_free_summary"),    featured: false, premium: false },
@@ -457,10 +522,10 @@ export default function Home() {
                 </div>
                 {/* Dashboard screenshot */}
                 <Image
-                  src={dashboardScreenshot}
+                  src={ssAgencyDashboard}
                   alt={t("landing_alt_dashboard")}
-                  width={dashboardScreenshot.width}
-                  height={dashboardScreenshot.height}
+                  width={ssAgencyDashboard.width}
+                  height={ssAgencyDashboard.height}
                   priority
                   className="block w-full"
                   sizes="(min-width: 1280px) 62vw, (min-width: 768px) 82vw, 96vw"
@@ -773,12 +838,14 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Screenshots ── */}
-      <section className="relative overflow-hidden px-5 pb-20 pt-16 lg:px-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_30%,rgba(39,193,214,0.08),transparent_40%)]" />
+      {/* ── Tabbed Screenshot Showcase ── */}
+      <section id="workspace" className="relative overflow-hidden px-5 pb-24 pt-16 lg:px-10 scroll-mt-20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_30%,rgba(39,193,214,0.07),transparent_40%)]" />
         <GridTexture />
         <div className="relative mx-auto max-w-7xl">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+
+          {/* Header */}
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
             <div className="max-w-2xl">
               <Pill>{t("landing_ss_pill")}</Pill>
               <h2 className="mt-5 text-3xl font-black tracking-[-0.04em] text-white sm:text-5xl">
@@ -790,43 +857,113 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
-            <article className="flex flex-col gap-4">
-              <ScreenshotFrame
-                src={showcase[0].image}
-                alt={showcase[0].alt}
-                width={showcase[0].width}
-                height={showcase[0].height}
-                sizes={showcase[0].sizes}
-                aspectRatio={`${showcase[0].width} / ${showcase[0].height}`}
-              />
-              <div className="space-y-2 px-1">
-                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1ABC9C]">{showcase[0].eyebrow}</p>
-                <h3 className="text-lg font-black text-white">{showcase[0].title}</h3>
-                <p className="max-w-2xl text-sm leading-6 text-white/50">{showcase[0].description}</p>
-              </div>
-            </article>
-
-            <div className="grid gap-6">
-              {showcase.slice(1).map((item) => (
-                <article key={item.title} className="flex flex-col gap-4">
-                  <ScreenshotFrame
-                    src={item.image}
-                    alt={item.alt}
-                    width={item.width}
-                    height={item.height}
-                    sizes={item.sizes}
-                    aspectRatio={`${item.width} / ${item.height}`}
-                  />
-                  <div className="space-y-2 px-1">
-                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1ABC9C]">{item.eyebrow}</p>
-                    <h3 className="text-lg font-black text-white">{item.title}</h3>
-                    <p className="text-sm leading-6 text-white/50">{item.description}</p>
-                  </div>
-                </article>
+          {/* Tab pills — scrollable on mobile */}
+          <div className="relative mb-8">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+              {showcaseTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={[
+                    "flex-shrink-0 rounded-xl px-4 py-2 text-[13px] font-semibold transition-all",
+                    activeTab === tab.id
+                      ? "bg-[#1ABC9C] text-white shadow-[0_4px_16px_rgba(26,188,156,0.35)]"
+                      : "bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white/80",
+                  ].join(" ")}
+                >
+                  {tab.label}
+                </button>
               ))}
             </div>
           </div>
+
+          {/* Desktop: screenshot left, text right / Mobile: screenshot top, text below */}
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-center lg:gap-14">
+
+            {/* Screenshot */}
+            <div className="relative">
+              {/* Teal glow behind screenshot */}
+              <div className="absolute -inset-6 rounded-3xl bg-[radial-gradient(ellipse_at_center,rgba(26,188,156,0.18),transparent_65%)] blur-2xl" />
+              <div className="relative overflow-hidden rounded-2xl border border-[#1ABC9C]/20 bg-white/[0.03] p-1 shadow-[0_24px_60px_rgba(0,0,0,0.55),0_0_0_1px_rgba(26,188,156,0.12)]">
+                {/* Browser chrome */}
+                <div className="flex items-center gap-1.5 border-b border-white/[0.07] bg-white/[0.03] px-3 py-2">
+                  <span className="h-2 w-2 rounded-full bg-white/15" />
+                  <span className="h-2 w-2 rounded-full bg-white/15" />
+                  <span className="h-2 w-2 rounded-full bg-white/15" />
+                  <span className="ml-2 text-[10px] text-white/20">app.brisahub.com.br</span>
+                </div>
+                <div className="relative overflow-hidden rounded-[0.6rem]">
+                  <Image
+                    src={activeShowcase.image}
+                    alt={activeShowcase.title}
+                    width={activeShowcase.image.width}
+                    height={activeShowcase.image.height}
+                    className="block w-full"
+                    sizes="(min-width: 1280px) 60vw, (min-width: 768px) 72vw, 96vw"
+                    priority={activeTab === "dashboard"}
+                  />
+                  {/* Bottom fade */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#050f10]/40 to-transparent" />
+                </div>
+              </div>
+            </div>
+
+            {/* Text */}
+            <div className="space-y-5">
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#1ABC9C]">
+                {activeShowcase.eyebrow}
+              </p>
+              <h3 className="text-2xl font-black leading-tight tracking-[-0.03em] text-white lg:text-3xl">
+                {activeShowcase.title}
+              </h3>
+              <p className="text-[15px] leading-7 text-white/55">
+                {activeShowcase.desc}
+              </p>
+
+              {/* Mini mobile tab selector (repeated for UX on small screens) */}
+              <div className="flex flex-wrap gap-2 pt-2 lg:hidden">
+                {showcaseTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={[
+                      "rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all",
+                      activeTab === tab.id
+                        ? "bg-[#1ABC9C] text-white"
+                        : "bg-white/[0.06] text-white/45 hover:text-white/70",
+                    ].join(" ")}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile: horizontal strip of remaining screenshots */}
+          <div className="mt-10 flex gap-3 overflow-x-auto pb-2 lg:hidden" style={{ scrollbarWidth: "none" }}>
+            {showcaseTabs.filter((tab) => tab.id !== activeTab).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className="flex-shrink-0 overflow-hidden rounded-xl border border-white/10 opacity-50 transition-opacity hover:opacity-80 focus:opacity-90"
+                style={{ width: 200 }}
+              >
+                <Image
+                  src={tab.image}
+                  alt={tab.title}
+                  width={tab.image.width}
+                  height={tab.image.height}
+                  className="block w-full object-cover object-top"
+                  sizes="200px"
+                />
+              </button>
+            ))}
+          </div>
+
         </div>
       </section>
 
