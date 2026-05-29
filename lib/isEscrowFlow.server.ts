@@ -1,25 +1,27 @@
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import type { createServerClient } from "@/lib/supabase";
 
 type AdminSupabaseClient = ReturnType<typeof createServerClient>;
 
 /**
- * Returns true when the agency's payment mode is escrow (the default for all
- * existing agencies). Returns false for internal-payment agencies where no
- * wallet deposit, custody, or escrow notification should ever be generated.
+ * Returns true when the resolved payment mode for this agency is escrow.
+ * Returns false for internal-payment agencies (explicit or via global default).
  *
- * Fails OPEN (returns true / escrow assumed) when:
- *   - agencyId is null/empty
- *   - the agencies.payment_mode column does not exist (pre-migration environment)
- *   - the agency row is not found
+ * Priority (mirrors resolveAgencyConfig):
+ *   agencies.payment_mode = 'internal' → false
+ *   agencies.payment_mode = 'escrow'   → true  (unless escrow_enabled=false)
+ *   agencies.payment_mode = NULL       → use platform_settings.default_payment_mode
+ *   anything else / row missing        → fail open (true / escrow assumed)
  *
- * This means the escrow flow is allowed when we have no contrary evidence,
- * preserving backward compatibility with all existing agencies.
+ * Fail-open means we never silently block an escrow agency from paying.
+ * Fail-closed would be safer for internal-mode but risks breaking legitimate
+ * escrow flows when the DB/column is temporarily unavailable.
  */
 export async function isEscrowFlow(
   supabase: AdminSupabaseClient,
   agencyId: string | null | undefined,
 ): Promise<boolean> {
-  if (!agencyId) return true; // no agency → can't determine → allow escrow (safe default)
+  if (!agencyId) return true;
 
   try {
     const { data, error } = await supabase
@@ -29,9 +31,12 @@ export async function isEscrowFlow(
       .maybeSingle();
 
     if (error) {
-      // PGRST204 = column does not exist in schema cache (migration not applied).
-      // In this case all agencies implicitly use escrow — fail open.
-      if (error.code === "PGRST204" || (error.message ?? "").includes("payment_mode")) {
+      // PGRST204 = column absent (pre-migration). Fall open — all agencies are
+      // implicitly escrow in that environment.
+      if (
+        error.code === "PGRST204" ||
+        (error.message ?? "").includes("payment_mode")
+      ) {
         console.info("[isEscrowFlow] payment_mode column absent — assuming escrow", { agencyId });
         return true;
       }
@@ -40,19 +45,24 @@ export async function isEscrowFlow(
         error: error.message,
         code: error.code,
       });
-      return true; // unknown → fail open (escrow assumed)
+      return true;
     }
 
     const row = data as Record<string, unknown> | null;
-    const paymentMode   = (row?.payment_mode   as string  | null) ?? "escrow";
-    const escrowEnabled = (row?.escrow_enabled as boolean | null) ?? true;
+    const paymentMode   = (row?.payment_mode   as string  | null) ?? null;
+    const escrowEnabled = (row?.escrow_enabled as boolean | null) ?? null;
 
-    // Internal mode: no escrow at all.
+    // ── Explicit agency-level override ───────────────────────────────────────
     if (paymentMode === "internal") return false;
-    // Escrow mode but escrow specifically disabled for this agency.
-    if (paymentMode === "escrow" && escrowEnabled === false) return false;
+    if (paymentMode === "escrow") {
+      // escrow_enabled=false means escrow is explicitly disabled for this agency
+      return escrowEnabled !== false;
+    }
 
-    return true;
+    // ── NULL = inherit global default ────────────────────────────────────────
+    const globals = await getGlobalPaymentDefaults();
+    if (globals.default_payment_mode === "internal") return false;
+    return globals.default_escrow_enabled;
   } catch {
     return true; // unexpected exception → fail open
   }
