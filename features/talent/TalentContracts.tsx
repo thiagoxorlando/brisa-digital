@@ -18,6 +18,8 @@ export type TalentContract = {
   jobId:              string | null;
   bookingId?:         string | null;
   agencyName:         string;
+  /** Resolved from agencies.payment_mode + global default. Determines timeline mode. */
+  paymentMode?:       "escrow" | "internal";
   jobDate:            string | null;
   jobTime:            string | null;
   location:           string | null;
@@ -353,7 +355,7 @@ function ContractRow({
                 Progresso do pagamento
               </p>
               <PaymentTimeline
-                mode={c.agencyPaymentSentAt || c.talentPaymentConfirmedAt ? "internal" : "escrow"}
+                mode={c.paymentMode ?? (c.agencyPaymentSentAt || c.talentPaymentConfirmedAt ? "internal" : "escrow")}
                 status={c.status}
                 agencyPaymentSentAt={c.agencyPaymentSentAt}
                 talentPaymentConfirmedAt={c.talentPaymentConfirmedAt}

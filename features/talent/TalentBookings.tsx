@@ -25,6 +25,8 @@ type Booking = {
   job_date: string | null;
   job_time: string | null;
   contract_id: string | null;
+  /** Set when agency confirmed external payment was sent (internal mode). */
+  agency_payment_sent_at: string | null;
 };
 
 function formatDate(s: string | null) {
@@ -45,7 +47,11 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
   const [open, setOpen] = useState(false);
   const unified   = b.derived_status as UnifiedBookingStatus;
   const st        = unifiedStatusInfo(unified, lang === "en" ? "en" : "pt-BR");
-  const canCancel = ["aguardando_assinatura", "aguardando_deposito"].includes(unified);
+  // No cancel once agency has confirmed payment was sent (internal mode) or once
+  // the booking has moved past the deposit stage.
+  const canCancel =
+    ["aguardando_assinatura", "aguardando_deposito"].includes(unified) &&
+    !b.agency_payment_sent_at;
   const jobDate   = formatJobDate(b.job_date);
 
   return (
@@ -172,7 +178,8 @@ export default function TalentBookings() {
       .select(`
         id, job_title, job_id, agency_id, status, price, created_at,
         contracts!contracts_booking_id_fkey (
-          id, status, location, job_date, job_time, net_amount, commission_amount
+          id, status, location, job_date, job_time, net_amount, commission_amount,
+          agency_payment_sent_at
         )
       `)
       .eq("talent_user_id", user.id)
@@ -217,6 +224,7 @@ export default function TalentBookings() {
           job_date:        contract?.job_date ?? null,
           job_time:        contract?.job_time ?? null,
           contract_id:     contract?.id ?? null,
+          agency_payment_sent_at: contract?.agency_payment_sent_at ?? null,
         };
       })
     );

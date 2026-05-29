@@ -1,5 +1,6 @@
 import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import type { ApprovedSubmission, TalentContract } from "@/features/talent/TalentContracts";
 import type { createServerClient } from "@/lib/supabase";
 
@@ -36,12 +37,14 @@ function toTalentContract(
   row: ContractRow,
   agencyMap: Map<string, string>,
   activeDisputeMap: Map<string, { id: string }>,
+  agencyModeMap?: Map<string, "escrow" | "internal">,
 ): TalentContract {
   return {
     id: row.id,
     jobId: row.job_id ?? null,
     bookingId: row.booking_id ?? null,
     agencyName: row.agency_id ? (agencyMap.get(row.agency_id) ?? "Agência sem nome") : "Agência sem nome",
+    paymentMode: row.agency_id ? (agencyModeMap?.get(row.agency_id) ?? "escrow") : "escrow",
     jobDate: row.job_date ?? null,
     jobTime: row.job_time ?? null,
     location: row.location ?? null,
@@ -143,17 +146,27 @@ export async function loadTalentContractsPageData(
   ].filter((id): id is string => Boolean(id)))];
 
   const agencyMap = new Map<string, string>();
+  const agencyModeMap = new Map<string, "escrow" | "internal">();
   if (agencyIds.length) {
-    const { data: agencies } = await supabase
-      .from("agencies")
-      .select("id, company_name")
-      .in("id", agencyIds);
-    for (const agency of agencies ?? []) {
-      agencyMap.set(agency.id, agency.company_name ?? "Agência sem nome");
+    const [agencyRows, globalDefaults] = await Promise.all([
+      supabase
+        .from("agencies")
+        .select("id, company_name, payment_mode")
+        .in("id", agencyIds),
+      getGlobalPaymentDefaults(),
+    ]);
+    for (const agency of agencyRows.data ?? []) {
+      agencyMap.set(agency.id, (agency as Record<string, unknown>).company_name as string ?? "Agência sem nome");
+      const rawMode = (agency as Record<string, unknown>).payment_mode as string | null;
+      const mode: "escrow" | "internal" =
+        rawMode === "internal" ? "internal"
+        : rawMode === "escrow" ? "escrow"
+        : globalDefaults.default_payment_mode;
+      agencyModeMap.set(agency.id, mode);
     }
   }
 
-  const contracts = allContracts.map((contract) => toTalentContract(contract, agencyMap, activeDisputeMap));
+  const contracts = allContracts.map((contract) => toTalentContract(contract, agencyMap, activeDisputeMap, agencyModeMap));
   const contractJobIds = new Set(contracts.map((contract) => contract.jobId).filter((id): id is string => Boolean(id)));
 
   const filteredSubmissionRows = submissionRows.filter((submission) => submission.job_id && openJobMap.has(submission.job_id));

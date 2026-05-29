@@ -131,6 +131,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Cannot cancel at this stage" }, { status: 409 });
     }
 
+    // Block: agency already sent/confirmed payment (internal mode).
+    // Once agency_payment_sent_at is set the talent can only confirm receipt, not cancel.
+    const agencyPaymentSentAt = (contract as Record<string, unknown>).agency_payment_sent_at as string | null;
+    const paymentReceiptUrl   = (contract as Record<string, unknown>).payment_receipt_url as string | null;
+    if (agencyPaymentSentAt || paymentReceiptUrl) {
+      return NextResponse.json(
+        { error: "Não é possível cancelar após a agência ter confirmado o envio do pagamento." },
+        { status: 422 },
+      );
+    }
+
     // ATOMIC: cancel contract (no refund needed — pre-escrow states)
     const { data: result, error: rpcErr } = await supabase.rpc("cancel_contract_safe", {
       p_contract_id: id,
