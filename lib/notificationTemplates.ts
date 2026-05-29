@@ -65,6 +65,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "payment",
     titlePt: "Saque solicitado",
     bodyPt: "Seu saque de {amount} foi enviado para processamento.",
+    titleEn: "Withdrawal requested",
+    bodyEn: "Your withdrawal of {amount} has been submitted for processing.",
     defaultLink: "/talent/finances",
   },
   withdrawal_paid: {
@@ -72,6 +74,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "payment",
     titlePt: "Saque concluído",
     bodyPt: "Seu saque de {amount} foi concluído via PIX.",
+    titleEn: "Withdrawal completed",
+    bodyEn: "Your withdrawal of {amount} has been completed via PIX.",
     defaultLink: "/talent/finances",
   },
   support_reply: {
@@ -79,6 +83,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "support",
     titlePt: "Nova resposta do suporte",
     bodyPt: "Você tem uma nova mensagem do suporte.",
+    titleEn: "New support reply",
+    bodyEn: "You have a new message from support.",
     defaultLink: "/support",
   },
   contract_cancelled: {
@@ -86,6 +92,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "contract",
     titlePt: "Contrato cancelado",
     bodyPt: "O contrato foi cancelado.",
+    titleEn: "Contract cancelled",
+    bodyEn: "The contract has been cancelled.",
     defaultLink: "/contracts",
   },
   dispute_opened: {
@@ -93,13 +101,17 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "contract",
     titlePt: "Disputa aberta",
     bodyPt: "Uma disputa foi aberta no contrato {contractId}.",
+    titleEn: "Dispute opened",
+    bodyEn: "A dispute has been opened on contract {contractId}.",
     defaultLink: "/admin/disputes/{disputeId}",
   },
   dispute_under_review: {
     key: "dispute_under_review",
     channel: "contract",
-    titlePt: "Disputa em analise",
-    bodyPt: "A disputa do contrato {contractId} esta em analise.",
+    titlePt: "Disputa em análise",
+    bodyPt: "A disputa do contrato {contractId} está em análise.",
+    titleEn: "Dispute under review",
+    bodyEn: "The dispute on contract {contractId} is under review.",
     defaultLink: "/admin/disputes/{disputeId}",
   },
   dispute_resolved_refund: {
@@ -107,6 +119,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "payment",
     titlePt: "Disputa resolvida com reembolso",
     bodyPt: "A disputa do contrato {contractId} foi resolvida com reembolso de {amount}.",
+    titleEn: "Dispute resolved — refund",
+    bodyEn: "The dispute on contract {contractId} has been resolved with a refund of {amount}.",
     defaultLink: "/admin/disputes/{disputeId}",
   },
   dispute_resolved_release: {
@@ -114,6 +128,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "payment",
     titlePt: "Disputa resolvida com pagamento",
     bodyPt: "A disputa do contrato {contractId} foi resolvida com pagamento de {amount}.",
+    titleEn: "Dispute resolved — payment released",
+    bodyEn: "The dispute on contract {contractId} has been resolved with a payment of {amount}.",
     defaultLink: "/admin/disputes/{disputeId}",
   },
   dispute_closed: {
@@ -121,6 +137,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "contract",
     titlePt: "Disputa encerrada",
     bodyPt: "A disputa do contrato {contractId} foi encerrada.",
+    titleEn: "Dispute closed",
+    bodyEn: "The dispute on contract {contractId} has been closed.",
     defaultLink: "/admin/disputes/{disputeId}",
   },
   trial_started: {
@@ -128,6 +146,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "billing",
     titlePt: "Trial iniciado",
     bodyPt: "Seu trial de {days} dias começou. Você tem acesso completo ao plano {plan} até {endsAt}.",
+    titleEn: "Trial started",
+    bodyEn: "Your {days}-day trial has started. You have full access to the {plan} plan until {endsAt}.",
     defaultLink: "/agency/billing",
   },
   trial_ending_soon: {
@@ -135,6 +155,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "billing",
     titlePt: "Trial encerrando em breve",
     bodyPt: "Seu trial encerra em {days} dias. A cobrança de {price} será feita automaticamente.",
+    titleEn: "Trial ending soon",
+    bodyEn: "Your trial ends in {days} days. You will be automatically charged {price}.",
     defaultLink: "/agency/billing",
   },
   subscription_activated: {
@@ -142,6 +164,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "billing",
     titlePt: "Assinatura ativada",
     bodyPt: "Seu plano {plan} está ativo. Próxima cobrança em {nextDue}.",
+    titleEn: "Subscription activated",
+    bodyEn: "Your {plan} plan is now active. Next billing on {nextDue}.",
     defaultLink: "/agency/billing",
   },
   subscription_canceled: {
@@ -149,6 +173,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "billing",
     titlePt: "Assinatura cancelada",
     bodyPt: "Sua assinatura foi cancelada. Você voltou ao plano gratuito.",
+    titleEn: "Subscription cancelled",
+    bodyEn: "Your subscription has been cancelled. You are now on the free plan.",
     defaultLink: "/agency/billing",
   },
   payment_failed: {
@@ -156,6 +182,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "billing",
     titlePt: "Falha no pagamento",
     bodyPt: "Não foi possível cobrar sua assinatura. Atualize seu cartão para continuar usando o plano {plan}.",
+    titleEn: "Payment failed",
+    bodyEn: "We could not charge your subscription. Update your card to keep using the {plan} plan.",
     defaultLink: "/agency/billing",
   },
   trial_extended: {
@@ -163,6 +191,8 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKey, NotificationTemplat
     channel: "billing",
     titlePt: "Trial estendido",
     bodyPt: "Seu trial foi estendido por {days} dias. Novo encerramento: {endsAt}.",
+    titleEn: "Trial extended",
+    bodyEn: "Your trial has been extended by {days} days. New end date: {endsAt}.",
     defaultLink: "/agency/billing",
   },
 };

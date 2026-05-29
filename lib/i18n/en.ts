@@ -1303,4 +1303,49 @@ export const en: Record<string, string> = {
   portal_no_jobs_available: "No jobs available right now.",
   portal_recent_reservations: "Recent bookings",
   portal_recent_contracts: "Recent contracts",
+
+  // ── Missing nav keys ───────────────────────────────────────────────────────
+  nav_disputes:            "Disputes",
+  nav_analytics:           "Analytics",
+  nav_control_center:      "Control Center",
+  nav_escrow:              "Escrow",
+  nav_payouts:             "Payouts",
+  nav_withdrawals:         "Withdrawals",
+  nav_workspace_disputes:  "Premium Disputes",
+
+  // ── Missing admin labels ───────────────────────────────────────────────────
+  admin_users_title:    "Users",
+  admin_search_users:   "Search users…",
+  admin_no_users:       "No users found.",
+  admin_role:           "Role",
+  admin_joined:         "Joined",
+  admin_actions:        "Actions",
+  admin_agency_name:    "Agency",
+  admin_talent_name:    "Talent",
+
+  // ── Missing topbar descriptions ────────────────────────────────────────────
+  topbar_agency_disputes_desc:          "Track contract disputes on the open platform",
+  topbar_workspace_disputes_desc:       "Track contract disputes in the workspace",
+  topbar_talent_disputes_desc:          "Track your contract disputes",
+  topbar_admin_control_center_title:    "Control Center",
+  topbar_admin_control_center_desc:     "Real-time operational overview of the platform",
+  topbar_admin_escrow_title:            "Escrow",
+  topbar_admin_escrow_desc:             "Contracts with funds currently held in escrow",
+  topbar_admin_payouts_title:           "Payouts",
+  topbar_admin_payouts_desc:            "History of payments released to talents",
+  topbar_admin_withdrawals_title:       "Withdrawals",
+  topbar_admin_withdrawals_desc:        "Monitor and approve PIX withdrawal requests",
+  topbar_admin_disputes_title:          "Disputes",
+  topbar_admin_disputes_desc:           "Disputes on contracts cancelled after work was delivered",
+  topbar_admin_analytics_title:         "Analytics",
+  topbar_admin_analytics_desc:          "Platform growth, funnel and financial metrics",
+
+  // ── Missing signup duplicate-email flow ────────────────────────────────────
+  signup_duplicate_email_title: "Email already registered",
+  signup_duplicate_email_body:  "This email already has an account. Sign in to continue your registration.",
+  signup_duplicate_sign_in:     "Sign in",
+
+  // ── Missing workspace wallet labels ───────────────────────────────────────
+  workspace_wallet_agent_job_reservations:      "Reserved in jobs (agents)",
+  workspace_wallet_agent_job_reservations_hint: "Committed by agents in open jobs — virtual ledger",
 };
