@@ -114,15 +114,27 @@ export async function PATCH(req: NextRequest) {
     before[key] = existing?.value ?? null;
     after[key] = value;
 
-    const { error } = await supabase
-      .from("platform_settings")
-      .upsert(
-        { key, value, updated_by: auth.userId, updated_at: now },
-        { onConflict: "key" },
-      );
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (value === null) {
+      // Nullable optional fields (e.g. support_email) cleared by the user.
+      // Delete the row so the key is absent; read path returns the default.
+      // Never upsert null — platform_settings.value has a NOT NULL constraint.
+      const { error: deleteErr } = await supabase
+        .from("platform_settings")
+        .delete()
+        .eq("key", key);
+      if (deleteErr) {
+        return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+      }
+    } else {
+      const { error } = await supabase
+        .from("platform_settings")
+        .upsert(
+          { key, value, updated_by: auth.userId, updated_at: now },
+          { onConflict: "key" },
+        );
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
   }
 
