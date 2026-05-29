@@ -601,7 +601,7 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideEscr
     : isInWorkspacePortal
       ? [{ titleKey: "nav_menu", items: workspaceNavItems }]
       : inferredRole === "talent"
-        ? [{ titleKey: "nav_menu", items: TALENT_NAV }]
+        ? [{ titleKey: "nav_menu", items: filterNav(TALENT_NAV) }]
         : []; // admin: rendered via buildAdminNavGroups() in the nav block below
 
   const isMultiSection = navSections.length > 1;
