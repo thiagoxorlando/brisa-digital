@@ -74,10 +74,13 @@ export default async function TalentLayout({ children }: { children: React.React
   }
 
   const globalDefaults = await getGlobalPaymentDefaults();
+  // In internal payment mode BrisaHub is not the payment intermediary.
+  // Referrals (no commissions) and Disputes (handled between parties directly)
+  // are not actionable — hide them from the talent sidebar.
   const hideEscrowNav = globalDefaults.default_payment_mode === "internal";
 
   return (
-    <DashboardShell initialWorkspacePortal={initialWorkspacePortal} hideReferrals={hideEscrowNav}>
+    <DashboardShell initialWorkspacePortal={initialWorkspacePortal} hideEscrowNav={hideEscrowNav}>
       {children}
     </DashboardShell>
   );

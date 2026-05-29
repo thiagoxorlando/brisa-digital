@@ -11,16 +11,16 @@ export default function DashboardShell({
   children,
   initialWorkspacePortal = null,
   adminMetrics = null,
-  hideReferrals = false,
+  hideEscrowNav = false,
 }: {
   children: React.ReactNode;
   initialWorkspacePortal?: WorkspacePortalData | null;
   adminMetrics?: AdminSidebarMetrics | null;
-  hideReferrals?: boolean;
+  hideEscrowNav?: boolean;
 }) {
   return (
     <WorkspacePortalProvider initialWorkspace={initialWorkspacePortal}>
-      <DashboardShellFrame adminMetrics={adminMetrics} hideReferrals={hideReferrals}>{children}</DashboardShellFrame>
+      <DashboardShellFrame adminMetrics={adminMetrics} hideEscrowNav={hideEscrowNav}>{children}</DashboardShellFrame>
     </WorkspacePortalProvider>
   );
 }
@@ -28,11 +28,11 @@ export default function DashboardShell({
 function DashboardShellFrame({
   children,
   adminMetrics = null,
-  hideReferrals = false,
+  hideEscrowNav = false,
 }: {
   children: React.ReactNode;
   adminMetrics?: AdminSidebarMetrics | null;
-  hideReferrals?: boolean;
+  hideEscrowNav?: boolean;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { workspace } = useWorkspacePortal();
@@ -50,7 +50,7 @@ function DashboardShellFrame({
       {isTalentPortal ? (
         <WorkspaceTalentSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       ) : (
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} adminMetrics={adminMetrics} hideReferrals={hideReferrals} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} adminMetrics={adminMetrics} hideEscrowNav={hideEscrowNav} />
       )}
 
       <div className={`${contentOffsetClass} flex flex-1 flex-col overflow-hidden`}>

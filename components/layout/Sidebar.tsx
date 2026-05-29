@@ -402,10 +402,12 @@ type SidebarProps = {
   isOpen: boolean;
   onClose: () => void;
   adminMetrics?: AdminSidebarMetrics | null;
-  hideReferrals?: boolean;
+  /** When true (talent in internal payment mode), hides escrow-only nav items:
+   *  referrals, disputes. Set from talent/layout.tsx based on global payment mode. */
+  hideEscrowNav?: boolean;
 };
 
-export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideReferrals = false }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideEscrowNav = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { role } = useRole();
@@ -414,11 +416,16 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideRefe
   const { t } = useT();
   const { isPremium, isWorkspaceAgent } = useSubscription();
   const agencyConfig = useAgencyConfig();
-  const hideDisputes = role === "agency" && agencyConfig.paymentMode === "internal";
+  // Agency in internal mode: hide disputes (no escrow intermediary for disputes)
+  const hideAgencyDisputes = role === "agency" && agencyConfig.paymentMode === "internal";
   function filterNav(items: NavItem[]) {
     return items.filter((item) => {
-      if (hideDisputes && item.href.includes("/disputes")) return false;
-      if (hideReferrals && item.href.includes("/referrals")) return false;
+      if (hideAgencyDisputes && item.href.includes("/disputes")) return false;
+      // Talent in internal mode: hide referrals (no commissions) and disputes
+      // (no escrow intermediary; users directed to Support instead).
+      // hideEscrowNav is only ever true when set from talent/layout.tsx.
+      if (hideEscrowNav && item.href.includes("/referrals")) return false;
+      if (hideEscrowNav && item.href.includes("/disputes"))  return false;
       return true;
     });
   }
