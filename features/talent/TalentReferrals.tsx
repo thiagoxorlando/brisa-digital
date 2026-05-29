@@ -33,7 +33,8 @@ function getStatus(r: TalentReferral): { label: string; cls: string } {
   return                                     { label: "Aguardando",         cls: "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200" };
 }
 
-export default function TalentReferrals({ referrals: initial }: { referrals: TalentReferral[] }) {
+export default function TalentReferrals({ referrals: initial, paymentMode = "escrow" }: { referrals: TalentReferral[]; paymentMode?: "escrow" | "internal" }) {
+  const isInternal = paymentMode === "internal";
   const [referrals, setReferrals] = useState<TalentReferral[]>(initial);
   const [reporting, setReporting] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
@@ -105,12 +106,21 @@ export default function TalentReferrals({ referrals: initial }: { referrals: Tal
         <p className="text-[13px] text-zinc-400 mt-1">{referrals.length} total · {bookedCount} contratados</p>
       </div>
 
-      <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
-        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        Você recebe <strong className="text-violet-600 mx-1">2% de taxa de indicação</strong> em cada contratação dos talentos que indicar.
-      </div>
+      {isInternal ? (
+        <div className="flex items-start gap-3 bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 text-[13px] text-teal-800">
+          <svg className="w-4 h-4 text-teal-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Pagamentos são feitos diretamente pela agência. Comissões de indicação não estão ativas no modo de pagamento direto.
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
+          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Você recebe <strong className="text-violet-600 mx-1">2% de taxa de indicação</strong> em cada contratação dos talentos que indicar.
+        </div>
+      )}
 
       {referrals.length === 0 ? (
         <div className="bg-white rounded-2xl border border-zinc-100 py-16 text-center shadow-[0_1px_4px_rgba(0,0,0,0.04)]">

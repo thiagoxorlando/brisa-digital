@@ -402,9 +402,10 @@ type SidebarProps = {
   isOpen: boolean;
   onClose: () => void;
   adminMetrics?: AdminSidebarMetrics | null;
+  hideReferrals?: boolean;
 };
 
-export default function Sidebar({ isOpen, onClose, adminMetrics = null }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideReferrals = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { role } = useRole();
@@ -415,7 +416,11 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null }: Sideba
   const agencyConfig = useAgencyConfig();
   const hideDisputes = role === "agency" && agencyConfig.paymentMode === "internal";
   function filterNav(items: NavItem[]) {
-    return hideDisputes ? items.filter((item) => !item.href.includes("/disputes")) : items;
+    return items.filter((item) => {
+      if (hideDisputes && item.href.includes("/disputes")) return false;
+      if (hideReferrals && item.href.includes("/referrals")) return false;
+      return true;
+    });
   }
   const { workspace: portalWorkspace } = useWorkspacePortal();
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());

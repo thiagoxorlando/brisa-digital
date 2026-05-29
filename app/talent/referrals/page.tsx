@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import TalentReferrals from "@/features/talent/TalentReferrals";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export const metadata: Metadata = { title: "Indicações — BrisaHub" };
 
@@ -11,7 +12,10 @@ export default async function TalentReferralsPage() {
 
   const supabase = createServerClient({ useServiceRole: true });
 
-  if (!user) return <TalentReferrals referrals={[]} />;
+  const globalDefaults = await getGlobalPaymentDefaults();
+  const paymentMode = globalDefaults.default_payment_mode;
+
+  if (!user) return <TalentReferrals referrals={[]} paymentMode={paymentMode} />;
 
   // Submissions where I'm the referrer
   const { data: subs } = await supabase
@@ -72,5 +76,5 @@ export default async function TalentReferralsPage() {
     };
   });
 
-  return <TalentReferrals referrals={referrals} />;
+  return <TalentReferrals referrals={referrals} paymentMode={paymentMode} />;
 }

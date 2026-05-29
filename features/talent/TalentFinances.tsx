@@ -167,7 +167,8 @@ async function downloadReceipt(w: TalentWithdrawal, pix: PixProfileRow | null, t
   });
 }
 
-export default function TalentFinances() {
+export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode?: "escrow" | "internal" }) {
+  const isInternal = paymentMode === "internal";
   const referralRateLabel = `${REFERRAL_RATE * 100}%`;
   const [payments, setPayments]         = useState<Payment[]>([]);
   const [referrals, setReferrals]       = useState<Referral[]>([]);
@@ -565,8 +566,8 @@ export default function TalentFinances() {
           <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
             <StatCard
               label="Total Ganho"
-              value={brl(paidContractEarnings + referralEarnings)}
-              sub="Contratos pagos + indicações"
+              value={brl(paidContractEarnings + (isInternal ? 0 : referralEarnings))}
+              sub={isInternal ? "Contratos com pagamento confirmado" : "Contratos pagos + indicações"}
               stripe="from-indigo-500 to-violet-500"
             />
             <StatCard
@@ -575,22 +576,39 @@ export default function TalentFinances() {
               sub="Agência ainda não liberou"
               stripe="from-amber-400 to-orange-500"
             />
-            <StatCard
-              label="Disponível para saque"
-              value={brl(availableToWithdraw)}
-              sub={alreadyWithdrawn > 0 ? `${brl(alreadyWithdrawn)} já sacado` : "Pronto para saque"}
-              stripe="from-emerald-400 to-teal-500"
-            />
-            <StatCard
-              label="Indicações"
-              value={brl(referralEarnings)}
-              sub={`${referrals.length} reserva${referrals.length !== 1 ? "s" : ""} (${referralRateLabel})`}
-              stripe="from-violet-400 to-purple-500"
-            />
+            {!isInternal && (
+              <StatCard
+                label="Disponível para saque"
+                value={brl(availableToWithdraw)}
+                sub={alreadyWithdrawn > 0 ? `${brl(alreadyWithdrawn)} já sacado` : "Pronto para saque"}
+                stripe="from-emerald-400 to-teal-500"
+              />
+            )}
+            {!isInternal && (
+              <StatCard
+                label="Indicações"
+                value={brl(referralEarnings)}
+                sub={`${referrals.length} reserva${referrals.length !== 1 ? "s" : ""} (${referralRateLabel})`}
+                stripe="from-violet-400 to-purple-500"
+              />
+            )}
           </div>
 
-          {/* Withdraw */}
-          <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
+          {/* Internal mode notice */}
+          {isInternal && (
+            <div className="flex items-start gap-3 bg-teal-50 border border-teal-100 rounded-2xl px-5 py-4">
+              <svg className="w-4 h-4 text-teal-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-[13px] text-teal-800 leading-relaxed">
+                Pagamentos são feitos diretamente pela agência. O BrisaHub registra comprovantes e confirmações, mas não guarda saldo nem realiza saques neste modo.
+              </p>
+            </div>
+          )}
+
+          {/* Withdraw — escrow mode only */}
+          {!isInternal && <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
             <div className="px-6 py-5">
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Saque via PIX</p>
@@ -690,7 +708,7 @@ export default function TalentFinances() {
               </div>
             )}
 
-          </div>
+          </div>}
 
           {/* Pending payment notice */}
           {pendingEarnings > 0 && (
@@ -706,21 +724,23 @@ export default function TalentFinances() {
           )}
 
           {/* Finance info */}
-          <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
-            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>
-              Os valores exibidos refletem reservas, contratos pagos, indicações e saques registrados na carteira.
-            </span>
-          </div>
+          {!isInternal && (
+            <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
+              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                Os valores exibidos refletem reservas, contratos pagos, indicações e saques registrados na carteira.
+              </span>
+            </div>
+          )}
 
-          {/* PIX account setup */}
-          <PixSetup onSaved={(_, value, holderName) => setPixReady(Boolean(value.trim() && holderName.trim()))} />
+          {/* PIX account setup — escrow mode only */}
+          {!isInternal && <PixSetup onSaved={(_, value, holderName) => setPixReady(Boolean(value.trim() && holderName.trim()))} />}
 
-          {/* Withdrawal history */}
-          {filteredWithdrawalHistory.length > 0 && (
+          {/* Withdrawal history — escrow mode only */}
+          {!isInternal && filteredWithdrawalHistory.length > 0 && (
             <div className="space-y-3">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Histórico de Saques</p>
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-zinc-50">
@@ -920,8 +940,8 @@ export default function TalentFinances() {
             </div>
           )}
 
-          {/* Referral earnings */}
-          <div className="space-y-3">
+          {/* Referral earnings — escrow mode only */}
+          {!isInternal && <div className="space-y-3">
             <div className="flex items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Ganhos de Indicação</p>
               <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">{referralRateLabel} por reserva</span>
@@ -956,7 +976,7 @@ export default function TalentFinances() {
                 />
               </div>
             )}
-          </div>
+          </div>}
         </>
       )}
     </div>

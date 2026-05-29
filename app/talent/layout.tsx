@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import DashboardShell from "@/components/layout/DashboardShell";
 import type { WorkspacePortalData } from "@/lib/WorkspacePortalContext";
 import { resolvePortalOnlyTalentLanding } from "@/lib/talentPortalLanding";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export default async function TalentLayout({ children }: { children: React.ReactNode }) {
   const session = await createSessionClient();
@@ -72,5 +73,12 @@ export default async function TalentLayout({ children }: { children: React.React
     }
   }
 
-  return <DashboardShell initialWorkspacePortal={initialWorkspacePortal}>{children}</DashboardShell>;
+  const globalDefaults = await getGlobalPaymentDefaults();
+  const hideEscrowNav = globalDefaults.default_payment_mode === "internal";
+
+  return (
+    <DashboardShell initialWorkspacePortal={initialWorkspacePortal} hideReferrals={hideEscrowNav}>
+      {children}
+    </DashboardShell>
+  );
 }
