@@ -839,27 +839,123 @@ export default function Home() {
       </section>
 
       {/* ── Tabbed Screenshot Showcase ── */}
-      <section id="workspace" className="relative overflow-hidden px-5 pb-24 pt-16 lg:px-10 scroll-mt-20">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_30%,rgba(39,193,214,0.07),transparent_40%)]" />
+      <section id="workspace" className="relative overflow-hidden px-5 pb-28 pt-20 lg:px-10 scroll-mt-20">
+        {/* Rich layered background */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(26,188,156,0.13),transparent_55%)]" />
+        <div className="absolute left-1/4 top-1/3 h-96 w-96 rounded-full bg-[#27C1D6]/8 blur-[120px]" />
+        <div className="absolute right-1/4 bottom-1/4 h-72 w-72 rounded-full bg-[#1ABC9C]/6 blur-[100px]" />
         <GridTexture />
+
         <div className="relative mx-auto max-w-7xl">
 
-          {/* Header */}
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
-            <div className="max-w-2xl">
-              <Pill>{t("landing_ss_pill")}</Pill>
-              <h2 className="mt-5 text-3xl font-black tracking-[-0.04em] text-white sm:text-5xl">
-                {t("landing_ss_title")}
-              </h2>
-            </div>
-            <p className="max-w-md text-sm leading-6 text-white/40">
+          {/* Header — centered */}
+          <div className="mx-auto mb-14 max-w-2xl text-center">
+            <Pill>{t("landing_ss_pill")}</Pill>
+            <h2 className="mt-5 text-3xl font-black tracking-[-0.04em] text-white sm:text-5xl">
+              {t("landing_ss_title")}
+            </h2>
+            <p className="mt-5 text-base leading-7 text-white/40">
               {t("landing_ss_desc")}
             </p>
           </div>
 
-          {/* Tab pills — scrollable on mobile */}
-          <div className="relative mb-8">
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+          {/* ── DESKTOP: vertical tabs left + large screenshot right ── */}
+          <div className="hidden lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
+
+            {/* Vertical tab list */}
+            <div className="flex flex-col gap-1 pt-2">
+              {showcaseTabs.map((tab, i) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={[
+                      "group relative flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-all duration-200",
+                      isActive
+                        ? "bg-white/[0.08] ring-1 ring-white/10"
+                        : "hover:bg-white/[0.04]",
+                    ].join(" ")}
+                  >
+                    {/* Active indicator bar */}
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#1ABC9C] shadow-[0_0_10px_rgba(26,188,156,0.8)]" />
+                    )}
+                    {/* Number badge */}
+                    <span className={[
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[10px] font-black transition-colors",
+                      isActive
+                        ? "bg-[#1ABC9C] text-white shadow-[0_2px_8px_rgba(26,188,156,0.45)]"
+                        : "bg-white/[0.06] text-white/30 group-hover:bg-white/[0.09] group-hover:text-white/50",
+                    ].join(" ")}>
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className={[
+                      "text-[13px] font-semibold transition-colors",
+                      isActive ? "text-white" : "text-white/40 group-hover:text-white/65",
+                    ].join(" ")}>
+                      {tab.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Large screenshot panel */}
+            <div className="relative min-w-0">
+              {/* Ambient glow rings */}
+              <div className="absolute -inset-px rounded-[1.6rem] bg-gradient-to-br from-[#1ABC9C]/25 via-transparent to-[#27C1D6]/15 blur-sm" />
+              <div className="absolute inset-0 rounded-[1.5rem] shadow-[0_0_80px_rgba(26,188,156,0.12)]" />
+
+              {/* Frame */}
+              <div className="relative overflow-hidden rounded-[1.5rem] border border-white/[0.10] bg-[#050f10] shadow-[0_32px_80px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.06)]">
+                {/* Browser chrome */}
+                <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.025] px-4 py-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#FF5F57]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#FFBD2E]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#28C940]" />
+                  </div>
+                  <div className="flex items-center gap-2 rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-1">
+                    <svg className="h-3 w-3 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+                    </svg>
+                    <span className="text-[11px] text-white/30">app.brisahub.com.br</span>
+                  </div>
+                  <div className="w-14" />
+                </div>
+
+                {/* Screenshot */}
+                <div className="relative">
+                  <Image
+                    src={activeShowcase.image}
+                    alt={activeShowcase.title}
+                    width={activeShowcase.image.width}
+                    height={activeShowcase.image.height}
+                    className="block w-full"
+                    sizes="(min-width: 1280px) 72vw, 80vw"
+                    priority={activeTab === "dashboard"}
+                  />
+                  {/* Bottom gradient overlay with label */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#050f10]/85 via-[#050f10]/30 to-transparent pb-5 pt-14 pl-6">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1ABC9C]">{activeShowcase.eyebrow}</p>
+                    <p className="mt-1 text-[15px] font-black text-white">{activeShowcase.title}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description card — below screenshot */}
+              <div className="mt-5 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-6 py-5 backdrop-blur-sm">
+                <p className="text-[14px] leading-7 text-white/60">{activeShowcase.desc}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── MOBILE: scrollable tabs + full screenshot ── */}
+          <div className="lg:hidden">
+            {/* Scrollable tab pills */}
+            <div className="mb-6 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
               {showcaseTabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -868,100 +964,47 @@ export default function Home() {
                   className={[
                     "flex-shrink-0 rounded-xl px-4 py-2 text-[13px] font-semibold transition-all",
                     activeTab === tab.id
-                      ? "bg-[#1ABC9C] text-white shadow-[0_4px_16px_rgba(26,188,156,0.35)]"
-                      : "bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white/80",
+                      ? "bg-[#1ABC9C] text-white shadow-[0_4px_14px_rgba(26,188,156,0.35)]"
+                      : "bg-white/[0.07] text-white/45 hover:text-white/70",
                   ].join(" ")}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Desktop: screenshot left, text right / Mobile: screenshot top, text below */}
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-center lg:gap-14">
 
             {/* Screenshot */}
             <div className="relative">
-              {/* Teal glow behind screenshot */}
-              <div className="absolute -inset-6 rounded-3xl bg-[radial-gradient(ellipse_at_center,rgba(26,188,156,0.18),transparent_65%)] blur-2xl" />
-              <div className="relative overflow-hidden rounded-2xl border border-[#1ABC9C]/20 bg-white/[0.03] p-1 shadow-[0_24px_60px_rgba(0,0,0,0.55),0_0_0_1px_rgba(26,188,156,0.12)]">
-                {/* Browser chrome */}
-                <div className="flex items-center gap-1.5 border-b border-white/[0.07] bg-white/[0.03] px-3 py-2">
-                  <span className="h-2 w-2 rounded-full bg-white/15" />
-                  <span className="h-2 w-2 rounded-full bg-white/15" />
-                  <span className="h-2 w-2 rounded-full bg-white/15" />
-                  <span className="ml-2 text-[10px] text-white/20">app.brisahub.com.br</span>
+              <div className="absolute -inset-3 rounded-3xl bg-[radial-gradient(ellipse_at_50%_50%,rgba(26,188,156,0.2),transparent_65%)] blur-2xl" />
+              <div className="relative overflow-hidden rounded-2xl border border-white/[0.09] shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+                <div className="flex items-center gap-1.5 border-b border-white/[0.07] bg-[#050f10] px-3 py-2">
+                  <span className="h-2 w-2 rounded-full bg-white/20" /><span className="h-2 w-2 rounded-full bg-white/20" /><span className="h-2 w-2 rounded-full bg-white/20" />
+                  <span className="ml-2 text-[10px] text-white/25">app.brisahub.com.br</span>
                 </div>
-                <div className="relative overflow-hidden rounded-[0.6rem]">
-                  <Image
-                    src={activeShowcase.image}
-                    alt={activeShowcase.title}
-                    width={activeShowcase.image.width}
-                    height={activeShowcase.image.height}
-                    className="block w-full"
-                    sizes="(min-width: 1280px) 60vw, (min-width: 768px) 72vw, 96vw"
-                    priority={activeTab === "dashboard"}
-                  />
-                  {/* Bottom fade */}
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#050f10]/40 to-transparent" />
-                </div>
+                <Image src={activeShowcase.image} alt={activeShowcase.title}
+                  width={activeShowcase.image.width} height={activeShowcase.image.height}
+                  className="block w-full" sizes="96vw" />
               </div>
             </div>
 
             {/* Text */}
-            <div className="space-y-5">
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#1ABC9C]">
-                {activeShowcase.eyebrow}
-              </p>
-              <h3 className="text-2xl font-black leading-tight tracking-[-0.03em] text-white lg:text-3xl">
-                {activeShowcase.title}
-              </h3>
-              <p className="text-[15px] leading-7 text-white/55">
-                {activeShowcase.desc}
-              </p>
-
-              {/* Mini mobile tab selector (repeated for UX on small screens) */}
-              <div className="flex flex-wrap gap-2 pt-2 lg:hidden">
-                {showcaseTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={[
-                      "rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all",
-                      activeTab === tab.id
-                        ? "bg-[#1ABC9C] text-white"
-                        : "bg-white/[0.06] text-white/45 hover:text-white/70",
-                    ].join(" ")}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-6 space-y-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-5 py-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#1ABC9C]">{activeShowcase.eyebrow}</p>
+              <h3 className="text-xl font-black leading-tight text-white">{activeShowcase.title}</h3>
+              <p className="text-[14px] leading-6 text-white/55">{activeShowcase.desc}</p>
             </div>
-          </div>
 
-          {/* Mobile: horizontal strip of remaining screenshots */}
-          <div className="mt-10 flex gap-3 overflow-x-auto pb-2 lg:hidden" style={{ scrollbarWidth: "none" }}>
-            {showcaseTabs.filter((tab) => tab.id !== activeTab).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className="flex-shrink-0 overflow-hidden rounded-xl border border-white/10 opacity-50 transition-opacity hover:opacity-80 focus:opacity-90"
-                style={{ width: 200 }}
-              >
-                <Image
-                  src={tab.image}
-                  alt={tab.title}
-                  width={tab.image.width}
-                  height={tab.image.height}
-                  className="block w-full object-cover object-top"
-                  sizes="200px"
-                />
-              </button>
-            ))}
+            {/* Thumbnail strip */}
+            <div className="mt-4 flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              {showcaseTabs.filter((tab) => tab.id !== activeTab).map((tab) => (
+                <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
+                  className="flex-shrink-0 overflow-hidden rounded-xl border border-white/[0.08] opacity-40 transition-all hover:opacity-75" style={{ width: 160 }}>
+                  <Image src={tab.image} alt={tab.label}
+                    width={tab.image.width} height={tab.image.height}
+                    className="block w-full object-cover object-top" sizes="160px" />
+                </button>
+              ))}
+            </div>
           </div>
 
         </div>
