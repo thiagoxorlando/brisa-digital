@@ -634,7 +634,7 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
 
       <div className="overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)]">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[1000px]">
             <thead>
               <tr className="border-b border-zinc-100">
                 <th className="px-4 py-3.5">
@@ -814,8 +814,8 @@ export default function AdminUsers({ users: initialUsers }: { users: AdminUser[]
                       {updating === user.id ? <span className="ml-2 text-[11px] text-zinc-400">Salvando...</span> : null}
                     </td>
 
-                    <td className="px-4 py-4 text-right" onClick={(event) => event.stopPropagation()}>
-                      <div className="flex flex-wrap items-center justify-end gap-1">
+                    <td className="whitespace-nowrap px-4 py-4 text-right" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex flex-nowrap items-center justify-end gap-1">
                         {user.role === "agency" ? (
                           <>
                             <button
