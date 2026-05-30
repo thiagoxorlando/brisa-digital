@@ -6,6 +6,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { isJobOpenForApplications, JOB_UNAVAILABLE_MESSAGE } from "@/lib/jobAvailability";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import {
   hasActivePremiumWorkspaceTalentMembership,
   hasPortalJobAccess,
@@ -167,11 +168,20 @@ export default async function WorkspaceJobDetailPage({ params, searchParams }: P
   let agencyPlan = "free";
   let isAvailableForApplications = true;
   let liveCommissionRate = PLAN_DEFINITIONS.free.commissionRate;
+  let paymentMode: "escrow" | "internal" = "escrow";
+
+  const globalDefaults = await getGlobalPaymentDefaults();
+
   if (data.agency_id) {
     const [{ data: agency }, { data: agencyProfile }] = await Promise.all([
-      supabase.from("agencies").select("company_name").eq("id", data.agency_id).single(),
+      supabase.from("agencies").select("company_name, payment_mode").eq("id", data.agency_id).single(),
       supabase.from("profiles").select("plan").eq("id", data.agency_id).single(),
     ]);
+
+    const agencyMode = (agency as { payment_mode?: string | null } | null)?.payment_mode;
+    paymentMode = agencyMode === "internal" ? "internal"
+      : agencyMode === "escrow" ? "escrow"
+      : globalDefaults.default_payment_mode;
     agencyName = agency?.company_name ?? workspace.name;
     agencyPlan = agencyProfile?.plan ?? "free";
 
@@ -223,6 +233,7 @@ export default async function WorkspaceJobDetailPage({ params, searchParams }: P
       jobsHref={jobsHref}
       dashboardHref={dashboardHref}
       disableReferral
+      paymentMode={paymentMode}
     />
   );
 }

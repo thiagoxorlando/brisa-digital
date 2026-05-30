@@ -255,6 +255,7 @@ function ContractModal({
   onSent: (submissionIds: string[]) => void;
 }) {
   const { plan, commissionLabel, talentShareLabel } = useSubscription();
+  const agencyConfig = useAgencyConfig();
   const [form, setForm] = useState<ContractForm>({
     job_date:        job.jobDate ?? "",
     job_time:        job.jobTime ?? "",
@@ -601,20 +602,22 @@ function ContractModal({
                   </p>
                 </div>
 
-                {/* Fee info */}
-                <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className={[
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide",
-                    plan === "premium" ? "bg-violet-100 text-violet-700" : plan === "pro" ? "bg-indigo-100 text-indigo-700" : "bg-zinc-200 text-zinc-600",
-                  ].join(" ")}>
-                    {plan.toUpperCase()}
-                  </span>
-                  Taxa da plataforma: <strong className="text-zinc-600 mx-1">{commissionLabel}</strong> · Talento recebe: <strong className="text-zinc-600 mx-1">{talentShareLabel}</strong> do valor combinado
-                </div>
+                {/* Fee info — escrow mode only: in internal mode the agency pays talent directly */}
+                {agencyConfig.paymentMode !== "internal" && (
+                  <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className={[
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide",
+                      plan === "premium" ? "bg-violet-100 text-violet-700" : plan === "pro" ? "bg-indigo-100 text-indigo-700" : "bg-zinc-200 text-zinc-600",
+                    ].join(" ")}>
+                      {plan.toUpperCase()}
+                    </span>
+                    Taxa da plataforma: <strong className="text-zinc-600 mx-1">{commissionLabel}</strong> · Talento recebe: <strong className="text-zinc-600 mx-1">{talentShareLabel}</strong> do valor combinado
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-1">

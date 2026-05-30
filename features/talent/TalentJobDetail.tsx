@@ -484,7 +484,7 @@ function ReferralModal({
             <div>
               <h2 className="text-[1rem] font-semibold text-zinc-900">Indicar um Talento</h2>
               <p className="text-[13px] text-zinc-400 mt-0.5">
-                Você ganha 2% se eles forem reservados.
+                Indique talentos para esta vaga.
               </p>
             </div>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors cursor-pointer">
@@ -579,6 +579,7 @@ export default function TalentJobDetail({
   jobsHref = "/talent/jobs",
   dashboardHref = "/talent/dashboard",
   disableReferral = false,
+  paymentMode = "escrow",
 }: {
   job: TalentJobDetailProps | null;
   talentGender?: string | null;
@@ -588,7 +589,12 @@ export default function TalentJobDetail({
   jobsHref?: string;
   dashboardHref?: string;
   disableReferral?: boolean;
+  /** Platform payment mode — hides commission/referral economics in internal mode. */
+  paymentMode?: "escrow" | "internal";
 }) {
+  // In internal mode BrisaHub does not intermediate payment. Show agreed amount only;
+  // do not subtract platform commission and do not display referral economics.
+  const isInternal = paymentMode === "internal";
   const router = useRouter();
   const [step, setStep]             = useState<StepId>("info");
   const [showReferral, setShowReferral] = useState(false);
@@ -897,7 +903,18 @@ export default function TalentJobDetail({
           </div>
 
           {/* Financial breakdown */}
-          {(() => {
+          {isInternal ? (
+            <div className="rounded-xl bg-zinc-50 border border-zinc-100 p-4 space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Pagamento</p>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-zinc-500">Pagamento acordado</span>
+                <span className="font-bold text-emerald-600 text-[15px]">{brl(job.budget)}</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 pt-0.5">
+                Pagamento direto pela agência. BrisaHub registra a confirmação de recebimento.
+              </p>
+            </div>
+          ) : (() => {
             const platformFee = Math.round(job.budget * liveCommissionRate * 100) / 100;
             const talentGets  = job.budget - platformFee;
             const referralFee = Math.round(job.budget * REFERRAL_RATE * 100) / 100;
@@ -1010,7 +1027,7 @@ export default function TalentJobDetail({
               >
                 {submitting ? "Enviando…" : orderedSteps.length === 0 ? "Enviar Candidatura" : "Iniciar Candidatura"}
               </button>
-              {!disableReferral && (
+              {!disableReferral && !isInternal && (
                 <button
                   onClick={() => router.push(`/job/${job.id}`)}
                   className="w-full bg-white border border-zinc-200 hover:border-violet-300 hover:bg-violet-50 text-zinc-700 hover:text-violet-700 text-[14px] font-semibold py-3.5 rounded-xl transition-all duration-150 active:scale-[0.99] cursor-pointer"
