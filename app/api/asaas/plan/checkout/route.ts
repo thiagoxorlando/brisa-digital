@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 
   const { data: planSetting, error: planSettingError } = await supabase
     .from("plan_settings")
-    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job")
+    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, trial_days, intro_price, intro_cycles, recurring_price")
     .eq("plan_key", requestedPlan)
     .maybeSingle();
 
@@ -282,11 +282,31 @@ export async function POST(req: NextRequest) {
   }
 
   // ── PRO path ─────────────────────────────────────────────────────────────────
-  // Compute trial window first — used by both recovery and new-subscription paths.
+  // Resolve intro pricing from plan_settings DB columns.
+  // Platform-level trials_enabled / trial_duration_days act as a global kill-switch:
+  // if trials are disabled, ignore the plan-level trial_days.
   const trialsEnabled          = Boolean(platformSettings.trials_enabled           ?? true);
   const trialAutoChargeEnabled = Boolean(platformSettings.trial_auto_charge_enabled ?? true);
-  const trialDurationDays      = Math.max(1, Number(platformSettings.trial_duration_days ?? 7));
-  const trialDays              = trialsEnabled && trialAutoChargeEnabled ? trialDurationDays : 0;
+
+  const planSettingRow = planSetting as Record<string, unknown>;
+  const planTrialDays    = Math.max(0, Number(planSettingRow.trial_days     ?? 7));
+  const planIntroPrice   = Number(planSettingRow.intro_price   ?? 0);
+  const planIntroCycles  = Math.max(0, Number(planSettingRow.intro_cycles  ?? 0));
+  const planRecurring    = Number(planSettingRow.recurring_price ?? 0);
+
+  // Determine which price to use for the Asaas subscription creation
+  // Use intro_price if > 0 and intro is configured, otherwise fall back to plan price
+  const subscriptionPrice =
+    planIntroPrice > 0 && planIntroCycles > 0
+      ? planIntroPrice
+      : planPrice;
+
+  // Determine trial days: plan_settings value, gated by platform kill-switch
+  const trialDays =
+    trialsEnabled && trialAutoChargeEnabled
+      ? planTrialDays
+      : 0;
+
   const now                    = new Date();
   const trialEndsAt            = new Date(now.getTime());
   trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
@@ -341,12 +361,21 @@ export async function POST(req: NextRequest) {
           customerId,
           subscriptionId: resolvedSubId,
           paymentId:      recoveryPaymentId,
-          paymentValue:   planPrice,
+          paymentValue:   subscriptionPrice,
           trialStartedAt: now.toISOString(),
           trialEndsAt:    trialEndsAt.toISOString(),
         });
+        // Set intro pricing state on profile
+        await supabase
+          .from("profiles")
+          .update({
+            intro_cycles_remaining:     planIntroCycles > 0 ? planIntroCycles : null,
+            current_subscription_price: subscriptionPrice,
+          } as Record<string, unknown>)
+          .eq("id", user.id);
         console.log("[asaas/plan/checkout] recovery:trial_activated", {
           userId: user.id, customerId, subscriptionId: resolvedSubId, recoveryPaymentId,
+          subscriptionPrice, planIntroCycles,
         });
         return NextResponse.json({
           ok:            true,
@@ -369,9 +398,16 @@ export async function POST(req: NextRequest) {
           trial_started_at:      null,
           trial_ends_at:         null,
         });
+        await supabase
+          .from("profiles")
+          .update({
+            intro_cycles_remaining:     planIntroCycles > 0 ? planIntroCycles : null,
+            current_subscription_price: subscriptionPrice,
+          } as Record<string, unknown>)
+          .eq("id", user.id);
         await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
         console.log("[asaas/plan/checkout] recovery:pending_activated", {
-          userId: user.id, customerId, subscriptionId: resolvedSubId,
+          userId: user.id, customerId, subscriptionId: resolvedSubId, subscriptionPrice,
         });
         return NextResponse.json({
           ok:             true,
@@ -427,7 +463,7 @@ export async function POST(req: NextRequest) {
     subscription = await createSubscription({
       customer:          customerId,
       billingType:       "CREDIT_CARD",
-      value:             planPrice,
+      value:             subscriptionPrice,
       nextDueDate:       nextDueDateStr,
       cycle:             "MONTHLY",
       description:       `Assinatura ${planLabel} - BrisaHub`,
@@ -481,10 +517,18 @@ export async function POST(req: NextRequest) {
         customerId,
         subscriptionId: subscription.id,
         paymentId:      firstPaymentId,
-        paymentValue:   planPrice,
+        paymentValue:   subscriptionPrice,
         trialStartedAt,
         trialEndsAt:    trialEndsAtIso,
       });
+      // Set intro pricing state on profile
+      await supabase
+        .from("profiles")
+        .update({
+          intro_cycles_remaining:     planIntroCycles > 0 ? planIntroCycles : null,
+          current_subscription_price: subscriptionPrice,
+        } as Record<string, unknown>)
+        .eq("id", user.id);
     } catch (trialErr) {
       // Asaas subscription created but local DB update failed.
       // Save Asaas IDs to profile so the recovery path works on next retry.
@@ -515,7 +559,9 @@ export async function POST(req: NextRequest) {
     console.log("[asaas/plan/checkout] pro trial started", {
       userId:         user.id,
       plan:           requestedPlan,
-      price:          planPrice,
+      price:          subscriptionPrice,
+      introCycles:    planIntroCycles,
+      recurringPrice: planRecurring,
       billingMode:    "trialing",
       nextDueDate:    nextDueDateStr,
       trialEndsAt:    trialEndsAtIso,
@@ -547,6 +593,13 @@ export async function POST(req: NextRequest) {
       trial_started_at:      null,
       trial_ends_at:         null,
     });
+    await supabase
+      .from("profiles")
+      .update({
+        intro_cycles_remaining:     planIntroCycles > 0 ? planIntroCycles : null,
+        current_subscription_price: subscriptionPrice,
+      } as Record<string, unknown>)
+      .eq("id", user.id);
     await syncAgencyLegacySubscriptionStatus(supabase, user.id, "pending");
   } catch (err) {
     console.error("[asaas/plan/checkout] profile_update failed", {
@@ -576,7 +629,7 @@ export async function POST(req: NextRequest) {
     const { error: chargeErr } = await supabase.from("wallet_transactions").insert({
       user_id:     user.id,
       type:        "plan_charge",
-      amount:      planPrice,
+      amount:      subscriptionPrice,
       description: `Assinatura ${planLabel} - BrisaHub`,
       payment_id:  firstPaymentId,
       provider:    "asaas",

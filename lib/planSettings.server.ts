@@ -75,6 +75,29 @@ export async function getLivePlanSettings(): Promise<Record<Plan, LivePlanSettin
     // Seat fields may not exist yet — keep fallback values.
   }
 
+  try {
+    const { data: introPricingData } = await supabase
+      .from("plan_settings")
+      .select("plan_key, trial_days, intro_price, intro_cycles, recurring_price");
+
+    for (const row of introPricingData ?? []) {
+      const key = row.plan_key as Plan;
+      if (!PLAN_KEYS.includes(key)) continue;
+      const r = row as {
+        trial_days?: number | null;
+        intro_price?: number | null;
+        intro_cycles?: number | null;
+        recurring_price?: number | null;
+      };
+      if (r.trial_days != null)      result[key].trial_days      = Number(r.trial_days);
+      if (r.intro_price != null)     result[key].intro_price     = Number(r.intro_price);
+      if (r.intro_cycles != null)    result[key].intro_cycles    = Number(r.intro_cycles);
+      if (r.recurring_price != null) result[key].recurring_price = Number(r.recurring_price);
+    }
+  } catch {
+    // intro pricing columns may not exist yet — keep fallback values.
+  }
+
   return result;
 }
 

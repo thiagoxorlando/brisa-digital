@@ -12,6 +12,14 @@ export type PublicPlanSetting = {
   max_hires_per_job: number | null;
   included_agent_seats: number | null;
   extra_agent_seat_price: number | null;
+  /** Free trial length in days (0 = no trial). */
+  trial_days: number;
+  /** Promotional first-cycle price in BRL (0 = no intro offer). */
+  intro_price: number;
+  /** Number of billing cycles at intro_price before switching to recurring_price. */
+  intro_cycles: number;
+  /** Regular monthly price in BRL after the intro period. */
+  recurring_price: number;
 };
 
 export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
@@ -30,6 +38,10 @@ export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
       max_hires_per_job: def.maxHiresPerJob,
       included_agent_seats: plan === "premium" ? 2 : null,
       extra_agent_seat_price: plan === "premium" ? 0 : null,
+      trial_days: plan === "pro" ? 7 : 0,
+      intro_price: plan === "pro" ? 97 : 0,
+      intro_cycles: plan === "pro" ? 1 : 0,
+      recurring_price: plan === "pro" ? 147 : 0,
     };
   }
 

@@ -57,6 +57,10 @@ export type PlanSetting = {
   max_hires_per_job: number | null;
   included_agent_seats: number | null;
   extra_agent_seat_price: number | null;
+  trial_days: number;
+  intro_price: number;
+  intro_cycles: number;
+  recurring_price: number;
 };
 
 export type PlanSettingHistoryEntry = {
@@ -265,6 +269,10 @@ function PlanSettingsSection({
         max_hires_per_job: null,
         included_agent_seats: key === "premium" ? 2 : null,
         extra_agent_seat_price: key === "premium" ? 0 : null,
+        trial_days: key === "pro" ? 7 : 0,
+        intro_price: key === "pro" ? 97 : 0,
+        intro_cycles: key === "pro" ? 1 : 0,
+        recurring_price: key === "pro" ? 147 : 0,
       };
     }),
   );
@@ -504,6 +512,83 @@ function PlanSettingsSection({
                       </span>
                     ))}
                   </div>
+                </div>
+              ) : null}
+
+              {/* Intro pricing — shown for paid plans (pro, premium) */}
+              {setting.plan_key !== "free" ? (
+                <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#647B7B]">Oferta de lançamento</p>
+                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
+                        Teste grátis (dias)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={setting.trial_days}
+                        onChange={(e) => updateSetting(index, "trial_days", Number(e.target.value))}
+                        className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-[13px] text-[#1F2D2E] focus:outline-none focus:border-[#0E7C86] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
+                        Preço 1º mês (R$)
+                      </label>
+                      <div className="flex items-stretch rounded-xl border border-zinc-200 overflow-hidden focus-within:border-[#0E7C86] transition-colors">
+                        <span className="flex items-center px-3 text-[13px] font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-200 select-none flex-shrink-0">
+                          R$
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={setting.intro_price}
+                          onChange={(e) => updateSetting(index, "intro_price", Number(e.target.value))}
+                          className="flex-1 min-w-0 px-3 py-2.5 text-[13px] text-[#1F2D2E] bg-white focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
+                        Meses promoção
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={setting.intro_cycles}
+                        onChange={(e) => updateSetting(index, "intro_cycles", Number(e.target.value))}
+                        className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-[13px] text-[#1F2D2E] focus:outline-none focus:border-[#0E7C86] transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
+                        Preço recorrente (R$)
+                      </label>
+                      <div className="flex items-stretch rounded-xl border border-zinc-200 overflow-hidden focus-within:border-[#0E7C86] transition-colors">
+                        <span className="flex items-center px-3 text-[13px] font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-200 select-none flex-shrink-0">
+                          R$
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={setting.recurring_price}
+                          onChange={(e) => updateSetting(index, "recurring_price", Number(e.target.value))}
+                          className="flex-1 min-w-0 px-3 py-2.5 text-[13px] text-[#1F2D2E] bg-white focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {setting.intro_price > 0 && setting.recurring_price > 0 ? (
+                    <p className="text-[11px] text-[#647B7B]">
+                      {setting.trial_days > 0 ? `${setting.trial_days} dias grátis → ` : ""}
+                      {setting.intro_cycles} {setting.intro_cycles === 1 ? "mês" : "meses"} por {brl(setting.intro_price)} → depois {brl(setting.recurring_price)}/mês
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </div>

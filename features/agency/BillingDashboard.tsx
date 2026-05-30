@@ -28,6 +28,8 @@ interface Props {
   trialEndsAt?: string | null;
   proTrialEnabled?: boolean;
   proTrialDays?: number;
+  /** Current intro_cycles_remaining from the profile row (null = no intro, 0 = done). */
+  introCyclesRemaining?: number | null;
   checkoutDefaults?: {
     email: string;
     holderName: string;
@@ -351,6 +353,7 @@ export default function BillingDashboard({
   trialEndsAt,
   proTrialEnabled = true,
   proTrialDays = 7,
+  introCyclesRemaining = null,
   checkoutDefaults,
 }: Props) {
   const isActivePaid = initialPlan !== "free";
@@ -392,7 +395,32 @@ export default function BillingDashboard({
   }
   function effectiveTrialLabel(p: PlanDef) {
     if (p.key !== "pro" || !proTrialEnabled) return null;
-    return `${proTrialDays} dias gratis`;
+    const setting = effectiveSetting(p);
+    const trialDays = setting.trial_days > 0 ? setting.trial_days : proTrialDays;
+    const introPrice = setting.intro_price;
+    const introCycles = setting.intro_cycles;
+    const recurringPrice = setting.recurring_price;
+
+    if (introCyclesRemaining != null && introCyclesRemaining > 0) {
+      // Currently on intro price: show "depois R$147/mês"
+      return recurringPrice > 0 ? `Depois ${brl(recurringPrice)}/mês` : null;
+    }
+    if (introCyclesRemaining === 0) {
+      // Intro complete: show recurring price
+      return recurringPrice > 0 ? `${brl(recurringPrice)}/mês` : null;
+    }
+
+    // Not yet subscribed — show the launch offer copy
+    if (trialDays > 0 && introPrice > 0 && introCycles > 0 && recurringPrice > 0) {
+      return `${trialDays} dias grátis · depois ${brl(introPrice)}/mês`;
+    }
+    if (introPrice > 0 && introCycles > 0 && recurringPrice > 0) {
+      return `1º mês ${brl(introPrice)} · depois ${brl(recurringPrice)}/mês`;
+    }
+    if (trialDays > 0) {
+      return `${trialDays} dias gratis`;
+    }
+    return null;
   }
 
   const currentPlanDef = getPlanDef(activePlan);
@@ -803,9 +831,23 @@ export default function BillingDashboard({
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Proxima cobranca</p>
           {(expiresAt || nextChargeDate) && activePlan !== "free" ? (
             <div className="space-y-1.5">
-              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">
-                {effectivePriceLabel(currentPlanDef)}
-              </p>
+              {(() => {
+                const setting = effectiveSetting(currentPlanDef);
+                const introPrice = setting.intro_price;
+                const recurringPrice = setting.recurring_price;
+                const showIntroPrice = isTrialing && introCyclesRemaining != null && introCyclesRemaining > 0 && introPrice > 0;
+                const displayPrice = showIntroPrice ? brl(introPrice) : effectivePriceLabel(currentPlanDef);
+                return (
+                  <>
+                    <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{displayPrice}</p>
+                    {showIntroPrice && recurringPrice > 0 && (
+                      <p className="text-[11px] text-indigo-600 font-medium">
+                        Preço promocional · depois {brl(recurringPrice)}/mês
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
               <p className="text-[13px] text-zinc-600">
                 {isTrialing
                   ? `Primeira cobranca do plano ${effectiveSetting(currentPlanDef).name}`

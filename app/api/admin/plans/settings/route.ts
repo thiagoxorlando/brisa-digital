@@ -12,7 +12,7 @@ export async function GET() {
   const supabase = createServerClient({ useServiceRole: true });
   const { data, error } = await supabase
     .from("plan_settings")
-    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price")
+    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price")
     .order("plan_key");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -43,22 +43,29 @@ export async function PATCH(req: NextRequest) {
   // Fetch all current settings before making any changes
   const { data: currentRows } = await supabase
     .from("plan_settings")
-    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price");
+    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price");
 
   const currentMap = new Map(
-    (currentRows ?? []).map((row) => [
-      row.plan_key as string,
-      {
-        price: Number(row.price),
-        commission_percent: Number(row.commission_percent),
-        is_available: Boolean(row.is_available),
-        job_limit: (row.job_limit as number | null) ?? null,
-        max_hires_per_job: (row.max_hires_per_job as number | null) ?? null,
-        included_agent_seats: (row.included_agent_seats as number | null) ?? null,
-        extra_agent_seat_price: (row.extra_agent_seat_price as number | null) ?? null,
-        name: String(row.name ?? row.plan_key),
-      },
-    ]),
+    (currentRows ?? []).map((row) => {
+      const r = row as Record<string, unknown>;
+      return [
+        row.plan_key as string,
+        {
+          price: Number(row.price),
+          commission_percent: Number(row.commission_percent),
+          is_available: Boolean(row.is_available),
+          job_limit: (row.job_limit as number | null) ?? null,
+          max_hires_per_job: (row.max_hires_per_job as number | null) ?? null,
+          included_agent_seats: (row.included_agent_seats as number | null) ?? null,
+          extra_agent_seat_price: (row.extra_agent_seat_price as number | null) ?? null,
+          name: String(row.name ?? row.plan_key),
+          trial_days: Number(r.trial_days ?? 0),
+          intro_price: Number(r.intro_price ?? 0),
+          intro_cycles: Number(r.intro_cycles ?? 0),
+          recurring_price: Number(r.recurring_price ?? 0),
+        },
+      ];
+    }),
   );
 
   for (const setting of body as Record<string, unknown>[]) {
@@ -111,6 +118,24 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "extra_agent_seat_price must be null or a non-negative number." }, { status: 400 });
     }
 
+    const trialDays = Math.max(0, Math.floor(Number(setting.trial_days ?? 0)));
+    const introPrice = Math.max(0, Number(setting.intro_price ?? 0));
+    const introCycles = Math.max(0, Math.floor(Number(setting.intro_cycles ?? 0)));
+    const recurringPrice = Math.max(0, Number(setting.recurring_price ?? 0));
+
+    if (!Number.isFinite(trialDays)) {
+      return NextResponse.json({ error: "trial_days must be a non-negative integer." }, { status: 400 });
+    }
+    if (!Number.isFinite(introPrice)) {
+      return NextResponse.json({ error: "intro_price must be a non-negative number." }, { status: 400 });
+    }
+    if (!Number.isFinite(introCycles)) {
+      return NextResponse.json({ error: "intro_cycles must be a non-negative integer." }, { status: 400 });
+    }
+    if (!Number.isFinite(recurringPrice)) {
+      return NextResponse.json({ error: "recurring_price must be a non-negative number." }, { status: 400 });
+    }
+
     const current = currentMap.get(planKey);
     if (!current) {
       return NextResponse.json({ error: `Plan settings for "${planKey}" not found. Run the migration first.` }, { status: 404 });
@@ -127,6 +152,10 @@ export async function PATCH(req: NextRequest) {
     const maxHiresChanged = maxHiresPerJob !== current.max_hires_per_job;
     const includedSeatsChanged = includedAgentSeats !== current.included_agent_seats;
     const extraSeatPriceChanged = extraAgentSeatPrice !== current.extra_agent_seat_price;
+    const trialDaysChanged = trialDays !== current.trial_days;
+    const introPriceChanged = introPrice !== current.intro_price;
+    const introCyclesChanged = introCycles !== current.intro_cycles;
+    const recurringPriceChanged = recurringPrice !== current.recurring_price;
     const anythingChanged =
       nameChanged ||
       priceChanged ||
@@ -135,7 +164,11 @@ export async function PATCH(req: NextRequest) {
       jobLimitChanged ||
       maxHiresChanged ||
       includedSeatsChanged ||
-      extraSeatPriceChanged;
+      extraSeatPriceChanged ||
+      trialDaysChanged ||
+      introPriceChanged ||
+      introCyclesChanged ||
+      recurringPriceChanged;
 
     // 1. Update the plan_settings row
     const { error: updateError } = await supabase
@@ -149,6 +182,10 @@ export async function PATCH(req: NextRequest) {
         max_hires_per_job: maxHiresPerJob,
         included_agent_seats: includedAgentSeats,
         extra_agent_seat_price: extraAgentSeatPrice,
+        trial_days: trialDays,
+        intro_price: introPrice,
+        intro_cycles: introCycles,
+        recurring_price: recurringPrice,
         updated_at: new Date().toISOString(),
       } as Record<string, unknown>)
       .eq("plan_key", planKey);
@@ -171,6 +208,10 @@ export async function PATCH(req: NextRequest) {
         max_hires_per_job: maxHiresPerJob,
         included_agent_seats: includedAgentSeats,
         extra_agent_seat_price: extraAgentSeatPrice,
+        trial_days: trialDays,
+        intro_price: introPrice,
+        intro_cycles: introCycles,
+        recurring_price: recurringPrice,
       },
     });
 

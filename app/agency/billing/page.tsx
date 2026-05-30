@@ -236,6 +236,13 @@ export default async function BillingPage() {
     Boolean(trialSettings.trial_auto_charge_enabled ?? true);
   const proTrialDays = Math.max(1, Number(trialSettings.trial_duration_days ?? 7));
 
+  // Read intro_cycles_remaining from profile row for billing display
+  const profileForIntro = profileRow as unknown as Record<string, unknown> | null;
+  const introCyclesRemaining =
+    profileForIntro?.intro_cycles_remaining != null
+      ? Number(profileForIntro.intro_cycles_remaining)
+      : null;
+
   return (
     <BillingDashboard
       plan={planKey}
@@ -246,6 +253,7 @@ export default async function BillingPage() {
       trialEndsAt={trialEndsAt}
       proTrialEnabled={proTrialEnabled}
       proTrialDays={proTrialDays}
+      introCyclesRemaining={introCyclesRemaining}
       checkoutDefaults={{
         email: user?.email ?? "",
         holderName,

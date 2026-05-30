@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
+import { updateSubscription } from "@/lib/asaas";
 import {
   parsePlanExternalReference,
   syncAgencyTrialFromAsaasSubscription,
@@ -75,6 +76,132 @@ function isDuplicateKeyError(error: unknown) {
     "code" in error &&
     error.code === "23505"
   );
+}
+
+/**
+ * After a plan payment is confirmed, decrement intro_cycles_remaining on the
+ * profile. When it reaches 0, update the Asaas subscription value to the
+ * recurring_price from plan_settings and record intro_completed_at.
+ *
+ * Uses last_processed_payment_id as an idempotency guard — if the same Asaas
+ * payment ID has already been processed, skip silently.
+ */
+async function handleIntroCycleDecrement(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+  paymentId: string,
+  subscriptionId: string | undefined | null,
+) {
+  // Fetch profile columns we need — these may not exist on old rows
+  const { data: profileRaw, error: profileErr } = await supabase
+    .from("profiles")
+    .select("intro_cycles_remaining, last_processed_payment_id, current_subscription_price, plan")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileErr) {
+    console.warn("[webhook/intro-cycle] profile fetch failed (non-fatal)", {
+      userId,
+      paymentId,
+      err: profileErr.message,
+    });
+    return;
+  }
+
+  if (!profileRaw) return;
+
+  const profile = profileRaw as {
+    intro_cycles_remaining: number | null;
+    last_processed_payment_id: string | null;
+    current_subscription_price: number | null;
+    plan: string | null;
+  };
+
+  // Idempotency guard
+  if (profile.last_processed_payment_id === paymentId) {
+    console.log("[webhook/intro-cycle] already processed, skipping", { userId, paymentId });
+    return;
+  }
+
+  // intro_cycles_remaining IS NULL means this profile has no intro offer active
+  // (either old subscription, free plan, or already completed intro)
+  if (profile.intro_cycles_remaining == null || profile.intro_cycles_remaining <= 0) {
+    // Just record that we processed this payment for idempotency
+    await supabase
+      .from("profiles")
+      .update({ last_processed_payment_id: paymentId } as Record<string, unknown>)
+      .eq("id", userId);
+    return;
+  }
+
+  const newCyclesRemaining = profile.intro_cycles_remaining - 1;
+  const patch: Record<string, unknown> = {
+    intro_cycles_remaining: newCyclesRemaining,
+    last_processed_payment_id: paymentId,
+    plan_status: "active",
+  };
+
+  if (newCyclesRemaining <= 0) {
+    // Intro complete — switch Asaas subscription to recurring price
+    const planKey = profile.plan ?? "pro";
+    const { data: planSettingRow } = await supabase
+      .from("plan_settings")
+      .select("recurring_price")
+      .eq("plan_key", planKey)
+      .maybeSingle();
+
+    const recurringPrice = planSettingRow
+      ? Number((planSettingRow as Record<string, unknown>).recurring_price ?? 0)
+      : 0;
+
+    if (recurringPrice > 0 && subscriptionId) {
+      try {
+        await updateSubscription(subscriptionId, { value: recurringPrice });
+        console.log("[webhook/intro-cycle] Asaas subscription value updated to recurring price", {
+          userId,
+          subscriptionId,
+          recurringPrice,
+          paymentId,
+        });
+      } catch (err) {
+        console.error("[webhook/intro-cycle] Asaas subscription update failed (non-fatal)", {
+          userId,
+          subscriptionId,
+          recurringPrice,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      patch.current_subscription_price = recurringPrice;
+    }
+
+    patch.intro_completed_at = new Date().toISOString();
+
+    console.log("[webhook/intro-cycle] intro complete, switched to recurring price", {
+      userId,
+      paymentId,
+      subscriptionId,
+      recurringPrice,
+    });
+  } else {
+    console.log("[webhook/intro-cycle] intro cycle decremented", {
+      userId,
+      paymentId,
+      newCyclesRemaining,
+    });
+  }
+
+  const { error: updateErr } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", userId);
+
+  if (updateErr) {
+    console.error("[webhook/intro-cycle] profile update failed (non-fatal)", {
+      userId,
+      paymentId,
+      err: updateErr.message,
+    });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -398,6 +525,13 @@ export async function POST(req: NextRequest) {
               asaasPaymentId,
               planExpiresAt: syncResult.planExpiresAt,
             });
+            // Handle intro-cycle decrement (promo billing)
+            await handleIntroCycleDecrement(
+              supabase,
+              syncResult.userId,
+              asaasPaymentId,
+              payment.subscriptionId ?? null,
+            );
           }
         } catch (error) {
           log("error", "[asaas webhook] plan activation failed", {
@@ -439,6 +573,13 @@ export async function POST(req: NextRequest) {
                 planKey: syncResult.planKey,
                 asaasPaymentId,
               });
+              // Handle intro-cycle decrement (promo billing)
+              await handleIntroCycleDecrement(
+                supabase,
+                syncResult.userId,
+                asaasPaymentId,
+                payment.subscriptionId ?? null,
+              );
             }
           } catch (error) {
             log("error", "[asaas webhook] plan charge activation failed", {

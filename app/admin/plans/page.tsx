@@ -58,6 +58,10 @@ type PlanSettingRow = {
   max_hires_per_job: number | null;
   included_agent_seats: number | null;
   extra_agent_seat_price: number | null;
+  trial_days?: number | null;
+  intro_price?: number | null;
+  intro_cycles?: number | null;
+  recurring_price?: number | null;
 };
 
 type PlanHistoryRow = {
@@ -154,7 +158,7 @@ export default async function AdminPlansPage() {
     Promise.resolve(
       supabase
         .from("plan_settings")
-        .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price")
+        .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price")
         .order("plan_key"),
     )
       .then((r) => ({ data: (r.data ?? []) as PlanSettingRow[] }))
@@ -310,6 +314,10 @@ export default async function AdminPlansPage() {
     max_hires_per_job: row.max_hires_per_job ?? null,
     included_agent_seats: row.included_agent_seats ?? null,
     extra_agent_seat_price: row.extra_agent_seat_price ?? null,
+    trial_days: Number(row.trial_days ?? (parsePlan(row.plan_key) === "pro" ? 7 : 0)),
+    intro_price: Number(row.intro_price ?? (parsePlan(row.plan_key) === "pro" ? 97 : 0)),
+    intro_cycles: Number(row.intro_cycles ?? (parsePlan(row.plan_key) === "pro" ? 1 : 0)),
+    recurring_price: Number(row.recurring_price ?? (parsePlan(row.plan_key) === "pro" ? 147 : 0)),
   }));
 
   const planHistory: PlanSettingHistoryEntry[] = planHistoryResult.data.map((row) => ({
