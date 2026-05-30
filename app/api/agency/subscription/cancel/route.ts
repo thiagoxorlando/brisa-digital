@@ -139,6 +139,8 @@ async function cancelInDatabase(
       plan:                   "free",
       plan_status:            "canceled",
       trial_ends_at:          null,
+      stripe_subscription_id: null,
+      plan_expires_at:        null,
     } as Record<string, unknown>)
     .eq("id", userId);
 
