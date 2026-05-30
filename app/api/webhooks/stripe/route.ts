@@ -61,6 +61,8 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServerClient({ useServiceRole: true });
 
+  console.log(`[stripe/webhook] received: ${event.type} (${event.id})`);
+
   // 3. Idempotency — skip if already processed
   const { data: existing } = await supabase
     .from("stripe_webhook_events")

@@ -52,8 +52,6 @@ export default async function BillingPage() {
   const [
     { data: chargeRows, error: chargeError },
     { data: webhookEvents, error: webhookError },
-    { data: checkoutProfile },
-    { data: checkoutAgency },
     trialSettings,
   ] = await Promise.all([
     // payment_id stores Asaas payment ID — column exists since 20260417 migration.
@@ -75,16 +73,6 @@ export default async function BillingPage() {
       .in("event_type", ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"])
       .order("created_at", { ascending: false })
       .limit(200),
-    supabase
-      .from("profiles")
-      .select("full_name, cpf_cnpj")
-      .eq("id", userId)
-      .maybeSingle(),
-    supabase
-      .from("agencies")
-      .select("contact_name, phone")
-      .eq("id", userId)
-      .maybeSingle(),
     getPlatformSettings(["trials_enabled", "trial_duration_days", "trial_auto_charge_enabled"]),
   ]);
 
@@ -125,7 +113,6 @@ export default async function BillingPage() {
   }
 
   const asaasCustomerId = profileRow?.asaas_customer_id ?? null;
-
 
   type PlanCharge = {
     id: string;
@@ -225,20 +212,14 @@ export default async function BillingPage() {
     }
   }
 
-  const trialEndsAt = profileRow?.trial_ends_at ?? null;
-  const checkoutProfileRow = (checkoutProfile ?? null) as Record<string, unknown> | null;
-  const checkoutAgencyRow = (checkoutAgency ?? null) as Record<string, unknown> | null;
-  const holderName =
-    String(checkoutAgencyRow?.contact_name ?? "").trim() ||
-    String(checkoutProfileRow?.full_name ?? "").trim();
+  const trialEndsAt   = profileRow?.trial_ends_at ?? null;
   const proTrialEnabled =
     Boolean(trialSettings.trials_enabled ?? true) &&
     Boolean(trialSettings.trial_auto_charge_enabled ?? true);
   const proTrialDays = Math.max(1, Number(trialSettings.trial_duration_days ?? 7));
 
-  // Read intro_cycles_remaining from profile row for billing display
-  const profileForIntro = profileRow as unknown as Record<string, unknown> | null;
-  const introCyclesRemaining =
+  const profileForIntro       = profileRow as unknown as Record<string, unknown> | null;
+  const introCyclesRemaining  =
     profileForIntro?.intro_cycles_remaining != null
       ? Number(profileForIntro.intro_cycles_remaining)
       : null;
@@ -254,12 +235,6 @@ export default async function BillingPage() {
       proTrialEnabled={proTrialEnabled}
       proTrialDays={proTrialDays}
       introCyclesRemaining={introCyclesRemaining}
-      checkoutDefaults={{
-        email: user?.email ?? "",
-        holderName,
-        cpfCnpj: String(checkoutProfileRow?.cpf_cnpj ?? ""),
-        phone: String(checkoutAgencyRow?.phone ?? ""),
-      }}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 import { brl } from "@/lib/brl";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
-import ProTrialCheckoutModal, { type ProTrialCheckoutPayload } from "@/features/agency/ProTrialCheckoutModal";
+import { formatPlanPrice } from "@/lib/planSettings.shared";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,11 +30,12 @@ interface Props {
   proTrialDays?: number;
   /** Current intro_cycles_remaining from the profile row (null = no intro, 0 = done). */
   introCyclesRemaining?: number | null;
+  /** Unused for Stripe flow — kept for Asaas backward compatibility. */
   checkoutDefaults?: {
-    email: string;
-    holderName: string;
-    cpfCnpj: string;
-    phone: string;
+    email?: string;
+    holderName?: string;
+    cpfCnpj?: string;
+    phone?: string;
   };
 }
 
@@ -107,7 +108,8 @@ type LivePlanMap = Record<string, PublicPlanSetting>;
 function getBillingReturnBanner(): "success" | "canceled" | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
-  if (params.get("success") === "true") return "success";
+  // Stripe return: ?stripe=success or legacy ?success=true
+  if (params.get("stripe") === "success" || params.get("success") === "true") return "success";
   if (params.get("canceled") === "true") return "canceled";
   return null;
 }
@@ -369,7 +371,6 @@ export default function BillingDashboard({
   const [proLoading, setProLoading] = useState(false);
   const [premiumLoading, setPremiumLoading] = useState(false);
   const [receiptCharge, setReceiptCharge] = useState<PlanCharge | null>(null);
-  const [showProCheckout, setShowProCheckout] = useState(false);
 
   const [livePlans, setLivePlans] = useState<LivePlanMap>(buildPlanSettingsFallback);
   useEffect(() => {
@@ -393,29 +394,28 @@ export default function BillingDashboard({
   function effectiveTrialLabel(p: PlanDef) {
     if (p.key !== "pro" || !proTrialEnabled) return null;
     const setting = effectiveSetting(p);
-    const trialDays = setting.trial_days > 0 ? setting.trial_days : proTrialDays;
-    const introPrice = setting.intro_price;
-    const introCycles = setting.intro_cycles;
+    const { currency } = setting;
+    const trialDays     = setting.trial_days > 0 ? setting.trial_days : proTrialDays;
+    const introPrice    = setting.intro_price;
+    const introCycles   = setting.intro_cycles;
     const recurringPrice = setting.recurring_price;
+    const fmt = (n: number) => formatPlanPrice(n, currency);
+    const perMonth = currency === "USD" ? "/month" : "/mês";
 
     if (introCyclesRemaining != null && introCyclesRemaining > 0) {
-      // Currently on intro price: show "depois R$147/mês"
-      return recurringPrice > 0 ? `Depois ${brl(recurringPrice)}/mês` : null;
+      return recurringPrice > 0 ? `Then ${fmt(recurringPrice)}${perMonth}` : null;
     }
     if (introCyclesRemaining === 0) {
-      // Intro complete: show recurring price
-      return recurringPrice > 0 ? `${brl(recurringPrice)}/mês` : null;
+      return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
     }
-
-    // Not yet subscribed — show the launch offer copy
     if (trialDays > 0 && introPrice > 0 && introCycles > 0 && recurringPrice > 0) {
-      return `${trialDays} dias grátis · depois ${brl(introPrice)}/mês`;
+      return `${trialDays}-day free trial · then ${fmt(introPrice)}${perMonth}`;
     }
     if (introPrice > 0 && introCycles > 0 && recurringPrice > 0) {
-      return `1º mês ${brl(introPrice)} · depois ${brl(recurringPrice)}/mês`;
+      return `${fmt(introPrice)} first month · then ${fmt(recurringPrice)}${perMonth}`;
     }
     if (trialDays > 0) {
-      return `${trialDays} dias gratis`;
+      return `${trialDays}-day free trial`;
     }
     return null;
   }
@@ -429,67 +429,36 @@ export default function BillingDashboard({
     setTimeout(() => setToast(null), 5000);
   }
 
-  async function handleAsaasCheckout(plan: PlanKey, payload?: ProTrialCheckoutPayload) {
-    const setting = livePlans[plan] ?? buildPlanSettingsFallback()[plan];
-    if (!setting.is_available) {
-      showToast("Este plano ainda não está disponível.", false);
-      return;
+  /** Redirects the user to Stripe Checkout for the PRO plan. */
+  async function handleStripeCheckout() {
+    setProLoading(true);
+    try {
+      const res  = await fetch("/api/stripe/create-checkout", { method: "POST" });
+      const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        showToast(data.error ?? "Could not start checkout. Please try again.", false);
+        return;
+      }
+      // Full-page redirect to Stripe Checkout hosted page
+      window.location.assign(data.url);
+    } catch {
+      showToast("Network error. Please try again.", false);
+    } finally {
+      setProLoading(false);
     }
-    if (setting.price <= 0) {
-      showToast("Este plano não requer checkout.", false);
-      return;
-    }
-
-    if (plan === "pro") setProLoading(true);
-    else setPremiumLoading(true);
-
-    const res = await fetch("/api/asaas/plan/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan, ...(payload ?? {}) }),
-    });
-    const data = await res.json().catch(() => ({})) as PlanChangeResponse & { error?: string };
-
-    if (plan === "pro") setProLoading(false);
-    else setPremiumLoading(false);
-
-    if (!res.ok) {
-      showToast(data.error ?? "Erro ao iniciar pagamento. Tente novamente.", false);
-      return;
-    }
-
-    if (plan === "pro" && data.mode === "trialing") {
-      setActivePlan("pro");
-      setActivePlanStatus(data.planStatus ?? "trialing");
-      setCurrentTrialEndsAt(data.trialEndsAt ?? null);
-      setExpiresAt(data.nextChargeDate ?? data.trialEndsAt ?? null);
-      setShowProCheckout(false);
-      showToast(
-        data.trialEndsAt
-          ? `Teste gratis ativo. Primeira cobranca em ${fmtDate(data.trialEndsAt)}.`
-          : "Teste gratis ativo.",
-        true,
-      );
-      return;
-    }
-
-    if (!data.url) {
-      showToast(data.error ?? "Erro ao iniciar pagamento. Tente novamente.", false);
-      return;
-    }
-    window.location.assign(data.url);
   }
 
   function handlePlanClick(p: PlanDef) {
     const setting = effectiveSetting(p);
     if (!setting.is_available) {
-      showToast("Este plano ainda não está disponível.", false);
+      showToast("This plan is not yet available.", false);
       return;
     }
     if (p.key === "free" && activePlan !== "free") { setChangingTo(p); return; }
     if (p.key === activePlan) return;
-    if (p.key === "pro") { setShowProCheckout(true); return; }
-    if (setting.price > 0) { void handleAsaasCheckout(p.key); return; }
+    if (p.key === "pro") { void handleStripeCheckout(); return; }
+    // Premium and other paid plans still use the legacy modal/flow
+    if (setting.price > 0) { setChangingTo(p); return; }
     setChangingTo(p);
   }
 
@@ -602,23 +571,6 @@ export default function BillingDashboard({
       {receiptCharge && (
         <ReceiptModal charge={receiptCharge} onClose={() => setReceiptCharge(null)} />
       )}
-      {showProCheckout && checkoutDefaults && (
-        <ProTrialCheckoutModal
-          email={checkoutDefaults.email}
-          planLabel={effectiveSetting(getPlanDef("pro")).name}
-          priceLabel={effectivePriceLabel(getPlanDef("pro"))}
-          trialDays={proTrialDays}
-          initialHolderName={checkoutDefaults.holderName}
-          initialCpfCnpj={checkoutDefaults.cpfCnpj}
-          initialPhone={checkoutDefaults.phone}
-          submitting={proLoading}
-          onClose={() => setShowProCheckout(false)}
-          onSubmit={async (payload) => {
-            await handleAsaasCheckout("pro", payload);
-          }}
-        />
-      )}
-
       {/* Page title */}
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agencia</p>
@@ -639,7 +591,7 @@ export default function BillingDashboard({
                   ? ` · renova em ${fmtDate(expiresAt)}`
                   : ""}
             </p>
-            <p className="text-[13px] text-zinc-400">Pagamentos processados com segurança via Asaas.</p>
+            <p className="text-[13px] text-zinc-400">Payments securely processed via Stripe.</p>
           </div>
           {activePlan !== "free" && (
             <div className="flex-shrink-0">
@@ -830,7 +782,7 @@ export default function BillingDashboard({
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-zinc-400">Provedor: Asaas</p>
+              <p className="text-[11px] text-zinc-400">Provider: {latestCharge.provider === "stripe" ? "Stripe" : "Asaas"}</p>
               <button
                 onClick={() => setReceiptCharge(latestCharge)}
                 className="mt-1 text-[12px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
@@ -852,13 +804,16 @@ export default function BillingDashboard({
                 const introPrice = setting.intro_price;
                 const recurringPrice = setting.recurring_price;
                 const showIntroPrice = isTrialing && introCyclesRemaining != null && introCyclesRemaining > 0 && introPrice > 0;
-                const displayPrice = showIntroPrice ? brl(introPrice) : effectivePriceLabel(currentPlanDef);
+                const displayPrice = showIntroPrice
+                  ? formatPlanPrice(introPrice, setting.currency)
+                  : effectivePriceLabel(currentPlanDef);
+                const perMonth = setting.currency === "USD" ? "/month" : "/mês";
                 return (
                   <>
                     <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{displayPrice}</p>
                     {showIntroPrice && recurringPrice > 0 && (
                       <p className="text-[11px] text-indigo-600 font-medium">
-                        Preço promocional · depois {brl(recurringPrice)}/mês
+                        Intro price · then {formatPlanPrice(recurringPrice, setting.currency)}{perMonth}
                       </p>
                     )}
                   </>
@@ -910,7 +865,7 @@ export default function BillingDashboard({
                         {charge.asaas_payment_id.slice(0, 12)}…
                       </span>
                     )}
-                    <span className="text-[11px] text-zinc-300">· Asaas</span>
+                    <span className="text-[11px] text-zinc-300">· {charge.provider === "stripe" ? "Stripe" : "Asaas"}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
