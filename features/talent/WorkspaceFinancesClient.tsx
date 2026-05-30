@@ -19,7 +19,8 @@ type Withdrawal = {
   admin_note: string | null;
 };
 
-export default function WorkspaceFinancesClient() {
+export default function WorkspaceFinancesClient({ paymentMode = "escrow" }: { paymentMode?: "escrow" | "internal" }) {
+  const isInternal = paymentMode === "internal";
   const [walletBalance,   setWalletBalance]   = useState(0);
   const [withdrawals,     setWithdrawals]     = useState<Withdrawal[]>([]);
   const [pixReady,        setPixReady]        = useState(false);
@@ -116,6 +117,19 @@ export default function WorkspaceFinancesClient() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-200 border-t-zinc-700" />
+      </div>
+    );
+  }
+
+  if (isInternal) {
+    return (
+      <div className="flex items-start gap-3 rounded-2xl border border-teal-100 bg-teal-50 px-5 py-4">
+        <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p className="text-[13px] leading-relaxed text-teal-800">
+          Pagamentos são feitos diretamente pela agência. O BrisaHub registra confirmações, mas não guarda saldo nem processa saques neste portal.
+        </p>
       </div>
     );
   }

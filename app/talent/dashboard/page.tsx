@@ -4,6 +4,7 @@ import TalentDashboard from "@/features/talent/TalentDashboard";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { resolvePortalOnlyTalentLanding } from "@/lib/talentPortalLanding";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export const metadata: Metadata = { title: "Painel - BrisaHub" };
 
@@ -21,25 +22,27 @@ export default async function TalentDashboardPage() {
   }
 
   const [
-    { data: submissionsData },
-    { data: contractsData },
-    { data: profileData },
+    [{ data: submissionsData }, { data: contractsData }, { data: profileData }],
+    globalDefaults,
   ] = await Promise.all([
-    supabase
-      .from("submissions")
-      .select("id, job_id")
-      .eq("talent_user_id", talentId),
-    supabase
-      .from("contracts")
-      .select("id, agency_id, job_id, job_description, job_date, job_time, location, payment_amount, net_amount, payment_status, status, paid_at")
-      .eq("talent_id", talentId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("profiles")
-      .select("wallet_balance")
-      .eq("id", talentId)
-      .maybeSingle(),
+    Promise.all([
+      supabase
+        .from("submissions")
+        .select("id, job_id")
+        .eq("talent_user_id", talentId),
+      supabase
+        .from("contracts")
+        .select("id, agency_id, job_id, job_description, job_date, job_time, location, payment_amount, net_amount, payment_status, status, paid_at")
+        .eq("talent_id", talentId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("wallet_balance")
+        .eq("id", talentId)
+        .maybeSingle(),
+    ]),
+    getGlobalPaymentDefaults(),
   ]);
 
   const jobIds = [
@@ -124,12 +127,14 @@ export default async function TalentDashboardPage() {
 
   return (
     <TalentDashboard
+      paymentMode={globalDefaults.default_payment_mode}
       stats={{
         applied: filteredSubmissions.length,
         accepted: acceptedContracts.length,
         upcoming: upcomingBookings.length,
         pendingWithdraw,
         totalEarned,
+        paidContractsCount: paidContracts.length,
       }}
       upcomingBookings={upcomingBookings}
       pendingPayments={pendingPayments}

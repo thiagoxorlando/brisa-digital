@@ -8,11 +8,12 @@ import { formatJobLocation } from "@/lib/jobLocation";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Stats = {
-  applied:        number;
-  accepted:       number;
-  upcoming:       number;
-  pendingWithdraw: number;
-  totalEarned:    number;
+  applied:           number;
+  accepted:          number;
+  upcoming:          number;
+  pendingWithdraw:   number;
+  totalEarned:       number;
+  paidContractsCount?: number;
 };
 
 type UpcomingBooking = {
@@ -134,13 +135,16 @@ export default function TalentDashboard({
   upcomingBookings,
   pendingPayments,
   todayAvailability,
+  paymentMode = "escrow",
 }: {
   stats:             Stats;
   upcomingBookings:  UpcomingBooking[];
   pendingPayments:   PendingPayment[];
   todayAvailability: TodayAvailability;
+  paymentMode?:      "escrow" | "internal";
 }) {
   const { t, lang } = useT();
+  const isInternal = paymentMode === "internal";
 
   const statCards = [
     {
@@ -182,7 +186,25 @@ export default function TalentDashboard({
         </svg>
       ),
     },
-    {
+    isInternal ? {
+      label:  lang === "pt-BR" ? "Ganhos Confirmados" : "Confirmed Earnings",
+      value:  brl(stats.totalEarned),
+      sub:    (() => {
+        const count = stats.paidContractsCount ?? 0;
+        if (count === 0) return lang === "pt-BR" ? "Nenhum pagamento confirmado" : "No payments yet";
+        return lang === "pt-BR"
+          ? `${count} pagamento${count !== 1 ? "s" : ""} confirmado${count !== 1 ? "s" : ""}`
+          : `${count} payment${count !== 1 ? "s" : ""} confirmed`;
+      })(),
+      href:   "/talent/finances",
+      stripe: "from-emerald-400 to-teal-500",
+      icon: (
+        <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    } : {
       label:  t("finances_available"),
       value:  brl(stats.pendingWithdraw),
       sub:    stats.totalEarned > 0 ? `${brl(stats.totalEarned)} ${t("finances_earnings")}` : t("finances_ready"),
@@ -327,8 +349,8 @@ export default function TalentDashboard({
         <div className="xl:col-span-2 space-y-0">
           <SectionHeader title={t("page_finances")} href="/talent/finances" hrefLabel={t("nav_finances")} />
 
-          {/* Withdraw banner */}
-          {stats.pendingWithdraw > 0 && (
+          {/* Withdraw banner — escrow mode only */}
+          {!isInternal && stats.pendingWithdraw > 0 && (
             <Link
               href="/talent/finances"
               className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3.5 mb-3 hover:bg-emerald-100/60 transition-colors"
@@ -347,8 +369,10 @@ export default function TalentDashboard({
             </Link>
           )}
 
-          {pendingPayments.length === 0 && stats.pendingWithdraw === 0 ? (
-            <Empty msg={t("finances_no_funds")} />
+          {pendingPayments.length === 0 && (isInternal ? stats.totalEarned === 0 : stats.pendingWithdraw === 0) ? (
+            <Empty msg={isInternal
+              ? (lang === "pt-BR" ? "Nenhum pagamento confirmado ainda." : "No confirmed payments yet.")
+              : t("finances_no_funds")} />
           ) : (
             <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
 

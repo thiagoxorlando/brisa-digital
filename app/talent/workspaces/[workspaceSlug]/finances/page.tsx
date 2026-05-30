@@ -6,6 +6,7 @@ import { brl } from "@/lib/brl";
 import { resolveContractAmounts } from "@/lib/contractStatus";
 import { getContractComputedState } from "@/lib/contractState";
 import WorkspaceFinancesClient from "@/features/talent/WorkspaceFinancesClient";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
 
@@ -51,6 +52,9 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
     .maybeSingle()).data;
 
   if (!workspace) notFound();
+
+  const globalDefaults = await getGlobalPaymentDefaults();
+  const isInternal = globalDefaults.default_payment_mode === "internal";
 
   const primary = (workspace.brand_primary_color as string | null) ?? "#1ABC9C";
   const accent  = (workspace.brand_accent_color  as string | null) ?? "#27C1D6";
@@ -189,12 +193,14 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
           sub={`${pendingContracts.length} contrato${pendingContracts.length !== 1 ? "s" : ""} em andamento`}
           accent={totalPending > 0 ? "amber" : undefined}
         />
-        <StatCard
-          label="Saldo disponível para saque"
-          value={brl(walletBalance)}
-          sub="Saldo total da plataforma · disponível via PIX"
-          accent={walletBalance > 0 ? "emerald" : undefined}
-        />
+        {!isInternal && (
+          <StatCard
+            label="Saldo disponível para saque"
+            value={brl(walletBalance)}
+            sub="Saldo total da plataforma · disponível via PIX"
+            accent={walletBalance > 0 ? "emerald" : undefined}
+          />
+        )}
       </div>
 
       {/* Pending receivables */}
@@ -365,7 +371,7 @@ export default async function WorkspaceFinancesPage({ params }: Props) {
       )}
 
       {/* PIX setup + withdrawal (live, client-side) */}
-      <WorkspaceFinancesClient />
+      <WorkspaceFinancesClient paymentMode={globalDefaults.default_payment_mode} />
     </div>
   );
 }

@@ -718,7 +718,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-[12px] text-amber-800 leading-relaxed">
-                <strong>{brl(pendingEarnings)}</strong> aguardando pagamento da agência — será adicionado ao seu saldo disponível quando pago.
+                <strong>{brl(pendingEarnings)}</strong> aguardando pagamento da agência{isInternal ? " — confirmação pendente." : " — será adicionado ao seu saldo disponível quando pago."}
               </p>
             </div>
           )}
