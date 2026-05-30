@@ -59,9 +59,12 @@ export async function POST(_req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("stripe_customer_id, stripe_subscription_id, plan, plan_status")
+    .select("stripe_customer_id, stripe_subscription_id, plan, plan_status, pro_trial_used")
     .eq("id", user.id)
     .single();
+
+  // One-time trial: once pro_trial_used=true, never offer a trial again.
+  const trialAlreadyUsed = Boolean((profile as Record<string, unknown> | null)?.pro_trial_used);
 
   if (
     profile?.stripe_subscription_id &&
@@ -139,8 +142,9 @@ export async function POST(_req: NextRequest) {
     ],
 
     subscription_data: {
-      trial_period_days: trial_days > 0 ? trial_days : undefined,
-      trial_settings: trial_days > 0
+      // Trial only on first-ever subscription. Resubscribers pay immediately.
+      trial_period_days: (!trialAlreadyUsed && trial_days > 0) ? trial_days : undefined,
+      trial_settings: (!trialAlreadyUsed && trial_days > 0)
         ? { end_behavior: { missing_payment_method: "cancel" } }
         : undefined,
       metadata: {
@@ -149,8 +153,8 @@ export async function POST(_req: NextRequest) {
       },
     },
 
-    // Apply intro coupon when configured
-    ...(couponId ? { discounts: [{ coupon: couponId }] } : {}),
+    // Intro coupon is part of the trial offer — skip when trial is not granted.
+    ...(!trialAlreadyUsed && couponId ? { discounts: [{ coupon: couponId }] } : {}),
 
     // Re-use existing Stripe customer if the user has checked out before
     ...(profile?.stripe_customer_id
@@ -192,7 +196,8 @@ export async function POST(_req: NextRequest) {
 
   console.log(
     `[stripe/create-checkout] session created: user=${user.id} session=${checkoutSession.id}`,
-    `trial=${trial_days}d intro=${intro_price} recurring=${recurring_price} ${currency}`
+    `trial=${trialAlreadyUsed ? "SKIPPED(used)" : `${trial_days}d`}`,
+    `intro=${trialAlreadyUsed ? "SKIPPED" : intro_price} recurring=${recurring_price} ${currency}`,
   );
 
   return NextResponse.json({ url: checkoutSession.url });

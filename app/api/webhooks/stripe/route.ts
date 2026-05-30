@@ -163,9 +163,13 @@ async function handleCheckoutSessionCompleted(
       patch.plan_status = planStatus;
 
       if (subscription.trial_end) {
-        patch.trial_ends_at    = new Date(subscription.trial_end * 1000).toISOString();
-        patch.trial_started_at = new Date().toISOString();
-        console.log(`[stripe/webhook] checkout.session.completed: trial ends ${patch.trial_ends_at}`);
+        const trialEndsAt       = new Date(subscription.trial_end * 1000).toISOString();
+        patch.trial_ends_at     = trialEndsAt;
+        patch.trial_started_at  = new Date().toISOString();
+        // Mark trial as used — persists through cancellation, never reset.
+        patch.pro_trial_used       = true;
+        patch.pro_trial_started_at = new Date().toISOString();
+        console.log(`[stripe/webhook] checkout.session.completed: trial ends ${trialEndsAt} (trial marked used)`);
       }
     } catch (err) {
       // Non-fatal: subscription events will correct this state
@@ -209,8 +213,10 @@ async function handleSubscriptionCreated(
     subscription_provider:  "stripe",
   };
   if (trialEnd) {
-    patch.trial_ends_at    = trialEnd;
-    patch.trial_started_at = new Date().toISOString();
+    patch.trial_ends_at        = trialEnd;
+    patch.trial_started_at     = new Date().toISOString();
+    patch.pro_trial_used       = true;
+    patch.pro_trial_started_at = new Date().toISOString();
   }
 
   const count = await profileUpdate(supabase, userId, patch, "subscription.created");
@@ -241,9 +247,15 @@ async function handleSubscriptionUpdated(
     plan_status: planStatus,
   };
 
-  // Sync trial end if still in trial
+  // Sync trial end date while still in trial
   if (subscription.trial_end) {
     patch.trial_ends_at = new Date(subscription.trial_end * 1000).toISOString();
+  }
+
+  // Trial converted to paid — record when it ended.
+  // Detected by status becoming "active" while a trial_end timestamp exists.
+  if (subscription.status === "active" && subscription.trial_end) {
+    patch.pro_trial_ended_at = new Date(subscription.trial_end * 1000).toISOString();
   }
 
   const count = await profileUpdate(supabase, userId, patch, "subscription.updated");

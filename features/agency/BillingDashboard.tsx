@@ -29,6 +29,8 @@ interface Props {
   trialEndsAt?: string | null;
   proTrialEnabled?: boolean;
   proTrialDays?: number;
+  /** True when this agency has already used their one-time PRO trial. */
+  proTrialUsed?: boolean;
   /** Current intro_cycles_remaining from the profile row (null = no intro, 0 = done). */
   introCyclesRemaining?: number | null;
   /** Unused for Stripe flow — kept for Asaas backward compatibility. */
@@ -353,6 +355,7 @@ export default function BillingDashboard({
   trialEndsAt,
   proTrialEnabled = true,
   proTrialDays = 7,
+  proTrialUsed = false,
   introCyclesRemaining = null,
   checkoutDefaults,
 }: Props) {
@@ -397,17 +400,21 @@ export default function BillingDashboard({
     if (p.key !== "pro" || !proTrialEnabled) return null;
     const setting = effectiveSetting(p);
     const { currency } = setting;
-    const trialDays     = setting.trial_days > 0 ? setting.trial_days : proTrialDays;
-    const introPrice    = setting.intro_price;
-    const introCycles   = setting.intro_cycles;
+    const trialDays      = setting.trial_days > 0 ? setting.trial_days : proTrialDays;
+    const introPrice     = setting.intro_price;
+    const introCycles    = setting.intro_cycles;
     const recurringPrice = setting.recurring_price;
-    const fmt = (n: number) => formatPlanPrice(n, currency);
+    const fmt      = (n: number) => formatPlanPrice(n, currency);
     const perMonth = currency === "USD" ? "/month" : "/mês";
 
     if (introCyclesRemaining != null && introCyclesRemaining > 0) {
       return recurringPrice > 0 ? `Then ${fmt(recurringPrice)}${perMonth}` : null;
     }
     if (introCyclesRemaining === 0) {
+      return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
+    }
+    // Trial already used — show only the regular recurring price, no trial copy.
+    if (proTrialUsed) {
       return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
     }
     if (trialDays > 0 && introPrice > 0 && introCycles > 0 && recurringPrice > 0) {

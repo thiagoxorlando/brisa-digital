@@ -223,6 +223,7 @@ export default async function BillingPage() {
     profileForIntro?.intro_cycles_remaining != null
       ? Number(profileForIntro.intro_cycles_remaining)
       : null;
+  const proTrialUsed = Boolean(profileForIntro?.pro_trial_used ?? false);
 
   return (
     <BillingDashboard
@@ -234,6 +235,7 @@ export default async function BillingPage() {
       trialEndsAt={trialEndsAt}
       proTrialEnabled={proTrialEnabled}
       proTrialDays={proTrialDays}
+      proTrialUsed={proTrialUsed}
       introCyclesRemaining={introCyclesRemaining}
     />
   );
