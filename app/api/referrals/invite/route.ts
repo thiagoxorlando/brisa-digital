@@ -14,6 +14,7 @@ import { sendEmail, validateEmailConfig } from "@/lib/resend";
 import { notify } from "@/lib/notify";
 import { agencyWorkspaceJobDetailHref, resolveWorkspaceLifecycleByJobId } from "@/lib/workspaceLifecycle";
 import { getFeatureFlag } from "@/lib/featureFlags.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 type ExistingReferralInvite = {
   id: string;
@@ -29,6 +30,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "O programa de indicações está desativado no momento." },
       { status: 403 },
+    );
+  }
+
+  const globalDefaults = await getGlobalPaymentDefaults();
+  if (globalDefaults.default_payment_mode === "internal") {
+    return NextResponse.json(
+      { error: "Indicações não estão disponíveis no modo de pagamento direto." },
+      { status: 422 },
     );
   }
 

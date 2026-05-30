@@ -7,6 +7,7 @@ import { getContractPaymentStatus } from "@/lib/contractStatus";
 import WorkspaceApplicationsClient, {
   type WorkspaceApplicationItem,
 } from "@/features/talent/WorkspaceApplicationsClient";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export const metadata: Metadata = { title: "Reservas — BrisaHub" };
 
@@ -34,7 +35,7 @@ export default async function WorkspaceApplicationsPage({ params }: Props) {
 
   const { data: workspace } = await supabase
     .from("premium_workspaces")
-    .select("id, name, logo_url, brand_primary_color, brand_accent_color")
+    .select("id, name, logo_url, brand_primary_color, brand_accent_color, agency_id, owner_user_id")
     .eq("slug", workspaceSlug)
     .is("deleted_at", null)
     .eq("status", "active")
@@ -50,6 +51,22 @@ export default async function WorkspaceApplicationsPage({ params }: Props) {
 
   const workspaceJobIds = (allJobs ?? []).map((job) => job.id);
   const jobMap = new Map((allJobs ?? []).map((job) => [String(job.id), job]));
+
+  const agencyLookupId = (workspace as Record<string, unknown>).agency_id as string | null;
+  const ownerUserId = (workspace as Record<string, unknown>).owner_user_id as string | null;
+  const [agencyRow, globalDefaults] = await Promise.all([
+    agencyLookupId
+      ? supabase.from("agencies").select("payment_mode").eq("id", agencyLookupId).maybeSingle()
+      : ownerUserId
+        ? supabase.from("agencies").select("payment_mode").eq("user_id", ownerUserId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    getGlobalPaymentDefaults(),
+  ]);
+  const agencyMode = (agencyRow.data as { payment_mode?: string | null } | null)?.payment_mode;
+  const paymentMode: "escrow" | "internal" =
+    agencyMode === "internal" ? "internal"
+    : agencyMode === "escrow" ? "escrow"
+    : globalDefaults.default_payment_mode;
 
   const [submissionResult, contractResult] = await Promise.all([
     workspaceJobIds.length
@@ -187,6 +204,7 @@ export default async function WorkspaceApplicationsPage({ params }: Props) {
       locale={locale}
       statusLang={statusLang}
       items={items}
+      paymentMode={paymentMode}
     />
   );
 }

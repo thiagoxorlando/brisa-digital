@@ -41,6 +41,7 @@ type Props = {
   workspaceSlug: string;
   primary: string;
   accent: string;
+  paymentMode?: "escrow" | "internal";
 };
 
 type ModalState =
@@ -79,6 +80,7 @@ export default function WorkspaceTalentContracts({
   workspaceSlug,
   primary,
   accent,
+  paymentMode = "escrow",
 }: Props) {
   const [contracts, setContracts] = useState(initialContracts);
   const [modal, setModal] = useState<ModalState>(null);
@@ -225,22 +227,22 @@ export default function WorkspaceTalentContracts({
         </div>
       )}
 
-      <ContractSection title="Aguardando sua ação" contracts={pending} primary={primary} accent={accent}
+      <ContractSection title="Aguardando sua ação" contracts={pending} primary={primary} accent={accent} paymentMode={paymentMode}
         onDetails={(id) => openModal("details", id)}
         onSign={(id) => openModal("sign", id)}
         onReject={(id) => openModal("reject", id)}
       />
-      <ContractSection title="Em andamento" contracts={active} primary={primary} accent={accent}
+      <ContractSection title="Em andamento" contracts={active} primary={primary} accent={accent} paymentMode={paymentMode}
         onDetails={(id) => openModal("details", id)}
         onSign={(id) => openModal("sign", id)}
         onReject={(id) => openModal("reject", id)}
       />
-      <ContractSection title="Pagos" contracts={paid} primary={primary} accent={accent}
+      <ContractSection title="Pagos" contracts={paid} primary={primary} accent={accent} paymentMode={paymentMode}
         onDetails={(id) => openModal("details", id)}
         onSign={(id) => openModal("sign", id)}
         onReject={(id) => openModal("reject", id)}
       />
-      <ContractSection title="Histórico" contracts={history} primary={primary} accent={accent}
+      <ContractSection title="Histórico" contracts={history} primary={primary} accent={accent} paymentMode={paymentMode}
         onDetails={(id) => openModal("details", id)}
         onSign={(id) => openModal("sign", id)}
         onReject={(id) => openModal("reject", id)}
@@ -471,6 +473,7 @@ function ContractSection({
   contracts,
   primary,
   accent,
+  paymentMode,
   onDetails,
   onSign,
   onReject,
@@ -479,6 +482,7 @@ function ContractSection({
   contracts: WorkspaceTalentContract[];
   primary: string;
   accent: string;
+  paymentMode?: "escrow" | "internal";
   onDetails: (id: string) => void;
   onSign: (id: string) => void;
   onReject: (id: string) => void;
@@ -490,7 +494,7 @@ function ContractSection({
       <ul className="flex flex-col gap-3">
         {contracts.map((c) => (
           <li key={c.id}>
-            <ContractCard contract={c} primary={primary} accent={accent}
+            <ContractCard contract={c} primary={primary} accent={accent} paymentMode={paymentMode}
               onDetails={onDetails} onSign={onSign} onReject={onReject}
             />
           </li>
@@ -504,6 +508,7 @@ function ContractCard({
   contract,
   primary,
   accent,
+  paymentMode = "escrow",
   onDetails,
   onSign,
   onReject,
@@ -511,10 +516,12 @@ function ContractCard({
   contract: WorkspaceTalentContract;
   primary: string;
   accent: string;
+  paymentMode?: "escrow" | "internal";
   onDetails: (id: string) => void;
   onSign: (id: string) => void;
   onReject: (id: string) => void;
 }) {
+  const isInternal = paymentMode === "internal";
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [paymentConfirmedLocally, setPaymentConfirmedLocally] = useState(false);
 
@@ -553,16 +560,20 @@ function ContractCard({
 
         <div className="space-y-0.5 text-[12px] text-zinc-500">
           <div className="flex flex-wrap gap-4">
+            {!isInternal && net !== gross && (
+              <span>
+                <span className="font-medium text-zinc-700">Você recebe: </span>
+                <span className="font-semibold text-emerald-600">{brl(net)}</span>
+              </span>
+            )}
             <span>
-              <span className="font-medium text-zinc-700">Você recebe: </span>
-              <span className="font-semibold text-emerald-600">{brl(net)}</span>
-            </span>
-            <span>
-              <span className="font-medium text-zinc-700">Bruto: </span>
+              <span className="font-medium text-zinc-700">
+                {isInternal ? "Pagamento acordado: " : "Bruto: "}
+              </span>
               {brl(gross)}
             </span>
           </div>
-          {commission > 0 && (
+          {!isInternal && commission > 0 && (
             <p className="text-[11px] text-zinc-400">
               Comissão da plataforma ({commissionPct}%): −{brl(commission)}
             </p>

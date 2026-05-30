@@ -201,7 +201,7 @@ function BookingRow({
   async function handleCancel() {
     if (!booking.contractId) return;
     const confirmed = window.confirm(
-      `Cancelar reserva de ${booking.talentName}?${unified === "aguardando_pagamento" ? " Se já houver valor em custódia, ele será devolvido com segurança." : ""}`,
+      `Cancelar reserva de ${booking.talentName}?${unified === "aguardando_pagamento" && isEscrow ? " Se já houver valor em custódia, ele será devolvido com segurança." : ""}`,
     );
     if (!confirmed) return;
 

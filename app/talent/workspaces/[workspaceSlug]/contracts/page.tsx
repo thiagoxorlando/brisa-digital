@@ -6,6 +6,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { hasActivePremiumWorkspaceTalentMembership } from "@/lib/workspacePortalJobs";
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export const metadata: Metadata = { title: "Contratos — BrisaHub" };
 
@@ -69,7 +70,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
   const contractSelect =
     "id, workspace_id, agency_id, job_id, talent_id, talent_user_id, job_date, job_time, location, job_description, payment_amount, commission_amount, net_amount, payment_method, additional_notes, status, created_at, signed_at, paid_at, contract_file_url, signed_contract_url, agency_payment_sent_at, talent_payment_confirmed_at, payment_receipt_url";
 
-  const [workspaceContractsResult, jobJoinContractsResult, agencyResult] = await Promise.all([
+  const [workspaceContractsResult, jobJoinContractsResult, agencyResult, globalDefaults] = await Promise.all([
     supabase
       .from("contracts")
       .select(contractSelect)
@@ -83,10 +84,11 @@ export default async function WorkspaceContractsPage({ params }: Props) {
         .or(`talent_user_id.eq.${user.id},talent_id.eq.${user.id}`)
       : Promise.resolve({ data: [], error: null }),
     workspace.agency_id
-      ? supabase.from("agencies").select("company_name").eq("id", workspace.agency_id).maybeSingle()
+      ? supabase.from("agencies").select("company_name, payment_mode").eq("id", workspace.agency_id).maybeSingle()
       : workspace.owner_user_id
-        ? supabase.from("agencies").select("company_name").eq("user_id", workspace.owner_user_id).maybeSingle()
+        ? supabase.from("agencies").select("company_name, payment_mode").eq("user_id", workspace.owner_user_id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+    getGlobalPaymentDefaults(),
   ]);
 
   const contractMap = new Map<string, ContractRow>();
@@ -100,6 +102,11 @@ export default async function WorkspaceContractsPage({ params }: Props) {
   }
 
   const agencyName = agencyResult.data?.company_name ?? workspace.name;
+  const agencyMode = (agencyResult.data as { payment_mode?: string | null } | null)?.payment_mode;
+  const paymentMode: "escrow" | "internal" =
+    agencyMode === "internal" ? "internal"
+    : agencyMode === "escrow" ? "escrow"
+    : globalDefaults.default_payment_mode;
 
   const allContractIds = [...contractMap.keys()];
   const allContractJobIds = [...new Set(
@@ -167,6 +174,7 @@ export default async function WorkspaceContractsPage({ params }: Props) {
       workspaceSlug={workspaceSlug}
       primary={primary}
       accent={accent}
+      paymentMode={paymentMode}
     />
   );
 }

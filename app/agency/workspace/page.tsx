@@ -23,6 +23,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import WorkspaceOnboardingChecklist from "@/features/agency/WorkspaceOnboardingChecklist";
 import { buildWorkspaceDashboardCounts } from "@/lib/readModels/workspaceDashboard";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 export const metadata: Metadata = { title: "Espaco Premium - BrisaHub" };
 
@@ -446,7 +447,7 @@ export default async function WorkspacePage() {
   const { workspace, membership } = workspaceAccess;
   const isOwner = membership.role === "owner";
 
-  const [seatUsage, members, invites, jobsResult, selfLedger, ownerProfile, portalTalentCount] = await Promise.all([
+  const [seatUsage, members, invites, jobsResult, selfLedger, ownerProfile, portalTalentCount, agencyRow, globalDefaults] = await Promise.all([
     getWorkspaceSeatUsage(workspace.id),
     getWorkspaceMembers(workspace.id),
     isOwner ? getWorkspacePendingInvites(workspace.id) : Promise.resolve([]),
@@ -460,6 +461,8 @@ export default async function WorkspacePage() {
     isOwner
       ? supabase.from("premium_workspace_talents").select("id", { count: "exact", head: true }).eq("workspace_id", workspace.id)
       : Promise.resolve({ count: 0 }),
+    supabase.from("agencies").select("payment_mode").eq("user_id", workspace.ownerUserId).maybeSingle(),
+    getGlobalPaymentDefaults(),
   ]);
 
   const jobRows = jobsResult.data ?? [];
@@ -515,6 +518,12 @@ export default async function WorkspacePage() {
   const myJobs = workspaceJobs.filter((job) => job.createdByUserId === user.id);
   const walletBalance = Number(ownerProfile.data?.wallet_balance ?? 0);
   const seatLimitReached = isOwner && seatUsage.remaining === 0;
+  const agencyPaymentMode = agencyRow.data?.payment_mode;
+  const effectivePaymentMode: "escrow" | "internal" =
+    agencyPaymentMode === "internal" ? "internal"
+    : agencyPaymentMode === "escrow" ? "escrow"
+    : globalDefaults.default_payment_mode;
+  const isEscrow = effectivePaymentMode !== "internal";
   const activeAgents = members.filter((member) => member.role === "agent" && member.status === "active");
 
   const checklistLang = lang === "en" ? "en" : "pt-BR";
@@ -544,12 +553,12 @@ export default async function WorkspacePage() {
           href: "/agency/workspace/talents",
           done: (portalTalentCount.count ?? 0) > 0,
         },
-        {
+        ...(isEscrow ? [{
           label: t("workspace_onboarding_step_add_balance"),
           hint: t("workspace_onboarding_step_add_balance_hint"),
           href: "/agency/workspace/wallet",
           done: walletBalance > 0,
-        },
+        }] : []),
         {
           label: t("workspace_onboarding_step_create_job"),
           hint: t("workspace_onboarding_step_create_job_hint"),
@@ -596,11 +605,13 @@ export default async function WorkspacePage() {
             value={String(dashCounts.totalJobs)}
             hint={`${dashCounts.openJobs} ${t("workspace_available_plural").toLowerCase()}`}
           />
-          <SummaryCard
-            label={t("nav_workspace_wallet")}
-            value={brl(walletBalance)}
-            hint={t("workspace_summary_main_account_balance")}
-          />
+          {isEscrow && (
+            <SummaryCard
+              label={t("nav_workspace_wallet")}
+              value={brl(walletBalance)}
+              hint={t("workspace_summary_main_account_balance")}
+            />
+          )}
           <SummaryCard
             label={t("nav_workspace_branding")}
             value={workspace.logoUrl ? t("workspace_summary_configured") : t("workspace_summary_pending")}

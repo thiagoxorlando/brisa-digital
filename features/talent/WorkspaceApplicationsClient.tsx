@@ -34,6 +34,7 @@ type Props = {
   locale: string;
   statusLang: "en" | "pt-BR";
   items: WorkspaceApplicationItem[];
+  paymentMode?: "escrow" | "internal";
 };
 
 /**
@@ -71,7 +72,9 @@ export default function WorkspaceApplicationsClient({
   locale,
   statusLang,
   items: initialItems,
+  paymentMode = "escrow",
 }: Props) {
+  const isInternalMode = paymentMode === "internal";
   const [items, setItems] = useState(initialItems);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<Record<string, string | null>>({});
@@ -294,7 +297,9 @@ export default function WorkspaceApplicationsClient({
                     {isPaid && (
                       <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
                         <p className="text-[12px] leading-relaxed text-emerald-700">
-                          Pagamento liberado. O valor já está disponível na sua carteira.
+                          {isInternalMode
+                            ? "Pagamento confirmado."
+                            : "Pagamento liberado. O valor já está disponível na sua carteira."}
                         </p>
                       </div>
                     )}
@@ -311,7 +316,9 @@ export default function WorkspaceApplicationsClient({
                       <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2.5">
                         <p className="text-[12px] leading-relaxed text-sky-700">
                           {item.contractPaymentStatus === "signed"
-                            ? "Contrato assinado. Aguardando depósito da agência."
+                            ? isInternalMode
+                              ? "Contrato assinado. Aguardando pagamento direto da agência."
+                              : "Contrato assinado. Aguardando depósito da agência."
                             : "Contrato enviado. Verifique a página de Contratos para assinar."}
                         </p>
                       </div>
