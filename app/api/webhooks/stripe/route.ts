@@ -1,55 +1,42 @@
 /**
  * POST /api/webhooks/stripe
  *
- * Stripe webhook endpoint for Phase 4B (subscription billing).
+ * Stripe webhook endpoint for BrisaHub subscription billing.
  *
  * Security:
  *   - Signature verified via constructWebhookEvent() before any DB writes.
- *   - Idempotent: every processed event_id is written to stripe_webhook_events;
+ *   - Idempotent: every event_id is written to stripe_webhook_events;
  *     duplicate deliveries return 200 immediately.
  *
  * Handled events:
- *   checkout.session.completed        — link Stripe customer/subscription to profile
- *   customer.subscription.created     — initial subscription record
- *   customer.subscription.updated     — status changes (trial→active, active→past_due, etc.)
- *   customer.subscription.deleted     — cancellation finalised
- *   invoice.paid                       — payment confirmed, activate plan
- *   invoice.payment_failed             — card declined, set past_due
- *
- * NOT YET CONNECTED to the main checkout or plan-activation flow.
- * This handler is wired up but dormant until Phase 4B.3 (checkout).
+ *   checkout.session.completed        — link IDs + set initial trial state
+ *   customer.subscription.created     — confirm trial state, set trial_ends_at
+ *   customer.subscription.updated     — sync status changes
+ *   customer.subscription.deleted     — downgrade to free
+ *   invoice.paid                       — activate plan
+ *   invoice.payment_failed             — set past_due
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import {
+  getStripe,
   constructWebhookEvent,
   mapStripeStatusToPlanStatus,
   getPlanKeyFromSubscription,
   type Stripe,
 } from "@/lib/stripe";
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
-// Stripe sends the raw body; Next.js must NOT parse it.
-// This config tells the Next.js App Router to expose the raw request body.
-export const config = { api: { bodyParser: false } };
-
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // 1. Read raw body (required for signature verification)
-  const rawBody = await req.text();
+  const rawBody   = await req.text();
   const signature = req.headers.get("stripe-signature");
 
   if (!signature) {
-    return NextResponse.json(
-      { error: "Missing stripe-signature header." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing stripe-signature header." }, { status: 400 });
   }
 
-  // 2. Verify signature — rejects replayed / tampered requests
   let event: Stripe.Event;
   try {
     event = constructWebhookEvent(rawBody, signature);
@@ -63,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   console.log(`[stripe/webhook] received: ${event.type} (${event.id})`);
 
-  // 3. Idempotency — skip if already processed
+  // Idempotency — skip if already processed
   const { data: existing } = await supabase
     .from("stripe_webhook_events")
     .select("id")
@@ -71,17 +58,17 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (existing) {
+    console.log(`[stripe/webhook] duplicate event skipped: ${event.id}`);
     return NextResponse.json({ ok: true, duplicate: true });
   }
 
-  // 4. Persist event immediately (before processing) for observability
+  // Persist event before processing for observability
   await supabase.from("stripe_webhook_events").insert({
     id:         event.id,
     event_type: event.type,
     payload:    event as unknown as Record<string, unknown>,
   } as Record<string, unknown>);
 
-  // 5. Dispatch to event-specific handler
   let processingError: string | null = null;
 
   try {
@@ -111,22 +98,19 @@ export async function POST(req: NextRequest) {
         break;
 
       default:
-        // Unhandled event type — acknowledged but not processed
         console.log(`[stripe/webhook] unhandled event type: ${event.type}`);
     }
   } catch (err) {
     processingError = err instanceof Error ? err.message : String(err);
     console.error(`[stripe/webhook] error processing ${event.type} (${event.id}):`, processingError);
-    // Mark event as errored but still return 200 — Stripe should not retry on logic errors.
     await supabase
       .from("stripe_webhook_events")
       .update({ error: processingError } as Record<string, unknown>)
       .eq("id", event.id);
-
+    // Return 200 so Stripe does not retry logic errors
     return NextResponse.json({ ok: true, error: processingError });
   }
 
-  // 6. Mark event as fully processed
   await supabase
     .from("stripe_webhook_events")
     .update({ processed_at: new Date().toISOString() } as Record<string, unknown>)
@@ -140,20 +124,21 @@ export async function POST(req: NextRequest) {
 /**
  * checkout.session.completed
  *
- * Fired when an agency completes a Stripe Checkout session.
- * Links the Stripe customer + subscription IDs to the BrisaHub profile.
+ * Fired first after a user completes Stripe Checkout.
+ * We fetch the subscription here so we can write trial state immediately —
+ * without relying on customer.subscription.created arriving in order.
  *
- * NOTE: Plan activation happens via invoice.paid, not here — the trial period
- * means no payment may be collected at checkout time.
+ * Writes: stripe_customer_id, stripe_subscription_id, plan,
+ *         plan_status, trial_ends_at, trial_started_at, subscription_provider
  */
 async function handleCheckoutSessionCompleted(
   supabase: ReturnType<typeof createServerClient>,
   session: Stripe.Checkout.Session,
 ) {
-  const userId          = session.metadata?.user_id;
-  const customerId      = typeof session.customer === "string" ? session.customer : null;
-  const subscriptionId  = typeof session.subscription === "string" ? session.subscription : null;
-  const planKey         = session.metadata?.plan_key ?? "pro";
+  const userId         = session.metadata?.user_id;
+  const customerId     = typeof session.customer === "string" ? session.customer : null;
+  const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+  const planKey        = session.metadata?.plan_key ?? "pro";
 
   if (!userId) {
     console.warn("[stripe/webhook] checkout.session.completed: missing user_id in metadata");
@@ -162,26 +147,47 @@ async function handleCheckoutSessionCompleted(
 
   const patch: Record<string, unknown> = {
     subscription_provider: "stripe",
+    plan: planKey,
   };
   if (customerId)     patch.stripe_customer_id     = customerId;
   if (subscriptionId) patch.stripe_subscription_id = subscriptionId;
-  if (planKey)        patch.plan                   = planKey;
 
-  const { error } = await supabase
-    .from("profiles")
-    .update(patch)
-    .eq("id", userId);
+  // Fetch the subscription so we can write plan_status + trial_ends_at right now.
+  // Without this, plan_status stays "inactive" if subscription events are delayed.
+  if (subscriptionId) {
+    try {
+      const stripe       = getStripe();
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      const planStatus   = mapStripeStatusToPlanStatus(subscription.status);
 
-  if (error) throw new Error(`profiles update failed: ${error.message}`);
+      patch.plan_status = planStatus;
 
-  console.log(`[stripe/webhook] checkout.session.completed: user=${userId} customer=${customerId} subscription=${subscriptionId}`);
+      if (subscription.trial_end) {
+        patch.trial_ends_at    = new Date(subscription.trial_end * 1000).toISOString();
+        patch.trial_started_at = new Date().toISOString();
+        console.log(`[stripe/webhook] checkout.session.completed: trial ends ${patch.trial_ends_at}`);
+      }
+    } catch (err) {
+      // Non-fatal: subscription events will correct this state
+      console.warn(
+        "[stripe/webhook] checkout.session.completed: could not fetch subscription",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  const count = await profileUpdate(supabase, userId, patch, "checkout.session.completed");
+  console.log(
+    `[stripe/webhook] checkout.session.completed: user=${userId} rows_updated=${count}`,
+    `customer=${customerId} subscription=${subscriptionId} plan_status=${patch.plan_status ?? "not set"}`,
+  );
 }
 
 /**
  * customer.subscription.created
  *
- * Fired when a Stripe subscription is created (typically after checkout).
- * Sets the initial plan status (usually "trialing" for PRO).
+ * Confirms or corrects the plan state set by checkout.session.completed.
+ * Sets plan_status, trial_ends_at from the authoritative subscription object.
  */
 async function handleSubscriptionCreated(
   supabase: ReturnType<typeof createServerClient>,
@@ -190,9 +196,9 @@ async function handleSubscriptionCreated(
   const userId = await resolveUserIdFromSubscription(supabase, subscription);
   if (!userId) return;
 
-  const planStatus  = mapStripeStatusToPlanStatus(subscription.status);
-  const planKey     = getPlanKeyFromSubscription(subscription);
-  const trialEnd    = subscription.trial_end
+  const planStatus = mapStripeStatusToPlanStatus(subscription.status);
+  const planKey    = getPlanKeyFromSubscription(subscription);
+  const trialEnd   = subscription.trial_end
     ? new Date(subscription.trial_end * 1000).toISOString()
     : null;
 
@@ -203,21 +209,22 @@ async function handleSubscriptionCreated(
     subscription_provider:  "stripe",
   };
   if (trialEnd) {
-    patch.trial_ends_at   = trialEnd;
+    patch.trial_ends_at    = trialEnd;
     patch.trial_started_at = new Date().toISOString();
   }
 
-  const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
-  if (error) throw new Error(`profiles update failed: ${error.message}`);
-
-  console.log(`[stripe/webhook] subscription.created: user=${userId} status=${planStatus} plan=${planKey}`);
+  const count = await profileUpdate(supabase, userId, patch, "subscription.created");
+  console.log(
+    `[stripe/webhook] subscription.created: user=${userId} rows_updated=${count}`,
+    `status=${planStatus} plan=${planKey} trial_ends=${trialEnd ?? "none"}`,
+  );
 }
 
 /**
  * customer.subscription.updated
  *
- * Fired on any subscription change: status transitions, price changes,
- * trial expiration, etc.
+ * Syncs status changes: trial→active, active→past_due, etc.
+ * Also updates trial_ends_at in case Stripe changed the trial period.
  */
 async function handleSubscriptionUpdated(
   supabase: ReturnType<typeof createServerClient>,
@@ -230,26 +237,26 @@ async function handleSubscriptionUpdated(
   const planKey    = getPlanKeyFromSubscription(subscription);
 
   const patch: Record<string, unknown> = {
-    plan:        planKey,
+    plan:        subscription.status === "canceled" ? "free" : planKey,
     plan_status: planStatus,
   };
 
-  // If subscription was canceled, downgrade to free
-  if (subscription.status === "canceled") {
-    patch.plan = "free";
+  // Sync trial end if still in trial
+  if (subscription.trial_end) {
+    patch.trial_ends_at = new Date(subscription.trial_end * 1000).toISOString();
   }
 
-  const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
-  if (error) throw new Error(`profiles update failed: ${error.message}`);
-
-  console.log(`[stripe/webhook] subscription.updated: user=${userId} status=${planStatus}`);
+  const count = await profileUpdate(supabase, userId, patch, "subscription.updated");
+  console.log(
+    `[stripe/webhook] subscription.updated: user=${userId} rows_updated=${count}`,
+    `status=${planStatus} plan=${patch.plan}`,
+  );
 }
 
 /**
  * customer.subscription.deleted
  *
- * Fired when a subscription is fully cancelled and the billing period ends.
- * Downgrade the agency to the free plan.
+ * Downgrade to free when subscription is fully cancelled.
  */
 async function handleSubscriptionDeleted(
   supabase: ReturnType<typeof createServerClient>,
@@ -258,26 +265,19 @@ async function handleSubscriptionDeleted(
   const userId = await resolveUserIdFromSubscription(supabase, subscription);
   if (!userId) return;
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      plan:                   "free",
-      plan_status:            "canceled",
-      stripe_subscription_id: null,
-    } as Record<string, unknown>)
-    .eq("id", userId);
+  const count = await profileUpdate(supabase, userId, {
+    plan:                   "free",
+    plan_status:            "canceled",
+    stripe_subscription_id: null,
+  }, "subscription.deleted");
 
-  if (error) throw new Error(`profiles update failed: ${error.message}`);
-
-  console.log(`[stripe/webhook] subscription.deleted: user=${userId} → downgraded to free`);
+  console.log(`[stripe/webhook] subscription.deleted: user=${userId} rows_updated=${count} → free`);
 }
 
 /**
  * invoice.paid
  *
- * Fired when a subscription invoice is paid successfully.
- * Activates or confirms the plan. Handles intro→recurring price transitions
- * natively through Stripe coupons (no manual cycle counter needed).
+ * Confirms the plan is active after a successful payment (trial end, renewal).
  */
 async function handleInvoicePaid(
   supabase: ReturnType<typeof createServerClient>,
@@ -289,33 +289,27 @@ async function handleInvoicePaid(
   const userId = await resolveUserIdFromCustomer(supabase, customerId);
   if (!userId) return;
 
-  // Compute plan_expires_at: current period end + 1 day buffer
   const invoiceRaw     = invoice as unknown as Record<string, unknown>;
   const subscriptionId = typeof invoiceRaw.subscription === "string" ? invoiceRaw.subscription : null;
   const periodEnd      = (invoice as unknown as { lines?: { data?: Array<{ period?: { end?: number } }> } })
     .lines?.data?.[0]?.period?.end;
-  const planExpiresAt  = periodEnd
-    ? new Date(periodEnd * 1000).toISOString()
-    : null;
+  const planExpiresAt  = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
 
-  const patch: Record<string, unknown> = {
-    plan_status: "active",
-  };
-  if (planExpiresAt)   patch.plan_expires_at          = planExpiresAt;
-  if (subscriptionId)  patch.stripe_subscription_id   = subscriptionId;
+  const patch: Record<string, unknown> = { plan_status: "active" };
+  if (planExpiresAt)  patch.plan_expires_at        = planExpiresAt;
+  if (subscriptionId) patch.stripe_subscription_id = subscriptionId;
 
-  const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
-  if (error) throw new Error(`profiles update failed: ${error.message}`);
-
-  console.log(`[stripe/webhook] invoice.paid: user=${userId} amount=${invoice.amount_paid} expires=${planExpiresAt}`);
+  const count = await profileUpdate(supabase, userId, patch, "invoice.paid");
+  console.log(
+    `[stripe/webhook] invoice.paid: user=${userId} rows_updated=${count}`,
+    `amount=${invoice.amount_paid} expires=${planExpiresAt}`,
+  );
 }
 
 /**
  * invoice.payment_failed
  *
- * Fired when a subscription payment fails (card declined, expired, etc.).
- * Sets plan_status to "past_due" so the UI can prompt the user to update
- * their payment method via the Stripe Customer Portal.
+ * Card declined — prompt user to update payment method.
  */
 async function handleInvoicePaymentFailed(
   supabase: ReturnType<typeof createServerClient>,
@@ -327,21 +321,49 @@ async function handleInvoicePaymentFailed(
   const userId = await resolveUserIdFromCustomer(supabase, customerId);
   if (!userId) return;
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ plan_status: "past_due" } as Record<string, unknown>)
-    .eq("id", userId);
-
-  if (error) throw new Error(`profiles update failed: ${error.message}`);
-
-  console.log(`[stripe/webhook] invoice.payment_failed: user=${userId}`);
+  const count = await profileUpdate(supabase, userId, { plan_status: "past_due" }, "invoice.payment_failed");
+  console.log(`[stripe/webhook] invoice.payment_failed: user=${userId} rows_updated=${count}`);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Looks up a BrisaHub user ID from a Stripe Customer ID.
- * Uses the stripe_customer_id index on profiles.
+ * profileUpdate — wraps supabase.update() and logs when 0 rows are matched.
+ *
+ * Supabase PostgREST returns data:[] + error:null when the WHERE clause
+ * matches nothing — it is NOT an error. This wrapper detects that case
+ * and throws so the caller sees it in logs.
+ */
+async function profileUpdate(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+  patch: Record<string, unknown>,
+  context: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", userId)
+    .select("id");
+
+  if (error) {
+    throw new Error(`[stripe/webhook] ${context}: profiles update DB error: ${error.message}`);
+  }
+
+  const count = (data as { id: string }[] | null)?.length ?? 0;
+  if (count === 0) {
+    console.error(
+      `[stripe/webhook] ${context}: profiles update matched 0 rows for user=${userId}`,
+      "patch=", JSON.stringify(patch),
+    );
+  }
+
+  return count;
+}
+
+/**
+ * resolveUserIdFromCustomer
+ * Looks up profile by stripe_customer_id (written by checkout.session.completed).
  */
 async function resolveUserIdFromCustomer(
   supabase: ReturnType<typeof createServerClient>,
@@ -354,29 +376,60 @@ async function resolveUserIdFromCustomer(
     .maybeSingle();
 
   if (!data) {
-    console.warn(`[stripe/webhook] no profile found for customer ${customerId}`);
+    console.warn(`[stripe/webhook] no profile found for stripe_customer_id=${customerId}`);
     return null;
   }
   return data.id as string;
 }
 
 /**
- * Looks up a BrisaHub user ID from a Stripe Subscription object.
- * Prefers metadata.user_id → falls back to customer ID lookup.
+ * resolveUserIdFromSubscription
+ *
+ * Three-path lookup to find the BrisaHub user ID for a given subscription:
+ *   1. subscription.metadata.user_id   (set at checkout creation)
+ *   2. profiles.stripe_customer_id     (written by checkout.session.completed)
+ *   3. profiles.stripe_subscription_id (written by checkout.session.completed or billing/success)
+ *
+ * Path 2 and 3 handle events that arrive before or concurrently with
+ * checkout.session.completed.
  */
 async function resolveUserIdFromSubscription(
   supabase: ReturnType<typeof createServerClient>,
   subscription: Stripe.Subscription,
 ): Promise<string | null> {
-  // Primary: metadata written at checkout time
+  // Path 1: metadata written at checkout creation (fastest, no DB round-trip)
   const metaUserId = subscription.metadata?.user_id;
-  if (metaUserId) return metaUserId;
-
-  // Fallback: look up via customer ID
-  const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
-  if (!customerId) {
-    console.warn("[stripe/webhook] subscription has no customer ID or user_id metadata");
-    return null;
+  if (metaUserId) {
+    console.log(`[stripe/webhook] resolved user ${metaUserId} via subscription metadata`);
+    return metaUserId;
   }
-  return resolveUserIdFromCustomer(supabase, customerId);
+
+  // Path 2: look up via stripe_customer_id
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
+  if (customerId) {
+    const userId = await resolveUserIdFromCustomer(supabase, customerId);
+    if (userId) {
+      console.log(`[stripe/webhook] resolved user ${userId} via stripe_customer_id`);
+      return userId;
+    }
+  }
+
+  // Path 3: look up via stripe_subscription_id
+  // (set by /billing/success or a previously processed checkout.session.completed)
+  const { data } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("stripe_subscription_id", subscription.id)
+    .maybeSingle();
+
+  if (data) {
+    console.log(`[stripe/webhook] resolved user ${data.id} via stripe_subscription_id`);
+    return data.id as string;
+  }
+
+  console.error(
+    `[stripe/webhook] cannot resolve user for subscription=${subscription.id}`,
+    `customer=${customerId} metadata=${JSON.stringify(subscription.metadata)}`,
+  );
+  return null;
 }
