@@ -11,12 +11,20 @@ export type ReconciliationAlert = {
   severity:       AlertSeverity;
   type:           AlertType;
   description:    string;
+  /** Short headline of what's wrong — shown in the alert table row. */
+  problem:        string;
+  /** Potential consequence of the issue. */
+  impact:         string;
+  /** CTA button label, e.g. "Abrir depósito". */
+  actionLabel:    string;
   userId:         string | null;
   userName:       string | null;
   amount:         number | null;
   appStatus:      string | null;
   providerStatus: string | null;
   referenceId:    string | null;
+  /** ID of the specific source entity (wallet_transactions.id, webhook_events.id). */
+  entityId:       string | null;
   createdAt:      string;
   adminLink:      string | null;
 };
@@ -343,9 +351,14 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("dep-pending", d.id), severity: "warning", type: "deposit",
         description: `Depósito pendente há ${mins < 60 ? `${mins} minutos` : `${Math.round(mins / 60)}h`}.`,
+        problem: "PIX recebido não processado",
+        impact: "Saldo da agência pode estar incorreto",
+        actionLabel: "Ver usuário",
         userId: d.userId, userName: d.userName, amount: d.amount,
         appStatus: d.status, providerStatus: null,
-        referenceId: d.asaasPaymentId ?? d.paymentId, createdAt: d.createdAt,
+        referenceId: d.asaasPaymentId ?? d.paymentId,
+        entityId: d.id,
+        createdAt: d.createdAt,
         adminLink: `/admin/users/${d.userId}`,
       });
     }
@@ -353,8 +366,13 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("dep-noref", d.id), severity: "warning", type: "deposit",
         description: "Depósito pago sem referência Asaas.",
+        problem: "Depósito pago sem ID Asaas",
+        impact: "Pagamento não rastreável — conciliação impossível",
+        actionLabel: "Ver usuário",
         userId: d.userId, userName: d.userName, amount: d.amount,
-        appStatus: d.status, providerStatus: null, referenceId: null, createdAt: d.createdAt,
+        appStatus: d.status, providerStatus: null, referenceId: null,
+        entityId: d.id,
+        createdAt: d.createdAt,
         adminLink: `/admin/users/${d.userId}`,
       });
     }
@@ -362,8 +380,13 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("dep-dup", d.id), severity: "critical", type: "deposit",
         description: `payment_id duplicado: ${d.paymentId}`,
+        problem: "payment_id duplicado detectado",
+        impact: "Risco de crédito duplo no saldo do usuário",
+        actionLabel: "Ver finanças",
         userId: d.userId, userName: d.userName, amount: d.amount,
-        appStatus: d.status, providerStatus: null, referenceId: d.paymentId, createdAt: d.createdAt,
+        appStatus: d.status, providerStatus: null, referenceId: d.paymentId,
+        entityId: d.id,
+        createdAt: d.createdAt,
         adminLink: `/admin/finances`,
       });
     }
@@ -377,19 +400,29 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("wth-processing", w.id), severity: "critical", type: "withdrawal",
         description: `Saque em processamento há ${hours}h — verificar transferência Asaas.`,
+        problem: `Saque em processamento há ${hours}h`,
+        impact: "Talento aguarda pagamento — verifique transferência no Asaas",
+        actionLabel: "Ver saques",
         userId: w.userId, userName: w.userName, amount: w.amount,
         appStatus: w.status, providerStatus: null,
-        referenceId: w.asaasTransferId ?? w.providerTransferId, createdAt: w.createdAt,
-        adminLink: `/admin/finances`,
+        referenceId: w.asaasTransferId ?? w.providerTransferId,
+        entityId: w.id,
+        createdAt: w.createdAt,
+        adminLink: `/admin/withdrawals`,
       });
     }
     if (w.status === "paid" && !w.asaasTransferId && !w.providerTransferId && w.provider !== "manual") {
       alerts.push({
         id: alertId("wth-noref", w.id), severity: "warning", type: "withdrawal",
         description: "Saque pago sem ID de transferência Asaas.",
+        problem: "Saque pago sem ID de transferência",
+        impact: "Não é possível verificar a transferência no Asaas",
+        actionLabel: "Ver saques",
         userId: w.userId, userName: w.userName, amount: w.amount,
-        appStatus: w.status, providerStatus: null, referenceId: null, createdAt: w.createdAt,
-        adminLink: `/admin/finances`,
+        appStatus: w.status, providerStatus: null, referenceId: null,
+        entityId: w.id,
+        createdAt: w.createdAt,
+        adminLink: `/admin/withdrawals`,
       });
     }
   }
@@ -402,18 +435,28 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("plan-pending", p.id), severity: "warning", type: "plan",
         description: `Cobrança de plano pendente há ${hours}h.`,
+        problem: `Cobrança de plano pendente há ${hours}h`,
+        impact: "Acesso premium pode estar incorreto ou expirado",
+        actionLabel: "Ver plano da agência",
         userId: p.userId, userName: p.userName, amount: p.amount,
-        appStatus: p.status, providerStatus: null, referenceId: p.paymentId, createdAt: p.createdAt,
-        adminLink: `/admin/plans`,
+        appStatus: p.status, providerStatus: null, referenceId: p.paymentId,
+        entityId: p.id,
+        createdAt: p.createdAt,
+        adminLink: `/admin/plans?agency=${p.userId}`,
       });
     }
     if (p.status === "paid" && !p.paymentId) {
       alerts.push({
         id: alertId("plan-noref", p.id), severity: "warning", type: "plan",
         description: "Cobrança de plano paga sem referência de pagamento.",
+        problem: "Cobrança paga sem referência Asaas",
+        impact: "Pagamento de plano não rastreável no provedor",
+        actionLabel: "Ver plano da agência",
         userId: p.userId, userName: p.userName, amount: p.amount,
-        appStatus: p.status, providerStatus: null, referenceId: null, createdAt: p.createdAt,
-        adminLink: `/admin/plans`,
+        appStatus: p.status, providerStatus: null, referenceId: null,
+        entityId: p.id,
+        createdAt: p.createdAt,
+        adminLink: `/admin/plans?agency=${p.userId}`,
       });
     }
   }
@@ -425,10 +468,15 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("wh-error", w.id), severity: "critical", type: "webhook",
         description: `Webhook com erro: ${w.error ?? "erro desconhecido"}`,
+        problem: `Falha ao processar webhook ${w.eventType}`,
+        impact: "Ação automática não foi executada — dados podem estar desatualizados",
+        actionLabel: "Ver webhooks",
         userId: null, userName: null, amount: null,
         appStatus: null, providerStatus: null,
-        referenceId: w.eventId ?? w.relatedId, createdAt: w.createdAt,
-        adminLink: null,
+        referenceId: w.eventId ?? w.relatedId,
+        entityId: w.id,
+        createdAt: w.createdAt,
+        adminLink: `/admin/reconciliation`,
       });
     } else if (w.status === "pending") {
       const mins = Math.round(minutesAgo(w.createdAt));
@@ -436,10 +484,15 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("wh-pending", w.id), severity, type: "webhook",
         description: `Webhook ${w.eventType} recebido sem processed_at (${mins < 60 ? `${mins}min` : `${Math.round(mins / 60)}h`}).`,
+        problem: `Webhook ${w.eventType} não processado`,
+        impact: "Evento ignorado — possível inconsistência nos dados",
+        actionLabel: "Ver webhooks",
         userId: null, userName: null, amount: null,
         appStatus: "pending", providerStatus: null,
-        referenceId: w.eventId ?? w.relatedId, createdAt: w.createdAt,
-        adminLink: null,
+        referenceId: w.eventId ?? w.relatedId,
+        entityId: w.id,
+        createdAt: w.createdAt,
+        adminLink: `/admin/reconciliation`,
       });
     }
   }
@@ -455,11 +508,16 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("xref-dep", w.id), severity: "critical", type: "deposit",
         description: `Pagamento Asaas confirmado (${w.eventType}), mas depósito ainda está ${depStatus} no app.`,
+        problem: "PIX confirmado no Asaas mas saldo não creditado",
+        impact: "Saldo da agência está incorreto — ação imediata necessária",
+        actionLabel: "Ver usuário",
         userId: deposit.user_id as string,
         userName: userName(deposit.user_id as string),
         amount: Number(deposit.amount ?? 0),
         appStatus: depStatus, providerStatus: w.eventType,
-        referenceId: w.relatedId, createdAt: w.createdAt,
+        referenceId: w.relatedId,
+        entityId: deposit.id as string,
+        createdAt: w.createdAt,
         adminLink: `/admin/users/${deposit.user_id}`,
       });
     }
@@ -476,12 +534,17 @@ export async function buildReconciliationData(): Promise<ReconciliationData> {
       alerts.push({
         id: alertId("xref-wth", w.id), severity: "critical", type: "withdrawal",
         description: "Transferência Asaas concluída, mas saque ainda está em processamento no app.",
+        problem: "Transferência concluída no Asaas mas saque pendente no app",
+        impact: "Talento não recebeu notificação — status desatualizado",
+        actionLabel: "Ver saques",
         userId: withdrawal.user_id as string,
         userName: userName(withdrawal.user_id as string),
         amount: Number(withdrawal.amount ?? 0),
         appStatus: wthStatus, providerStatus: "TRANSFER_DONE",
-        referenceId: w.relatedId, createdAt: w.createdAt,
-        adminLink: `/admin/finances`,
+        referenceId: w.relatedId,
+        entityId: withdrawal.id as string,
+        createdAt: w.createdAt,
+        adminLink: `/admin/withdrawals`,
       });
     }
   }
