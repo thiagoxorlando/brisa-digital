@@ -1,5 +1,7 @@
 import { PLAN_DEFINITIONS, PLAN_KEYS, type Plan } from "@/lib/plans";
-import { brlPlan } from "@/lib/brl";
+import { brlPlan, usdPlan } from "@/lib/brl";
+
+export type PlanCurrency = "USD" | "BRL";
 
 export type PublicPlanSetting = {
   plan_key: Plan;
@@ -14,12 +16,14 @@ export type PublicPlanSetting = {
   extra_agent_seat_price: number | null;
   /** Free trial length in days (0 = no trial). */
   trial_days: number;
-  /** Promotional first-cycle price in BRL (0 = no intro offer). */
+  /** Promotional first-cycle price in the plan's currency (0 = no intro offer). */
   intro_price: number;
   /** Number of billing cycles at intro_price before switching to recurring_price. */
   intro_cycles: number;
-  /** Regular monthly price in BRL after the intro period. */
+  /** Regular monthly price in the plan's currency after the intro period. */
   recurring_price: number;
+  /** Pricing currency — determines display symbol and locale. */
+  currency: PlanCurrency;
 };
 
 export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
@@ -27,10 +31,12 @@ export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
 
   for (const plan of PLAN_KEYS) {
     const def = PLAN_DEFINITIONS[plan];
+    // PRO defaults to USD launch pricing; other plans default to BRL.
+    const isProPlan = plan === "pro";
     result[plan] = {
       plan_key: plan,
       name: def.label,
-      price: def.price,
+      price: isProPlan ? 79 : def.price,
       commission_percent: def.commissionRate * 100,
       commission_rate: def.commissionRate,
       is_available: def.available,
@@ -38,34 +44,43 @@ export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
       max_hires_per_job: def.maxHiresPerJob,
       included_agent_seats: plan === "premium" ? 2 : null,
       extra_agent_seat_price: plan === "premium" ? 0 : null,
-      trial_days: plan === "pro" ? 7 : 0,
-      intro_price: plan === "pro" ? 97 : 0,
-      intro_cycles: plan === "pro" ? 1 : 0,
-      recurring_price: plan === "pro" ? 147 : 0,
+      trial_days: isProPlan ? 7 : 0,
+      intro_price: isProPlan ? 29 : 0,
+      intro_cycles: isProPlan ? 1 : 0,
+      recurring_price: isProPlan ? 79 : 0,
+      currency: isProPlan ? "USD" : "BRL",
     };
   }
 
   return result;
 }
 
-export function formatPlanPrice(price: number): string {
-  return brlPlan(price);
+/**
+ * Format a plan price amount according to the plan's currency.
+ * USD → "$29"  |  BRL → "R$ 97"
+ */
+export function formatPlanPrice(price: number, currency: PlanCurrency = "USD"): string {
+  return currency === "USD" ? usdPlan(price) : brlPlan(price);
 }
 
-export function formatPlanMonthlyPrice(price: number, lang: "pt-BR" | "en" = "en"): string {
-  if (price === 0) return formatPlanPrice(price);
+export function formatPlanMonthlyPrice(
+  price: number,
+  lang: "pt-BR" | "en" = "en",
+  currency: PlanCurrency = "USD",
+): string {
+  if (price === 0) return formatPlanPrice(0, currency);
   const period = lang === "en" ? "/month" : "/mês";
-  return `${formatPlanPrice(price)}${period}`;
+  return `${formatPlanPrice(price, currency)}${period}`;
 }
 
 export type PlanPricingLines = {
-  /** Headline price to render large: intro_price/mês for intro offers, else price/mês. */
+  /** Headline price to render large: intro_price/month for intro offers, else price/month. */
   primaryPrice: string;
-  /** "7 dias grátis" | "7 days free". Null when trial_days = 0. */
+  /** "7 days free" | "7 dias grátis". Null when trial_days = 0. */
   trialLine: string | null;
-  /** "R$ 97 no primeiro mês" | "R$ 97 first month". Null when no intro offer. */
+  /** "$29 first month" | "R$ 97 no primeiro mês". Null when no intro offer. */
   introLine: string | null;
-  /** "Depois R$ 147/mês" | "Then R$ 147/month". Null when no separate recurring price. */
+  /** "Then $79/month" | "Depois R$ 147/mês". Null when no separate recurring price. */
   recurringLine: string | null;
   /** Compact single-line summary for modals/tooltips. */
   promoSummary: string | null;
@@ -75,13 +90,14 @@ export type PlanPricingLines = {
 
 /**
  * Returns structured pricing display lines derived entirely from plan_settings DB values.
- * Use this everywhere a plan's price is shown — never hardcode R$97, R$147, etc.
+ * Currency-aware: USD plans show "$29", BRL plans show "R$ 97".
+ * Use this everywhere a plan's price is shown — never hardcode amounts.
  */
 export function formatPlanPricing(
   setting: PublicPlanSetting,
   lang: "pt-BR" | "en" = "en",
 ): PlanPricingLines {
-  const { trial_days, intro_price, intro_cycles, recurring_price, price } = setting;
+  const { trial_days, intro_price, intro_cycles, recurring_price, price, currency } = setting;
   const pt = lang !== "en";
   const hasTrial = trial_days > 0;
   const hasIntro = intro_price > 0 && intro_cycles > 0 && recurring_price > 0;
@@ -89,23 +105,23 @@ export function formatPlanPricing(
 
   if (hasIntro) {
     const trialLine = hasTrial
-      ? (pt ? `${trial_days} dias grátis` : `${trial_days} days free`)
+      ? (pt ? `${trial_days} dias grátis` : `${trial_days}-day free trial`)
       : null;
     const introLine = pt
       ? (intro_cycles === 1
-          ? `${formatPlanPrice(intro_price)} no primeiro mês`
-          : `${formatPlanPrice(intro_price)} por ${intro_cycles} meses`)
+          ? `${formatPlanPrice(intro_price, currency)} no primeiro mês`
+          : `${formatPlanPrice(intro_price, currency)} por ${intro_cycles} meses`)
       : (intro_cycles === 1
-          ? `${formatPlanPrice(intro_price)} first month`
-          : `${formatPlanPrice(intro_price)} for ${intro_cycles} months`);
+          ? `${formatPlanPrice(intro_price, currency)} first month`
+          : `${formatPlanPrice(intro_price, currency)} for ${intro_cycles} months`);
     const recurringLine = pt
-      ? `Depois ${formatPlanPrice(recurring_price)}${perMonth}`
-      : `Then ${formatPlanPrice(recurring_price)}${perMonth}`;
+      ? `Depois ${formatPlanPrice(recurring_price, currency)}${perMonth}`
+      : `Then ${formatPlanPrice(recurring_price, currency)}${perMonth}`;
 
     const promoSummary = [trialLine, introLine, recurringLine].filter(Boolean).join(" · ");
 
     return {
-      primaryPrice: `${formatPlanPrice(intro_price)}${perMonth}`,
+      primaryPrice: `${formatPlanPrice(intro_price, currency)}${perMonth}`,
       trialLine,
       introLine,
       recurringLine,
@@ -116,11 +132,11 @@ export function formatPlanPricing(
   }
 
   const trialLine = hasTrial
-    ? (pt ? `${trial_days} dias grátis` : `${trial_days} days free`)
+    ? (pt ? `${trial_days} dias grátis` : `${trial_days}-day free trial`)
     : null;
 
   return {
-    primaryPrice: formatPlanMonthlyPrice(price, lang),
+    primaryPrice: formatPlanMonthlyPrice(price, lang, currency),
     trialLine,
     introLine: null,
     recurringLine: null,
@@ -136,7 +152,7 @@ export function formatPlanCommission(commissionPercent: number): string {
 
 type PremiumSeatSetting = Pick<
   PublicPlanSetting,
-  "plan_key" | "included_agent_seats" | "extra_agent_seat_price"
+  "plan_key" | "included_agent_seats" | "extra_agent_seat_price" | "currency"
 >;
 
 export function formatExtraSeatPriceLabel(
@@ -147,7 +163,7 @@ export function formatExtraSeatPriceLabel(
   if (setting.extra_agent_seat_price == null || setting.extra_agent_seat_price <= 0) {
     return lang === "en" ? "On request" : "Sob consulta";
   }
-  return formatPlanMonthlyPrice(setting.extra_agent_seat_price, lang);
+  return formatPlanMonthlyPrice(setting.extra_agent_seat_price, lang, setting.currency);
 }
 
 export function premiumSeatHighlights(

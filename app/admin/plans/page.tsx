@@ -315,9 +315,10 @@ export default async function AdminPlansPage() {
     included_agent_seats: row.included_agent_seats ?? null,
     extra_agent_seat_price: row.extra_agent_seat_price ?? null,
     trial_days: Number(row.trial_days ?? (parsePlan(row.plan_key) === "pro" ? 7 : 0)),
-    intro_price: Number(row.intro_price ?? (parsePlan(row.plan_key) === "pro" ? 97 : 0)),
+    intro_price: Number(row.intro_price ?? (parsePlan(row.plan_key) === "pro" ? 29 : 0)),
     intro_cycles: Number(row.intro_cycles ?? (parsePlan(row.plan_key) === "pro" ? 1 : 0)),
-    recurring_price: Number(row.recurring_price ?? (parsePlan(row.plan_key) === "pro" ? 147 : 0)),
+    recurring_price: Number(row.recurring_price ?? (parsePlan(row.plan_key) === "pro" ? 79 : 0)),
+    currency: ((row as Record<string, unknown>).currency === "BRL" ? "BRL" : "USD") as "USD" | "BRL",
   }));
 
   const planHistory: PlanSettingHistoryEntry[] = planHistoryResult.data.map((row) => ({

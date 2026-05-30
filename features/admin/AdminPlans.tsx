@@ -61,6 +61,8 @@ export type PlanSetting = {
   intro_price: number;
   intro_cycles: number;
   recurring_price: number;
+  /** Pricing currency — USD (US launch) or BRL (Brazil). */
+  currency: "USD" | "BRL";
 };
 
 export type PlanSettingHistoryEntry = {
@@ -270,9 +272,10 @@ function PlanSettingsSection({
         included_agent_seats: key === "premium" ? 2 : null,
         extra_agent_seat_price: key === "premium" ? 0 : null,
         trial_days: key === "pro" ? 7 : 0,
-        intro_price: key === "pro" ? 97 : 0,
+        intro_price: key === "pro" ? 29 : 0,
         intro_cycles: key === "pro" ? 1 : 0,
-        recurring_price: key === "pro" ? 147 : 0,
+        recurring_price: key === "pro" ? 79 : 0,
+        currency: key === "pro" ? "USD" as const : "BRL" as const,
       };
     }),
   );
@@ -518,11 +521,31 @@ function PlanSettingsSection({
               {/* Intro pricing — shown for paid plans (pro, premium) */}
               {setting.plan_key !== "free" ? (
                 <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#647B7B]">Oferta de lançamento</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#647B7B]">Launch offer &amp; pricing</p>
+                  {/* Currency selector */}
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">Currency</label>
+                    <div className="flex gap-2">
+                      {(["USD", "BRL"] as const).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => updateSetting(index, "currency", c)}
+                          className={`rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                            setting.currency === c
+                              ? "bg-[#1F2D2E] text-white"
+                              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                          }`}
+                        >
+                          {c === "USD" ? "USD ($)" : "BRL (R$)"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Teste grátis (dias)
+                        Free trial (days)
                       </label>
                       <input
                         type="number"
@@ -535,11 +558,11 @@ function PlanSettingsSection({
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Preço 1º mês (R$)
+                        Intro price
                       </label>
                       <div className="flex items-stretch rounded-xl border border-zinc-200 overflow-hidden focus-within:border-[#0E7C86] transition-colors">
                         <span className="flex items-center px-3 text-[13px] font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-200 select-none flex-shrink-0">
-                          R$
+                          {setting.currency === "USD" ? "$" : "R$"}
                         </span>
                         <input
                           type="number"
@@ -553,7 +576,7 @@ function PlanSettingsSection({
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Meses promoção
+                        Promo months
                       </label>
                       <input
                         type="number"
@@ -566,11 +589,11 @@ function PlanSettingsSection({
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Preço recorrente (R$)
+                        Recurring price
                       </label>
                       <div className="flex items-stretch rounded-xl border border-zinc-200 overflow-hidden focus-within:border-[#0E7C86] transition-colors">
                         <span className="flex items-center px-3 text-[13px] font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-200 select-none flex-shrink-0">
-                          R$
+                          {setting.currency === "USD" ? "$" : "R$"}
                         </span>
                         <input
                           type="number"
@@ -585,8 +608,10 @@ function PlanSettingsSection({
                   </div>
                   {setting.intro_price > 0 && setting.recurring_price > 0 ? (
                     <p className="text-[11px] text-[#647B7B]">
-                      {setting.trial_days > 0 ? `${setting.trial_days} dias grátis → ` : ""}
-                      {setting.intro_cycles} {setting.intro_cycles === 1 ? "mês" : "meses"} por {brl(setting.intro_price)} → depois {brl(setting.recurring_price)}/mês
+                      {setting.trial_days > 0 ? `${setting.trial_days}-day free trial → ` : ""}
+                      {setting.intro_cycles} {setting.intro_cycles === 1 ? "month" : "months"} at{" "}
+                      {setting.currency === "USD" ? `$${setting.intro_price}` : `R$${setting.intro_price}`}{" "}
+                      → then {setting.currency === "USD" ? `$${setting.recurring_price}` : `R$${setting.recurring_price}`}/month
                     </p>
                   ) : null}
                 </div>

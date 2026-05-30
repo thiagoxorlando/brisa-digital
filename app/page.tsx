@@ -286,11 +286,18 @@ export default function Home() {
   }));
   const activeShowcase = showcaseTabs.find((t) => t.id === activeTab) ?? showcaseTabs[0];
 
-  const plans = [
-    { key: "free"    as const, audience: t("landing_plan_free_audience"),    summary: t("landing_plan_free_summary"),    featured: false, premium: false },
-    { key: "pro"     as const, audience: t("landing_plan_pro_audience"),     summary: t("landing_plan_pro_summary"),     featured: true,  premium: false },
-    { key: "premium" as const, audience: t("landing_plan_premium_audience"), summary: t("landing_plan_premium_summary"), featured: false, premium: true  },
-  ];
+  // US launch (EN): show PRO (primary offer) + Premium (coming soon) only.
+  // Brazil (PT): show all three plans including Free.
+  const plans = lang === "en"
+    ? [
+        { key: "pro"     as const, audience: t("landing_plan_pro_audience"),     summary: t("landing_plan_pro_summary"),     featured: true,  premium: false },
+        { key: "premium" as const, audience: t("landing_plan_premium_audience"), summary: t("landing_plan_premium_summary"), featured: false, premium: true  },
+      ]
+    : [
+        { key: "free"    as const, audience: t("landing_plan_free_audience"),    summary: t("landing_plan_free_summary"),    featured: false, premium: false },
+        { key: "pro"     as const, audience: t("landing_plan_pro_audience"),     summary: t("landing_plan_pro_summary"),     featured: true,  premium: false },
+        { key: "premium" as const, audience: t("landing_plan_premium_audience"), summary: t("landing_plan_premium_summary"), featured: false, premium: true  },
+      ];
 
   const ctrustItems = [t("landing_ctrust_item1"), t("landing_ctrust_item2"), t("landing_ctrust_item3")];
 
@@ -1048,7 +1055,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-14 grid items-stretch gap-6 lg:grid-cols-3">
+          <div className={`mt-14 grid items-stretch gap-6 ${lang === "en" ? "lg:grid-cols-2 max-w-3xl mx-auto" : "lg:grid-cols-3"}`}>
             {plans.map((plan) => {
               const livePlan = livePlans[plan.key] ?? buildPlanSettingsFallback()[plan.key];
               const isDisabled = !livePlan.is_available;
@@ -1116,6 +1123,9 @@ export default function Home() {
                     <p className="mt-5 text-[13px] font-semibold text-white/50">
                       {isEscrow ? "20% por contratação concluída" : "Sem mensalidade"}
                     </p>
+                  )}
+                  {livePlan.is_available && plan.key === "pro" && lang === "en" && (
+                    <p className="mt-3 text-[12px] text-white/40">Cancel anytime · No contracts</p>
                   )}
                   <ul className="mt-6 space-y-3 pb-7">
                     {highlights.map((feature) => (

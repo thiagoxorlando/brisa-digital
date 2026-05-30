@@ -54,6 +54,7 @@ function LockedScreen({ premiumAvailable, t }: { premiumAvailable: boolean; t: T
     plan_key: "premium",
     included_agent_seats: 2,
     extra_agent_seat_price: 0,
+    currency: "USD",
   });
 
   return (

@@ -38,6 +38,25 @@ export function brlPlan(value: number | string | null | undefined): string {
 }
 
 /**
+ * USD plan-price formatter — omits cents for whole-dollar values.
+ * Use only for plan card / pricing display areas.
+ *
+ * Examples:
+ *   29  → "$29"
+ *   79  → "$79"
+ *   9.9 → "$9.90"
+ */
+export function usdPlan(value: number | string | null | undefined): string {
+  const n = Number(value ?? 0) || 0;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+/**
  * Parse a BRL input string (accepts both "9,59" and "9.59") and return
  * a number rounded to 2 decimal places.
  */

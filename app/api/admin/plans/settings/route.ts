@@ -12,7 +12,7 @@ export async function GET() {
   const supabase = createServerClient({ useServiceRole: true });
   const { data, error } = await supabase
     .from("plan_settings")
-    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price")
+    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price, currency")
     .order("plan_key");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest) {
   // Fetch all current settings before making any changes
   const { data: currentRows } = await supabase
     .from("plan_settings")
-    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price");
+    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price, currency");
 
   const currentMap = new Map(
     (currentRows ?? []).map((row) => {
@@ -63,6 +63,7 @@ export async function PATCH(req: NextRequest) {
           intro_price: Number(r.intro_price ?? 0),
           intro_cycles: Number(r.intro_cycles ?? 0),
           recurring_price: Number(r.recurring_price ?? 0),
+          currency: (r.currency === "USD" || r.currency === "BRL") ? r.currency : "USD",
         },
       ];
     }),
@@ -122,6 +123,7 @@ export async function PATCH(req: NextRequest) {
     const introPrice = Math.max(0, Number(setting.intro_price ?? 0));
     const introCycles = Math.max(0, Math.floor(Number(setting.intro_cycles ?? 0)));
     const recurringPrice = Math.max(0, Number(setting.recurring_price ?? 0));
+    const currency = setting.currency === "BRL" ? "BRL" : "USD";
 
     if (!Number.isFinite(trialDays)) {
       return NextResponse.json({ error: "trial_days must be a non-negative integer." }, { status: 400 });
@@ -156,6 +158,7 @@ export async function PATCH(req: NextRequest) {
     const introPriceChanged = introPrice !== current.intro_price;
     const introCyclesChanged = introCycles !== current.intro_cycles;
     const recurringPriceChanged = recurringPrice !== current.recurring_price;
+    const currencyChanged = currency !== (current as Record<string, unknown>).currency;
     const anythingChanged =
       nameChanged ||
       priceChanged ||
@@ -168,7 +171,8 @@ export async function PATCH(req: NextRequest) {
       trialDaysChanged ||
       introPriceChanged ||
       introCyclesChanged ||
-      recurringPriceChanged;
+      recurringPriceChanged ||
+      currencyChanged;
 
     // 1. Update the plan_settings row
     const { error: updateError } = await supabase
@@ -186,6 +190,7 @@ export async function PATCH(req: NextRequest) {
         intro_price: introPrice,
         intro_cycles: introCycles,
         recurring_price: recurringPrice,
+        currency,
         updated_at: new Date().toISOString(),
       } as Record<string, unknown>)
       .eq("plan_key", planKey);
@@ -212,6 +217,7 @@ export async function PATCH(req: NextRequest) {
         intro_price: introPrice,
         intro_cycles: introCycles,
         recurring_price: recurringPrice,
+        currency,
       },
     });
 
