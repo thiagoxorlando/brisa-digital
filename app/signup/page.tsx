@@ -370,8 +370,12 @@ function SignupPageContent() {
     else if (account.password.trim().length < 6) nextErrors.password = t("signup_val_password_len");
     if (!agency.agencyName.trim()) nextErrors.agencyName = t("signup_val_agency_name");
     if (!agency.responsibleName.trim()) nextErrors.responsibleName = t("signup_val_responsible");
-    if (!agency.cpfCnpj.trim()) nextErrors.cpfCnpj = t("signup_val_cpfcnpj");
-    else if (!isValidCpfCnpj(agency.cpfCnpj)) nextErrors.cpfCnpj = t("signup_val_cpfcnpj_invalid");
+    // CPF/CNPJ is required only for Brazilian (PT) signups.
+    // US/EN agencies use Stripe Checkout; Stripe handles billing identity.
+    if (lang !== "en") {
+      if (!agency.cpfCnpj.trim()) nextErrors.cpfCnpj = t("signup_val_cpfcnpj");
+      else if (!isValidCpfCnpj(agency.cpfCnpj)) nextErrors.cpfCnpj = t("signup_val_cpfcnpj_invalid");
+    }
     if (!agency.phone.trim()) nextErrors.phone = t("signup_val_phone_agency");
     if (!agency.country.trim()) nextErrors.country = t("signup_val_country_agency");
     if (!agency.city.trim()) nextErrors.city = t("signup_val_city_agency");
@@ -971,9 +975,12 @@ function SignupPageContent() {
                                 <input className={inputClass(!!errors.responsibleName)} placeholder="Carla Mendes" value={agency.responsibleName} onChange={(event) => setAgencyField("responsibleName", event.target.value)} />
                               </LabeledInput>
                             </div>
-                            <LabeledInput label={t("signup_cpfcnpj_label")} error={errors.cpfCnpj}>
-                              <input className={inputClass(!!errors.cpfCnpj)} inputMode="numeric" maxLength={18} placeholder="00.000.000/0001-00" value={agency.cpfCnpj} onChange={(event) => setAgencyField("cpfCnpj", formatCpfCnpj(event.target.value))} />
-                            </LabeledInput>
+                            {/* CPF/CNPJ shown only for Brazilian (PT) signups */}
+                            {lang !== "en" && (
+                              <LabeledInput label={t("signup_cpfcnpj_label")} error={errors.cpfCnpj}>
+                                <input className={inputClass(!!errors.cpfCnpj)} inputMode="numeric" maxLength={18} placeholder="00.000.000/0001-00" value={agency.cpfCnpj} onChange={(event) => setAgencyField("cpfCnpj", formatCpfCnpj(event.target.value))} />
+                              </LabeledInput>
+                            )}
                             <div className="sm:col-span-2">
                               <LabeledInput label={t("signup_phone_label")} error={errors.phone}>
                                 <PhoneInput value={agency.phone} onChange={(value) => setAgencyField("phone", value)} hasError={!!errors.phone} required />
