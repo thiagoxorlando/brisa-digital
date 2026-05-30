@@ -1,3 +1,8 @@
+/**
+ * @deprecated Phase 4B.5 — no longer imported anywhere.
+ * PRO subscriptions now use Stripe Checkout (POST /api/stripe/create-checkout).
+ * This file can be deleted once confirmed safe.
+ */
 "use client";
 
 import { useMemo, useState } from "react";

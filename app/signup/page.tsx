@@ -12,7 +12,7 @@ import { formatCpf, formatCpfCnpj, isValidCpf, isValidCpfCnpj, normalizeCpfCnpj,
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
-import ProTrialCheckoutModal, { type ProTrialCheckoutPayload } from "@/features/agency/ProTrialCheckoutModal";
+// ProTrialCheckoutModal removed — PRO signup now redirects to Stripe Checkout.
 
 type LivePlans = Record<Plan, PublicPlanSetting>;
 
@@ -277,8 +277,6 @@ function SignupPageContent() {
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [manualCheckMsg, setManualCheckMsg] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [showTrialModal, setShowTrialModal] = useState(false);
-  const [trialSubmitting, setTrialSubmitting] = useState(false);
 
   const [livePlans, setLivePlans] = useState<LivePlans>(buildPlanSettingsFallback);
   useEffect(() => {
@@ -430,41 +428,6 @@ function SignupPageContent() {
     }
   }
 
-  async function handleTrialCheckoutSubmit(payload: ProTrialCheckoutPayload) {
-    setTrialSubmitting(true);
-
-    const res = await fetch("/api/auth/signup-pro", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        termsAccepted: account.termsAccepted,
-        agency: {
-          agencyName:      agency.agencyName.trim(),
-          responsibleName: agency.responsibleName.trim(),
-          cpfCnpj:         normalizeCpfCnpj(agency.cpfCnpj),
-          phone:           agency.phone.trim(),
-          country:         agency.country.trim(),
-          city:            agency.city.trim(),
-          state:           agency.state.trim(),
-          website:         agency.website.trim()     || null,
-          description:     agency.description.trim() || null,
-        },
-        card: payload,
-      }),
-    });
-
-    const json = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
-
-    if (!res.ok || !json.ok) {
-      setTrialSubmitting(false);
-      throw new Error(json.error ?? t("signup_error_payment"));
-    }
-
-    // Session already established by signUp in handleSubmit — go to onboarding
-    const params = new URLSearchParams({ plan: "pro" });
-    if (nextPath) params.set("next", nextPath);
-    router.push(`/onboarding?${params.toString()}`);
-  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -476,7 +439,8 @@ function SignupPageContent() {
       return;
     }
 
-    // PRO: create auth user first (for session), then show card modal
+    // PRO: create auth user + profile, then redirect to Stripe Checkout.
+    // No card data is collected by BrisaHub — Stripe handles payment securely.
     if (account.role === "agency" && agency.plan === "pro") {
       setLoading(true);
 
@@ -487,26 +451,6 @@ function SignupPageContent() {
 
       if (suError || !suData.user) {
         if (suError && /already registered/i.test(suError.message)) {
-          // Possible retry from a previously failed card attempt — sign in and check for profile
-          const { data: siData } = await supabase.auth.signInWithPassword({
-            email:    account.email.trim(),
-            password: account.password,
-          });
-
-          if (siData.user) {
-            const { data: prof } = await supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", siData.user.id)
-              .maybeSingle();
-
-            if (!prof?.role) {
-              // No profile → retry scenario; session established, show modal
-              setLoading(false);
-              setShowTrialModal(true);
-              return;
-            }
-          }
           setShowSignInPrompt(true);
         } else {
           setServerError(suError?.message ?? t("signup_error_account"));
@@ -515,8 +459,48 @@ function SignupPageContent() {
         return;
       }
 
-      setLoading(false);
-      setShowTrialModal(true);
+      // Create profile + agency records before redirecting to Stripe.
+      // /api/auth/signup is the same route used by free agency signup.
+      const profileRes = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id:       suData.user.id,
+          role:          "agency",
+          termsAccepted: account.termsAccepted,
+          agency: {
+            company_name: agency.agencyName.trim(),
+            contact_name: agency.responsibleName.trim(),
+            cpf_cnpj:     normalizeCpfCnpj(agency.cpfCnpj),
+            phone:         agency.phone.trim(),
+            country:       agency.country.trim(),
+            city:          agency.city.trim(),
+            state:         agency.state.trim(),
+            website:       agency.website.trim()     || null,
+            description:   agency.description.trim() || null,
+            avatar_url:    null,
+          },
+        }),
+      });
+
+      if (!profileRes.ok) {
+        const profileJson = await profileRes.json().catch(() => ({})) as { error?: string };
+        setServerError(profileJson.error ?? t("signup_error_config"));
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to Stripe Checkout — no card data is ever handled by BrisaHub.
+      const checkoutRes = await fetch("/api/stripe/create-checkout", { method: "POST" });
+      const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
+
+      if (!checkoutRes.ok || !checkoutJson.url) {
+        setServerError(checkoutJson.error ?? t("signup_error_payment"));
+        setLoading(false);
+        return;
+      }
+
+      window.location.assign(checkoutJson.url);
       return;
     }
 
@@ -1231,20 +1215,7 @@ function SignupPageContent() {
       </div>
     </div>
 
-    {showTrialModal && (
-      <ProTrialCheckoutModal
-        email={account.email.trim()}
-        planLabel={selectedPlan.name}
-        priceLabel={formatPlanPricing(selectedPlan, lang).primaryPrice}
-        trialDays={7}
-        initialHolderName={agency.responsibleName.trim()}
-        initialCpfCnpj={formatCpfCnpj(agency.cpfCnpj)}
-        initialPhone={agency.phone.trim()}
-        submitting={trialSubmitting}
-        onClose={() => { if (!trialSubmitting) setShowTrialModal(false); }}
-        onSubmit={handleTrialCheckoutSubmit}
-      />
-    )}
+    {/* ProTrialCheckoutModal removed — PRO signup now uses Stripe Checkout */}
     </>
   );
 }
