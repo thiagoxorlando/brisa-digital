@@ -89,6 +89,15 @@ export default async function TalentDashboardPage() {
   const pendingContracts = filteredContracts.filter((contract) => contract.status === "confirmed" && contract.payment_status === "pending");
   const paidContracts = filteredContracts.filter((contract) => contract.payment_status === "paid" || contract.status === "paid");
 
+  // In Internal mode the agency pays the talent directly — the full payment_amount
+  // is what the talent receives. In Escrow mode net_amount (post-commission) applies.
+  const isInternalMode = globalDefaults.default_payment_mode === "internal";
+  function talentAmount(c: { net_amount?: unknown; payment_amount?: unknown }): number {
+    return isInternalMode
+      ? Number(c.payment_amount ?? 0)
+      : Number(c.net_amount ?? c.payment_amount ?? 0);
+  }
+
   const upcomingBookings = upcomingContracts.map((contract) => ({
     id: contract.id,
     title: contract.job_id ? (openJobMap.get(contract.job_id) ?? contract.job_description?.slice(0, 60) ?? "Upcoming Job") : (contract.job_description?.slice(0, 60) ?? "Upcoming Job"),
@@ -96,17 +105,17 @@ export default async function TalentDashboardPage() {
     jobDate: contract.job_date as string | null,
     jobTime: contract.job_time as string | null,
     location: contract.location as string | null,
-    amount: Number(contract.net_amount ?? contract.payment_amount ?? 0),
+    amount: talentAmount(contract),
     status: contract.status as string,
   }));
 
   const pendingPayments = pendingContracts.map((contract) => ({
     id: contract.id,
     title: contract.job_id ? (openJobMap.get(contract.job_id) ?? contract.job_description?.slice(0, 60) ?? "Contract") : (contract.job_description?.slice(0, 60) ?? "Contract"),
-    amount: Number(contract.net_amount ?? contract.payment_amount ?? 0),
+    amount: talentAmount(contract),
   }));
 
-  const totalEarned = paidContracts.reduce((sum, contract) => sum + Number(contract.net_amount ?? contract.payment_amount ?? 0), 0);
+  const totalEarned = paidContracts.reduce((sum, contract) => sum + talentAmount(contract), 0);
   const pendingWithdraw = Math.max(0, Number(profileData?.wallet_balance ?? 0));
 
   const today = new Date().toISOString().slice(0, 10);

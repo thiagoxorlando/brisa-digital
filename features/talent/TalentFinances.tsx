@@ -283,9 +283,11 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
       visibleBookings.map((b) => {
         const req = b.job_id ? jobReqMap.get(b.job_id) : null;
         const price = b.price ?? 0;
-        const earnings = netAmountMap.has(b.id)
-          ? netAmountMap.get(b.id)!
-          : 0;
+        // Internal mode: full booking price (agency pays directly, no platform deduction).
+        // Escrow mode: net_amount after commission from the linked contract.
+        const earnings = isInternal
+          ? price
+          : (netAmountMap.has(b.id) ? netAmountMap.get(b.id)! : 0);
         return {
           id:       b.id,
           job:      b.job_title ?? "Untitled job",
@@ -355,8 +357,14 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           ? Number(c.net_amount)
           : Math.max(0, gross - commissionAmount);
         const payoutTx = payoutTxMap.get(c.id);
-        const earnings = payoutTx ?? netFromContract;
-        const referralCommission = payoutTx != null && netFromContract > payoutTx
+        // Internal mode: talent receives the full gross amount directly from the agency.
+        // BrisaHub does not process the payout and must not deduct commission.
+        // Escrow mode: use the actual wallet payout tx, falling back to net_amount.
+        const earnings = isInternal
+          ? gross
+          : (payoutTx ?? netFromContract);
+        // Referral commissions are only credited in escrow mode.
+        const referralCommission = (!isInternal && payoutTx != null && netFromContract > payoutTx)
           ? Math.max(0, parseFloat((netFromContract - payoutTx).toFixed(2)))
           : 0;
         return {
@@ -892,7 +900,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           {/* Paid contract breakdown */}
           {paidContracts.length > 0 && (
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Detalhamento dos Pagamentos</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{isInternal ? "Pagamentos Confirmados" : "Detalhamento dos Pagamentos"}</p>
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-zinc-50">
                 {visibleItems(paidContracts, showAllPaid).map((contract) => (
                   <div key={contract.id} className="px-5 py-4">
@@ -901,34 +909,43 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                         <p className="text-[13px] font-semibold text-zinc-900 truncate">{contract.jobTitle}</p>
                         {contract.paid_at && (
                           <p className="text-[11px] text-zinc-400 mt-0.5">
-                            Pago em {new Date(contract.paid_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}
+                            {isInternal ? "Confirmado em" : "Pago em"} {new Date(contract.paid_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}
                           </p>
                         )}
                       </div>
                       <p className="text-[15px] font-semibold text-emerald-700 tabular-nums flex-shrink-0">{brl(contract.earnings)}</p>
                     </div>
-                    <div className="mt-2 space-y-0.5 text-[11px] text-zinc-500">
-                      <div className="flex justify-between">
-                        <span>Valor bruto</span>
-                        <span className="tabular-nums text-zinc-700">{brl(contract.amount)}</span>
-                      </div>
-                      {contract.commissionAmount > 0 && (
+                    {isInternal ? (
+                      <div className="mt-1.5 text-[11px] text-zinc-500">
                         <div className="flex justify-between">
-                          <span>Comissão da plataforma</span>
-                          <span className="tabular-nums text-rose-600">−{brl(contract.commissionAmount)}</span>
+                          <span>Valor combinado</span>
+                          <span className="tabular-nums text-zinc-700">{brl(contract.amount)}</span>
                         </div>
-                      )}
-                      {contract.referralCommission > 0 && (
-                        <div className="flex justify-between">
-                          <span>Comissão de indicação</span>
-                          <span className="tabular-nums text-violet-600">−{brl(contract.referralCommission)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between border-t border-zinc-100 pt-1 mt-1">
-                        <span className="font-semibold text-zinc-700">Líquido recebido</span>
-                        <span className="tabular-nums font-semibold text-emerald-700">{brl(contract.earnings)}</span>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="mt-2 space-y-0.5 text-[11px] text-zinc-500">
+                        <div className="flex justify-between">
+                          <span>Valor bruto</span>
+                          <span className="tabular-nums text-zinc-700">{brl(contract.amount)}</span>
+                        </div>
+                        {contract.commissionAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span>Comissão da plataforma</span>
+                            <span className="tabular-nums text-rose-600">−{brl(contract.commissionAmount)}</span>
+                          </div>
+                        )}
+                        {contract.referralCommission > 0 && (
+                          <div className="flex justify-between">
+                            <span>Comissão de indicação</span>
+                            <span className="tabular-nums text-violet-600">−{brl(contract.referralCommission)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-zinc-100 pt-1 mt-1">
+                          <span className="font-semibold text-zinc-700">Líquido recebido</span>
+                          <span className="tabular-nums font-semibold text-emerald-700">{brl(contract.earnings)}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <ShowMoreButton
