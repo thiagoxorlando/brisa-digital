@@ -167,8 +167,11 @@ export async function POST(_req: NextRequest) {
     // Let Stripe collect a billing address (required for tax compliance)
     billing_address_collection: "auto",
 
-    // Surface promotional codes field so users can redeem future promo codes
-    allow_promotion_codes: false,
+    // NOTE: allow_promotion_codes must NOT be set when `discounts` is present —
+    // Stripe rejects sessions that include both parameters simultaneously.
+    // When discounts is set (intro coupon), Stripe automatically hides the
+    // promo code input. When there is no coupon, omitting this field is also
+    // correct: we do not expose a promo code field at launch.
   };
 
   let checkoutSession: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>;
