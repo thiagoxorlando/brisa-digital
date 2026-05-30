@@ -158,6 +158,128 @@ export function getPlanKeyFromSubscription(
   return "pro";
 }
 
+// ── Checkout helpers — find-or-create pattern ─────────────────────────────────
+//
+// Both helpers are idempotent: they search before creating, using a
+// deterministic lookup_key / coupon ID derived from the plan settings values.
+// Re-running the checkout route with the same plan settings is safe.
+
+/**
+ * Returns the Stripe Price ID for the PRO plan recurring charge.
+ *
+ * Resolution order:
+ *   1. STRIPE_PRO_RECURRING_PRICE_ID env var  (pre-created, fastest)
+ *   2. Stripe lookup_key "brisahub_pro_{currency}_{cents}"
+ *   3. Create product + price if neither exists
+ */
+export async function getOrCreateProPrice(
+  stripeClient: Stripe,
+  opts: { recurringPrice: number; currency: string; planName: string },
+): Promise<string> {
+  const { recurringPrice, currency, planName } = opts;
+  const cents     = Math.round(recurringPrice * 100);
+  const lookupKey = `brisahub_pro_${currency}_${cents}`;
+
+  // Option 1: pre-configured env var
+  const envPriceId = process.env.STRIPE_PRO_RECURRING_PRICE_ID;
+  if (envPriceId) return envPriceId;
+
+  // Option 2: find by lookup_key
+  const existing = await stripeClient.prices.list({
+    lookup_keys: [lookupKey],
+    limit: 1,
+  });
+  if (existing.data.length > 0) return existing.data[0].id;
+
+  // Option 3: create product + price
+  // Find or create the BrisaHub PRO product first
+  const products = await stripeClient.products.search({
+    query: `metadata["brisahub_plan_key"]:"pro"`,
+    limit: 1,
+  });
+
+  let productId: string;
+  if (products.data.length > 0) {
+    productId = products.data[0].id;
+  } else {
+    const product = await stripeClient.products.create({
+      name:     planName ?? "BrisaHub PRO",
+      metadata: { brisahub_plan_key: "pro" },
+      statement_descriptor: "BRISAHUB",
+    });
+    productId = product.id;
+  }
+
+  const price = await stripeClient.prices.create({
+    product:    productId,
+    unit_amount: cents,
+    currency,
+    recurring:  { interval: "month" },
+    lookup_key: lookupKey,
+    transfer_lookup_key: true,
+    metadata:   { brisahub_plan_key: "pro" },
+  });
+
+  console.log(`[stripe] created price ${price.id} (${lookupKey})`);
+  return price.id;
+}
+
+/**
+ * Returns the Stripe Coupon ID for the PRO intro-price discount.
+ *
+ * Coupon ID encodes both prices, e.g. "BRISAHUB_PRO_INTRO_7900_2900",
+ * so changing the prices automatically creates a new coupon rather than
+ * silently applying the wrong discount.
+ *
+ * The coupon has duration "once" — it reduces only the first invoice
+ * (the post-trial charge), leaving all subsequent invoices at full price.
+ */
+export async function getOrCreateIntroCoupon(
+  stripeClient: Stripe,
+  opts: { introPrice: number; recurringPrice: number; currency: string },
+): Promise<string> {
+  const { introPrice, recurringPrice, currency } = opts;
+  const introCents     = Math.round(introPrice * 100);
+  const recurringCents = Math.round(recurringPrice * 100);
+  const discountCents  = recurringCents - introCents;
+
+  if (discountCents <= 0) {
+    throw new Error(
+      `[stripe] intro_price (${introPrice}) must be less than recurring_price (${recurringPrice})`
+    );
+  }
+
+  const couponId = `BRISAHUB_PRO_INTRO_${recurringCents}_${introCents}`;
+
+  // Try to retrieve an existing coupon with this ID
+  try {
+    const existing = await stripeClient.coupons.retrieve(couponId);
+    return existing.id;
+  } catch (err) {
+    // 404 = not found, we need to create it; any other error, re-throw
+    const isNotFound =
+      err instanceof Error &&
+      (err.message.includes("No such coupon") || (err as { statusCode?: number }).statusCode === 404);
+    if (!isNotFound) throw err;
+  }
+
+  const coupon = await stripeClient.coupons.create({
+    id:         couponId,
+    name:       `BrisaHub PRO Intro Offer`,
+    currency,
+    amount_off: discountCents,
+    duration:   "once",
+    metadata:   {
+      brisahub_plan_key:  "pro",
+      intro_price_cents:  String(introCents),
+      recurring_price_cents: String(recurringCents),
+    },
+  });
+
+  console.log(`[stripe] created coupon ${coupon.id} (${discountCents} cents off first invoice)`);
+  return coupon.id;
+}
+
 // ── Type re-exports ───────────────────────────────────────────────────────────
 
 export type { Stripe };
