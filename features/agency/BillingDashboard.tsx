@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSubscription } from "@/lib/SubscriptionContext";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 import { brl } from "@/lib/brl";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
@@ -359,6 +360,7 @@ export default function BillingDashboard({
   const [activePlan, setActivePlan] = useState<PlanKey>((isActivePaid ? initialPlan : "free") as PlanKey);
   const [activePlanStatus, setActivePlanStatus] = useState(planStatus ?? (isActivePaid ? "active" : "inactive"));
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
+  const { refreshPlan } = useSubscription();
 
   const isTrialing = activePlanStatus === "trialing";
   const [currentTrialEndsAt, setCurrentTrialEndsAt] = useState<string | null>(trialEndsAt ?? null);
@@ -454,7 +456,7 @@ export default function BillingDashboard({
       showToast("This plan is not yet available.", false);
       return;
     }
-    if (p.key === "free" && activePlan !== "free") { setChangingTo(p); return; }
+    if (p.key === "free" && activePlan !== "free") { void handleCancelSubscription(); return; }
     if (p.key === activePlan) return;
     if (p.key === "pro") { void handleStripeCheckout(); return; }
     // Premium and other paid plans still use the legacy modal/flow
@@ -463,15 +465,22 @@ export default function BillingDashboard({
   }
 
   async function handleCancelSubscription() {
-    if (!confirm("Tem certeza que deseja cancelar a assinatura? Seu acesso voltará ao plano Free imediatamente.")) return;
+    if (!confirm("Cancel your subscription? You will lose PRO access immediately and will not be charged again.")) return;
     setCancelingSubscription(true);
     try {
       const res = await fetch("/api/agency/subscription/cancel", { method: "POST" });
       const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
-      if (!res.ok) { showToast(data.error ?? "Erro ao cancelar assinatura.", false); return; }
+      if (!res.ok) {
+        showToast(data.error ?? "Failed to cancel subscription. Please try again.", false);
+        return;
+      }
+      // Update local UI state immediately — do not wait for webhook
       setActivePlan("free");
       setActivePlanStatus("canceled");
-      showToast("Assinatura cancelada. Você está no plano Free.", true);
+      setCurrentTrialEndsAt(null);
+      // Refresh SubscriptionContext so isPremium / isActive are revoked now
+      await refreshPlan();
+      showToast("Subscription cancelled. You are now on the Free plan.", true);
     } finally {
       setCancelingSubscription(false);
     }
@@ -597,10 +606,11 @@ export default function BillingDashboard({
             <div className="flex-shrink-0">
               <button
                 type="button"
-                onClick={() => handlePlanClick(PLANS[0])}
-                className="rounded-xl border border-zinc-200 px-4 py-2.5 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 transition-colors cursor-pointer"
+                onClick={handleCancelSubscription}
+                disabled={cancelingSubscription}
+                className="rounded-xl border border-zinc-200 px-4 py-2.5 text-[13px] font-medium text-zinc-600 hover:border-rose-200 hover:text-rose-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cancelar assinatura
+                {cancelingSubscription ? "Cancelling…" : "Cancel subscription"}
               </button>
             </div>
           )}

@@ -269,6 +269,8 @@ async function handleSubscriptionDeleted(
     plan:                   "free",
     plan_status:            "canceled",
     stripe_subscription_id: null,
+    trial_ends_at:          null,
+    plan_expires_at:        null,
   }, "subscription.deleted");
 
   console.log(`[stripe/webhook] subscription.deleted: user=${userId} rows_updated=${count} → free`);
