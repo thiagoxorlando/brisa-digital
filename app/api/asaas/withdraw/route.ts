@@ -255,22 +255,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Falha ao registrar saque." }, { status: 500 });
   }
 
-  const { data: debitedProfile, error: debitError } = await supabase
-    .from("profiles")
-    .update({ wallet_balance: Number((walletBalance - roundedAmount).toFixed(2)) } as Record<string, unknown>)
-    .eq("id", user.id)
-    .gte("wallet_balance", roundedAmount)
-    .select("id")
-    .maybeSingle();
+  // Atomic debit via RPC — uses SELECT FOR UPDATE to serialize concurrent
+  // requests and prevent overdrawing the wallet.
+  // The stale `walletBalance` read above was only used for an early-exit
+  // pre-check. The RPC re-reads the balance inside a transaction lock.
+  const { data: debitResult, error: debitError } = await supabase
+    .rpc("decrement_wallet_balance_if_sufficient", {
+      p_user_id: user.id,
+      p_amount:  roundedAmount,
+    });
 
-  if (debitError || !debitedProfile) {
+  const debit = debitResult as { success: boolean; error?: string; balance?: number } | null;
+
+  if (debitError || !debit?.success) {
+    const reason = debit?.error ?? debitError?.message ?? "unknown";
+    console.warn("[asaas withdraw] debit rejected", {
+      userId: user.id,
+      transactionId: tx.id,
+      reason,
+      balanceAtDebitTime: debit?.balance,
+    });
+
+    // Cancel the transaction row we already inserted.
     await supabase
       .from("wallet_transactions")
       .update({
-        status: "cancelled",
+        status:       "cancelled",
         provider_status: "cancelled",
         processed_at: new Date().toISOString(),
-        admin_note: "Saldo insuficiente no momento do débito.",
+        admin_note:   `Debit rejected at lock time: ${reason}`,
       } as Record<string, unknown>)
       .eq("id", tx.id);
 
