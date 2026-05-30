@@ -305,7 +305,7 @@ export default function Home() {
         "Workflow completo",
       ];
     }
-    const liveHighlights = planLimitHighlights(livePlan, lang);
+    const liveHighlights = planLimitHighlights(livePlan, lang, isEscrow);
     return livePlan.plan_key === "premium"
       ? [t("plan_everything_in_pro"), ...premiumSeatHighlights(livePlan, lang), ...liveHighlights]
       : liveHighlights;
@@ -1113,7 +1113,9 @@ export default function Home() {
                     <p className="mt-4 text-4xl font-black tracking-[-0.04em] text-white/45">{t("plan_coming_soon")}</p>
                   )}
                   {livePlan.is_available && plan.key === "free" && (
-                    <p className="mt-5 text-[13px] font-semibold text-white/50">20% por contratação concluída</p>
+                    <p className="mt-5 text-[13px] font-semibold text-white/50">
+                      {isEscrow ? "20% por contratação concluída" : "Sem mensalidade"}
+                    </p>
                   )}
                   <ul className="mt-6 space-y-3 pb-7">
                     {highlights.map((feature) => (

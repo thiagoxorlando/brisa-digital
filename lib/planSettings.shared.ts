@@ -186,7 +186,17 @@ export function formatTalentShareLabel(commissionPercent: number): string {
   return `${Math.round(100 - commissionPercent)}%`;
 }
 
-export function planLimitHighlights(setting: PublicPlanSetting, lang: "pt-BR" | "en" = "pt-BR"): string[] {
+/**
+ * Returns display highlights for a plan card.
+ * Pass showCommission=false in Internal payment mode to omit the commission
+ * line — in internal mode BrisaHub does not process payments, so per-hire
+ * commission cannot be charged.
+ */
+export function planLimitHighlights(
+  setting: PublicPlanSetting,
+  lang: "pt-BR" | "en" = "pt-BR",
+  showCommission = true,
+): string[] {
   if (lang === "en") {
     const jobs =
       setting.job_limit === null
@@ -196,11 +206,11 @@ export function planLimitHighlights(setting: PublicPlanSetting, lang: "pt-BR" | 
       setting.max_hires_per_job === null
         ? "Unlimited hires per job"
         : `Up to ${setting.max_hires_per_job} hire${setting.max_hires_per_job === 1 ? "" : "s"} per job`;
-    return [
-      jobs,
-      hires,
-      `Platform commission of ${formatPlanCommission(setting.commission_percent)}`,
-    ];
+    const lines: string[] = [jobs, hires];
+    if (showCommission && setting.commission_percent > 0) {
+      lines.push(`Platform commission of ${formatPlanCommission(setting.commission_percent)}`);
+    }
+    return lines;
   }
 
   const jobs =
@@ -213,9 +223,9 @@ export function planLimitHighlights(setting: PublicPlanSetting, lang: "pt-BR" | 
       ? "Contratações ilimitadas por vaga"
       : `Até ${setting.max_hires_per_job} contratação${setting.max_hires_per_job === 1 ? "" : "es"} por vaga`;
 
-  return [
-    jobs,
-    hires,
-    `Comissão da plataforma de ${formatPlanCommission(setting.commission_percent)}`,
-  ];
+  const lines: string[] = [jobs, hires];
+  if (showCommission && setting.commission_percent > 0) {
+    lines.push(`Comissão da plataforma de ${formatPlanCommission(setting.commission_percent)}`);
+  }
+  return lines;
 }
