@@ -19,26 +19,33 @@ export default async function TalentJobsPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("submissions")
-      .select("job_id")
-      .eq("talent_user_id", userId)
-      .neq("status", "rejected"),
+      .select("job_id, status")
+      .eq("talent_user_id", userId),
   ]);
 
   if (jobsResult.error) console.error("[TalentJobsPage]", jobsResult.error.message);
 
-  const appliedJobIds = new Set((subsResult.data ?? []).map((s) => s.job_id as string));
+  // Build a map of job_id → submission status for display and filtering.
+  const submissionMap = new Map(
+    (subsResult.data ?? []).map((s) => [String(s.job_id), String(s.status ?? "pending")])
+  );
 
-  const jobs = (jobsResult.data ?? []).map((row) => ({
-    id:          String(row.id),
-    title:       row.title       ?? "",
-    category:    row.category    ?? "",
-    budget:      row.budget      ?? 0,
-    deadline:    row.deadline    ?? "",
-    jobDate:     row.job_date    ?? null,
-    description: row.description ?? "",
-    location:    row.location    ?? null,
-    applied:     appliedJobIds.has(String(row.id)),
-  }));
+  const jobs = (jobsResult.data ?? []).map((row) => {
+    const rowId = String(row.id);
+    const submissionStatus = submissionMap.get(rowId) ?? null;
+    return {
+      id:               rowId,
+      title:            row.title       ?? "",
+      category:         row.category    ?? "",
+      budget:           row.budget      ?? 0,
+      deadline:         row.deadline    ?? "",
+      jobDate:          row.job_date    ?? null,
+      description:      row.description ?? "",
+      location:         row.location    ?? null,
+      applied:          submissionStatus !== null,
+      submissionStatus,
+    };
+  });
 
   return <TalentJobList jobs={jobs} />;
 }
