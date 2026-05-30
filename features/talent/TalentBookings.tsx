@@ -90,7 +90,7 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{t("bookings_agreed_value")}</p>
               <p className="text-zinc-700 font-semibold">{b.price > 0 ? brl(b.price) : "—"}</p>
-              {b.net_amount != null && <p className="text-zinc-400 mt-0.5">{t("bookings_you_receive")} {brl(b.net_amount)}</p>}
+              {b.net_amount != null && b.net_amount < b.price && <p className="text-zinc-400 mt-0.5">{t("bookings_you_receive")} {brl(b.net_amount)}</p>}
             </div>
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{t("contracts_job_date")}</p>

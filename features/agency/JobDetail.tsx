@@ -14,6 +14,7 @@ import { jobStatusTone } from "@/lib/jobStatus";
 import { statusInfo, normaliseStatus } from "@/lib/bookingStatus";
 import { submissionStatusTone } from "@/lib/submissionStatus";
 import { avatarGradient, initials } from "@/lib/talentDisplay";
+import { useAgencyConfig } from "@/lib/AgencyConfigContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -890,6 +891,8 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
 }) {
   const [busy, setBusy] = useState<"cancel" | "confirm" | "paid" | null>(null);
   const [balanceError, setBalanceError] = useState<{ required: number; available: number } | null>(null);
+  const agencyConfig = useAgencyConfig();
+  const isEscrow = agencyConfig.showEscrow;
   const stInfo = statusInfo(normaliseStatus(booking.status));
   const stCls = stInfo.badge;
   const canCancel   = booking.status !== "cancelled" && booking.status !== "paid" && booking.status !== "confirmed";
@@ -988,8 +991,8 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
         </div>
       </div>
 
-      {/* Insufficient balance banner */}
-      {balanceError && (
+      {/* Insufficient balance banner — escrow mode only */}
+      {balanceError && isEscrow && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

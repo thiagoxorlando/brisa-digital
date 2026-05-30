@@ -9,6 +9,7 @@ import { brl } from "@/lib/brl";
 import { avatarGradient, initials } from "@/lib/talentDisplay";
 import TrialStatusBanner from "@/components/TrialStatusBanner";
 import AgencyLaunchChecklist, { type LaunchChecklistData } from "@/features/agency/AgencyLaunchChecklist";
+import { useAgencyConfig } from "@/lib/AgencyConfigContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -329,6 +330,8 @@ export default function AgencyDashboardOverview({
   checklist?: LaunchChecklistData;
 }) {
   const { t, lang } = useT();
+  const agencyConfig = useAgencyConfig();
+  const isEscrow = agencyConfig.showEscrow;
 
   const statEntries: { key: string; label: string; value: number; isCurrency?: boolean }[] = [
     { key: "totalJobs",      label: "Vagas abertas",          value: stats.totalJobs },
@@ -354,16 +357,18 @@ export default function AgencyDashboardOverview({
               Acompanhe vagas, pagamentos e talentos com visão rápida da operação.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link href="/agency/finances" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Saldo na carteira</p>
-              <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.walletBalance)}</p>
-            </Link>
-            <Link href="/agency/bookings" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Valor em andamento</p>
-              <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.activeEscrowTotal)}</p>
-            </Link>
-          </div>
+          {isEscrow && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link href="/agency/finances" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Saldo na carteira</p>
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.walletBalance)}</p>
+              </Link>
+              <Link href="/agency/bookings" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Valor em andamento</p>
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.activeEscrowTotal)}</p>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 
@@ -433,7 +438,7 @@ export default function AgencyDashboardOverview({
           hrefLabel={t("dashboard_view_all")}
         />
         {pendingContracts.length === 0 ? (
-          <Empty msg="Nenhum contrato em custódia aguardando liberação." />
+          <Empty msg={isEscrow ? "Nenhum contrato em custódia aguardando liberação." : "Nenhum contrato em andamento."} />
         ) : (
           <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
             {pendingContracts.map((c) => {

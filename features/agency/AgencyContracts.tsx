@@ -709,7 +709,7 @@ function JobGroup({
             >
               {jobTitle}
             </Link>
-            {pendingDeposit > 0 && (
+            {pendingDeposit > 0 && (!agencyConfig || agencyConfig.showEscrow) && (
               <Link
                 href={bookingsHref}
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors"

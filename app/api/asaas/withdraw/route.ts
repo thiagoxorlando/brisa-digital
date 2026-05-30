@@ -5,7 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { notifyAdmins } from "@/lib/notify";
 import { getOwnerTotalActiveAllocations } from "@/lib/premiumWorkspace.server";
-import { getPlatformSetting } from "@/lib/platformSettings.server";
+import { getPlatformSetting, getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { getWithdrawalFee, WITHDRAWAL_MIN_AMOUNT } from "@/lib/withdrawal-fee";
 import { brl } from "@/lib/brl";
 import {
@@ -82,6 +82,15 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: authError } = await session.auth.getUser();
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Block withdrawals in internal payment mode — platform does not hold funds.
+  const globalDefaults = await getGlobalPaymentDefaults();
+  if (globalDefaults.default_payment_mode === "internal") {
+    return NextResponse.json(
+      { error: "Saque não disponível no modo de pagamento direto." },
+      { status: 422 },
+    );
   }
 
   const withdrawRateLimit = checkRateLimit({

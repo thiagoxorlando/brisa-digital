@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { createPayment, getPixQrCode } from "@/lib/asaas";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
 // dueDate: today + 1 day, formatted as YYYY-MM-DD
 function nextDayDate(): string {
@@ -14,6 +15,15 @@ export async function POST(req: NextRequest) {
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Block deposits in internal payment mode — platform does not hold funds.
+  const globalDefaults = await getGlobalPaymentDefaults();
+  if (globalDefaults.default_payment_mode === "internal") {
+    return NextResponse.json(
+      { error: "Depósito não disponível no modo de pagamento direto." },
+      { status: 422 },
+    );
+  }
 
   const body   = await req.json().catch(() => ({})) as { amount?: number };
   const amount = Number(body.amount ?? 0);
