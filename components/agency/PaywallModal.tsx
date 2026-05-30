@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { buildPlanSettingsFallback, formatPlanMonthlyPrice } from "@/lib/planSettings.shared";
+import { buildPlanSettingsFallback, formatPlanPricing } from "@/lib/planSettings.shared";
 
 const FALLBACKS = buildPlanSettingsFallback();
 const FREE_FALLBACK = FALLBACKS.free;
@@ -18,7 +18,9 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
   const [freeLimit, setFreeLimit] = useState(FREE_FALLBACK.job_limit);
   const [freeHireLimit, setFreeHireLimit] = useState(FREE_FALLBACK.max_hires_per_job);
   const [proAvailable, setProAvailable] = useState(PRO_FALLBACK.is_available);
-  const [proPrice, setProPrice] = useState(formatPlanMonthlyPrice(PRO_FALLBACK.price));
+  const [proPromoSummary, setProPromoSummary] = useState(
+    formatPlanPricing(PRO_FALLBACK).promoSummary ?? formatPlanPricing(PRO_FALLBACK).primaryPrice
+  );
 
   useEffect(() => {
     void fetch("/api/plan-settings").then(async (res) => {
@@ -30,7 +32,8 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
       }
       if (data.pro) {
         setProAvailable(data.pro.is_available);
-        setProPrice(formatPlanMonthlyPrice(data.pro.price));
+        const lines = formatPlanPricing(data.pro);
+        setProPromoSummary(lines.promoSummary ?? lines.primaryPrice);
       }
     }).catch(() => undefined);
   }, []);
@@ -50,7 +53,7 @@ export default function PaywallModal({ onClose, variant = "hiring" }: Props) {
     ? "O plano Pro estara disponivel em breve."
     : variant === "hiring"
       ? `O plano gratuito permite ate ${freeJobsCopy} e ${freeHiresCopy}. Faca upgrade para o plano Pro e remova os limites.`
-      : `Gerencie vagas e contratacoes sem limites com o plano Pro por ${proPrice}.`;
+      : `Gerencie vagas e contratacoes sem limites com o plano Pro. ${proPromoSummary}.`;
   const features = !proAvailable
     ? ["Em breve"]
     : variant === "hiring"

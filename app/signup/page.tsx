@@ -9,7 +9,7 @@ import PhoneInput from "@/components/ui/PhoneInput";
 import { supabase } from "@/lib/supabase";
 import { TALENT_CATEGORY_LABELS } from "@/lib/talentCategories";
 import { formatCpf, formatCpfCnpj, isValidCpf, isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
-import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
 import ProTrialCheckoutModal, { type ProTrialCheckoutPayload } from "@/features/agency/ProTrialCheckoutModal";
@@ -317,7 +317,7 @@ function SignupPageContent() {
   const selectedPlan = useMemo(() => livePlans[agency.plan] ?? buildPlanSettingsFallback()[agency.plan], [agency.plan, livePlans]);
 
   const formatPlanLine = (plan: PublicPlanSetting) =>
-    plan.is_available ? formatPlanMonthlyPrice(plan.price, lang) : t("plan_coming_soon");
+    plan.is_available ? formatPlanPricing(plan, lang).primaryPrice : t("plan_coming_soon");
 
   const isEmailLocked = !!(referredEmail && account.role === "talent");
 
@@ -1070,6 +1070,7 @@ function SignupPageContent() {
                           {(() => {
                             const active = agency.plan === "pro";
                             const proAvailable = livePlans.pro.is_available;
+                            const proPricing = formatPlanPricing(livePlans.pro, lang);
                             return (
                               <button
                                 type="button"
@@ -1083,9 +1084,18 @@ function SignupPageContent() {
                                   <span className={["flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors", active ? "border-white bg-white" : "border-white/50 bg-white/10"].join(" ")}>
                                     {active && <span className="w-2 h-2 rounded-full bg-[#1ABC9C]" />}
                                   </span>
-                                  <div className="flex-shrink-0 w-24 text-left">
-                                    <p className="text-[18px] font-black tracking-tight text-white leading-none">{formatPlanLine(livePlans.pro)}</p>
-                                    {proAvailable ? <p className="text-[11px] text-white/60 mt-0.5">{t("plan_per_month_label")}</p> : null}
+                                  <div className="flex-shrink-0 w-28 text-left">
+                                    <p className="text-[18px] font-black tracking-tight text-white leading-none">{proPricing.primaryPrice}</p>
+                                    {proAvailable ? (
+                                      <p className="text-[11px] text-white/70 mt-0.5 leading-snug">
+                                        {proPricing.isIntroOffer && proPricing.recurringLine
+                                          ? proPricing.recurringLine
+                                          : proPricing.trialLine ?? t("plan_per_month_label")}
+                                      </p>
+                                    ) : null}
+                                    {proAvailable && proPricing.isIntroOffer && proPricing.trialLine ? (
+                                      <p className="text-[10px] text-white/60 mt-0.5">{proPricing.trialLine}</p>
+                                    ) : null}
                                   </div>
                                   <div className="flex-shrink-0 h-10 w-px bg-white/20" />
                                   <div className="flex-1 min-w-0">
@@ -1225,7 +1235,7 @@ function SignupPageContent() {
       <ProTrialCheckoutModal
         email={account.email.trim()}
         planLabel={selectedPlan.name}
-        priceLabel={formatPlanMonthlyPrice(selectedPlan.price, lang)}
+        priceLabel={formatPlanPricing(selectedPlan, lang).primaryPrice}
         trialDays={7}
         initialHolderName={agency.responsibleName.trim()}
         initialCpfCnpj={formatCpfCnpj(agency.cpfCnpj)}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 import { brl } from "@/lib/brl";
-import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import ProTrialCheckoutModal, { type ProTrialCheckoutPayload } from "@/features/agency/ProTrialCheckoutModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,7 +55,6 @@ const PLANS = [
     key: "free" as const,
     name: PLAN_DEFINITIONS.free.label,
     price: PLAN_DEFINITIONS.free.price,
-    priceLabel: "R$ 0",
     period: "",
     badge: null,
     gradient: "from-zinc-300 to-zinc-400",
@@ -70,7 +69,6 @@ const PLANS = [
     key: "pro" as const,
     name: PLAN_DEFINITIONS.pro.label,
     price: PLAN_DEFINITIONS.pro.price,
-    priceLabel: "R$ 287",
     period: "/mes",
     badge: "POPULAR" as const,
     gradient: "from-indigo-500 to-violet-600",
@@ -86,7 +84,6 @@ const PLANS = [
     key: "premium" as const,
     name: PLAN_DEFINITIONS.premium.label,
     price: PLAN_DEFINITIONS.premium.price,
-    priceLabel: PLAN_DEFINITIONS.premium.priceLabel,
     period: "",
     badge: null,
     gradient: "from-violet-500 to-purple-700",
@@ -391,7 +388,7 @@ export default function BillingDashboard({
   }
   function effectivePriceLabel(p: PlanDef) {
     const setting = effectiveSetting(p);
-    return setting.is_available ? formatPlanMonthlyPrice(setting.price) : "Em breve";
+    return setting.is_available ? formatPlanPricing(setting).primaryPrice : "Em breve";
   }
   function effectiveTrialLabel(p: PlanDef) {
     if (p.key !== "pro" || !proTrialEnabled) return null;
@@ -734,11 +731,30 @@ export default function BillingDashboard({
                   <div className="mb-1">
                     <span className="text-[1.75rem] font-bold tracking-tighter text-zinc-900">{effectivePriceLabel(p)}</span>
                   </div>
-                  {available ? (
-                    <p className="text-[11px] font-semibold mb-4 text-indigo-600">
-                      {effectiveTrialLabel(p) ?? ""}
-                    </p>
-                  ) : (
+                  {available ? (() => {
+                    const pricingLines = formatPlanPricing(effectiveSetting(p));
+                    const trialLabel = effectiveTrialLabel(p);
+                    if (pricingLines.isIntroOffer && !introCyclesRemaining) {
+                      return (
+                        <div className="mb-4 space-y-0.5">
+                          {pricingLines.trialLine && (
+                            <p className="text-[11px] font-semibold text-emerald-600">{pricingLines.trialLine}</p>
+                          )}
+                          {pricingLines.introLine && (
+                            <p className="text-[11px] text-zinc-500">{pricingLines.introLine}</p>
+                          )}
+                          {pricingLines.recurringLine && (
+                            <p className="text-[11px] text-zinc-400">{pricingLines.recurringLine}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    return (
+                      <p className="text-[11px] font-semibold mb-4 text-indigo-600">
+                        {trialLabel ?? ""}
+                      </p>
+                    );
+                  })() : (
                     <p className="text-[11px] font-semibold mb-4 text-zinc-400">Em breve</p>
                   )}
                   <ul className="space-y-1.5 mb-5 flex-1">

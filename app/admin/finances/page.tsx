@@ -17,6 +17,7 @@ import {
   REFERRAL_RATE,
 } from "@/lib/plans";
 import { getLivePlanSettings } from "@/lib/planSettings.server";
+import { formatPlanPricing } from "@/lib/planSettings.shared";
 
 export const metadata: Metadata = { title: "Administração — Financeiro — BrisaHub" };
 
@@ -559,11 +560,11 @@ export default async function AdminFinancesPage() {
       },
       pro: {
         commissionLabel: `${liveSettings.pro.commission_percent.toFixed(0)}%`,
-        priceLabel: `R$ ${liveSettings.pro.price.toLocaleString("pt-BR")}/mês`,
+        priceLabel: formatPlanPricing(liveSettings.pro).primaryPrice,
       },
       premium: {
         commissionLabel: `${liveSettings.premium.commission_percent.toFixed(0)}%`,
-        priceLabel: `R$ ${liveSettings.premium.price.toLocaleString("pt-BR")}/mês`,
+        priceLabel: formatPlanPricing(liveSettings.premium).primaryPrice,
       },
     },
   };

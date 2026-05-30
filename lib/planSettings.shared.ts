@@ -58,6 +58,78 @@ export function formatPlanMonthlyPrice(price: number, lang: "pt-BR" | "en" = "pt
   return `${formatPlanPrice(price)}${period}`;
 }
 
+export type PlanPricingLines = {
+  /** Headline price to render large: intro_price/mês for intro offers, else price/mês. */
+  primaryPrice: string;
+  /** "7 dias grátis" | "7 days free". Null when trial_days = 0. */
+  trialLine: string | null;
+  /** "R$ 97 no primeiro mês" | "R$ 97 first month". Null when no intro offer. */
+  introLine: string | null;
+  /** "Depois R$ 147/mês" | "Then R$ 147/month". Null when no separate recurring price. */
+  recurringLine: string | null;
+  /** Compact single-line summary for modals/tooltips. */
+  promoSummary: string | null;
+  isIntroOffer: boolean;
+  hasTrial: boolean;
+};
+
+/**
+ * Returns structured pricing display lines derived entirely from plan_settings DB values.
+ * Use this everywhere a plan's price is shown — never hardcode R$97, R$147, etc.
+ */
+export function formatPlanPricing(
+  setting: PublicPlanSetting,
+  lang: "pt-BR" | "en" = "pt-BR",
+): PlanPricingLines {
+  const { trial_days, intro_price, intro_cycles, recurring_price, price } = setting;
+  const pt = lang !== "en";
+  const hasTrial = trial_days > 0;
+  const hasIntro = intro_price > 0 && intro_cycles > 0 && recurring_price > 0;
+  const perMonth = pt ? "/mês" : "/month";
+
+  if (hasIntro) {
+    const trialLine = hasTrial
+      ? (pt ? `${trial_days} dias grátis` : `${trial_days} days free`)
+      : null;
+    const introLine = pt
+      ? (intro_cycles === 1
+          ? `${formatPlanPrice(intro_price)} no primeiro mês`
+          : `${formatPlanPrice(intro_price)} por ${intro_cycles} meses`)
+      : (intro_cycles === 1
+          ? `${formatPlanPrice(intro_price)} first month`
+          : `${formatPlanPrice(intro_price)} for ${intro_cycles} months`);
+    const recurringLine = pt
+      ? `Depois ${formatPlanPrice(recurring_price)}${perMonth}`
+      : `Then ${formatPlanPrice(recurring_price)}${perMonth}`;
+
+    const promoSummary = [trialLine, introLine, recurringLine].filter(Boolean).join(" · ");
+
+    return {
+      primaryPrice: `${formatPlanPrice(intro_price)}${perMonth}`,
+      trialLine,
+      introLine,
+      recurringLine,
+      promoSummary,
+      isIntroOffer: true,
+      hasTrial,
+    };
+  }
+
+  const trialLine = hasTrial
+    ? (pt ? `${trial_days} dias grátis` : `${trial_days} days free`)
+    : null;
+
+  return {
+    primaryPrice: formatPlanMonthlyPrice(price, lang),
+    trialLine,
+    introLine: null,
+    recurringLine: null,
+    promoSummary: trialLine,
+    isIntroOffer: false,
+    hasTrial,
+  };
+}
+
 export function formatPlanCommission(commissionPercent: number): string {
   return `${commissionPercent.toFixed(0)}%`;
 }

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUserRole } from "@/lib/getUserRole";
 import { getAgencyLanding } from "@/lib/getAgencyLanding";
-import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
 import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
@@ -1053,6 +1053,7 @@ export default function Home() {
               const livePlan = livePlans[plan.key] ?? buildPlanSettingsFallback()[plan.key];
               const isDisabled = !livePlan.is_available;
               const highlights = getPlanHighlights(livePlan);
+              const pricing = formatPlanPricing(livePlan, lang);
 
               return <div
                 key={plan.key}
@@ -1080,22 +1081,39 @@ export default function Home() {
                   <h3 className="mt-4 text-2xl font-black text-white">{livePlan.name}</h3>
                   <p className="mt-3 text-sm leading-6 text-white/50">{plan.summary}</p>
                   {livePlan.is_available ? (
-                    <div className="mt-4 flex items-end gap-1">
-                      <span className="text-4xl font-black tracking-[-0.04em] text-white">{formatPlanMonthlyPrice(livePlan.price, lang)}</span>
+                    <div className="mt-4">
+                      <span className="text-4xl font-black tracking-[-0.04em] text-white">{pricing.primaryPrice}</span>
+                      {plan.key !== "free" && pricing.isIntroOffer && (
+                        <div className="mt-3 space-y-1.5">
+                          {pricing.trialLine && (
+                            <p className="flex items-center gap-2 text-[13px] font-semibold text-emerald-400">
+                              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                              {pricing.trialLine}
+                            </p>
+                          )}
+                          {pricing.introLine && (
+                            <p className="flex items-center gap-2 text-[13px] text-white/70">
+                              <svg className="w-3.5 h-3.5 flex-shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                              {pricing.introLine}
+                            </p>
+                          )}
+                          {pricing.recurringLine && (
+                            <p className="flex items-center gap-2 text-[13px] text-white/50">
+                              <svg className="w-3.5 h-3.5 flex-shrink-0 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                              {pricing.recurringLine}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {plan.key !== "free" && !pricing.isIntroOffer && pricing.trialLine && (
+                        <p className="mt-2 text-[13px] font-semibold text-emerald-400">{pricing.trialLine}</p>
+                      )}
                     </div>
                   ) : (
                     <p className="mt-4 text-4xl font-black tracking-[-0.04em] text-white/45">{t("plan_coming_soon")}</p>
                   )}
                   {livePlan.is_available && plan.key === "free" && (
                     <p className="mt-5 text-[13px] font-semibold text-white/50">20% por contratação concluída</p>
-                  )}
-                  {livePlan.is_available && plan.key !== "free" && (
-                    <div className="mt-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/8 px-4 py-3 flex items-center gap-3">
-                      <svg className="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <p className="text-[13px] font-semibold text-white/80">Cobrança promocional de entrada · Cancele quando quiser</p>
-                    </div>
                   )}
                   <ul className="mt-6 space-y-3 pb-7">
                     {highlights.map((feature) => (
