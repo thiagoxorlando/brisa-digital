@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminUsers from "@/features/admin/AdminUsers";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Administração — Usuários — BrisaHub" };
+export const metadata: Metadata = { title: "Users — Admin — BrisaHub" };
 
 export default async function AdminUsersPage() {
   const supabase = createServerClient({ useServiceRole: true });

@@ -13,7 +13,7 @@ const geist = Geist({
 
 export const metadata: Metadata = {
   title: "BrisaHub",
-  description: "Plataforma para gerenciar talentos, contratos, pagamentos e reservas",
+  description: "Platform for managing talent, contracts, payments and bookings",
   icons: { icon: "/logo.png" },
 };
 

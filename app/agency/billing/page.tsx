@@ -7,7 +7,7 @@ import BillingDashboard from "@/features/agency/BillingDashboard";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Assinatura — BrisaHub" };
+export const metadata: Metadata = { title: "Plan & Billing — BrisaHub" };
 
 function AgentBillingScreen({ workspaceName }: { workspaceName: string }) {
   return (

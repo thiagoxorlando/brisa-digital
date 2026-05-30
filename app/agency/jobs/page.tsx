@@ -3,7 +3,7 @@ import JobList from "@/features/agency/JobList";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
-export const metadata: Metadata = { title: "Vagas — BrisaHub" };
+export const metadata: Metadata = { title: "Jobs — BrisaHub" };
 
 export default async function JobsPage() {
   const session = await createSessionClient();

@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import InviteAccept from "./InviteAccept";
 
-export const metadata: Metadata = { title: "Convite de workspace — BrisaHub" };
+export const metadata: Metadata = { title: "Workspace Invite — BrisaHub" };
 
 function BuildingIcon() {
   return (

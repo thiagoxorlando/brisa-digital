@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 import WorkspaceAgentProfile from "@/features/agency/WorkspaceAgentProfile";
 
-export const metadata: Metadata = { title: "Meu Perfil - BrisaHub" };
+export const metadata: Metadata = { title: "My Profile — BrisaHub" };
 
 export default async function WorkspaceAgentProfilePage() {
   const context = await requirePremiumWorkspacePageContext();

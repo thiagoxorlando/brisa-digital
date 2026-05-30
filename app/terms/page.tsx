@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Termos de Uso e Condições — BrisaHub",
+  title: "Terms of Use — BrisaHub",
 };
 
 const termsSections = [

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminWithdrawals, { type AdminWithdrawalRow } from "@/features/admin/AdminWithdrawals";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Administração — Saques — BrisaHub" };
+export const metadata: Metadata = { title: "Withdrawals — Admin — BrisaHub" };
 
 export default async function AdminWithdrawalsPage() {
   const supabase = createServerClient({ useServiceRole: true });

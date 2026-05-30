@@ -8,7 +8,7 @@ import { getContractComputedState } from "@/lib/contractState";
 import WorkspaceFinancesClient from "@/features/talent/WorkspaceFinancesClient";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
+export const metadata: Metadata = { title: "Finances — BrisaHub" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 

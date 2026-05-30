@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getAllPlatformSettings } from "@/lib/platformSettings.server";
 import AdminSettings, { type PlatformSettings } from "@/features/admin/AdminSettings";
 
-export const metadata: Metadata = { title: "Configurações — Administração — BrisaHub" };
+export const metadata: Metadata = { title: "Settings — Admin — BrisaHub" };
 
 const DEFAULTS: PlatformSettings = {
   platform_name:                      "BrisaHub",

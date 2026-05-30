@@ -25,7 +25,7 @@ const SUBMISSION_TONE: Record<string, string> = {
   cancelled: "bg-zinc-100   text-zinc-400    ring-1 ring-zinc-200",
 };
 
-export function submissionStatusLabel(status: string, lang: StatusLang = "pt-BR"): string {
+export function submissionStatusLabel(status: string, lang: StatusLang = "en"): string {
   return SUBMISSION_LABEL[lang][status] ?? status;
 }
 

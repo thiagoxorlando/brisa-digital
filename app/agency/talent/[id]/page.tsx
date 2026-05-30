@@ -5,7 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { canViewerAccessTalentProfile } from "@/lib/talentMarketplace";
 
-export const metadata: Metadata = { title: "Perfil do talento - BrisaHub" };
+export const metadata: Metadata = { title: "Talent Profile — BrisaHub" };
 export const dynamic = "force-dynamic";
 
 export default async function AgencyTalentProfilePage({

@@ -69,7 +69,7 @@ const STATUS_BADGES: Record<ContractStatus, string> = {
   rejected:  "bg-rose-50    text-rose-600    ring-1 ring-rose-100",
 };
 
-export function statusInfo(raw: string, lang: StatusLang = "pt-BR"): StatusInfo {
+export function statusInfo(raw: string, lang: StatusLang = "en"): StatusInfo {
   const normalised = normaliseStatus(raw);
   const labels = STATUS_LABELS[lang] ?? STATUS_LABELS["pt-BR"];
   const label = labels[normalised] ?? raw;
@@ -178,7 +178,7 @@ const UNIFIED_BADGES: Record<UnifiedBookingStatus, string> = {
 
 export function unifiedStatusInfo(
   status: UnifiedBookingStatus | string | null | undefined,
-  lang: StatusLang = "pt-BR",
+  lang: StatusLang = "en",
   paymentMode: "escrow" | "internal" = "escrow",
 ): UnifiedStatusInfo {
   const key = (status as UnifiedBookingStatus) ?? "aguardando_assinatura";

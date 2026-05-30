@@ -7,7 +7,7 @@ import AdminAnalytics, {
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
 
-export const metadata: Metadata = { title: "Administração — Analytics — BrisaHub" };
+export const metadata: Metadata = { title: "Analytics — Admin — BrisaHub" };
 
 function sumNumeric(rows: { [k: string]: unknown }[] | null | undefined, field: string): number {
   if (!rows) return 0;

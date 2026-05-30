@@ -27,7 +27,7 @@ const JOB_STATUS_TONE: Record<string, string> = {
   paused:   "bg-blue-50    text-blue-600   ring-1 ring-blue-100",
 };
 
-export function jobStatusLabel(status: string, lang: StatusLang = "pt-BR"): string {
+export function jobStatusLabel(status: string, lang: StatusLang = "en"): string {
   return JOB_STATUS_LABEL[lang][status] ?? status;
 }
 

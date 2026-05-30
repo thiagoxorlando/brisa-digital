@@ -8,7 +8,7 @@ import { getPlanLabel, parsePlan } from "@/lib/plans";
 import { createServerClient } from "@/lib/supabase";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Administracao - Planos - BrisaHub" };
+export const metadata: Metadata = { title: "Plans — Admin — BrisaHub" };
 
 type AgencyProfileRow = {
   id: string;

@@ -7,7 +7,7 @@ import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@
 import { resolveContractAmounts } from "@/lib/contractStatus";
 import { brl } from "@/lib/brl";
 
-export const metadata: Metadata = { title: "Detalhe da Disputa — BrisaHub" };
+export const metadata: Metadata = { title: "Dispute Detail — BrisaHub" };
 
 type PageProps = { params: Promise<{ id: string }> };
 

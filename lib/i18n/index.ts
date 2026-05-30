@@ -1,7 +1,7 @@
 export type Lang = "pt-BR" | "en";
 
 export const LANGS: readonly Lang[] = ["pt-BR", "en"] as const;
-export const DEFAULT_LANG: Lang = "pt-BR";
+export const DEFAULT_LANG: Lang = "en";
 
 export const LANG_LABELS: Record<Lang, string> = {
   "pt-BR": "Português",

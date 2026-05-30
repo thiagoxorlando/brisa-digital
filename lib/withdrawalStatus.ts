@@ -31,7 +31,7 @@ const WITHDRAWAL_TONE: Record<string, string> = {
   failed: "bg-red-50 text-red-700 ring-1 ring-red-100",
 };
 
-export function withdrawalStatusLabel(status: string | null | undefined, lang: StatusLang = "pt-BR"): string {
+export function withdrawalStatusLabel(status: string | null | undefined, lang: StatusLang = "en"): string {
   return WITHDRAWAL_LABELS[lang][status ?? ""] ?? (status ?? "—");
 }
 

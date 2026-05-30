@@ -4,7 +4,7 @@ import TalentList from "@/features/agency/TalentList";
 import TalentViewToggle from "@/features/agency/TalentViewToggle";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Talentos - BrisaHub" };
+export const metadata: Metadata = { title: "Talents — BrisaHub" };
 export const dynamic = "force-dynamic";
 
 export default async function AgencyTalentPage() {

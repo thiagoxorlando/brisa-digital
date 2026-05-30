@@ -3,7 +3,7 @@ import AdminDashboard from "@/features/admin/AdminDashboard";
 import { createServerClient } from "@/lib/supabase";
 import { REFERRAL_RATE, FALLBACK_COMMISSION_RATE } from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Painel administrativo — BrisaHub" };
+export const metadata: Metadata = { title: "Admin Dashboard — BrisaHub" };
 
 export default async function AdminDashboardPage() {
   const supabase = createServerClient({ useServiceRole: true });

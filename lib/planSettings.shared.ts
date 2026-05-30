@@ -52,7 +52,7 @@ export function formatPlanPrice(price: number): string {
   return brlPlan(price);
 }
 
-export function formatPlanMonthlyPrice(price: number, lang: "pt-BR" | "en" = "pt-BR"): string {
+export function formatPlanMonthlyPrice(price: number, lang: "pt-BR" | "en" = "en"): string {
   if (price === 0) return formatPlanPrice(price);
   const period = lang === "en" ? "/month" : "/mês";
   return `${formatPlanPrice(price)}${period}`;
@@ -79,7 +79,7 @@ export type PlanPricingLines = {
  */
 export function formatPlanPricing(
   setting: PublicPlanSetting,
-  lang: "pt-BR" | "en" = "pt-BR",
+  lang: "pt-BR" | "en" = "en",
 ): PlanPricingLines {
   const { trial_days, intro_price, intro_cycles, recurring_price, price } = setting;
   const pt = lang !== "en";
@@ -141,7 +141,7 @@ type PremiumSeatSetting = Pick<
 
 export function formatExtraSeatPriceLabel(
   setting: PremiumSeatSetting,
-  lang: "pt-BR" | "en" = "pt-BR"
+  lang: "pt-BR" | "en" = "en"
 ): string | null {
   if (setting.plan_key !== "premium") return null;
   if (setting.extra_agent_seat_price == null || setting.extra_agent_seat_price <= 0) {
@@ -152,7 +152,7 @@ export function formatExtraSeatPriceLabel(
 
 export function premiumSeatHighlights(
   setting: PremiumSeatSetting,
-  lang: "pt-BR" | "en" = "pt-BR"
+  lang: "pt-BR" | "en" = "en"
 ): string[] {
   if (setting.plan_key !== "premium") return [];
 
@@ -194,7 +194,7 @@ export function formatTalentShareLabel(commissionPercent: number): string {
  */
 export function planLimitHighlights(
   setting: PublicPlanSetting,
-  lang: "pt-BR" | "en" = "pt-BR",
+  lang: "pt-BR" | "en" = "en",
   showCommission = true,
 ): string[] {
   if (lang === "en") {

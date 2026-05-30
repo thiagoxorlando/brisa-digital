@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { buildReconciliationData } from "@/lib/readModels/reconciliation";
 import AdminReconciliation from "@/features/admin/AdminReconciliation";
 
-export const metadata: Metadata = { title: "Reconciliação — Administração — BrisaHub" };
+export const metadata: Metadata = { title: "Reconciliation — Admin — BrisaHub" };
 
 export default async function AdminReconciliationPage() {
   const auth = await requireAdmin();

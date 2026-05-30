@@ -10,7 +10,7 @@ import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { parsePlan } from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Reservas Premium — BrisaHub" };
+export const metadata: Metadata = { title: "Premium Bookings — BrisaHub" };
 
 export default async function WorkspaceBookingsPage() {
   const context = await requirePremiumWorkspacePageContext();

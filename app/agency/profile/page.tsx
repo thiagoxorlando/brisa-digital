@@ -4,7 +4,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import AgencyProfile from "@/features/agency/AgencyProfile";
 import { formatCpfCnpj } from "@/lib/cpf";
 
-export const metadata: Metadata = { title: "Perfil — BrisaHub" };
+export const metadata: Metadata = { title: "Profile — BrisaHub" };
 
 export default async function AgencyProfilePage() {
   const session = await createSessionClient();

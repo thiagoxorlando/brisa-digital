@@ -64,7 +64,7 @@ export const GENDER_LABEL_EN: Record<NormalizedGender, string> = {
  * Returns the display label for a raw gender value.
  * Falls back to the raw string if it can't be normalized to a known label.
  */
-export function genderLabel(raw: string | null | undefined, lang: "pt" | "en" = "pt"): string {
+export function genderLabel(raw: string | null | undefined, lang: "pt" | "en" = "en"): string {
   const normalized = normalizeGender(raw);
   const map = lang === "en" ? GENDER_LABEL_EN : GENDER_LABEL_PT;
   return map[normalized];

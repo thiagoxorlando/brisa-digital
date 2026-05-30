@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { buildAdminControlCenterData } from "@/lib/readModels/adminControlCenter";
 import AdminControlCenter from "@/features/admin/AdminControlCenter";
 
-export const metadata: Metadata = { title: "Centro de Controle — Administração — BrisaHub" };
+export const metadata: Metadata = { title: "Control Center — Admin — BrisaHub" };
 
 export default async function AdminControlCenterPage() {
   const auth = await requireAdmin();

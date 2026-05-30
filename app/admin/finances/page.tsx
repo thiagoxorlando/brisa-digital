@@ -19,7 +19,7 @@ import {
 import { getLivePlanSettings } from "@/lib/planSettings.server";
 import { formatPlanPricing } from "@/lib/planSettings.shared";
 
-export const metadata: Metadata = { title: "Administração — Financeiro — BrisaHub" };
+export const metadata: Metadata = { title: "Finances — Admin — BrisaHub" };
 
 type ContractRow = {
   id: string;

@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import type { LaunchChecklistData } from "@/features/agency/AgencyLaunchChecklist";
 
-export const metadata: Metadata = { title: "Painel - BrisaHub" };
+export const metadata: Metadata = { title: "Dashboard - BrisaHub" };
 
 export default async function AgencyDashboardPage() {
   const session = await createSessionClient();

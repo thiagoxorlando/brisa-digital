@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import WorkspaceBrandingForm from "@/features/agency/WorkspaceBrandingForm";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 
-export const metadata: Metadata = { title: "Personalização — BrisaHub" };
+export const metadata: Metadata = { title: "Branding — BrisaHub" };
 
 export default async function WorkspaceBrandingPage() {
   const context = await requirePremiumWorkspacePageContext();

@@ -8,7 +8,7 @@ import {
 } from "@/lib/premiumWorkspace.server";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 
-export const metadata: Metadata = { title: "Agentes — BrisaHub" };
+export const metadata: Metadata = { title: "Agents — BrisaHub" };
 
 export default async function WorkspaceAgentsPage() {
   const context = await requirePremiumWorkspacePageContext();

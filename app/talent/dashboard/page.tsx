@@ -6,7 +6,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import { resolvePortalOnlyTalentLanding } from "@/lib/talentPortalLanding";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Painel - BrisaHub" };
+export const metadata: Metadata = { title: "Dashboard - BrisaHub" };
 
 export default async function TalentDashboardPage() {
   const session = await createSessionClient();

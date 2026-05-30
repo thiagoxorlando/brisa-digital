@@ -8,7 +8,7 @@ import { hasActivePremiumWorkspaceTalentMembership } from "@/lib/workspacePortal
 import { batchGetActiveDisputes } from "@/lib/contractState.server";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Contratos — BrisaHub" };
+export const metadata: Metadata = { title: "Contracts — BrisaHub" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 type ContractRow = {

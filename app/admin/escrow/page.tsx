@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminEscrow, { type AdminEscrowRow } from "@/features/admin/AdminEscrow";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Administração — Custódia — BrisaHub" };
+export const metadata: Metadata = { title: "Escrow — Admin — BrisaHub" };
 
 export default async function AdminEscrowPage() {
   const supabase = createServerClient({ useServiceRole: true });

@@ -5,7 +5,7 @@ import { loadAdminPremiumData } from "@/lib/readModels/adminPremium";
 import AdminPremium from "@/features/admin/AdminPremium";
 
 export const metadata: Metadata = {
-  title: "Premium — Administração — BrisaHub",
+  title: "Premium — Admin — BrisaHub",
 };
 
 export default async function AdminPremiumPage() {

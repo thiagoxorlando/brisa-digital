@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminPayouts, { type AdminPayoutRow } from "@/features/admin/AdminPayouts";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Administração — Pagamentos — BrisaHub" };
+export const metadata: Metadata = { title: "Payouts — Admin — BrisaHub" };
 
 export default async function AdminPayoutsPage() {
   const supabase = createServerClient({ useServiceRole: true });

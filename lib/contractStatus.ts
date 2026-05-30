@@ -71,7 +71,7 @@ export function getContractPaymentStatus(contract: {
 
 export function contractStatusLabel(
   status: ContractPaymentStatus,
-  lang: StatusLang = "pt-BR",
+  lang: StatusLang = "en",
   paymentMode?: "internal" | "escrow",
 ): string {
   if (paymentMode === "internal" && status === "signed" && lang === "pt-BR") {

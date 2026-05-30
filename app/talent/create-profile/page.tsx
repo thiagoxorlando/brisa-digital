@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import TalentProfileForm from "@/features/talent/TalentProfileForm";
 
 export const metadata: Metadata = {
-  title: "Criar perfil — BrisaHub",
+  title: "Create Profile — BrisaHub",
 };
 
 export default function CreateProfilePage() {

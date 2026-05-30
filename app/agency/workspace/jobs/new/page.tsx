@@ -3,7 +3,7 @@ import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.se
 import { getAgentLedgerBalance } from "@/lib/premiumWorkspace.server";
 import WorkspaceCreateJobForm from "@/features/agency/WorkspaceCreateJobForm";
 
-export const metadata: Metadata = { title: "Criar vaga do Espaco Premium — BrisaHub" };
+export const metadata: Metadata = { title: "Create Premium Job — BrisaHub" };
 
 export default async function WorkspaceCreateJobPage() {
   const context = await requirePremiumWorkspacePageContext();

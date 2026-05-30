@@ -12,7 +12,7 @@ import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { parsePlan } from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Financeiro — BrisaHub" };
+export const metadata: Metadata = { title: "Finances — BrisaHub" };
 
 export default async function AgencyFinancesPage() {
   const session = await createSessionClient();

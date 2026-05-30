@@ -4,7 +4,7 @@ import type { AdminContractRow } from "@/features/admin/AdminContracts";
 import { buildContractFileAccessUrl } from "@/lib/contractFiles";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Administracao - Contratos - BrisaHub" };
+export const metadata: Metadata = { title: "Contracts — Admin — BrisaHub" };
 
 export default async function AdminContractsPage() {
   const supabase = createServerClient({ useServiceRole: true });

@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { redirect } from "next/navigation";
 import AdminSystem, { type SystemHealth } from "@/features/admin/AdminSystem";
 
-export const metadata: Metadata = { title: "Sistema — Administração — BrisaHub" };
+export const metadata: Metadata = { title: "System — Admin — BrisaHub" };
 
 const REQUIRED_TABLES = [
   "profiles", "agencies", "talent_profiles", "jobs", "contracts",

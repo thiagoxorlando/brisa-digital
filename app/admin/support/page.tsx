@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { resolveSupportUsers } from "@/lib/resolveSupportUsers";
 import AdminSupport, { type AdminConversation } from "@/features/admin/AdminSupport";
 
-export const metadata: Metadata = { title: "Suporte — Administração — BrisaHub" };
+export const metadata: Metadata = { title: "Support — Admin — BrisaHub" };
 
 export default async function AdminSupportPage() {
   const auth = await requireAdmin();

@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Indicações — BrisaHub" };
+export const metadata: Metadata = { title: "Referrals — BrisaHub" };
 
 export default async function TalentReferralsPage() {
   const session = await createSessionClient();

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createSessionClient } from "@/lib/supabase.server";
 import AvailabilityCalendar from "@/features/talent/AvailabilityCalendar";
 
-export const metadata: Metadata = { title: "Disponibilidade — BrisaHub" };
+export const metadata: Metadata = { title: "Availability — BrisaHub" };
 
 export default async function AvailabilityPage() {
   const session = await createSessionClient();

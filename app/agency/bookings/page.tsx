@@ -8,7 +8,7 @@ import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { parsePlan } from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Reservas — BrisaHub" };
+export const metadata: Metadata = { title: "Bookings — BrisaHub" };
 
 export default async function BookingsPage({
   searchParams,

@@ -21,7 +21,7 @@ import {
 import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
 
-export const metadata: Metadata = { title: "Administracao - Detalhe da disputa - BrisaHub" };
+export const metadata: Metadata = { title: "Dispute Detail — Admin — BrisaHub" };
 
 type PageProps = {
   params: Promise<{ id: string }>;
