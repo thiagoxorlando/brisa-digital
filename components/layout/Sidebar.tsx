@@ -62,6 +62,19 @@ const AGENCY_OPEN_NAV: NavItem[] = [
     ),
   },
   {
+    // [3] Minha Equipe / My Team — open-platform talent history.
+    // Present for all agency owners regardless of Premium tier.
+    labelKey: "nav_team",
+    href: "/agency/talent-history",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
+    // [4]
     labelKey: "nav_bookings",
     href: "/agency/bookings",
     icon: (
@@ -215,20 +228,11 @@ const AGENCY_PREMIUM_NAV: NavItem[] = [
   },
 ];
 
-// Open platform nav for non-Premium agencies (no workspace upsell — goes in its own section)
+// Open platform nav for non-Premium agencies (no workspace upsell — goes in its own section).
+// nav_team is now in AGENCY_OPEN_NAV[3], so slice(0,4) picks up dashboard/jobs/talent/team.
 const AGENCY_NON_PREMIUM_OPEN_NAV: NavItem[] = [
-  ...AGENCY_OPEN_NAV.slice(0, 3),
-  {
-    labelKey: "nav_team",
-    href: "/agency/talent-history",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  AGENCY_OPEN_NAV[3],
+  ...AGENCY_OPEN_NAV.slice(0, 4),  // [0] dashboard, [1] jobs, [2] talent, [3] team
+  AGENCY_OPEN_NAV[4],              // [4] bookings
   {
     labelKey: "nav_post_job",
     href: "/agency/post-job",
@@ -238,7 +242,7 @@ const AGENCY_NON_PREMIUM_OPEN_NAV: NavItem[] = [
       </svg>
     ),
   },
-  ...AGENCY_OPEN_NAV.slice(4),
+  ...AGENCY_OPEN_NAV.slice(5),     // [5] finances … [9] support
   {
     labelKey: "nav_profile",
     href: "/agency/profile",
