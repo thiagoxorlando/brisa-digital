@@ -201,6 +201,7 @@ export default async function BillingPage() {
   //   3. Only for active paid plans — free plan has no next charge.
   const planExpiresAt = profileRow?.plan_expires_at ?? null;
   const planKey       = profileRow?.plan ?? "free";
+  const trialEndsAt   = profileRow?.trial_ends_at ?? null;
 
   let nextChargeDate: string | null = null;
   if (planKey !== "free" && !planExpiresAt) {
@@ -210,9 +211,11 @@ export default async function BillingPage() {
       base.setMonth(base.getMonth() + 1);
       nextChargeDate = base.toISOString();
     }
+    // For Stripe trial users: no invoice paid yet → use trial_ends_at as next charge date
+    if (!nextChargeDate && trialEndsAt) {
+      nextChargeDate = trialEndsAt;
+    }
   }
-
-  const trialEndsAt   = profileRow?.trial_ends_at ?? null;
   const proTrialEnabled =
     Boolean(trialSettings.trials_enabled ?? true) &&
     Boolean(trialSettings.trial_auto_charge_enabled ?? true);

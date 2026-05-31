@@ -421,8 +421,8 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
             <section className="space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-zinc-400">Vagas abertas</h2>
-                  <p className="mt-1 text-[13px] text-zinc-500">Prioridade para acompanhar candidaturas e ações ativas.</p>
+                  <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-zinc-400">{t("jobs_section_open")}</h2>
+                  <p className="mt-1 text-[13px] text-zinc-500">{t("jobs_section_open_desc")}</p>
                 </div>
                 <span className="rounded-full bg-[#D1F4EB] px-3 py-1 text-[12px] font-bold text-[#0A7A5A]">
                   {openJobs.length}
@@ -436,7 +436,7 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-zinc-100 bg-white py-12 text-center">
-                  <p className="text-[14px] font-medium text-zinc-500">Nenhuma vaga aberta no momento</p>
+                  <p className="text-[14px] font-medium text-zinc-500">{t("jobs_none_open")}</p>
                 </div>
               )}
             </section>
@@ -449,8 +449,8 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
                   className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
                 >
                   <div>
-                    <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-zinc-400">Outras vagas</h2>
-                    <p className="mt-1 text-[13px] text-zinc-500">Rascunhos, vagas pausadas e fechadas ficam separadas para reduzir ruído.</p>
+                    <h2 className="text-[13px] font-black uppercase tracking-[0.18em] text-zinc-400">{t("jobs_section_other")}</h2>
+                    <p className="mt-1 text-[13px] text-zinc-500">{t("jobs_section_other_desc")}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-bold text-zinc-600">
@@ -480,9 +480,9 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
                   d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h2 className="text-[18px] font-black tracking-[-0.02em]">Crie sua primeira vaga</h2>
+            <h2 className="text-[18px] font-black tracking-[-0.02em]">{t("jobs_empty_title")}</h2>
             <p className="text-[13px] text-slate-300 mt-2 max-w-sm mx-auto leading-relaxed">
-              Você não precisa de um marketplace existente. Crie a vaga e compartilhe o link diretamente com seus talentos via WhatsApp ou e-mail.
+              {t("jobs_empty_desc")}
             </p>
             <div className="flex flex-wrap gap-3 justify-center mt-5">
               <Link
@@ -492,7 +492,7 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Criar primeira vaga
+                {t("dashboard_create_first_job")}
               </Link>
             </div>
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left max-w-lg mx-auto">
@@ -523,8 +523,8 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
                 d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
-          <p className="text-[14px] font-medium text-zinc-500">Nenhuma vaga encontrada</p>
-          <p className="text-[13px] text-zinc-400 mt-1">Tente uma busca ou filtro diferente.</p>
+          <p className="text-[14px] font-medium text-zinc-500">{t("jobs_none_found_filter")}</p>
+          <p className="text-[13px] text-zinc-400 mt-1">{t("jobs_none_found_hint")}</p>
         </div>
       )}
     </div>

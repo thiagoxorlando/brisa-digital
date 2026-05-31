@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import { formatJobVisibilityDescription, formatJobVisibilityLabel } from "@/lib/jobVisibility";
 import { useT } from "@/lib/LanguageContext";
+import { talentCategoryLabelForLang } from "@/lib/talentCategories";
 
 type AgentBudgetInfo = {
   spendingLimit: number | null;
@@ -254,7 +255,7 @@ function JobPreview({ form, lang }: { form: FormData; lang: string }) {
             </p>
             {form.category ? (
               <span className="inline-block mt-2 text-[11px] font-medium bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full">
-                {CATEGORY_LABELS[form.category] ?? form.category}
+                {talentCategoryLabelForLang(form.category, lang)}
               </span>
             ) : (
               <span className="inline-block mt-2 text-[11px] bg-zinc-100 text-[#647B7B] px-2.5 py-1 rounded-full">
@@ -603,7 +604,7 @@ export default function PostJobForm() {
                 >
                   <option value="">{t("post_job_category_select")}</option>
                   {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{CATEGORY_LABELS[c] ?? c}</option>
+                    <option key={c} value={c}>{talentCategoryLabelForLang(c, lang)}</option>
                   ))}
                 </select>
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">

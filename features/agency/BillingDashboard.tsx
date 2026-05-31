@@ -810,7 +810,7 @@ export default function BillingDashboard({
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("billing_next_charge")}</p>
-          {(expiresAt || nextChargeDate) && activePlan !== "free" ? (
+          {(expiresAt || nextChargeDate || (isTrialing && currentTrialEndsAt)) && activePlan !== "free" ? (
             <div className="space-y-1.5">
               {(() => {
                 const setting = effectiveSetting(currentPlanDef);
@@ -837,7 +837,7 @@ export default function BillingDashboard({
                   ? `${t("billing_plan_first_charge")} ${effectiveSetting(currentPlanDef).name}`
                   : `${t("billing_plan_renewal")} ${effectiveSetting(currentPlanDef).name}`}
               </p>
-              <p className="text-[12px] text-zinc-400">{fmtDate((expiresAt ?? nextChargeDate)!, lang)}</p>
+              <p className="text-[12px] text-zinc-400">{fmtDate((expiresAt ?? nextChargeDate ?? currentTrialEndsAt)!, lang)}</p>
               <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
                 {isTrialing ? t("billing_plan_trial_tag") : expiresAt ? t("billing_plan_next_charge_tag") : t("billing_plan_scheduled_tag")}
               </span>

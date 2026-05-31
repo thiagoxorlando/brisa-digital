@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   TALENT_CATEGORY_OPTIONS,
   talentCategoryLabel,
+  talentCategoryLabelForLang,
   talentCategoryMatches,
 } from "@/lib/talentCategories";
 import { avatarGradient, initials } from "@/lib/talentDisplay";
+import { useT } from "@/lib/LanguageContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,11 +30,7 @@ type Talent = {
 
 const CATEGORIES = TALENT_CATEGORY_OPTIONS;
 
-const GENDERS: { label: string; value: string }[] = [
-  { label: "Masculino", value: "male" },
-  { label: "Feminino",  value: "female" },
-  { label: "Outro",     value: "other" },
-];
+const GENDER_VALUES = ["male", "female", "other"] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -102,12 +100,21 @@ function TalentCard({ talent, onClick }: { talent: Talent; onClick: () => void }
       {/* Category badge (top right) */}
       {talent.categories?.[0] && (
         <div className="absolute top-2.5 right-2.5">
-          <span className="text-[10px] font-black bg-white/90 backdrop-blur-sm text-[#0E7C86] px-2.5 py-1 rounded-full shadow-sm">
-            {talentCategoryLabel(talent.categories[0])}
-          </span>
+          <CategoryBadge category={talent.categories[0]} />
         </div>
       )}
     </button>
+  );
+}
+
+// ─── Category badge (lang-aware) ─────────────────────────────────────────────
+
+function CategoryBadge({ category }: { category: string }) {
+  const { lang } = useT();
+  return (
+    <span className="text-[10px] font-black bg-white/90 backdrop-blur-sm text-[#0E7C86] px-2.5 py-1 rounded-full shadow-sm">
+      {talentCategoryLabelForLang(category, lang)}
+    </span>
   );
 }
 
@@ -138,6 +145,7 @@ function AgeInput({
 
 export default function TalentGrid({ talent: initialTalent }: { talent: Talent[] }) {
   const router = useRouter();
+  const { t, lang } = useT();
 
   const [talent]                      = useState<Talent[]>(initialTalent);
   const [search, setSearch]           = useState("");
@@ -189,7 +197,7 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
           </svg>
           <input
             type="text"
-            placeholder="Buscar por nome, localização, categoria…"
+            placeholder={t("talent_search_grid_ph")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 text-[13px] bg-white border border-[#DDE6E6] rounded-2xl placeholder:text-[#647B7B] hover:border-[#B8D4D4] focus:border-[#1ABC9C] focus:ring-2 focus:ring-[#1ABC9C]/20 focus:outline-none transition-colors shadow-sm"
@@ -207,7 +215,7 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M6 12h12M9 20h6" />
           </svg>
-          Filtros{activeFilters > 0 ? ` · ${activeFilters}` : ""}
+          {t("talent_filter_btn")}{activeFilters > 0 ? ` · ${activeFilters}` : ""}
         </button>
       </div>
 
@@ -217,22 +225,25 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
 
           {/* Gender pills */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">Gênero</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">{t("talent_filter_gender")}</p>
             <div className="flex flex-wrap gap-2">
-              <Pill label="Todos" active={!gender} onClick={() => setGender("")} />
-              {GENDERS.map((g) => (
-                <Pill key={g.value} label={g.label} active={gender === g.value} onClick={() => setGender(gender === g.value ? "" : g.value)} />
-              ))}
+              <Pill label={t("talent_filter_all_genders")} active={!gender} onClick={() => setGender("")} />
+              {GENDER_VALUES.map((v) => {
+                const gKey = v === "male" ? "talent_gender_male" : v === "female" ? "talent_gender_female" : "talent_gender_other";
+                return (
+                  <Pill key={v} label={t(gKey)} active={gender === v} onClick={() => setGender(gender === v ? "" : v)} />
+                );
+              })}
             </div>
           </div>
 
           {/* Category pills */}
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">Categoria</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">{t("talent_filter_category")}</p>
             <div className="flex flex-wrap gap-2">
-              <Pill label="Todas" active={!category} onClick={() => setCategory("")} />
+              <Pill label={t("talent_filter_all_categories")} active={!category} onClick={() => setCategory("")} />
               {CATEGORIES.map((c) => (
-                <Pill key={c.value} label={c.label} active={category === c.value} onClick={() => setCategory(category === c.value ? "" : c.value)} />
+                <Pill key={c.value} label={talentCategoryLabelForLang(c.value, lang)} active={category === c.value} onClick={() => setCategory(category === c.value ? "" : c.value)} />
               ))}
             </div>
           </div>
@@ -240,20 +251,20 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
           {/* Location filters */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">Cidade</label>
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">{t("talent_filter_city")}</label>
               <input
                 type="text"
-                placeholder="Filtrar por cidade"
+                placeholder={t("talent_filter_city_ph")}
                 value={cityFilter}
                 onChange={(e) => setCityFilter(e.target.value)}
                 className="w-full px-3 py-2 text-[13px] rounded-xl border border-[#DDE6E6] bg-white hover:border-[#B8D4D4] focus:border-[#1ABC9C] focus:outline-none transition-colors"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">Estado</label>
+              <label className="text-[11px] font-semibold uppercase tracking-widest text-[#647B7B]">{t("talent_filter_country")}</label>
               <input
                 type="text"
-                placeholder="Filtrar por estado"
+                placeholder={t("talent_filter_country_ph")}
                 value={countryFilter}
                 onChange={(e) => setCountryFilter(e.target.value)}
                 className="w-full px-3 py-2 text-[13px] rounded-xl border border-[#DDE6E6] bg-white hover:border-[#B8D4D4] focus:border-[#1ABC9C] focus:outline-none transition-colors"
@@ -263,14 +274,14 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
 
           {/* Age range */}
           <div className="flex gap-4 items-end">
-            <AgeInput label="Idade Mín." placeholder="18" value={ageMin} onChange={setAgeMin} />
-            <AgeInput label="Idade Máx." placeholder="60" value={ageMax} onChange={setAgeMax} />
+            <AgeInput label={t("talent_filter_age_min")} placeholder="18" value={ageMin} onChange={setAgeMin} />
+            <AgeInput label={t("talent_filter_age_max")} placeholder="60" value={ageMax} onChange={setAgeMax} />
             {activeFilters > 0 && (
               <button
                 onClick={clearFilters}
                 className="mb-0.5 text-[12px] font-medium text-zinc-400 hover:text-rose-500 transition-colors cursor-pointer whitespace-nowrap"
               >
-                Limpar tudo
+                {t("talent_filter_clear")}
               </button>
             )}
           </div>
@@ -280,17 +291,20 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
       {/* ── Active filter summary ── */}
       {activeFilters > 0 && !showFilters && (
         <div className="flex items-center gap-2 flex-wrap">
-          {gender       && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{GENDERS.find((g) => g.value === gender)?.label ?? gender}</span>}
-          {category     && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{CATEGORIES.find((c) => c.value === category)?.label ?? category}</span>}
-          {cityFilter   && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">Cidade: {cityFilter}</span>}
-          {countryFilter && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">Estado: {countryFilter}</span>}
+          {gender && (() => {
+            const gKey = gender === "male" ? "talent_gender_male" : gender === "female" ? "talent_gender_female" : "talent_gender_other";
+            return <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{t(gKey)}</span>;
+          })()}
+          {category     && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{talentCategoryLabelForLang(category, lang)}</span>}
+          {cityFilter   && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{t("talent_filter_city")}: {cityFilter}</span>}
+          {countryFilter && <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">{t("talent_filter_country")}: {countryFilter}</span>}
           {(ageMin || ageMax) && (
             <span className="text-[12px] bg-[#1F2D2E] text-white px-3 py-1 rounded-full">
-              Idade {ageMin || "qualquer"}–{ageMax || "qualquer"}
+              {t("jobs_age_range")} {ageMin || "—"}–{ageMax || "—"}
             </span>
           )}
           <button onClick={clearFilters} className="text-[12px] text-zinc-400 hover:text-rose-500 transition-colors cursor-pointer">
-            Limpar
+            {t("talent_filter_clear")}
           </button>
         </div>
       )}
@@ -298,8 +312,8 @@ export default function TalentGrid({ talent: initialTalent }: { talent: Talent[]
       {/* ── Grid ── */}
       {filtered.length === 0 ? (
         <div className="py-32 text-center">
-          <p className="text-[15px] font-medium text-zinc-500">Nenhum talento encontrado</p>
-          <p className="text-[13px] text-zinc-400 mt-1">Tente ajustar sua busca ou filtros.</p>
+          <p className="text-[15px] font-medium text-zinc-500">{t("talent_no_talent")}</p>
+          <p className="text-[13px] text-zinc-400 mt-1">{t("jobs_no_jobs_hint")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">

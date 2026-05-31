@@ -5,7 +5,8 @@ import Link from "next/link";
 import InviteModal from "@/components/agency/InviteModal";
 import ReliabilityBadge from "@/components/agency/ReliabilityBadge";
 import { reliabilitySortScore } from "@/lib/reliability";
-import { talentCategoryLabel } from "@/lib/talentCategories";
+import { talentCategoryLabelForLang } from "@/lib/talentCategories";
+import { useT } from "@/lib/LanguageContext";
 
 type TalentProfile = {
   id: string;
@@ -62,14 +63,19 @@ function Avatar({ talent }: { talent: TalentProfile | null }) {
   );
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+function formatDate(iso: string, lang: string) {
+  return new Date(iso).toLocaleDateString(lang === "en" ? "en-US" : "pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function fmtFilterDate(dateStr: string, lang: string) {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(lang === "en" ? "en-US" : "pt-BR", { day: "2-digit", month: "short" });
 }
 
 export default function TalentHistory({
   agencyId, initialHistory,
   initialAvailability = {}, initialFilterDate,
 }: Props) {
+  const { t: tr, lang } = useT();
   const today = new Date().toISOString().slice(0, 10);
 
   const [history, setHistory]           = useState<HistoryEntry[]>(initialHistory);
@@ -170,33 +176,33 @@ export default function TalentHistory({
     if (a === undefined || a === null) return null;
     if (a.is_available) {
       const time = a.start_time ? ` · ${a.start_time.slice(0, 5)}${a.end_time ? `–${a.end_time.slice(0, 5)}` : ""}` : "";
-      const label = filterDate === today ? `Disponível hoje${time}` : `Disponível nesta data${time}`;
+      const label = filterDate === today ? tr("talent_history_available_today") : tr("talent_history_available_on_date");
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-          {label}
+          {label}{time}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[11px] font-medium">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 flex-shrink-0" />
-        Indisponível
+        {tr("talent_history_unavailable")}
       </span>
     );
   }
 
   function TalentCard({ entry }: { entry: HistoryEntry }) {
-    const t        = entry.talent;
-    const name     = t?.full_name ?? "Talento sem perfil completo";
-    const location = [t?.city, t?.country].filter(Boolean).join(", ");
-    const roleLine = [t?.main_role, location].filter(Boolean).join(" · ");
+    const tp       = entry.talent;
+    const name     = tp?.full_name ?? tr("talent_history_incomplete_profile");
+    const location = [tp?.city, tp?.country].filter(Boolean).join(", ");
+    const roleLine = [tp?.main_role, location].filter(Boolean).join(" · ");
 
     return (
       <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_14px_34px_rgba(7,17,13,0.06)] p-5 flex flex-col gap-5 transition-all hover:-translate-y-0.5 hover:border-zinc-200 hover:shadow-[0_18px_46px_rgba(7,17,13,0.10)] lg:flex-row lg:items-center">
         {/* Avatar */}
         <div className="w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-1 ring-zinc-100">
-          <Avatar talent={t} />
+          <Avatar talent={tp} />
         </div>
 
         {/* Info */}
@@ -212,14 +218,14 @@ export default function TalentHistory({
                 </p>
               ) : (
                 <p className="text-[12px] text-zinc-400 truncate">
-                  Perfil incompleto, mas o histórico de contratação existe.
+                  {tr("talent_history_incomplete_profile")}
                 </p>
               )}
             </div>
             <button
               onClick={() => toggleFavorite(entry)}
               disabled={favoriteLoading === entry.id}
-              title={entry.is_favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+              title={entry.is_favorite ? tr("talent_history_remove_fav") : tr("talent_history_add_fav")}
               className="flex-shrink-0 p-1 rounded-lg hover:bg-zinc-50 transition-colors disabled:opacity-40"
             >
               <svg
@@ -251,11 +257,11 @@ export default function TalentHistory({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              {entry.jobs_count} {entry.jobs_count === 1 ? "contratação" : "contratações"}
+              {entry.jobs_count} {entry.jobs_count === 1 ? tr("talent_history_jobs_count_singular") : tr("talent_history_jobs_count_plural")}
             </span>
             <span className="text-[#647B7B]">·</span>
             <span className="text-[11px] text-zinc-400">
-              Último: {formatDate(entry.last_worked_at)}
+              {tr("talent_history_last_worked")} {formatDate(entry.last_worked_at, lang)}
             </span>
             {entry.is_favorite && (
               <>
@@ -264,18 +270,18 @@ export default function TalentHistory({
                   <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
                     <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                   </svg>
-                  Favorito
+                  {tr("talent_history_favorite")}
                 </span>
               </>
             )}
           </div>
 
           {/* Categories */}
-          {t?.categories && t.categories.length > 0 && (
+          {tp?.categories && tp.categories.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-0.5">
-              {t.categories.slice(0, 3).map((cat) => (
+              {tp.categories.slice(0, 3).map((cat) => (
                 <span key={cat} className="px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 text-[10px] font-medium">
-                  {talentCategoryLabel(cat)}
+                  {talentCategoryLabelForLang(cat, lang)}
                 </span>
               ))}
             </div>
@@ -286,18 +292,18 @@ export default function TalentHistory({
         <div className="flex-shrink-0 flex flex-col gap-2 items-stretch justify-center sm:flex-row lg:flex-col">
           {/* Invite to an open job */}
           <button
-            onClick={() => setInviteTarget(t ? { ...t, id: entry.talent_id } : null)}
-            disabled={!t}
+            onClick={() => setInviteTarget(tp ? { ...tp, id: entry.talent_id } : null)}
+            disabled={!tp}
             className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] active:scale-[0.97] text-white text-[13px] font-bold transition-all whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40 shadow-[0_6px_16px_rgba(26,188,156,0.24)]"
           >
-            Convidar para vaga
+            {tr("talent_history_invite_btn")}
           </button>
 
           <Link
             href={`/agency/talent/${entry.talent_id}`}
             className="px-4 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-50 active:scale-[0.97] text-zinc-600 text-[13px] font-semibold transition-all whitespace-nowrap text-center"
           >
-            Ver perfil
+            {tr("talent_history_view_profile")}
           </Link>
         </div>
       </div>
@@ -322,7 +328,7 @@ export default function TalentHistory({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome, função ou localização…"
+              placeholder={tr("talent_history_search_placeholder")}
               className="w-full pl-10 pr-4 py-3 text-[14px] bg-white border border-zinc-200 rounded-2xl focus:border-zinc-400 focus:outline-none transition-colors"
             />
             {search && (
@@ -339,7 +345,7 @@ export default function TalentHistory({
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            title="Filtrar disponibilidade por data"
+            title={tr("talent_history_filter_date_title")}
             className="px-3 py-3 text-[13px] bg-white border border-zinc-200 rounded-2xl focus:border-zinc-400 focus:outline-none transition-colors text-zinc-600 w-36"
           />
         </div>
@@ -356,7 +362,7 @@ export default function TalentHistory({
             ].join(" ")}
           >
             <span className={`w-2 h-2 rounded-full ${showOnlyAvailable ? "bg-emerald-500" : "bg-zinc-300"}`} />
-            Disponíveis em {filterDate === today ? "hoje" : new Date(filterDate + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+            {tr("talent_history_available_btn")} {filterDate === today ? (lang === "en" ? "today" : "hoje") : fmtFilterDate(filterDate, lang)}
           </button>
 
           {availLoading && (
@@ -365,7 +371,7 @@ export default function TalentHistory({
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
               </svg>
-              Verificando disponibilidade…
+              {tr("talent_history_checking")}
             </span>
           )}
         </div>
@@ -382,15 +388,15 @@ export default function TalentHistory({
           </div>
           {history.length === 0 ? (
             <>
-              <p className="text-[15px] font-semibold text-zinc-700">Nenhum talento na equipe ainda</p>
+              <p className="text-[15px] font-semibold text-zinc-700">{tr("talent_history_no_team")}</p>
               <p className="text-[13px] text-zinc-400 max-w-xs mx-auto">
-                Talentos aparecem aqui automaticamente após uma contratação paga.
+                {tr("talent_history_no_team_desc")}
               </p>
             </>
           ) : (
             <>
-              <p className="text-[15px] font-semibold text-zinc-700">Nenhum resultado</p>
-              <p className="text-[13px] text-zinc-400">Tente outro nome ou função.</p>
+              <p className="text-[15px] font-semibold text-zinc-700">{tr("talent_history_no_results")}</p>
+              <p className="text-[13px] text-zinc-400">{tr("talent_history_no_results_desc")}</p>
             </>
           )}
         </div>
@@ -402,7 +408,7 @@ export default function TalentHistory({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <h2 className="text-[12px] font-semibold uppercase tracking-wider text-zinc-500">
-              Disponíveis {filterDate === today ? "hoje" : new Date(filterDate + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+              {tr("talent_history_available_btn")} {filterDate === today ? (lang === "en" ? "today" : "hoje") : fmtFilterDate(filterDate, lang)}
             </h2>
           </div>
           <div className="space-y-2.5">
@@ -418,7 +424,7 @@ export default function TalentHistory({
             <svg className="w-4 h-4 text-amber-400 fill-current" viewBox="0 0 24 24">
               <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
             </svg>
-            <h2 className="text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Favoritos</h2>
+            <h2 className="text-[12px] font-semibold uppercase tracking-wider text-zinc-500">{tr("talent_history_section_favorites")}</h2>
           </div>
           <div className="space-y-2.5">
             {favorites.map((entry) => <TalentCard key={entry.id} entry={entry} />)}
@@ -430,7 +436,7 @@ export default function TalentHistory({
       {others.length > 0 && (
         <section className="space-y-3">
           {(available.length > 0 || favorites.length > 0) && (
-            <h2 className="text-[12px] font-semibold uppercase tracking-wider text-zinc-500">Outros</h2>
+            <h2 className="text-[12px] font-semibold uppercase tracking-wider text-zinc-500">{tr("talent_history_section_others")}</h2>
           )}
           <div className="space-y-2.5">
             {others.map((entry) => <TalentCard key={entry.id} entry={entry} />)}

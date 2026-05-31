@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/LanguageContext";
+
 function CheckIcon() {
   return (
     <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
@@ -15,9 +17,9 @@ type Step = {
   active: boolean;
 };
 
-function fmtTs(s: string | null | undefined) {
+function fmtTs(s: string | null | undefined, lang: string) {
   if (!s) return null;
-  return new Date(s).toLocaleString("pt-BR", {
+  return new Date(s).toLocaleString(lang === "en" ? "en-US" : "pt-BR", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -69,15 +71,10 @@ function StepNode({ step, isLast }: { step: Step; isLast: boolean }) {
 export type PaymentTimelineProps = {
   mode: "internal" | "escrow";
   status: string;
-  /** ISO timestamp when the contract was signed by the talent. */
   signedAt?: string | null;
-  /** ISO timestamp when the agency deposited into escrow (escrow mode). */
   depositPaidAt?: string | null;
-  /** ISO timestamp when the agency marked the external payment as sent (internal mode). */
   agencyPaymentSentAt?: string | null;
-  /** ISO timestamp when the talent confirmed receipt (internal mode). */
   talentPaymentConfirmedAt?: string | null;
-  /** ISO timestamp when the payment was fully released / completed. */
   paidAt?: string | null;
   className?: string;
 };
@@ -92,6 +89,7 @@ export default function PaymentTimeline({
   paidAt,
   className = "",
 }: PaymentTimelineProps) {
+  const { t, lang } = useT();
   const isSigned  = status !== "sent";
   const isPaid    = status === "paid";
 
@@ -103,27 +101,27 @@ export default function PaymentTimeline({
 
     steps = [
       {
-        label:     "Contrato assinado",
-        sublabel:  isSigned ? fmtTs(signedAt) : null,
+        label:     t("timeline_contract_signed"),
+        sublabel:  isSigned ? fmtTs(signedAt, lang) : null,
         completed: isSigned,
         active:    !isSigned,
       },
       {
-        label:     "Pagamento enviado pela agência",
+        label:     t("timeline_payment_sent"),
         sublabel:  paymentSent
-          ? fmtTs(agencyPaymentSentAt)
+          ? fmtTs(agencyPaymentSentAt, lang)
           : isSigned
-            ? "Aguardando confirmação da agência"
+            ? t("timeline_awaiting_agency_confirm")
             : null,
         completed: paymentSent,
         active:    isSigned && !paymentSent,
       },
       {
-        label:     "Recebimento confirmado pelo talento",
+        label:     t("timeline_payment_confirmed"),
         sublabel:  paymentConfirmed
-          ? fmtTs(talentPaymentConfirmedAt ?? paidAt)
+          ? fmtTs(talentPaymentConfirmedAt ?? paidAt, lang)
           : paymentSent
-            ? "Aguardando confirmação do talento"
+            ? t("timeline_awaiting_talent_confirm")
             : null,
         completed: paymentConfirmed,
         active:    paymentSent && !paymentConfirmed,
@@ -134,27 +132,27 @@ export default function PaymentTimeline({
 
     steps = [
       {
-        label:     "Contrato assinado",
-        sublabel:  isSigned ? fmtTs(signedAt) : null,
+        label:     t("timeline_contract_signed"),
+        sublabel:  isSigned ? fmtTs(signedAt, lang) : null,
         completed: isSigned,
         active:    !isSigned,
       },
       {
-        label:     "Pagamento em custódia",
+        label:     t("timeline_in_escrow"),
         sublabel:  escrowed
-          ? fmtTs(depositPaidAt)
+          ? fmtTs(depositPaidAt, lang)
           : isSigned
-            ? "Aguardando depósito da agência"
+            ? t("timeline_awaiting_deposit")
             : null,
         completed: escrowed,
         active:    isSigned && !escrowed,
       },
       {
-        label:     "Pagamento liberado ao talento",
+        label:     t("timeline_payment_released"),
         sublabel:  isPaid
-          ? fmtTs(paidAt)
+          ? fmtTs(paidAt, lang)
           : escrowed
-            ? "Aguardando liberação"
+            ? t("timeline_awaiting_release")
             : null,
         completed: isPaid,
         active:    escrowed && !isPaid,

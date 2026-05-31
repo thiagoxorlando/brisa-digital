@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import PaywallModal from "@/components/agency/PaywallModal";
+import { talentCategoryLabelForLang } from "@/lib/talentCategories";
+import { useT } from "@/lib/LanguageContext";
 
 // ─── Types & constants ────────────────────────────────────────────────────────
 
@@ -313,6 +315,7 @@ function SuccessScreen({ title, jobId }: { title: string; jobId: string }) {
 export default function AgencyFirstJobWizard() {
   const router = useRouter();
   const { isActive } = useSubscription();
+  const { lang } = useT();
 
   const [form, setForm]                   = useState<FormData>(INITIAL);
   const [touched, setTouched]             = useState<Partial<Record<keyof FormData, boolean>>>({});
@@ -507,7 +510,7 @@ export default function AgencyFirstJobWizard() {
                     >
                       <option value="">Selecione uma categoria…</option>
                       {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{CATEGORY_LABELS[c] ?? c}</option>
+                        <option key={c} value={c}>{talentCategoryLabelForLang(c, lang)}</option>
                       ))}
                     </select>
                     <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">

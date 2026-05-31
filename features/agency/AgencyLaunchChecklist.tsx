@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useT } from "@/lib/LanguageContext";
 
 export type LaunchChecklistData = {
   hasJob: boolean;
@@ -11,59 +12,52 @@ export type LaunchChecklistData = {
   hasBranding: boolean;
 };
 
-type ChecklistItem = {
-  key: keyof LaunchChecklistData;
-  label: string;
-  description: string;
-  href: string;
-  actionLabel: string;
-};
-
-const ITEMS: ChecklistItem[] = [
-  {
-    key: "hasJob",
-    label: "Criar primeira vaga",
-    description: "Publique sua primeira vaga e obtenha o link de candidatura.",
-    href: "/agency/post-job",
-    actionLabel: "Criar vaga",
-  },
-  {
-    key: "hasApplication",
-    label: "Compartilhar link com talentos",
-    description: "Envie o link da vaga diretamente para seus talentos via WhatsApp ou e-mail.",
-    href: "/agency/jobs",
-    actionLabel: "Ver vagas",
-  },
-  {
-    key: "hasContract",
-    label: "Emitir primeiro contrato",
-    description: "Aprove uma candidatura e gere o contrato automaticamente.",
-    href: "/agency/bookings",
-    actionLabel: "Ver aprovações",
-  },
-  {
-    key: "hasPaidContract",
-    label: "Concluir primeiro pagamento",
-    description: "Confirme o pagamento e finalize o ciclo operacional.",
-    href: "/agency/contracts",
-    actionLabel: "Ver contratos",
-  },
-  {
-    key: "hasBranding",
-    label: "Configurar identidade da agência",
-    description: "Adicione logotipo e nome da empresa para personalizar a plataforma.",
-    href: "/agency/profile",
-    actionLabel: "Configurar perfil",
-  },
-];
-
 type Props = {
   data: LaunchChecklistData;
   className?: string;
 };
 
 export default function AgencyLaunchChecklist({ data, className = "" }: Props) {
+  const { t } = useT();
   const [collapsed, setCollapsed] = useState(false);
+
+  const ITEMS = [
+    {
+      key: "hasJob" as keyof LaunchChecklistData,
+      label: t("checklist_step1_label"),
+      description: t("checklist_step1_desc"),
+      href: "/agency/post-job",
+      actionLabel: t("checklist_step1_action"),
+    },
+    {
+      key: "hasApplication" as keyof LaunchChecklistData,
+      label: t("checklist_step2_label"),
+      description: t("checklist_step2_desc"),
+      href: "/agency/jobs",
+      actionLabel: t("checklist_step2_action"),
+    },
+    {
+      key: "hasContract" as keyof LaunchChecklistData,
+      label: t("checklist_step3_label"),
+      description: t("checklist_step3_desc"),
+      href: "/agency/bookings",
+      actionLabel: t("checklist_step3_action"),
+    },
+    {
+      key: "hasPaidContract" as keyof LaunchChecklistData,
+      label: t("checklist_step4_label"),
+      description: t("checklist_step4_desc"),
+      href: "/agency/contracts",
+      actionLabel: t("checklist_step4_action"),
+    },
+    {
+      key: "hasBranding" as keyof LaunchChecklistData,
+      label: t("checklist_step5_label"),
+      description: t("checklist_step5_desc"),
+      href: "/agency/profile",
+      actionLabel: t("checklist_step5_action"),
+    },
+  ];
 
   const completedCount = ITEMS.filter((item) => data[item.key]).length;
   const total = ITEMS.length;
@@ -82,12 +76,11 @@ export default function AgencyLaunchChecklist({ data, className = "" }: Props) {
       >
         <div className="flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2.5">
-            <span className="text-[13px] font-black uppercase tracking-[0.16em] text-zinc-400">Configuração inicial</span>
+            <span className="text-[13px] font-black uppercase tracking-[0.16em] text-zinc-400">{t("checklist_title")}</span>
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">
               {completedCount}/{total}
             </span>
           </div>
-          {/* Progress bar */}
           <div className="mt-2 h-1.5 rounded-full bg-zinc-100 overflow-hidden w-full max-w-xs">
             <div
               className="h-full rounded-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] transition-all duration-500"
@@ -110,7 +103,6 @@ export default function AgencyLaunchChecklist({ data, className = "" }: Props) {
             const done = data[item.key];
             return (
               <div key={item.key} className="flex items-start gap-3.5 px-5 py-4">
-                {/* Status icon */}
                 <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5 transition-colors ${
                   done ? "bg-emerald-100" : "bg-zinc-100"
                 }`}>
