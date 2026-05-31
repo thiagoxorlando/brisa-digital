@@ -3,17 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useT } from "@/lib/LanguageContext";
 
 // ── Change Password ────────────────────────────────────────────────────────────
 
 function ChangePasswordSection() {
-  const [open, setOpen]           = useState(false);
-  const [current, setCurrent]     = useState("");
-  const [next, setNext]           = useState("");
-  const [confirm, setConfirm]     = useState("");
-  const [saving, setSaving]       = useState(false);
-  const [success, setSuccess]     = useState(false);
-  const [error, setError]         = useState("");
+  const { t } = useT();
+  const [open, setOpen]       = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext]       = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving]   = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError]     = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +39,7 @@ function ChangePasswordSection() {
       setConfirm("");
       setTimeout(() => { setSuccess(false); setOpen(false); }, 3000);
     } else {
-      setError(d.error ?? "Erro ao alterar senha.");
+      setError(d.error ?? t("account_pw_error_default"));
     }
   }
 
@@ -48,22 +50,22 @@ function ChangePasswordSection() {
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Segurança</p>
-          <p className="text-[14px] font-semibold text-zinc-900">Alterar senha</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("account_section_security")}</p>
+          <p className="text-[14px] font-semibold text-zinc-900">{t("account_pw_title")}</p>
         </div>
         <button
           type="button"
           onClick={() => { setOpen((o) => !o); setError(""); setSuccess(false); }}
           className="text-[13px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
         >
-          {open ? "Cancelar" : "Alterar"}
+          {open ? t("action_cancel") : t("account_pw_change_btn")}
         </button>
       </div>
 
       {open && (
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
-            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Senha atual</label>
+            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("account_current_pw")}</label>
             <input
               type="password" required autoComplete="current-password"
               value={current} onChange={(e) => setCurrent(e.target.value)}
@@ -71,16 +73,16 @@ function ChangePasswordSection() {
             />
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Nova senha</label>
+            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("account_new_pw")}</label>
             <input
               type="password" required autoComplete="new-password" minLength={8}
               value={next} onChange={(e) => setNext(e.target.value)}
               className={inputCls}
             />
-            <p className="text-[11px] text-zinc-400 mt-1">Mínimo 8 caracteres.</p>
+            <p className="text-[11px] text-zinc-400 mt-1">{t("account_new_pw_hint")}</p>
           </div>
           <div>
-            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Confirmar nova senha</label>
+            <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("account_confirm_pw")}</label>
             <input
               type="password" required autoComplete="new-password"
               value={confirm} onChange={(e) => setConfirm(e.target.value)}
@@ -95,7 +97,7 @@ function ChangePasswordSection() {
           )}
           {success && (
             <p className="text-[13px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
-              Senha alterada com sucesso.
+              {t("account_pw_success")}
             </p>
           )}
 
@@ -103,7 +105,7 @@ function ChangePasswordSection() {
             type="submit" disabled={saving}
             className="w-full bg-zinc-900 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer"
           >
-            {saving ? "Alterando…" : "Confirmar alteração"}
+            {saving ? t("account_pw_saving") : t("account_pw_save")}
           </button>
         </form>
       )}
@@ -114,11 +116,14 @@ function ChangePasswordSection() {
 // ── Delete Account ─────────────────────────────────────────────────────────────
 
 function DeleteAccountSection() {
+  const { t } = useT();
   const router = useRouter();
   const [open, setOpen]       = useState(false);
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
+
+  const confirmWord = t("account_delete_confirm_word");
 
   async function handleDelete(e: React.FormEvent) {
     e.preventDefault();
@@ -130,7 +135,7 @@ function DeleteAccountSection() {
 
     if (!res.ok) {
       setLoading(false);
-      setError(d.error ?? "Não foi possível excluir a conta. Tente novamente.");
+      setError(d.error ?? t("account_delete_error_default"));
       return;
     }
 
@@ -142,10 +147,10 @@ function DeleteAccountSection() {
     <div className="bg-white rounded-2xl border border-rose-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-rose-400 mb-0.5">Zona de perigo</p>
-          <p className="text-[14px] font-semibold text-zinc-900">Excluir minha conta</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-rose-400 mb-0.5">{t("account_danger_zone")}</p>
+          <p className="text-[14px] font-semibold text-zinc-900">{t("account_delete_title")}</p>
           <p className="text-[12px] text-zinc-400 mt-0.5">
-            Irreversível. Dados financeiros são preservados por obrigação legal.
+            {t("account_delete_desc")}
           </p>
         </div>
         {!open && (
@@ -154,7 +159,7 @@ function DeleteAccountSection() {
             onClick={() => setOpen(true)}
             className="text-[13px] font-medium text-rose-600 hover:text-rose-800 transition-colors cursor-pointer whitespace-nowrap ml-4"
           >
-            Excluir
+            {t("account_delete_btn")}
           </button>
         )}
       </div>
@@ -162,12 +167,12 @@ function DeleteAccountSection() {
       {open && (
         <form onSubmit={handleDelete} className="mt-5 space-y-4">
           <div className="bg-rose-50 border border-rose-100 rounded-xl px-4 py-3.5 text-[13px] text-rose-700 leading-relaxed">
-            Para confirmar, você precisa ter saldo zero e nenhuma ação pendente (vagas abertas, contratos, saques).
+            {t("account_delete_confirm_hint")}
           </div>
 
           <div>
             <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">
-              Digite <strong>EXCLUIR</strong> para confirmar
+              {t("account_delete_confirm_label")}
             </label>
             <input
               type="text" required autoComplete="off"
@@ -188,14 +193,14 @@ function DeleteAccountSection() {
               onClick={() => { setOpen(false); setConfirm(""); setError(""); }}
               className="flex-1 border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer"
             >
-              Cancelar
+              {t("action_cancel")}
             </button>
             <button
               type="submit"
-              disabled={loading || confirm !== "EXCLUIR"}
+              disabled={loading || confirm !== confirmWord}
               className="flex-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer"
             >
-              {loading ? "Excluindo…" : "Excluir conta"}
+              {loading ? t("account_deleting") : t("account_delete_confirm_btn")}
             </button>
           </div>
         </form>
