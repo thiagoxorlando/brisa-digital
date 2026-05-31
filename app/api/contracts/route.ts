@@ -5,6 +5,7 @@ import { notify, notifyAdmins } from "@/lib/notify";
 import { requireHireLimit } from "@/lib/requireActiveSubscription";
 import { resolvePlanInfo, type Plan } from "@/lib/plans";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { isJobFull, JOB_FULL_MESSAGE, JOB_UNAVAILABLE_MESSAGE } from "@/lib/jobAvailability";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import {
@@ -144,7 +145,22 @@ export async function POST(req: NextRequest) {
 
   const amount = Number(payment_amount);
   const liveSetting = await getLivePlanSetting(effectivePlan);
-  const commission_amount = Math.round(amount * liveSetting.commission_rate * 100) / 100;
+
+  // Internal payment mode: agency pays talent directly — commission is never charged.
+  // Resolution chain: agency.payment_mode → global default → "escrow" fallback.
+  const [{ data: agencyRow }, globalDefaults] = await Promise.all([
+    supabase.from("agencies").select("payment_mode").eq("id", resolvedAgencyId).maybeSingle(),
+    getGlobalPaymentDefaults(),
+  ]);
+  const agencyPaymentMode = (agencyRow as { payment_mode?: string | null } | null)?.payment_mode;
+  const effectivePaymentMode =
+    agencyPaymentMode === "internal" ? "internal" :
+    agencyPaymentMode === "escrow"   ? "escrow"   :
+    globalDefaults.default_payment_mode;
+
+  const commission_amount = effectivePaymentMode === "internal"
+    ? 0
+    : Math.round(amount * liveSetting.commission_rate * 100) / 100;
   const net_amount = amount - commission_amount;
 
   console.log("[plan] create_contract", {

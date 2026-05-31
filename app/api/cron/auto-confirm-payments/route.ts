@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { getPlatformSetting } from "@/lib/platformSettings.server";
+import { getPlatformSetting, getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { logAdminAction } from "@/lib/auditLog";
 import { notify } from "@/lib/notify";
 
@@ -30,15 +30,33 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient({ useServiceRole: true });
   const cutoff = new Date(Date.now() - autoConfirmDays * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: contracts, error: fetchErr } = await supabase
+  // Resolve global payment mode for NULL-inheritance.
+  // Only agencies in internal mode set agency_payment_sent_at, but as a
+  // defence-in-depth guard we explicitly restrict to internal mode agencies.
+  const globalDefaults = await getGlobalPaymentDefaults();
+
+  const { data: contractsRaw, error: fetchErr } = await supabase
     .from("contracts")
-    .select("id, agency_id, talent_id, talent_user_id, status, agency_payment_sent_at")
+    .select("id, agency_id, talent_id, talent_user_id, status, agency_payment_sent_at, agencies!inner(payment_mode)")
     .not("agency_payment_sent_at", "is", null)
     .is("talent_payment_confirmed_at", null)
     .neq("status", "paid")
     .neq("status", "cancelled")
     .neq("status", "rejected")
     .lt("agency_payment_sent_at", cutoff);
+
+  // Filter: only process contracts where the agency's effective payment mode is "internal".
+  // Resolution chain: agency.payment_mode → global default.
+  type ContractRow = typeof contractsRaw extends (infer T)[] | null ? T : never;
+  const contracts = (contractsRaw ?? []).filter((c: ContractRow) => {
+    const row = c as ContractRow & { agencies?: { payment_mode: string | null } | null };
+    const agencyMode = row.agencies?.payment_mode ?? null;
+    const effectiveMode =
+      agencyMode === "internal" ? "internal" :
+      agencyMode === "escrow"   ? "escrow"   :
+      globalDefaults.default_payment_mode;
+    return effectiveMode === "internal";
+  });
 
   if (fetchErr) {
     console.error("[auto-confirm-payments] fetch failed:", fetchErr.message);

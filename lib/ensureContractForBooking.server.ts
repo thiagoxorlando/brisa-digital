@@ -1,5 +1,6 @@
 import { getExistingContractColumns } from "@/lib/contractCreationAccess.server";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { parsePlan, type Plan } from "@/lib/plans";
 import type { createServerClient } from "@/lib/supabase";
 
@@ -136,14 +137,21 @@ export async function ensureContractForBooking({
     existing?.created_by_user_id,
   );
 
-  const { data: agencyProfile } = await supabase
-    .from("profiles")
-    .select("plan")
-    .eq("id", booking.agency_id)
-    .maybeSingle();
+  const [{ data: agencyProfile }, { data: agencyRow }, globalDefaults] = await Promise.all([
+    supabase.from("profiles").select("plan").eq("id", booking.agency_id).maybeSingle(),
+    supabase.from("agencies").select("payment_mode").eq("id", booking.agency_id).maybeSingle(),
+    getGlobalPaymentDefaults(),
+  ]);
 
   const effectivePlan: Plan = workspaceId ? "premium" : parsePlan((agencyProfile as { plan?: string | null } | null)?.plan);
   const liveSetting = await getLivePlanSetting(effectivePlan);
+
+  // Internal payment mode: commission is never charged.
+  const agencyPaymentMode = (agencyRow as { payment_mode?: string | null } | null)?.payment_mode;
+  const effectivePaymentMode =
+    agencyPaymentMode === "internal" ? "internal" :
+    agencyPaymentMode === "escrow"   ? "escrow"   :
+    globalDefaults.default_payment_mode;
 
   const resolvedPaymentAmount = Number(
     pickValue(
@@ -157,7 +165,9 @@ export async function ensureContractForBooking({
   const commissionAmount =
     existing?.commission_amount != null
       ? Number(existing.commission_amount)
-      : roundMoney(resolvedPaymentAmount * liveSetting.commission_rate);
+      : effectivePaymentMode === "internal"
+        ? 0
+        : roundMoney(resolvedPaymentAmount * liveSetting.commission_rate);
   const netAmount =
     existing?.net_amount != null
       ? Number(existing.net_amount)
