@@ -34,7 +34,7 @@ export default async function AgencyFinancesPage() {
       .single(),
     supabase
       .from("contracts")
-      .select("id, booking_id, job_id, status, payment_amount, confirmed_at, agency_signed_at, deposit_paid_at")
+      .select("id, booking_id, job_id, status, payment_amount, confirmed_at, agency_signed_at, deposit_paid_at, paid_at, talent_id, job_description")
       .eq("agency_id", user?.id ?? "")
       .is("deleted_at", null)
       .in("status", ["confirmed", "paid", "cancelled"])
@@ -93,11 +93,79 @@ export default async function AgencyFinancesPage() {
     };
   });
 
-  const transactions: AgencyLedgerRow[] = buildAgencyWalletLedgerRows(
+  let transactions: AgencyLedgerRow[] = buildAgencyWalletLedgerRows(
     walletTxs ?? [],
     contracts ?? [],
     agentAllocTxs,
   );
+
+  // For internal payment mode: build ledger rows from paid contracts since no
+  // wallet_transactions exist in this mode. Resolves talent names for display.
+  const [planSettingEarly, globalDefaultsEarly] = await Promise.all([
+    getLivePlanSetting(parsePlan((profile as Record<string, unknown> | null)?.plan as string | null)),
+    getGlobalPaymentDefaults(),
+  ]);
+  const agencyConfigEarly = resolveAgencyConfig(agencyRow as Record<string, unknown> | null, planSettingEarly.commission_percent, globalDefaultsEarly);
+
+  if (!agencyConfigEarly.showEscrow && (walletTxs ?? []).length === 0) {
+    const paidContracts = (contracts ?? []).filter((c) => (c as Record<string, unknown>).status === "paid");
+    if (paidContracts.length > 0) {
+      const talentIds = [...new Set(
+        paidContracts
+          .map((c) => (c as Record<string, unknown>).talent_id as string | null | undefined)
+          .filter((id): id is string => Boolean(id)),
+      )];
+      const talentNameMap = new Map<string, string>();
+      if (talentIds.length > 0) {
+        const { data: talentProfiles } = await supabase
+          .from("talent_profiles")
+          .select("id, full_name")
+          .in("id", talentIds)
+          .limit(200);
+        for (const tp of talentProfiles ?? []) {
+          talentNameMap.set(tp.id, tp.full_name ?? "Talent");
+        }
+      }
+
+      const jobIds = [...new Set(
+        paidContracts
+          .map((c) => (c as Record<string, unknown>).job_id as string | null | undefined)
+          .filter((id): id is string => Boolean(id)),
+      )];
+      const jobTitleMapInternal = new Map<string, string>();
+      if (jobIds.length > 0) {
+        const { data: jobRows } = await supabase
+          .from("jobs")
+          .select("id, title")
+          .in("id", jobIds)
+          .limit(200);
+        for (const jr of jobRows ?? []) {
+          jobTitleMapInternal.set(jr.id, jr.title ?? "Job");
+        }
+      }
+
+      const internalRows: AgencyLedgerRow[] = paidContracts.map((c) => {
+        const raw = c as Record<string, unknown>;
+        const talentId = raw.talent_id as string | null | undefined;
+        const jobId = raw.job_id as string | null | undefined;
+        return {
+          id: String(raw.id),
+          kind: "booking" as const,
+          talent: talentId ? (talentNameMap.get(talentId) ?? "Talent") : "Talent",
+          job: jobId ? (jobTitleMapInternal.get(jobId) ?? (raw.job_description as string | null) ?? "Job") : ((raw.job_description as string | null) ?? "Job"),
+          amount: Number(raw.payment_amount ?? 0),
+          status: "paid",
+          date: (raw.paid_at as string | null) ?? String(raw.confirmed_at ?? new Date().toISOString()),
+          bookingId: (raw.booking_id as string | null | undefined) ?? null,
+          href: `/agency/contracts`,
+        };
+      });
+
+      transactions = [...internalRows, ...transactions].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      );
+    }
+  }
 
   // Derive payment stats from the wallet ledger — same source as wallet balance.
   // escrow_released = money that left escrow and was credited to talent wallet.
@@ -117,11 +185,7 @@ export default async function AgencyFinancesPage() {
     allocatedToAgents: activelyAllocated,
   };
 
-  const [planSetting, globalDefaults] = await Promise.all([
-    getLivePlanSetting(parsePlan((profile as Record<string, unknown> | null)?.plan as string | null)),
-    getGlobalPaymentDefaults(),
-  ]);
-  const agencyConfig = resolveAgencyConfig(agencyRow as Record<string, unknown> | null, planSetting.commission_percent, globalDefaults);
+  const agencyConfig = agencyConfigEarly;
 
   const feeSettings = await getPlatformSettings([
     "withdrawal_fee_percent",

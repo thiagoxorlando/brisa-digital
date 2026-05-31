@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -7,7 +7,7 @@ import { useT } from "@/lib/LanguageContext";
 import { unifiedStatusInfo, type UnifiedBookingStatus } from "@/lib/bookingStatus";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import Avatar from "@/components/ui/Avatar";
-import { brl } from "@/lib/brl";
+import { brl, usd } from "@/lib/brl";
 import type { AgencyConfig } from "@/lib/agencyConfig";
 
 export type Booking = {
@@ -28,17 +28,20 @@ export type Booking = {
   hasContractFile:   boolean;
   hasSignedContract: boolean;
   isAgentJobBacked:  boolean;
-  /** Display name of the user who released payment. NULL for legacy rows. */
   paidByName?: string | null;
 };
 
-function formatDate(s: string | null) {
+function formatDate(s: string | null, lang: string) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(s).toLocaleDateString(lang === "en" ? "en-US" : "pt-BR", { month: "short", day: "numeric", year: "numeric" });
 }
-function formatJobDate(s: string | null) {
+function formatJobDate(s: string | null, lang: string) {
   if (!s) return null;
-  return new Date(s + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return new Date(s + "T00:00:00").toLocaleDateString(lang === "en" ? "en-US" : "pt-BR", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+function fmtMoney(amount: number, lang: string): string {
+  return lang === "en" ? usd(amount) : brl(amount);
 }
 
 // ── Timeline ──────────────────────────────────────────────────────────────────
@@ -92,7 +95,7 @@ function BookingRow({
   financesHref: string;
   agencyConfig?: AgencyConfig;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [acting, setActing]             = useState<"confirm" | "pay" | "agent_pay" | "cancel" | null>(null);
   const [expanded, setExpanded]         = useState(booking.id === focusBookingId);
   const [balanceError, setBalanceError] = useState<{ required: number; available: number } | null>(null);
@@ -103,7 +106,7 @@ function BookingRow({
   const paymentMode = isEscrow ? "escrow" : "internal";
   const unified = booking.derivedStatus as UnifiedBookingStatus;
   const st      = unifiedStatusInfo(unified, "pt-BR", paymentMode);
-  const jobDate        = formatJobDate(booking.jobDate);
+  const jobDate        = formatJobDate(booking.jobDate, lang);
   const canCancelBooking =
     Boolean(booking.contractId) &&
     ["aguardando_assinatura", "aguardando_deposito", "aguardando_pagamento"].includes(unified);
@@ -111,16 +114,15 @@ function BookingRow({
     "rounded-xl border border-rose-200 bg-white px-4 py-2 text-[12px] font-semibold text-rose-600 transition-all hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50";
 
   const timelineSteps: TimelineStep[] = [
-    { label: t("contracts_sent"),   done: true,                                                                                   date: formatDate(booking.createdAt) },
-    { label: t("contracts_signed"), done: ["aguardando_deposito","aguardando_pagamento","pago"].includes(unified),                date: booking.contractSigned ? formatDate(booking.contractSigned) : null },
+    { label: t("contracts_sent"),   done: true,                                                                                   date: formatDate(booking.createdAt, lang) },
+    { label: t("contracts_signed"), done: ["aguardando_deposito","aguardando_pagamento","pago"].includes(unified),                date: booking.contractSigned ? formatDate(booking.contractSigned, lang) : null },
     { label: t("jobs_job_date"),    done: !!booking.jobDate && new Date(booking.jobDate + "T23:59:59") < new Date(),              date: jobDate ?? t("general_tbd") },
-    { label: t("status_paid"),      done: unified === "pago",                                                                    date: booking.paidAt ? formatDate(booking.paidAt) : null },
+    { label: t("status_paid"),      done: unified === "pago",                                                                    date: booking.paidAt ? formatDate(booking.paidAt, lang) : null },
   ];
   if (unified === "cancelado") {
     timelineSteps.push({ label: st.label, done: true });
   }
 
-  // All status-changing actions go through /api/contracts/[contractId]
   async function callContract(action: string) {
     if (!booking.contractId) return null;
     return fetch(`/api/contracts/${booking.contractId}`, {
@@ -148,13 +150,12 @@ function BookingRow({
     } else if (res.status === 409) {
       onStatusChange(booking.id, "aguardando_pagamento");
     } else {
-      setApiError(d.error ?? "Erro ao confirmar reserva. Tente novamente.");
+      setApiError(d.error ?? t("general_error"));
     }
     setActing(null);
   }
 
   function handlePay() {
-    // Warn if the job date hasn't passed yet
     const jobPast = booking.jobDate
       ? new Date(booking.jobDate + "T23:59:59") < new Date()
       : true;
@@ -171,7 +172,7 @@ function BookingRow({
     if (res?.ok) {
       onStatusChange(booking.id, d.derived_status ?? "pago");
     } else if (res) {
-      setApiError(d.error ?? "Erro ao liberar pagamento. Tente novamente.");
+      setApiError(d.error ?? t("general_error"));
     }
     setActing(null);
   }
@@ -193,16 +194,16 @@ function BookingRow({
     if (res?.ok) {
       onStatusChange(booking.id, d.derived_status ?? "pago");
     } else if (res) {
-      setApiError(d.error ?? "Erro ao liberar pagamento. Tente novamente.");
+      setApiError(d.error ?? t("general_error"));
     }
     setActing(null);
   }
 
   async function handleCancel() {
     if (!booking.contractId) return;
-    const confirmed = window.confirm(
-      `Cancelar reserva de ${booking.talentName}?${unified === "aguardando_pagamento" && isEscrow ? " Se já houver valor em custódia, ele será devolvido com segurança." : ""}`,
-    );
+    const baseMsg = `${t("bookings_cancel_confirm_base")} ${booking.talentName}?`;
+    const escrowSuffix = unified === "aguardando_pagamento" && isEscrow ? ` ${t("bookings_cancel_confirm_escrow_suffix")}` : "";
+    const confirmed = window.confirm(baseMsg + escrowSuffix);
     if (!confirmed) return;
 
     setActing("cancel");
@@ -212,7 +213,7 @@ function BookingRow({
     if (res?.ok) {
       onStatusChange(booking.id, d.derived_status ?? "cancelado");
     } else if (res) {
-      setApiError(d.error ?? "Erro ao cancelar. Tente novamente.");
+      setApiError(d.error ?? t("general_error"));
     }
     setActing(null);
   }
@@ -232,14 +233,14 @@ function BookingRow({
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-zinc-900 leading-snug truncate">{booking.talentName}</p>
           <p className="text-[12px] text-zinc-400 mt-0.5 truncate">
-            {booking.jobTitle || formatDate(booking.createdAt)}
+            {booking.jobTitle || formatDate(booking.createdAt, lang)}
             {jobDate ? ` · ${jobDate}` : ""}
           </p>
         </div>
 
         {booking.totalValue > 0 && (
           <div className="text-right flex-shrink-0">
-            <p className="text-[14px] font-bold text-zinc-900 tabular-nums">{brl(booking.totalValue)}</p>
+            <p className="text-[14px] font-bold text-zinc-900 tabular-nums">{fmtMoney(booking.totalValue, lang)}</p>
           </div>
         )}
 
@@ -247,11 +248,11 @@ function BookingRow({
           {unified === "aguardando_assinatura" && (
             <>
               <span className="rounded-xl border border-violet-100 bg-violet-50 px-3 py-1.5 text-[12px] font-medium text-violet-600">
-                Aguardando Talento
+                {t("bookings_awaiting_talent")}
               </span>
               {canCancelBooking && (
                 <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
-                  {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                  {acting === "cancel" ? t("bookings_cancelling_action") : t("bookings_cancel_booking_btn")}
                 </button>
               )}
             </>
@@ -260,34 +261,33 @@ function BookingRow({
           {unified === "aguardando_deposito" && isEscrow && (
             <>
               {booking.isAgentJobBacked ? (
-                // Agent-backed: skip deposit step, pay directly from agent commitment
                 earlyPayWarning ? (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[12px] text-amber-700 font-medium">Trabalho ainda não realizado. Pagar assim mesmo?</span>
+                    <span className="text-[12px] text-amber-700 font-medium">{t("bookings_work_not_done")}</span>
                     <button onClick={executeAgentPay} disabled={acting !== null}
                       className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer disabled:opacity-60">
-                      {acting === "agent_pay" ? "…" : "Sim, pagar"}
+                      {acting === "agent_pay" ? "…" : t("bookings_yes_pay")}
                     </button>
                     <button onClick={() => setEarlyPayWarning(false)}
                       className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors cursor-pointer">
-                      Cancelar
+                      {t("action_cancel")}
                     </button>
                   </div>
                 ) : (
                   <>
                     <span className="rounded-xl border border-teal-200 bg-teal-50 px-3 py-1.5 text-[11px] font-semibold text-teal-700">
-                      Agente reservou {brl(booking.totalValue)}
+                      {t("bookings_agent_reserved")} {fmtMoney(booking.totalValue, lang)}
                     </span>
                     <button
                       onClick={handleAgentPay}
                       disabled={acting !== null || !booking.contractId}
                       className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-600 text-white"
                     >
-                      {acting === "agent_pay" ? "Pagando..." : "Pagar Talento"}
+                      {acting === "agent_pay" ? t("bookings_paying") : t("bookings_pay_talent")}
                     </button>
                     {canCancelBooking && (
                       <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
-                        {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                        {acting === "cancel" ? t("bookings_cancelling_action") : t("bookings_cancel_booking_btn")}
                       </button>
                     )}
                   </>
@@ -297,14 +297,14 @@ function BookingRow({
                   <button
                     onClick={handleConfirm}
                     disabled={acting !== null || !booking.contractId || (booking.hasContractFile && !booking.hasSignedContract)}
-                    title={booking.hasContractFile && !booking.hasSignedContract ? "Aguarde o talento enviar o contrato assinado." : undefined}
+                    title={booking.hasContractFile && !booking.hasSignedContract ? t("bookings_signed_pending_warning") : undefined}
                     className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white"
                   >
-                    {acting === "confirm" ? "Confirmando..." : "Confirmar reserva"}
+                    {acting === "confirm" ? t("bookings_confirming") : t("bookings_confirm_booking")}
                   </button>
                   {canCancelBooking && (
                     <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
-                      {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                      {acting === "cancel" ? t("bookings_cancelling_action") : t("bookings_cancel_booking_btn")}
                     </button>
                   )}
                 </>
@@ -313,11 +313,9 @@ function BookingRow({
           )}
 
           {unified === "aguardando_deposito" && !isEscrow && (
-            // Internal payment mode: contract is signed, no escrow deposit needed.
-            // Agency acts via the contracts page (Marcar pagamento enviado).
             <>
               <span className="rounded-xl border border-teal-100 bg-teal-50 px-3 py-1.5 text-[12px] font-semibold text-teal-700">
-                Contrato Assinado
+                {t("bookings_signed_contract")}
               </span>
               {booking.contractId && (
                 <a
@@ -325,12 +323,12 @@ function BookingRow({
                   onClick={(e) => e.stopPropagation()}
                   className="text-[12px] font-semibold px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-colors"
                 >
-                  Ver contrato
+                  {t("bookings_view_contract")}
                 </a>
               )}
               {canCancelBooking && (
                 <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
-                  {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                  {acting === "cancel" ? t("bookings_cancelling_action") : t("bookings_cancel_booking_btn")}
                 </button>
               )}
             </>
@@ -339,14 +337,14 @@ function BookingRow({
           {unified === "aguardando_pagamento" && (
             earlyPayWarning ? (
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[12px] text-amber-700 font-medium">Trabalho ainda não realizado. Pagar assim mesmo?</span>
+                <span className="text-[12px] text-amber-700 font-medium">{t("bookings_work_not_done")}</span>
                 <button onClick={executePay} disabled={acting !== null}
                   className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer disabled:opacity-60">
-                  {acting === "pay" ? "…" : "Sim, pagar"}
+                  {acting === "pay" ? "…" : t("bookings_yes_pay")}
                 </button>
                 <button onClick={() => setEarlyPayWarning(false)}
                   className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors cursor-pointer">
-                  Cancelar
+                  {t("action_cancel")}
                 </button>
               </div>
             ) : (
@@ -356,11 +354,11 @@ function BookingRow({
                   disabled={acting !== null || !booking.contractId}
                   className="text-[12px] font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 bg-emerald-500 hover:bg-emerald-600 text-white"
                 >
-                  {acting === "pay" ? "…" : "Pagar Talento"}
+                  {acting === "pay" ? "…" : t("bookings_pay_talent")}
                 </button>
                 {canCancelBooking && (
                   <button onClick={handleCancel} disabled={acting !== null} className={cancelButtonClass}>
-                    {acting === "cancel" ? "Cancelando..." : "Cancelar reserva"}
+                    {acting === "cancel" ? t("bookings_cancelling_action") : t("bookings_cancel_booking_btn")}
                   </button>
                 )}
               </>
@@ -369,7 +367,7 @@ function BookingRow({
 
           {unified === "pago" && (
             <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">
-              {booking.paidByName ? `Pago por ${booking.paidByName}` : "Pago"}
+              {booking.paidByName ? `${t("bookings_paid_by")} ${booking.paidByName}` : t("bookings_paid_label")}
             </span>
           )}
           {unified === "cancelado" && (
@@ -391,9 +389,9 @@ function BookingRow({
               d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-semibold text-amber-800">Saldo insuficiente. Deposite saldo na carteira para confirmar a reserva.</p>
+            <p className="text-[12px] font-semibold text-amber-800">{t("bookings_insufficient_balance")}</p>
             <p className="text-[11px] text-amber-700 mt-0.5">
-              Necessário: <strong>{brl(balanceError.required)}</strong> · Disponível: <strong>{brl(balanceError.available)}</strong>
+              {t("bookings_insufficient_required")} <strong>{fmtMoney(balanceError.required, lang)}</strong> · {t("bookings_insufficient_available")} <strong>{fmtMoney(balanceError.available, lang)}</strong>
             </p>
           </div>
           <Link
@@ -401,7 +399,7 @@ function BookingRow({
             onClick={(e) => e.stopPropagation()}
             className="flex-shrink-0 text-[12px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
           >
-            Depositar saldo
+            {t("bookings_deposit_btn")}
           </Link>
         </div>
       )}
@@ -440,7 +438,7 @@ function BookingRow({
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Ver contrato assinado
+                {t("bookings_view_signed_contract")}
               </a>
             )}
             {booking.contractId && booking.hasContractFile && (
@@ -453,7 +451,7 @@ function BookingRow({
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Ver contrato original
+                {t("bookings_view_original_contract")}
               </a>
             )}
           </div>
@@ -466,7 +464,7 @@ function BookingRow({
                   d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
               </svg>
               <p className="text-[11px] text-amber-800 font-medium">
-                Você precisa aguardar o talento enviar o contrato assinado antes de confirmar a reserva.
+                {t("bookings_signed_pending_warning")}
               </p>
             </div>
           )}
@@ -478,9 +476,13 @@ function BookingRow({
 
 // ── Section ───────────────────────────────────────────────────────────────────
 
-function Section({ title, count, total, children, empty }: {
-  title: string; count: number; total?: number; children: React.ReactNode; empty: string;
+function Section({ title, count, total, children, empty, lang }: {
+  title: string; count: number; total?: number; children: React.ReactNode; empty: string; lang: string;
 }) {
+  function fmtTotal(v: number) {
+    return lang === "en" ? usd(v) : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  }
+
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between">
@@ -490,7 +492,7 @@ function Section({ title, count, total, children, empty }: {
         </div>
         {total !== undefined && total > 0 && (
           <p className="text-[13px] font-semibold text-zinc-700 tabular-nums">
-            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(total)}
+            {fmtTotal(total)}
           </p>
         )}
       </div>
@@ -521,11 +523,10 @@ export default function BookingList({
   agencyConfig?: AgencyConfig;
 }) {
   const [bookings, setBookings] = useState(initial);
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const isEscrow = !agencyConfig || agencyConfig.showEscrow;
 
-  // Sync when server re-renders with fresh props (after router.refresh())
   useEffect(() => { setBookings(initial); }, [initial]);
 
   const { refreshing } = useRealtimeRefresh(
@@ -555,53 +556,53 @@ export default function BookingList({
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-white/80 mb-2">{t("portal_agency")}</p>
           <h1 className="text-[2rem] font-black tracking-[-0.04em] leading-tight">{t("page_bookings")}</h1>
           <p className="text-[13px] text-white/70 mt-2">
-          {isEscrow
-            ? "Acompanhe assinatura, custódia e liberação de pagamento por reserva."
-            : "Acompanhe assinatura e pagamento direto por reserva."}
+          {isEscrow ? t("bookings_page_desc_escrow") : t("bookings_page_desc_internal")}
         </p>
         </div>
         <div className="flex items-center gap-3">
           {refreshing && (
             <span className="flex items-center gap-1.5 text-[11px] text-white/70">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              Atualizando…
+              {t("bookings_updating_label")}
             </span>
           )}
           <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Total</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">{t("bookings_total_label")}</p>
             <p className="mt-1 text-2xl font-black text-white">{bookings.length}</p>
           </div>
         </div>
         </div>
       </div>
 
-      <Section title="Aguardando Assinatura" count={signature.length} empty={t("bookings_no_bookings")}>
+      <Section title={t("bookings_section_awaiting_signature")} count={signature.length} empty={t("bookings_no_bookings")} lang={lang}>
         {signature.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
       <Section
-        title={isEscrow ? "Aguardando Depósito" : "Contratos Assinados"}
+        title={isEscrow ? t("bookings_section_awaiting_deposit") : t("bookings_section_signed_contracts")}
         count={deposit.length}
         total={deposit.reduce((s, b) => s + b.totalValue, 0)}
         empty={t("bookings_no_bookings")}
+        lang={lang}
       >
         {deposit.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
       <Section
-        title={isEscrow ? "Aguardando Pagamento" : "Pagamento em Andamento"}
+        title={isEscrow ? t("bookings_section_awaiting_payment") : t("bookings_section_payment_in_progress")}
         count={payment.length}
         total={payment.reduce((s, b) => s + b.totalValue, 0)}
         empty={t("bookings_no_bookings")}
+        lang={lang}
       >
         {payment.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
-      <Section title={t("status_paid")} count={paid.length} total={paidTotal} empty={t("bookings_no_bookings")}>
+      <Section title={t("status_paid")} count={paid.length} total={paidTotal} empty={t("bookings_no_bookings")} lang={lang}>
         {paid.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
 
-      <Section title={t("status_cancelled")} count={cancelled.length} empty={t("bookings_no_bookings")}>
+      <Section title={t("status_cancelled")} count={cancelled.length} empty={t("bookings_no_bookings")} lang={lang}>
         {cancelled.map((b) => <BookingRow key={b.id} booking={b} focusBookingId={focusBookingId} onStatusChange={handleStatusChange} financesHref={financesHref} agencyConfig={agencyConfig} />)}
       </Section>
     </div>

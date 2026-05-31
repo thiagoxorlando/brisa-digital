@@ -44,6 +44,40 @@ export function talentCategoryLabel(category: string | null | undefined) {
   return CATEGORY_LABEL_BY_VALUE.get(category) ?? CATEGORY_LABEL_BY_VALUE.get(normaliseCategoryKey(category)) ?? category.trim();
 }
 
+const CATEGORY_EN_BY_PT: Record<string, string> = {
+  "Ator / Atriz":             "Actor / Actress",
+  "Modelo":                   "Model",
+  "Influenciador(a)":         "Influencer",
+  "Dançarino(a)":             "Dancer",
+  "Cantor(a)":                "Singer",
+  "Comediante":               "Comedian",
+  "Apresentador(a)":          "Presenter / Host",
+  "Criador(a) de Conteúdo":   "Content Creator",
+  "Fotógrafo(a)":             "Photographer",
+  "Atleta":                   "Athlete",
+  "Lifestyle e Moda":         "Lifestyle & Fashion",
+  "Tecnologia":               "Technology",
+  "Gastronomia":              "Food & Cooking",
+  "Saúde e Fitness":          "Health & Fitness",
+  "Viagens":                  "Travel",
+  "Beleza":                   "Beauty",
+  "Games":                    "Gaming",
+  "Música":                   "Music",
+  "Educação":                 "Education",
+  "Produção Audiovisual":     "Audiovisual Production",
+  "UGC / Conteúdo para marcas":"UGC / Brand Content",
+  "Locução / Voz":            "Voiceover / Voice Acting",
+  "Outro":                    "Other",
+};
+
+export function talentCategoryLabelForLang(category: string | null | undefined, lang: string): string {
+  const ptLabel = talentCategoryLabel(category);
+  if (lang === "en" || lang === "en-US") {
+    return CATEGORY_EN_BY_PT[ptLabel] ?? ptLabel;
+  }
+  return ptLabel;
+}
+
 export function talentCategoryMatches(category: string, selected: string) {
   const categoryLabel = talentCategoryLabel(category);
   const selectedLabel = talentCategoryLabel(selected);

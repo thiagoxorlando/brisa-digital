@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -6,6 +6,7 @@ import PhoneInput from "@/components/ui/PhoneInput";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import { formatCpfCnpj, isValidCpfCnpj } from "@/lib/cpf";
 import AccountActions from "@/features/profile/AccountActions";
+import { useT } from "@/lib/LanguageContext";
 
 type Props = {
   userId: string;
@@ -25,7 +26,6 @@ export default function AgencyProfile({
   agentName: initialAgentName,
   avatarUrl,
   email,
-  subscriptionStatus,
   phone: initialPhone,
   address: initialAddress,
   cpfCnpj: initialCpfCnpj,
@@ -33,6 +33,7 @@ export default function AgencyProfile({
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const { plan } = useSubscription();
+  const { t, lang } = useT();
 
   const [name, setName]           = useState(companyName);
   const [agentName, setAgentName] = useState(initialAgentName);
@@ -69,7 +70,7 @@ export default function AgencyProfile({
     if (res.ok && d.url) {
       setAvatar(d.url);
     } else {
-      showToast(d.error ?? "Falha no upload.", false);
+      showToast(d.error ?? t("profile_upload_error"), false);
     }
     setUploading(false);
     e.target.value = "";
@@ -77,7 +78,8 @@ export default function AgencyProfile({
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValidCpfCnpj(cpfCnpj)) {
+    const isEn = String(lang) === "en";
+    if (!isEn && !isValidCpfCnpj(cpfCnpj)) {
       setCpfError("CPF/CNPJ inválido");
       return;
     }
@@ -99,11 +101,11 @@ export default function AgencyProfile({
     });
 
     if (res.ok) {
-      showToast("Perfil atualizado.", true);
+      showToast(t("profile_updated"), true);
       router.refresh();
     } else {
       const d = await res.json().catch(() => ({}));
-      showToast(d.error ?? "Erro ao salvar.", false);
+      showToast(d.error ?? t("profile_save_error_generic"), false);
     }
     setSaving(false);
   }
@@ -121,8 +123,8 @@ export default function AgencyProfile({
       )}
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agência</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Perfil</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("profile_agency_section")}</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{t("profile_agency_title")}</h1>
       </div>
 
       {/* Avatar upload */}
@@ -143,7 +145,7 @@ export default function AgencyProfile({
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer disabled:cursor-not-allowed"
-            aria-label="Alterar foto de perfil"
+            aria-label={t("profile_aria_change_photo")}
           >
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -162,7 +164,7 @@ export default function AgencyProfile({
         </div>
 
         <div>
-          <p className="text-[14px] font-semibold text-zinc-900">{name || "Sua Agência"}</p>
+          <p className="text-[14px] font-semibold text-zinc-900">{name || t("profile_agency_section")}</p>
           <p className="text-[12px] text-zinc-400">{email}</p>
           <button
             type="button"
@@ -170,7 +172,7 @@ export default function AgencyProfile({
             disabled={uploading}
             className="mt-1.5 text-[11px] font-medium text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer disabled:opacity-50"
           >
-            {uploading ? "Enviando…" : "Alterar foto"}
+            {uploading ? t("profile_uploading") : t("profile_change_photo")}
           </button>
           <span className={[
             "ml-3 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide",
@@ -185,54 +187,54 @@ export default function AgencyProfile({
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-8 space-y-6">
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Nome da Agência</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("profile_agency_name_label")}</label>
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Nome da sua empresa"
+            placeholder={t("profile_agency_name_placeholder")}
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Nome do Agente</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("profile_agent_name_label")}</label>
           <input
             type="text"
             value={agentName}
             onChange={(e) => setAgentName(e.target.value)}
-            placeholder="Nome do responsável pela conta"
+            placeholder={t("profile_agent_name_placeholder")}
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
           />
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Email</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("profile_email_label_disabled")}</label>
           <input
             type="email"
             value={email}
             disabled
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-100 bg-zinc-50 text-zinc-400 cursor-not-allowed"
           />
-          <p className="text-[11px] text-zinc-400 mt-1.5">O email não pode ser alterado aqui.</p>
+          <p className="text-[11px] text-zinc-400 mt-1.5">{t("profile_email_cannot_change")}</p>
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Telefone</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("profile_phone_label")}</label>
           <PhoneInput value={phone} onChange={setPhone} />
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">CPF ou CNPJ</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("profile_cpf_cnpj_label")}</label>
           <input
             type="text"
             value={cpfCnpj}
             onChange={(e) => {
-              setCpfCnpj(formatCpfCnpj(e.target.value));
+              setCpfCnpj(String(lang) === "en" ? e.target.value : formatCpfCnpj(e.target.value));
               if (cpfError) setCpfError("");
             }}
-            placeholder="000.000.000-00 ou 00.000.000/0000-00"
+            placeholder={t("profile_cpf_cnpj_placeholder")}
             className={[
               "w-full px-4 py-3 text-[14px] rounded-xl border hover:border-zinc-300 focus:outline-none transition-colors",
               cpfError ? "border-rose-300 focus:border-rose-400" : "border-zinc-200 focus:border-zinc-900",
@@ -242,12 +244,12 @@ export default function AgencyProfile({
         </div>
 
         <div>
-          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">Endereço</label>
+          <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("profile_address_label")}</label>
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Rua, número, cidade, estado"
+            placeholder={t("profile_address_placeholder")}
             className="w-full px-4 py-3 text-[14px] rounded-xl border border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:outline-none transition-colors"
           />
         </div>
@@ -257,7 +259,7 @@ export default function AgencyProfile({
           disabled={saving || uploading}
           className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-medium py-3 rounded-xl transition-colors cursor-pointer"
         >
-          {saving ? "Salvando…" : "Salvar Alterações"}
+          {saving ? t("profile_saving_label") : t("profile_save_changes")}
         </button>
       </form>
 
@@ -265,4 +267,3 @@ export default function AgencyProfile({
     </div>
   );
 }
-

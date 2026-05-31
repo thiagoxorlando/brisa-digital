@@ -57,6 +57,23 @@ export function usdPlan(value: number | string | null | undefined): string {
 }
 
 /**
+ * USD transaction formatter — always shows 2 decimal places.
+ * Use for contract amounts and financial transactions in EN mode.
+ *
+ * Examples:
+ *   1500     → "$1,500.00"
+ *   29.99    → "$29.99"
+ */
+export function usd(value: number | string | null | undefined): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0) || 0);
+}
+
+/**
  * Parse a BRL input string (accepts both "9,59" and "9.59") and return
  * a number rounded to 2 decimal places.
  */

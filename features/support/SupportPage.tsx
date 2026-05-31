@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { supportStatusLabel, supportStatusTone } from "@/lib/supportStatus";
+import { useT } from "@/lib/LanguageContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,17 +26,18 @@ type Message = {
 };
 
 
-function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+function fmtDate(s: string, lang: string) {
+  return new Date(s).toLocaleDateString(lang === "en" ? "en-US" : "pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function fmtTime(s: string) {
-  return new Date(s).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+function fmtTime(s: string, lang: string) {
+  return new Date(s).toLocaleTimeString(lang === "en" ? "en-US" : "pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function SupportPage() {
+  const { t, lang } = useT();
   const [view, setView]           = useState<"list" | "new" | "detail">("list");
   const [conversations, setConvs] = useState<ConvSummary[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -104,8 +106,8 @@ export default function SupportPage() {
     e.preventDefault();
     setNewError("");
     setNewSuccess("");
-    if (!newSubject.trim()) { setNewError("Assunto é obrigatório."); return; }
-    if (!newMessage.trim()) { setNewError("Mensagem é obrigatória."); return; }
+    if (!newSubject.trim()) { setNewError(t("support_subject_required")); return; }
+    if (!newMessage.trim()) { setNewError(t("support_message_required")); return; }
     setCreating(true);
     try {
       const res = await fetch("/api/support/conversations", {
@@ -114,8 +116,8 @@ export default function SupportPage() {
         body: JSON.stringify({ subject: newSubject.trim(), message: newMessage.trim() }),
       });
       const data = await res.json() as { error?: string };
-      if (!res.ok) { setNewError(data.error ?? "Erro ao enviar mensagem."); return; }
-      setNewSuccess("Mensagem enviada ao suporte. Em breve nossa equipe responderá.");
+      if (!res.ok) { setNewError(data.error ?? t("support_send_error")); return; }
+      setNewSuccess(t("support_sent_success"));
       setNewSubject("");
       setNewMessage("");
       await loadList();
@@ -137,7 +139,7 @@ export default function SupportPage() {
         body: JSON.stringify({ message: replyText.trim() }),
       });
       const data = await res.json() as { message?: Message; error?: string };
-      if (!res.ok) { setReplyError(data.error ?? "Erro ao enviar mensagem."); return; }
+      if (!res.ok) { setReplyError(data.error ?? t("support_reply_error")); return; }
       if (data.message) setMessages((prev) => [...prev, data.message!]);
       setReplyText("");
       setSelectedConv((prev) => prev ? { ...prev, status: "waiting_admin" } : prev);
@@ -161,34 +163,34 @@ export default function SupportPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Voltar
+            {t("support_back")}
           </button>
-          <h2 className="text-[15px] font-semibold text-zinc-900">Nova conversa</h2>
+          <h2 className="text-[15px] font-semibold text-zinc-900">{t("support_new_conversation")}</h2>
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-6">
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
               <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                Assunto
+                {t("support_subject_label")}
               </label>
               <input
                 type="text"
                 value={newSubject}
                 onChange={(e) => setNewSubject(e.target.value)}
-                placeholder="Descreva brevemente sua dúvida ou problema"
+                placeholder={t("support_subject_placeholder")}
                 maxLength={200}
                 className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-[14px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors"
               />
             </div>
             <div>
               <label className="block text-[12px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5">
-                Mensagem
+                {t("support_message_label")}
               </label>
               <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Descreva em detalhes como podemos ajudar..."
+                placeholder={t("support_message_placeholder")}
                 rows={6}
                 maxLength={5000}
                 className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors resize-none"
@@ -208,7 +210,7 @@ export default function SupportPage() {
               disabled={creating}
               className="flex items-center gap-2 bg-[#1F2D2E] hover:bg-[#2a3d3e] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-semibold px-6 py-2.5 rounded-xl transition-colors cursor-pointer"
             >
-              {creating ? "Enviando…" : "Enviar mensagem"}
+              {creating ? t("support_sending_msg") : t("support_send_msg")}
             </button>
           </form>
         </div>
@@ -230,7 +232,7 @@ export default function SupportPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Voltar
+            {t("support_back")}
           </button>
           <h2 className="text-[15px] font-semibold text-zinc-900 flex-1 min-w-0 truncate">{selectedConv.subject}</h2>
           <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${supportStatusTone(selectedConv.status)}`}>
@@ -243,12 +245,12 @@ export default function SupportPage() {
           <div className="p-4 h-[420px] overflow-y-auto flex flex-col gap-3">
             {loadingDetail && (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-[13px] text-zinc-400">Carregando mensagens…</p>
+                <p className="text-[13px] text-zinc-400">{t("support_loading_msgs")}</p>
               </div>
             )}
             {!loadingDetail && messages.length === 0 && (
               <div className="flex-1 flex items-center justify-center">
-                <p className="text-[13px] text-zinc-400">Nenhuma mensagem ainda.</p>
+                <p className="text-[13px] text-zinc-400">{t("support_no_messages")}</p>
               </div>
             )}
             {messages.map((msg) => {
@@ -258,7 +260,7 @@ export default function SupportPage() {
                   <div className={`max-w-[78%] ${isUser ? "items-end" : "items-start"} flex flex-col gap-1`}>
                     {!isUser && (
                       <span className="text-[10px] font-semibold text-teal-600 uppercase tracking-wide px-1">
-                        Suporte BrisaHub
+                        {t("support_brisahub_team")}
                       </span>
                     )}
                     <div className={`rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words ${
@@ -269,7 +271,7 @@ export default function SupportPage() {
                       {msg.message}
                     </div>
                     <span className="text-[10px] text-zinc-400 px-1">
-                      {fmtDate(msg.created_at)} às {fmtTime(msg.created_at)}
+                      {fmtDate(msg.created_at, lang)} · {fmtTime(msg.created_at, lang)}
                     </span>
                   </div>
                 </div>
@@ -282,7 +284,7 @@ export default function SupportPage() {
           <div className="border-t border-zinc-100 p-4">
             {isClosed ? (
               <p className="text-[13px] font-medium text-zinc-500 text-center py-2">
-                Esta conversa foi encerrada.
+                {t("support_conversation_closed")}
               </p>
             ) : (
               <form onSubmit={handleReply} className="flex gap-3 items-end">
@@ -295,7 +297,7 @@ export default function SupportPage() {
                       if (replyText.trim()) handleReply(e as unknown as React.FormEvent);
                     }
                   }}
-                  placeholder="Escreva sua resposta… (Enter para enviar)"
+                  placeholder={t("support_reply_placeholder")}
                   rows={2}
                   maxLength={5000}
                   className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-[13px] text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-colors resize-none"
@@ -305,7 +307,7 @@ export default function SupportPage() {
                   disabled={sending || !replyText.trim()}
                   className="flex-shrink-0 bg-[#1F2D2E] hover:bg-[#2a3d3e] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-colors cursor-pointer"
                 >
-                  {sending ? "…" : "Enviar"}
+                  {sending ? "…" : t("support_send")}
                 </button>
               </form>
             )}
@@ -323,8 +325,8 @@ export default function SupportPage() {
     <div className="space-y-5 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-extrabold tracking-tight text-zinc-900">Suporte</h1>
-          <p className="text-[13px] text-zinc-500 mt-0.5">Fale com a equipe da BrisaHub.</p>
+          <h1 className="text-[22px] font-extrabold tracking-tight text-zinc-900">{t("support_title")}</h1>
+          <p className="text-[13px] text-zinc-500 mt-0.5">{t("support_subtitle")}</p>
         </div>
         <button
           type="button"
@@ -334,13 +336,13 @@ export default function SupportPage() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Nova conversa
+          {t("support_new_conversation")}
         </button>
       </div>
 
       {loadingList && (
         <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
-          <p className="text-[14px] text-zinc-400">Carregando…</p>
+          <p className="text-[14px] text-zinc-400">{t("support_loading")}</p>
         </div>
       )}
 
@@ -350,8 +352,8 @@ export default function SupportPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
-          <p className="text-[14px] font-medium text-zinc-500">Nenhuma conversa ainda.</p>
-          <p className="text-[13px] text-zinc-400 mt-1">Clique em "Nova conversa" para entrar em contato.</p>
+          <p className="text-[14px] font-medium text-zinc-500">{t("support_no_conversations")}</p>
+          <p className="text-[13px] text-zinc-400 mt-1">{t("support_no_conversations_hint")}</p>
         </div>
       )}
 
@@ -366,7 +368,7 @@ export default function SupportPage() {
             >
               <div className="flex-1 min-w-0">
                 <p className="text-[14px] font-semibold text-zinc-900 truncate">{conv.subject}</p>
-                <p className="text-[12px] text-zinc-400 mt-0.5">{fmtDate(conv.last_message_at)}</p>
+                <p className="text-[12px] text-zinc-400 mt-0.5">{fmtDate(conv.last_message_at, lang)}</p>
               </div>
               <span className={`flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${supportStatusTone(conv.status)}`}>
                 {supportStatusLabel(conv.status, "user")}

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSubscription } from "@/lib/SubscriptionContext";
+import { useT } from "@/lib/LanguageContext";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
-import { brl } from "@/lib/brl";
+import { brl, usd } from "@/lib/brl";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { formatPlanPrice } from "@/lib/planSettings.shared";
 
@@ -62,7 +63,7 @@ const PLANS = [
     period: "",
     badge: null,
     gradient: "from-zinc-300 to-zinc-400",
-    headline: "Para conhecer a plataforma",
+    headlineKey: "billing_plan_free_headline",
     features: [
       "1 vaga ativa",
       "Ate 3 contratacoes por vaga",
@@ -76,7 +77,7 @@ const PLANS = [
     period: "/mes",
     badge: "POPULAR" as const,
     gradient: "from-indigo-500 to-violet-600",
-    headline: "Operacao completa sem limites",
+    headlineKey: "billing_plan_pro_headline",
     features: [
       "Vagas ilimitadas",
       "Contratacoes ilimitadas",
@@ -91,11 +92,11 @@ const PLANS = [
     period: "",
     badge: null,
     gradient: "from-violet-500 to-purple-700",
-    headline: "Espaço Premium para operação privada da agência",
+    headlineKey: "billing_plan_premium_headline",
     features: [
-      "Espaço Premium com branding próprio",
+      "Espaco Premium com branding proprio",
       "Vagas privadas por convite",
-      "Gestão de equipe e assentos",
+      "Gestao de equipe e assentos",
       "Controle de limites por agente",
     ],
   },
@@ -111,69 +112,33 @@ type LivePlanMap = Record<string, PublicPlanSetting>;
 function getBillingReturnBanner(): "success" | "canceled" | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
-  // Stripe return: ?stripe=success or legacy ?success=true
   if (params.get("stripe") === "success" || params.get("success") === "true") return "success";
   if (params.get("canceled") === "true") return "canceled";
   return null;
 }
 
-function fmtDate(s: string | Date) {
-  return new Date(s).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+function fmtDate(s: string | Date, lang: string) {
+  return new Date(s).toLocaleDateString(lang === "en" ? "en-US" : "pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function fmtDateTime(s: string | Date) {
-  return new Date(s).toLocaleString("pt-BR", {
+function fmtDateTime(s: string | Date, lang: string) {
+  return new Date(s).toLocaleString(lang === "en" ? "en-US" : "pt-BR", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
+}
+
+function fmtChargeAmount(amount: number, provider: string | null): string {
+  return provider === "stripe" ? usd(amount) : brl(amount);
 }
 
 function getPlanDef(planKey: PlanKey) {
   return PLANS.find((plan) => plan.key === planKey) ?? PLANS[0];
 }
 
-function planStatusLabel(status: string | null) {
-  switch (status) {
-    case "active":    return "Ativo";
-    case "inactive":  return "Inativo";
-    case "pending":   return "Pendente";
-    case "cancelled":
-    case "canceled":  return "Cancelado";
-    case "past_due":
-    case "overdue":   return "Em atraso";
-    case "trialing":  return "Em teste";
-    case "paused":    return "Pausado";
-    case "cancelling": return "Cancelamento agendado";
-    default:          return "Indisponível";
-  }
-}
-
-function chargeStatusLabel(status: string | null) {
-  switch (status) {
-    case "paid":      return "Pago";
-    case "pending":   return "Pendente";
-    case "overdue":
-    case "past_due":  return "Em atraso";
-    case "failed":    return "Falhou";
-    case "cancelled": return "Cancelado";
-    default:          return status ?? "—";
-  }
-}
-
-function chargeStatusColor(status: string | null) {
-  switch (status) {
-    case "paid":    return "text-emerald-700 bg-emerald-50";
-    case "pending": return "text-amber-700 bg-amber-50";
-    case "overdue":
-    case "past_due":
-    case "failed":  return "text-rose-700 bg-rose-50";
-    default:        return "text-zinc-600 bg-zinc-100";
-  }
-}
-
 // ── Comprovante modal ─────────────────────────────────────────────────────────
 
-function ReceiptModal({ charge, onClose }: { charge: PlanCharge; onClose: () => void }) {
+function ReceiptModal({ charge, onClose, t, lang }: { charge: PlanCharge; onClose: () => void; t: (k: string) => string; lang: string }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -193,23 +158,23 @@ function ReceiptModal({ charge, onClose }: { charge: PlanCharge; onClose: () => 
               </svg>
             </button>
           </div>
-          <p className="text-[17px] font-semibold">Comprovante de assinatura</p>
+          <p className="text-[17px] font-semibold">{t("billing_receipt_title")}</p>
         </div>
 
         {/* Body */}
         <div className="px-6 py-5 space-y-3">
-          <Row label="Plano" value={charge.description ?? "Assinatura BrisaHub"} />
-          <Row label="Valor" value={brl(charge.amount)} />
+          <Row label={t("billing_receipt_plan")} value={charge.description ?? t("billing_subscription_label")} />
+          <Row label={t("billing_receipt_amount")} value={fmtChargeAmount(charge.amount, charge.provider)} />
           <Row
-            label="Status"
-            value={chargeStatusLabel(charge.status)}
+            label={t("billing_receipt_status")}
+            value={chargeStatusLabel(charge.status, t)}
             valueClass={charge.status === "paid" ? "text-emerald-700 font-semibold" : "text-amber-700 font-semibold"}
           />
-          <Row label="Data" value={fmtDateTime(charge.created_at)} />
+          <Row label={t("billing_receipt_date")} value={fmtDateTime(charge.created_at, lang)} />
           {charge.asaas_payment_id && (
-            <Row label="ID Asaas" value={charge.asaas_payment_id} mono />
+            <Row label="ID" value={charge.asaas_payment_id} mono />
           )}
-          <Row label="Provedor" value="Asaas" />
+          <Row label={t("billing_receipt_provider")} value={charge.provider === "stripe" ? t("billing_provider_stripe") : "Asaas"} />
         </div>
 
         {/* Actions */}
@@ -221,14 +186,14 @@ function ReceiptModal({ charge, onClose }: { charge: PlanCharge; onClose: () => 
               rel="noopener noreferrer"
               className="flex-1 text-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-[13px] font-semibold hover:opacity-90 transition-opacity"
             >
-              Ver fatura Asaas
+              {t("billing_receipt_view_invoice")}
             </a>
           )}
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer"
           >
-            Fechar
+            {t("billing_receipt_close")}
           </button>
         </div>
       </div>
@@ -257,6 +222,47 @@ function Row({
   );
 }
 
+// ── Plan status label helpers ─────────────────────────────────────────────────
+
+function planStatusLabel(status: string | null, t: (k: string) => string): string {
+  switch (status) {
+    case "active":      return t("billing_status_active");
+    case "inactive":    return t("billing_status_inactive");
+    case "pending":     return t("billing_status_pending");
+    case "cancelled":
+    case "canceled":    return t("billing_status_cancelled");
+    case "past_due":
+    case "overdue":     return t("billing_status_overdue");
+    case "trialing":    return t("billing_status_trialing");
+    case "paused":      return t("billing_status_paused");
+    case "cancelling":  return t("billing_status_cancelling");
+    default:            return t("billing_status_unavailable");
+  }
+}
+
+function chargeStatusLabel(status: string | null, t: (k: string) => string): string {
+  switch (status) {
+    case "paid":      return t("billing_charge_paid");
+    case "pending":   return t("billing_charge_pending");
+    case "overdue":
+    case "past_due":  return t("billing_charge_overdue");
+    case "failed":    return t("billing_charge_failed");
+    case "cancelled": return t("billing_charge_cancelled");
+    default:          return status ?? "—";
+  }
+}
+
+function chargeStatusColor(status: string | null) {
+  switch (status) {
+    case "paid":    return "text-emerald-700 bg-emerald-50";
+    case "pending": return "text-amber-700 bg-amber-50";
+    case "overdue":
+    case "past_due":
+    case "failed":  return "text-rose-700 bg-rose-50";
+    default:        return "text-zinc-600 bg-zinc-100";
+  }
+}
+
 // ── Plan change modal ─────────────────────────────────────────────────────────
 
 interface ModalProps {
@@ -275,7 +281,8 @@ function PlanChangeModal({
   displayPriceLabel,
   onUnavailable,
   onClose,
-}: Pick<ModalProps, "plan" | "onUnavailable" | "onClose"> & { displayName: string; displayPriceLabel: string }) {
+  t,
+}: Pick<ModalProps, "plan" | "onUnavailable" | "onClose"> & { displayName: string; displayPriceLabel: string; t: (k: string) => string }) {
   const isToFree = plan.key === "free";
   const [submitting, setSubmitting] = useState(false);
 
@@ -283,7 +290,7 @@ function PlanChangeModal({
     setSubmitting(true);
     setSubmitting(false);
     onClose();
-    onUnavailable("Alteração de plano pelo painel ainda não está disponível. Entre em contato com o suporte.");
+    onUnavailable(t("common_unexpected_error"));
   }
 
   return (
@@ -296,7 +303,7 @@ function PlanChangeModal({
           <div>
             <div className={`h-[3px] w-12 rounded-full bg-gradient-to-r ${plan.gradient} mb-3`} />
             <h2 className="text-[17px] font-semibold text-zinc-900">
-              {isToFree ? "Cancelar assinatura" : `Mudar para o plano ${displayName}`}
+              {isToFree ? t("billing_plan_cancel") : `${t("billing_plan_upgrade_to")} ${displayName}`}
             </h2>
             <p className="text-[13px] text-zinc-400 mt-0.5">
               {"period" in plan && plan.period ? `${displayPriceLabel}${plan.period}` : displayPriceLabel}
@@ -310,21 +317,14 @@ function PlanChangeModal({
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          {isToFree && (
-            <div className="bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3.5">
-              <p className="text-[13px] text-zinc-700">
-                Seu acesso ao plano atual continuara ate o fim do ciclo de cobranca.
-              </p>
-            </div>
-          )}
           <p className="text-[13px] text-zinc-600 bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3">
-            Alteração de plano pelo painel ainda não está disponível. Entre em contato com o suporte.
+            {t("common_unexpected_error")}
           </p>
         </div>
 
         <div className="px-6 pb-6 pt-3 flex gap-3 border-t border-zinc-100">
           <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer">
-            Cancelar
+            {t("action_cancel")}
           </button>
           <button
             onClick={handleConfirm}
@@ -336,7 +336,7 @@ function PlanChangeModal({
                 : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2]",
             ].join(" ")}
           >
-            {submitting ? "Processando..." : "Confirmar"}
+            {submitting ? t("billing_plan_processing") : t("action_confirm")}
           </button>
         </div>
       </div>
@@ -357,8 +357,8 @@ export default function BillingDashboard({
   proTrialDays = 7,
   proTrialUsed = false,
   introCyclesRemaining = null,
-  checkoutDefaults,
 }: Props) {
+  const { t, lang } = useT();
   const isActivePaid = initialPlan !== "free";
   const [activePlan, setActivePlan] = useState<PlanKey>((isActivePaid ? initialPlan : "free") as PlanKey);
   const [activePlanStatus, setActivePlanStatus] = useState(planStatus ?? (isActivePaid ? "active" : "inactive"));
@@ -394,7 +394,7 @@ export default function BillingDashboard({
   }
   function effectivePriceLabel(p: PlanDef) {
     const setting = effectiveSetting(p);
-    return setting.is_available ? formatPlanPricing(setting).primaryPrice : "Em breve";
+    return setting.is_available ? formatPlanPricing(setting).primaryPrice : t("billing_plan_soon");
   }
   function effectiveTrialLabel(p: PlanDef) {
     if (p.key !== "pro" || !proTrialEnabled) return null;
@@ -413,7 +413,6 @@ export default function BillingDashboard({
     if (introCyclesRemaining === 0) {
       return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
     }
-    // Trial already used — show only the regular recurring price, no trial copy.
     if (proTrialUsed) {
       return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
     }
@@ -438,20 +437,18 @@ export default function BillingDashboard({
     setTimeout(() => setToast(null), 5000);
   }
 
-  /** Redirects the user to Stripe Checkout for the PRO plan. */
   async function handleStripeCheckout() {
     setProLoading(true);
     try {
       const res  = await fetch("/api/stripe/create-checkout", { method: "POST" });
       const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
-        showToast(data.error ?? "Could not start checkout. Please try again.", false);
+        showToast(data.error ?? t("general_error"), false);
         return;
       }
-      // Full-page redirect to Stripe Checkout hosted page
       window.location.assign(data.url);
     } catch {
-      showToast("Network error. Please try again.", false);
+      showToast(t("general_error"), false);
     } finally {
       setProLoading(false);
     }
@@ -460,34 +457,31 @@ export default function BillingDashboard({
   function handlePlanClick(p: PlanDef) {
     const setting = effectiveSetting(p);
     if (!setting.is_available) {
-      showToast("This plan is not yet available.", false);
+      showToast(t("billing_plan_soon"), false);
       return;
     }
     if (p.key === "free" && activePlan !== "free") { void handleCancelSubscription(); return; }
     if (p.key === activePlan) return;
     if (p.key === "pro") { void handleStripeCheckout(); return; }
-    // Premium and other paid plans still use the legacy modal/flow
     if (setting.price > 0) { setChangingTo(p); return; }
     setChangingTo(p);
   }
 
   async function handleCancelSubscription() {
-    if (!confirm("Cancel your subscription? You will lose PRO access immediately and will not be charged again.")) return;
+    if (!confirm(t("billing_cancel_confirm"))) return;
     setCancelingSubscription(true);
     try {
       const res = await fetch("/api/agency/subscription/cancel", { method: "POST" });
       const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string };
       if (!res.ok) {
-        showToast(data.error ?? "Failed to cancel subscription. Please try again.", false);
+        showToast(data.error ?? t("general_error"), false);
         return;
       }
-      // Update local UI state immediately — do not wait for webhook
       setActivePlan("free");
       setActivePlanStatus("canceled");
       setCurrentTrialEndsAt(null);
-      // Refresh SubscriptionContext so isPremium / isActive are revoked now
       await refreshPlan();
-      showToast("Subscription cancelled. You are now on the Free plan.", true);
+      showToast(lang === "en" ? "Subscription cancelled. You are now on the Free plan." : "Assinatura cancelada. Você está no plano Free.", true);
     } finally {
       setCancelingSubscription(false);
     }
@@ -495,7 +489,6 @@ export default function BillingDashboard({
 
   return (
     <div className="max-w-3xl space-y-8">
-      {/* Banners */}
       {/* Trial countdown banner */}
       {isTrialing && trialDaysLeft !== null && (
         <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3.5">
@@ -504,19 +497,17 @@ export default function BillingDashboard({
           </svg>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-indigo-800">
-              {trialDaysLeft > 0
-                ? "Teste grátis ativo"
-                : "Período de teste encerrado"}
+              {trialDaysLeft > 0 ? t("billing_trial_active") : t("billing_trial_ended")}
             </p>
             {currentTrialEndsAt && trialDaysLeft > 0 && (
               <p className="text-[12px] text-indigo-700 mt-0.5">
-                Primeira cobrança em {new Date(currentTrialEndsAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })}.{" "}
+                {t("billing_trial_first_charge")} {fmtDate(currentTrialEndsAt, lang)}.{" "}
                 <button
                   onClick={handleCancelSubscription}
                   disabled={cancelingSubscription}
                   className="underline hover:no-underline disabled:opacity-50 cursor-pointer"
                 >
-                  {cancelingSubscription ? "Cancelando..." : "Cancelar antes da cobrança"}
+                  {cancelingSubscription ? t("billing_canceling") : t("billing_cancel_before_charge")}
                 </button>
               </p>
             )}
@@ -530,21 +521,20 @@ export default function BillingDashboard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-rose-800">Falha no pagamento</p>
-            <p className="text-[12px] text-rose-700 mt-0.5">
-              Houve uma falha no pagamento da sua assinatura. Entre em contato com o suporte.
-            </p>
+            <p className="text-[13px] font-semibold text-rose-800">{t("billing_payment_failed")}</p>
+            <p className="text-[12px] text-rose-700 mt-0.5">{t("billing_payment_failed_desc")}</p>
           </div>
         </div>
       )}
+
       {returnBanner === "success" && (
         <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5">
           <svg className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-emerald-800">Pagamento realizado</p>
-            <p className="text-[12px] text-emerald-700 mt-0.5">Seu plano sera ativado automaticamente apos confirmacao do pagamento.</p>
+            <p className="text-[13px] font-semibold text-emerald-800">{t("billing_checkout_success")}</p>
+            <p className="text-[12px] text-emerald-700 mt-0.5">{t("billing_checkout_success_desc")}</p>
           </div>
           <button type="button" onClick={() => setReturnBanner(null)} className="text-emerald-500 hover:text-emerald-700 flex-shrink-0 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -557,8 +547,8 @@ export default function BillingDashboard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-amber-800">Checkout cancelado</p>
-            <p className="text-[12px] text-amber-700 mt-0.5">Nenhum pagamento foi realizado. Voce pode tentar novamente quando quiser.</p>
+            <p className="text-[13px] font-semibold text-amber-800">{t("billing_checkout_cancelled")}</p>
+            <p className="text-[12px] text-amber-700 mt-0.5">{t("billing_checkout_cancelled_desc")}</p>
           </div>
           <button type="button" onClick={() => setReturnBanner(null)} className="text-amber-500 hover:text-amber-700 flex-shrink-0 cursor-pointer">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -582,32 +572,34 @@ export default function BillingDashboard({
           displayPriceLabel={effectivePriceLabel(changingTo)}
           onUnavailable={(message) => showToast(message, false)}
           onClose={() => setChangingTo(null)}
+          t={t}
         />
       )}
       {receiptCharge && (
-        <ReceiptModal charge={receiptCharge} onClose={() => setReceiptCharge(null)} />
+        <ReceiptModal charge={receiptCharge} onClose={() => setReceiptCharge(null)} t={t} lang={lang} />
       )}
+
       {/* Page title */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agencia</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900">Plano & Cobranca</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("portal_agency")}</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900">{t("billing_title")}</h1>
       </div>
 
       {/* Current plan card */}
       <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Plano atual</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("billing_current_plan")}</p>
             <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{effectiveSetting(currentPlanDef).name}</p>
             <p className="text-[13px] text-zinc-500">
-              Status: <strong className="text-zinc-800">{planStatusLabel(activePlanStatus ?? "inactive")}</strong>
+              {t("billing_plan_status")}: <strong className="text-zinc-800">{planStatusLabel(activePlanStatus ?? "inactive", t)}</strong>
               {isTrialing && currentTrialEndsAt
-                ? ` · primeira cobranca em ${fmtDate(currentTrialEndsAt)}`
+                ? ` · ${t("billing_first_charge_on")} ${fmtDate(currentTrialEndsAt, lang)}`
                 : expiresAt && activePlan !== "free"
-                  ? ` · renova em ${fmtDate(expiresAt)}`
+                  ? ` · ${t("billing_renews_on")} ${fmtDate(expiresAt, lang)}`
                   : ""}
             </p>
-            <p className="text-[13px] text-zinc-400">Payments securely processed via Stripe.</p>
+            <p className="text-[13px] text-zinc-400">{t("billing_stripe_note")}</p>
           </div>
           {activePlan !== "free" && (
             <div className="flex-shrink-0">
@@ -617,7 +609,7 @@ export default function BillingDashboard({
                 disabled={cancelingSubscription}
                 className="rounded-xl border border-zinc-200 px-4 py-2.5 text-[13px] font-medium text-zinc-600 hover:border-rose-200 hover:text-rose-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {cancelingSubscription ? "Cancelling…" : "Cancel subscription"}
+                {cancelingSubscription ? t("billing_canceling") : t("billing_plan_cancel")}
               </button>
             </div>
           )}
@@ -631,9 +623,9 @@ export default function BillingDashboard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-amber-800">Cancelamento agendado</p>
+            <p className="text-[13px] font-semibold text-amber-800">{t("billing_cancellation_scheduled_title")}</p>
             <p className="text-[12px] text-amber-700 mt-0.5">
-              Seu plano continuara ativo ate o fim do ciclo atual em {fmtDate(expiresAt)}.
+              {t("billing_cancellation_desc")} {fmtDate(expiresAt, lang)}.
             </p>
           </div>
         </div>
@@ -642,9 +634,11 @@ export default function BillingDashboard({
       {/* Plans grid */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Planos</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("billing_plans_heading")}</p>
           {expiresAt && activePlan !== "free" && (
-            <p className="text-[12px] text-zinc-400">{isTrialing ? `Primeira cobranca em ${fmtDate(expiresAt)}` : `Renova em ${fmtDate(expiresAt)}`}</p>
+            <p className="text-[12px] text-zinc-400">
+              {isTrialing ? `${t("billing_trial_first_charge")} ${fmtDate(expiresAt, lang)}` : `${t("billing_renews_on")} ${fmtDate(expiresAt, lang)}`}
+            </p>
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -655,11 +649,11 @@ export default function BillingDashboard({
             const isCurrent  = activePlan === p.key;
             const isDowngrade = effectivePrice(p) < effectivePrice(currentPlanDef);
             const isPending  = pendingChange?.plan === p.key;
-            const baseFeatures = available ? planLimitHighlights(setting).slice(0, 2) : ["Em breve"];
+            const baseFeatures = available ? planLimitHighlights(setting).slice(0, 2) : [t("billing_plan_soon")];
             const featureList = p.key === "premium"
               ? available
-                ? ["Espaço Premium", ...premiumSeatHighlights(setting)]
-                : ["Em breve"]
+                ? [lang === "en" ? "Premium Space" : "Espaço Premium", ...premiumSeatHighlights(setting)]
+                : [t("billing_plan_soon")]
               : baseFeatures;
             return (
               <div
@@ -682,21 +676,21 @@ export default function BillingDashboard({
                     )}
                     {!available && (
                       <span className="text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider bg-zinc-100 text-zinc-500">
-                        Em breve
+                        {t("billing_plan_soon")}
                       </span>
                     )}
                     {isCurrent && (
                       <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full ml-auto">
-                        Atual
+                        {t("billing_plan_current_badge")}
                       </span>
                     )}
                     {isPending && !isCurrent && (
                       <span className="text-[10px] font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full ml-auto">
-                        Agendado
+                        {t("billing_plan_scheduled_badge")}
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-zinc-400 mb-3 leading-snug">{p.headline}</p>
+                  <p className="text-[11px] text-zinc-400 mb-3 leading-snug">{t(p.headlineKey)}</p>
                   <div className="mb-1">
                     <span className="text-[1.75rem] font-bold tracking-tighter text-zinc-900">{effectivePriceLabel(p)}</span>
                   </div>
@@ -724,7 +718,7 @@ export default function BillingDashboard({
                       </p>
                     );
                   })() : (
-                    <p className="text-[11px] font-semibold mb-4 text-zinc-400">Em breve</p>
+                    <p className="text-[11px] font-semibold mb-4 text-zinc-400">{t("billing_plan_soon")}</p>
                   )}
                   <ul className="space-y-1.5 mb-5 flex-1">
                     {featureList.map((feature) => (
@@ -752,25 +746,25 @@ export default function BillingDashboard({
                       ].join(" ")}
                     >
                       {!available
-                        ? "Em breve"
+                        ? t("billing_plan_soon")
                         : isLoading
-                        ? "Aguarde..."
-                        : p.key === "pro" && activePlan === "free" && proTrialEnabled
-                          ? "Iniciar teste grátis"
+                        ? t("billing_plan_processing")
+                        : p.key === "pro" && activePlan === "free" && proTrialEnabled && !proTrialUsed
+                          ? t("billing_plan_start_trial")
                         : p.key === "premium" && activePlan === "free"
-                          ? "Escolher Premium"
+                          ? t("billing_plan_choose_premium")
                         : activePlan === "free"
-                          ? `Assinar ${setting.name}`
+                          ? `${t("billing_plan_subscribe")} ${setting.name}`
                           : isDowngrade
-                            ? `Mudar para ${setting.name}`
+                            ? `${t("billing_plan_downgrade")} ${setting.name}`
                             : p.key === "premium"
-                              ? "Fazer upgrade"
-                              : `Fazer upgrade para ${setting.name}`}
+                              ? t("billing_plan_upgrade_premium")
+                              : `${t("billing_plan_upgrade_to")} ${setting.name}`}
                     </button>
                   )}
                   {isPending && !isCurrent && (
                     <p className="text-[11px] text-indigo-600 text-center font-medium">
-                      Ativara em {fmtDate(pendingChange!.effectiveAt)}
+                      {t("billing_plan_activates_on")} {fmtDate(pendingChange!.effectiveAt, lang)}
                     </p>
                   )}
                 </div>
@@ -783,37 +777,39 @@ export default function BillingDashboard({
       {/* Last charge + Next charge */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Ultima cobranca do plano</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("billing_last_charge")}</p>
           {latestCharge ? (
             <div className="space-y-1.5">
-              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{brl(latestCharge.amount)}</p>
-              <p className="text-[13px] text-zinc-600">{latestCharge.description ?? "Assinatura BrisaHub"}</p>
+              <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{fmtChargeAmount(latestCharge.amount, latestCharge.provider)}</p>
+              <p className="text-[13px] text-zinc-600">{latestCharge.description ?? t("billing_subscription_label")}</p>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${chargeStatusColor(latestCharge.status)}`}>
-                  {chargeStatusLabel(latestCharge.status)}
+                  {chargeStatusLabel(latestCharge.status, t)}
                 </span>
-                <span className="text-[11px] text-zinc-400">{fmtDate(latestCharge.created_at)}</span>
+                <span className="text-[11px] text-zinc-400">{fmtDate(latestCharge.created_at, lang)}</span>
                 {latestCharge.asaas_payment_id && (
                   <span className="text-[11px] text-zinc-400 font-mono truncate max-w-[120px]" title={latestCharge.asaas_payment_id}>
                     {latestCharge.asaas_payment_id.slice(0, 16)}…
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-zinc-400">Provider: {latestCharge.provider === "stripe" ? "Stripe" : "Asaas"}</p>
+              <p className="text-[11px] text-zinc-400">
+                {lang === "en" ? "Provider:" : "Provedor:"} {latestCharge.provider === "stripe" ? t("billing_provider_stripe") : "Asaas"}
+              </p>
               <button
                 onClick={() => setReceiptCharge(latestCharge)}
                 className="mt-1 text-[12px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
               >
-                Ver comprovante →
+                {t("billing_view_receipt")}
               </button>
             </div>
           ) : (
-            <p className="text-[13px] text-zinc-400">Nenhuma cobranca de plano registrada ainda.</p>
+            <p className="text-[13px] text-zinc-400">{t("billing_no_charge")}</p>
           )}
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Proxima cobranca</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("billing_next_charge")}</p>
           {(expiresAt || nextChargeDate) && activePlan !== "free" ? (
             <div className="space-y-1.5">
               {(() => {
@@ -830,7 +826,7 @@ export default function BillingDashboard({
                     <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{displayPrice}</p>
                     {showIntroPrice && recurringPrice > 0 && (
                       <p className="text-[11px] text-indigo-600 font-medium">
-                        Intro price · then {formatPlanPrice(recurringPrice, setting.currency)}{perMonth}
+                        {lang === "en" ? "Intro price · then " : "Preço intro · depois "}{formatPlanPrice(recurringPrice, setting.currency)}{perMonth}
                       </p>
                     )}
                   </>
@@ -838,26 +834,26 @@ export default function BillingDashboard({
               })()}
               <p className="text-[13px] text-zinc-600">
                 {isTrialing
-                  ? `Primeira cobranca do plano ${effectiveSetting(currentPlanDef).name}`
-                  : `Renovacao do plano ${effectiveSetting(currentPlanDef).name}`}
+                  ? `${t("billing_plan_first_charge")} ${effectiveSetting(currentPlanDef).name}`
+                  : `${t("billing_plan_renewal")} ${effectiveSetting(currentPlanDef).name}`}
               </p>
-              <p className="text-[12px] text-zinc-400">{fmtDate((expiresAt ?? nextChargeDate)!)}</p>
+              <p className="text-[12px] text-zinc-400">{fmtDate((expiresAt ?? nextChargeDate)!, lang)}</p>
               <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                {isTrialing ? "Trial" : expiresAt ? "Agendada" : "Prevista"}
+                {isTrialing ? t("billing_plan_trial_tag") : expiresAt ? t("billing_plan_next_charge_tag") : t("billing_plan_scheduled_tag")}
               </span>
             </div>
           ) : (
-            <p className="text-[13px] text-zinc-400">Proxima cobranca ainda nao disponivel.</p>
+            <p className="text-[13px] text-zinc-400">{t("billing_next_charge_na")}</p>
           )}
         </div>
       </div>
 
       {/* Charge history */}
       <div className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Historico de cobrancas</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("billing_charge_history")}</p>
         {planCharges.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-100 py-10 text-center">
-            <p className="text-[13px] text-zinc-400">Nenhuma cobranca de plano ainda.</p>
+            <p className="text-[13px] text-zinc-400">{t("billing_no_charges_yet")}</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
@@ -870,28 +866,28 @@ export default function BillingDashboard({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-zinc-900 truncate leading-snug">
-                    {charge.description ?? "Assinatura BrisaHub"}
+                    {charge.description ?? t("billing_subscription_label")}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${chargeStatusColor(charge.status)}`}>
-                      {chargeStatusLabel(charge.status)}
+                      {chargeStatusLabel(charge.status, t)}
                     </span>
-                    <span className="text-[11px] text-zinc-400">{fmtDateTime(charge.created_at)}</span>
+                    <span className="text-[11px] text-zinc-400">{fmtDateTime(charge.created_at, lang)}</span>
                     {charge.asaas_payment_id && (
                       <span className="text-[11px] text-zinc-400 font-mono hidden sm:inline" title={charge.asaas_payment_id}>
                         {charge.asaas_payment_id.slice(0, 12)}…
                       </span>
                     )}
-                    <span className="text-[11px] text-zinc-300">· {charge.provider === "stripe" ? "Stripe" : "Asaas"}</span>
+                    <span className="text-[11px] text-zinc-300">· {charge.provider === "stripe" ? t("billing_provider_stripe") : "Asaas"}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <p className="text-[14px] font-bold tabular-nums text-zinc-900">{brl(charge.amount)}</p>
+                  <p className="text-[14px] font-bold tabular-nums text-zinc-900">{fmtChargeAmount(charge.amount, charge.provider)}</p>
                   <button
                     onClick={() => setReceiptCharge(charge)}
                     className="text-[12px] font-medium text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    Comprovante
+                    {t("billing_comprovante")}
                   </button>
                 </div>
               </div>

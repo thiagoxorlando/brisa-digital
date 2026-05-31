@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import Badge from "@/components/ui/Badge";
 import { useT } from "@/lib/LanguageContext";
-import { talentCategoryLabel } from "@/lib/talentCategories";
-import { brl } from "@/lib/brl";
+import { talentCategoryLabelForLang } from "@/lib/talentCategories";
+import { brl, usd } from "@/lib/brl";
 import { avatarGradient, initials } from "@/lib/talentDisplay";
 import TrialStatusBanner from "@/components/TrialStatusBanner";
 import AgencyLaunchChecklist, { type LaunchChecklistData } from "@/features/agency/AgencyLaunchChecklist";
@@ -99,6 +99,10 @@ function fmtJobDate(s: string | null, lang: string) {
   return new Date(s + "T00:00:00").toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
 }
 
+function fmtMoney(amount: number, lang: string): string {
+  return lang === "en" ? usd(amount) : brl(amount);
+}
+
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
 const STAT_LINKS: Record<string, string> = {
@@ -168,6 +172,7 @@ const ACTIVITY_DOT: Record<ActivityType, string> = {
 function StatCard({ statKey, label, value, isCurrency }: { statKey: string; label: string; value: number; isCurrency?: boolean }) {
   const href   = STAT_LINKS[statKey];
   const icon   = STAT_ICONS[statKey];
+  const { t, lang } = useT();
 
   const inner = (
     <>
@@ -175,11 +180,11 @@ function StatCard({ statKey, label, value, isCurrency }: { statKey: string; labe
         <div className="flex items-start justify-between gap-3 mb-5">
           <span className="w-10 h-10 rounded-2xl flex items-center justify-center bg-[#E6F0F0] text-[#0E7C86] ring-1 ring-[#DDE6E6]">{icon}</span>
           {href && (
-            <span className="text-[11px] font-semibold text-[#B8D4D4] group-hover:text-[#647B7B] transition-colors">Ver</span>
+            <span className="text-[11px] font-semibold text-[#B8D4D4] group-hover:text-[#647B7B] transition-colors">{t("dashboard_stat_view")}</span>
           )}
         </div>
         <p className={`text-[2.35rem] font-black tracking-[-0.06em] leading-none ${isCurrency ? "text-[#0E7C86]" : "text-[#1F2D2E]"}`}>
-          {isCurrency ? brl(value) : value}
+          {isCurrency ? fmtMoney(value, lang) : value}
         </p>
         <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#647B7B] mt-3">{label}</p>
       </div>
@@ -334,10 +339,10 @@ export default function AgencyDashboardOverview({
   const isEscrow = agencyConfig.showEscrow;
 
   const statEntries: { key: string; label: string; value: number; isCurrency?: boolean }[] = [
-    { key: "totalJobs",      label: t("dashboard_open_jobs"),          value: stats.totalJobs },
-    { key: "submissions",    label: t("jobs_applicants"),              value: stats.submissions },
-    { key: "pendingPayment", label: t("dashboard_pending_bookings"),   value: stats.pendingPayment },
-    { key: "contractsPaid",  label: t("dashboard_pending_contracts"),  value: stats.paidContracts },
+    { key: "totalJobs",      label: t("dashboard_stat_open_jobs"),    value: stats.totalJobs },
+    { key: "submissions",    label: t("dashboard_stat_submissions"),  value: stats.submissions },
+    { key: "pendingPayment", label: t("dashboard_stat_pending_pay"),  value: stats.pendingPayment },
+    { key: "contractsPaid",  label: t("dashboard_stat_paid"),         value: stats.paidContracts },
   ];
 
   return (
@@ -354,18 +359,18 @@ export default function AgencyDashboardOverview({
               {t("page_dashboard")}
             </h1>
             <p className="text-[13px] text-white/70 mt-2">
-              Acompanhe vagas, pagamentos e talentos com visão rápida da operação.
+              {t("dashboard_desc")}
             </p>
           </div>
           {isEscrow && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Link href="/agency/finances" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Saldo na carteira</p>
-                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.walletBalance)}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">{t("dashboard_wallet_balance")}</p>
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{fmtMoney(stats.walletBalance, lang)}</p>
               </Link>
               <Link href="/agency/bookings" className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 transition-colors hover:bg-white/25">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Valor em andamento</p>
-                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{brl(stats.activeEscrowTotal)}</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">{t("dashboard_active_value")}</p>
+                <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-white">{fmtMoney(stats.activeEscrowTotal, lang)}</p>
               </Link>
             </div>
           )}
@@ -383,12 +388,12 @@ export default function AgencyDashboardOverview({
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-white">
           <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-teal-400 mb-1.5">Começando agora</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-teal-400 mb-1.5">{t("dashboard_getting_started")}</p>
               <h2 className="text-[1.5rem] font-black tracking-[-0.03em] leading-tight">
-                Gerencie seus talentos aqui — sem marketplace necessário.
+                {t("dashboard_onboarding_title")}
               </h2>
               <p className="text-[13px] text-slate-300 mt-2 leading-relaxed max-w-lg">
-                O BrisaHub é sua infraestrutura operacional. Crie vagas, compartilhe o link direto com seus talentos pelo WhatsApp ou e-mail, e gerencie contratos e pagamentos em um só lugar.
+                {t("dashboard_onboarding_desc")}
               </p>
               <div className="flex flex-wrap gap-3 mt-4">
                 <Link
@@ -398,21 +403,21 @@ export default function AgencyDashboardOverview({
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  Criar primeira vaga
+                  {t("dashboard_create_first_job")}
                 </Link>
                 <Link
                   href="/agency/jobs"
                   className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-[13px] font-bold px-4 py-2.5 rounded-xl transition-all border border-white/20"
                 >
-                  Ver vagas
+                  {t("dashboard_view_jobs")}
                 </Link>
               </div>
             </div>
             <div className="flex-shrink-0 grid grid-cols-1 gap-2.5 min-w-[200px]">
               {[
-                { icon: "🔗", text: t("jobs_share_direct") },
-                { icon: "📋", text: "Contratos gerados automaticamente após aprovação" },
-                { icon: "💳", text: "Pagamentos rastreados sem intermediário" },
+                { icon: "🔗", text: t("dashboard_feature_share") },
+                { icon: "📋", text: t("dashboard_feature_contracts") },
+                { icon: "💳", text: t("dashboard_feature_payments") },
               ].map((item) => (
                 <div key={item.text} className="flex items-center gap-3 bg-white/10 rounded-xl px-3.5 py-2.5">
                   <span className="text-[18px] flex-shrink-0">{item.icon}</span>
@@ -429,7 +434,7 @@ export default function AgencyDashboardOverview({
         {statEntries.map((s) => <StatCard key={s.key} statKey={s.key} label={s.label} value={s.value} isCurrency={s.isCurrency} />)}
       </div>
 
-      {/* ── Pending contracts (PIX payments) ── */}
+      {/* ── Pending contracts ── */}
       <div>
         <SectionHeader
           title={t("status_pending_payment")}
@@ -438,7 +443,7 @@ export default function AgencyDashboardOverview({
           hrefLabel={t("dashboard_view_all")}
         />
         {pendingContracts.length === 0 ? (
-          <Empty msg={isEscrow ? "Nenhum contrato em custódia aguardando liberação." : "Nenhum contrato em andamento."} />
+          <Empty msg={isEscrow ? t("dashboard_no_escrow_pending") : t("dashboard_no_pending")} />
         ) : (
           <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
             {pendingContracts.map((c) => {
@@ -457,17 +462,17 @@ export default function AgencyDashboardOverview({
                       <div className="flex items-center gap-1.5 mt-1">
                         {daysLeft !== null && daysLeft > 0 ? (
                           <span className="text-[11px] font-semibold text-violet-600 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">
-                            {daysLeft}d até a vaga
+                            {daysLeft}{t("dashboard_days_until_job")}
                           </span>
                         ) : daysLeft !== null && daysLeft <= 0 ? (
                           <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full">
-                            Vaga passou · {jobDateFmt}
+                            {t("dashboard_job_passed")} {jobDateFmt}
                           </span>
                         ) : null}
                       </div>
                     )}
                   </div>
-                  <p className="text-[14px] font-bold text-[#1F2D2E] tabular-nums flex-shrink-0">{brl(c.amount)}</p>
+                  <p className="text-[14px] font-bold text-[#1F2D2E] tabular-nums flex-shrink-0">{fmtMoney(c.amount, lang)}</p>
                   <svg className="w-4 h-4 text-[#B8D4D4] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -486,12 +491,12 @@ export default function AgencyDashboardOverview({
           <SectionHeader title={t("dashboard_recent_bookings")} meta={`${recentActivity.length}`} />
           {recentActivity.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] py-10 text-center px-6">
-              <p className="text-[14px] font-semibold text-zinc-600">Nenhuma atividade ainda</p>
+              <p className="text-[14px] font-semibold text-zinc-600">{t("dashboard_no_activity_title")}</p>
               <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
-                Crie uma vaga e compartilhe o link com seus talentos para começar.
+                {t("dashboard_no_activity_desc")}
               </p>
               <Link href="/agency/post-job" className="inline-block mt-4 text-[12px] font-bold text-teal-700 hover:text-teal-900 underline">
-                Criar primeira vaga →
+                {t("dashboard_create_first")}
               </Link>
             </div>
           ) : (
@@ -508,15 +513,15 @@ export default function AgencyDashboardOverview({
 
         {/* Recent talent — 2 cols */}
         <div className="xl:col-span-2">
-          <SectionHeader title="Equipe recente" href="/agency/talent-history" hrefLabel="Minha Equipe" />
+          <SectionHeader title={t("dashboard_team_recent")} href="/agency/talent-history" hrefLabel={t("dashboard_team_href")} />
           {recentTalent.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] py-14 text-center">
-              <p className="text-[14px] font-medium text-[#647B7B]">Talentos recentes aparecerão aqui após as primeiras reservas pagas.</p>
+              <p className="text-[14px] font-medium text-[#647B7B]">{lang === "en" ? "Talents will appear here after paid bookings." : "Talentos recentes aparecerão aqui após as primeiras reservas pagas."}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {recentTalent.map((talent) => {
-                const name = talent.full_name ?? "Sem nome";
+                const name = talent.full_name ?? (lang === "en" ? "No name" : "Sem nome");
                 return (
                   <Link
                     key={talent.id}
@@ -534,12 +539,12 @@ export default function AgencyDashboardOverview({
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-semibold text-[#1F2D2E] truncate leading-none">{name}</p>
                         <p className="text-[12px] text-[#647B7B] truncate mt-0.5">
-                          {[talent.city, talent.country].filter(Boolean).join(", ") || "Localização desconhecida"}
+                          {[talent.city, talent.country].filter(Boolean).join(", ") || t("dashboard_talent_unknown_location")}
                         </p>
                       </div>
                       {talent.categories?.[0] && (
                         <span className="text-[10px] font-medium bg-[#E6F0F0] text-[#647B7B] px-2 py-0.5 rounded-full flex-shrink-0">
-                          {talentCategoryLabel(talent.categories[0])}
+                          {talentCategoryLabelForLang(talent.categories[0], lang)}
                         </span>
                       )}
                     </div>
@@ -564,18 +569,19 @@ export default function AgencyDashboardOverview({
           />
           {activeJobsList.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] py-10 text-center px-6">
-              <p className="text-[14px] font-semibold text-zinc-600">Nenhuma vaga aberta</p>
+              <p className="text-[14px] font-semibold text-zinc-600">{t("dashboard_no_open_jobs_title")}</p>
               <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
-                Crie sua primeira vaga e envie o link de candidatura diretamente para seus talentos.
+                {t("dashboard_no_open_jobs_desc")}
               </p>
               <Link href="/agency/post-job" className="inline-block mt-4 text-[12px] font-bold text-teal-700 hover:text-teal-900 underline">
-                Criar vaga →
+                {t("dashboard_create_job_link")}
               </Link>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)] divide-y divide-[#EFF5F5] overflow-hidden">
               {activeJobsList.map((job) => {
                 const date = fmtJobDate(job.jobDate, lang);
+                const slots = job.talentsNeeded;
                 return (
                   <Link
                     key={job.id}
@@ -588,7 +594,7 @@ export default function AgencyDashboardOverview({
                       {date && <p className="text-[11px] text-violet-500 font-medium mt-0.5">{date}</p>}
                     </div>
                     <span className="text-[11px] font-medium text-[#647B7B] bg-[#E6F0F0] px-2 py-0.5 rounded-full flex-shrink-0">
-                      {job.talentsNeeded} {job.talentsNeeded === 1 ? "vaga" : "vagas"}
+                      {slots} {slots === 1 ? t("dashboard_job_slots") : t("dashboard_job_slots_plural")}
                     </span>
                   </Link>
                 );
@@ -597,7 +603,7 @@ export default function AgencyDashboardOverview({
           )}
         </div>
 
-        {/* Confirmed Bookings */}
+        {/* Confirmed Bookings (paid contracts) */}
         <div>
           <SectionHeader
             title={t("contracts_paid")}
@@ -607,9 +613,9 @@ export default function AgencyDashboardOverview({
           />
           {confirmedContracts.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#DDE6E6] py-10 text-center px-6">
-              <p className="text-[14px] font-semibold text-zinc-600">Nenhum pagamento concluído</p>
+              <p className="text-[14px] font-semibold text-zinc-600">{t("dashboard_no_paid_title")}</p>
               <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
-                Os pagamentos concluídos aparecerão aqui após o ciclo completo: vaga → candidatura → contrato → pagamento.
+                {t("dashboard_no_paid_desc")}
               </p>
             </div>
           ) : (
@@ -622,7 +628,7 @@ export default function AgencyDashboardOverview({
                     <p className="text-[12px] text-[#647B7B] truncate mt-0.5">{c.talentName}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-[13px] font-semibold text-emerald-700 tabular-nums">{brl(c.amount)}</p>
+                    <p className="text-[13px] font-semibold text-emerald-700 tabular-nums">{fmtMoney(c.amount, lang)}</p>
                     {c.paidAt && (
                       <p className="text-[11px] text-[#647B7B] mt-0.5">
                         {new Date(c.paidAt).toLocaleDateString(lang === "pt-BR" ? "pt-BR" : "en-US", { day: "numeric", month: "short" })}
