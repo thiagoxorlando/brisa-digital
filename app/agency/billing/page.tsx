@@ -6,6 +6,7 @@ import { fetchAgencySubscriptionProfile, recoverAgencyTrialingFromAsaas } from "
 import BillingDashboard from "@/features/agency/BillingDashboard";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
+import { isStripeConfigured, getStripe } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Plan & Billing — BrisaHub" };
 
@@ -195,13 +196,62 @@ export default async function BillingPage() {
   // Most-recent first, deduped
   charges.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  // Next charge date:
-  //   1. Use plan_expires_at if set (authoritative).
-  //   2. Otherwise derive from the latest paid charge: same day + 1 month.
-  //   3. Only for active paid plans — free plan has no next charge.
+  // ── Stripe/trial field resolution ──────────────────────────────────────────
+  //
+  // fetchAgencySubscriptionProfile has a legacy fallback that omits trial_ends_at
+  // when any column in FULL_PROFILE_SELECT doesn't exist (e.g. subscription_provider).
+  // So we do a second direct query for the columns we need, independent of that helper.
+  //
+  // Pass 1: direct query — catches the legacy-fallback case
+  let directTrialEndsAt: string | null = null;
+  let directStripeSubId: string | null = null;
+  let directPlanStatus: string | null = null;
+  try {
+    const { data: trialRow } = await supabase
+      .from("profiles")
+      .select("trial_ends_at, stripe_subscription_id, plan_status")
+      .eq("id", userId)
+      .maybeSingle();
+    if (trialRow) {
+      const r = trialRow as Record<string, unknown>;
+      directTrialEndsAt = (r.trial_ends_at as string | null) ?? null;
+      directStripeSubId = (r.stripe_subscription_id as string | null) ?? null;
+      directPlanStatus  = (r.plan_status as string | null) ?? null;
+    }
+  } catch {
+    // non-fatal — column may not exist in this environment
+  }
+
+  // Pass 2: live Stripe sync — if trial_ends_at is still null but sub_id is known
+  // This fixes the case where the webhook wrote stripe_subscription_id but not trial_ends_at
+  let liveStripeTrialEndsAt: string | null = null;
+  const stripeSubId = directStripeSubId;
+  if (!directTrialEndsAt && stripeSubId && isStripeConfigured()) {
+    try {
+      const stripe = getStripe();
+      const sub = await stripe.subscriptions.retrieve(stripeSubId);
+      if (sub.trial_end && sub.trial_end * 1000 > Date.now()) {
+        liveStripeTrialEndsAt = new Date(sub.trial_end * 1000).toISOString();
+        // Sync back to DB for future page loads — non-blocking
+        void supabase.from("profiles").update({
+          trial_ends_at: liveStripeTrialEndsAt,
+          plan_status:   "trialing",
+        } as Record<string, unknown>).eq("id", userId);
+      }
+    } catch {
+      // non-fatal
+    }
+  }
+
+  // Merge: prefer profileRow (most complete), then direct query, then live Stripe
   const planExpiresAt = profileRow?.plan_expires_at ?? null;
   const planKey       = profileRow?.plan ?? "free";
-  const trialEndsAt   = profileRow?.trial_ends_at ?? null;
+  const trialEndsAt   = profileRow?.trial_ends_at ?? directTrialEndsAt ?? liveStripeTrialEndsAt ?? null;
+  // Use the most accurate plan_status: prefer live Stripe-derived "trialing" when trial is active
+  const effectivePlanStatus =
+    liveStripeTrialEndsAt
+      ? "trialing"                                       // Stripe confirmed still in trial
+      : directPlanStatus ?? profileRow?.plan_status ?? null;
 
   let nextChargeDate: string | null = null;
   if (planKey !== "free" && !planExpiresAt) {
@@ -211,7 +261,7 @@ export default async function BillingPage() {
       base.setMonth(base.getMonth() + 1);
       nextChargeDate = base.toISOString();
     }
-    // For Stripe trial users: no invoice paid yet → use trial_ends_at as next charge date
+    // For trial users: no invoice paid yet → use trial_ends_at as the first billing date
     if (!nextChargeDate && trialEndsAt) {
       nextChargeDate = trialEndsAt;
     }
@@ -231,7 +281,7 @@ export default async function BillingPage() {
   return (
     <BillingDashboard
       plan={planKey}
-      planStatus={profileRow?.plan_status ?? null}
+      planStatus={effectivePlanStatus}
       planExpiresAt={planExpiresAt}
       planCharges={charges}
       nextChargeDate={nextChargeDate}
