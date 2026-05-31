@@ -59,17 +59,27 @@ type AccountForm = {
 
 type FormErrors = Record<string, string | undefined>;
 
-const BRAZIL_STATES = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
-  "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
-  "SP", "SE", "TO",
-];
+// Countries shown in signup dropdowns with their dial codes.
+const SIGNUP_COUNTRIES = [
+  { label: "United States", value: "United States", phone: "+1"   },
+  { label: "Brazil",        value: "Brasil",        phone: "+55"  },
+  { label: "Canada",        value: "Canada",        phone: "+1"   },
+  { label: "United Kingdom",value: "United Kingdom",phone: "+44"  },
+  { label: "Australia",     value: "Australia",     phone: "+61"  },
+  { label: "Portugal",      value: "Portugal",      phone: "+351" },
+  { label: "Mexico",        value: "Mexico",        phone: "+52"  },
+  { label: "Argentina",     value: "Argentina",     phone: "+54"  },
+] as const;
+
+const COUNTRY_PHONE_MAP: Record<string, string> = Object.fromEntries(
+  SIGNUP_COUNTRIES.map((c) => [c.value, c.phone])
+);
 
 const TALENT_DEFAULTS: TalentForm = {
   fullName: "",
   cpf: "",
   phone: "",
-  country: "Brasil",
+  country: "",
   city: "",
   state: "",
   gender: "",
@@ -88,7 +98,7 @@ const AGENCY_DEFAULTS: AgencyForm = {
   responsibleName: "",
   cpfCnpj: "",
   phone: "",
-  country: "Brasil",
+  country: "",
   city: "",
   state: "",
   website: "",
@@ -261,8 +271,10 @@ function SignupPageContent() {
     password: "",
     termsAccepted: false,
   });
-  const [talent, setTalent] = useState<TalentForm>(TALENT_DEFAULTS);
-  const [agency, setAgency] = useState<AgencyForm>({ ...AGENCY_DEFAULTS, plan: initialPlan });
+  // Default country depends on language: EN → United States, PT → Brasil.
+  const defaultCountry = lang === "en" ? "United States" : "Brasil";
+  const [talent, setTalent] = useState<TalentForm>(() => ({ ...TALENT_DEFAULTS, country: defaultCountry }));
+  const [agency, setAgency] = useState<AgencyForm>(() => ({ ...AGENCY_DEFAULTS, plan: initialPlan, country: defaultCountry }));
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [logo, setLogo] = useState<File | null>(null);
@@ -866,20 +878,36 @@ function SignupPageContent() {
                             </LabeledInput>
                             <div className="sm:col-span-2">
                               <LabeledInput label={t("signup_phone_label")} error={errors.phone}>
-                                <PhoneInput value={talent.phone} onChange={(value) => setTalentField("phone", value)} hasError={!!errors.phone} required />
+                                <PhoneInput value={talent.phone} onChange={(value) => setTalentField("phone", value)} hasError={!!errors.phone} required countryCode={COUNTRY_PHONE_MAP[talent.country]} />
                               </LabeledInput>
                             </div>
                             <LabeledInput label={t("signup_country_label")} error={errors.country}>
-                              <input className={inputClass(!!errors.country)} placeholder="Brasil" value={talent.country} onChange={(event) => setTalentField("country", event.target.value)} />
+                              <select
+                                className={inputClass(!!errors.country)}
+                                value={talent.country}
+                                onChange={(event) => {
+                                  setTalentField("country", event.target.value);
+                                  // Auto-update phone dial code when country changes
+                                  const dialCode = COUNTRY_PHONE_MAP[event.target.value];
+                                  if (dialCode) setTalentField("phone", `${dialCode} `);
+                                }}
+                              >
+                                <option value="">{t("signup_state_placeholder")}</option>
+                                {SIGNUP_COUNTRIES.map((c) => (
+                                  <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                              </select>
                             </LabeledInput>
                             <LabeledInput label={t("signup_city_label")} error={errors.city}>
-                              <input className={inputClass(!!errors.city)} placeholder="São Paulo" value={talent.city} onChange={(event) => setTalentField("city", event.target.value)} />
+                              <input className={inputClass(!!errors.city)} placeholder="Miami" value={talent.city} onChange={(event) => setTalentField("city", event.target.value)} />
                             </LabeledInput>
                             <LabeledInput label={t("signup_state_label")} error={errors.state}>
-                              <select className={inputClass(!!errors.state)} value={talent.state} onChange={(event) => setTalentField("state", event.target.value)}>
-                                <option value="">{t("signup_state_placeholder")}</option>
-                                {BRAZIL_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
-                              </select>
+                              <input
+                                className={inputClass(!!errors.state)}
+                                placeholder="FL"
+                                value={talent.state}
+                                onChange={(event) => setTalentField("state", event.target.value)}
+                              />
                             </LabeledInput>
                           </div>
                         </div>
@@ -983,20 +1011,35 @@ function SignupPageContent() {
                             )}
                             <div className="sm:col-span-2">
                               <LabeledInput label={t("signup_phone_label")} error={errors.phone}>
-                                <PhoneInput value={agency.phone} onChange={(value) => setAgencyField("phone", value)} hasError={!!errors.phone} required />
+                                <PhoneInput value={agency.phone} onChange={(value) => setAgencyField("phone", value)} hasError={!!errors.phone} required countryCode={COUNTRY_PHONE_MAP[agency.country]} />
                               </LabeledInput>
                             </div>
                             <LabeledInput label={t("signup_country_label")} error={errors.country}>
-                              <input className={inputClass(!!errors.country)} placeholder="Brasil" value={agency.country} onChange={(event) => setAgencyField("country", event.target.value)} />
+                              <select
+                                className={inputClass(!!errors.country)}
+                                value={agency.country}
+                                onChange={(event) => {
+                                  setAgencyField("country", event.target.value);
+                                  const dialCode = COUNTRY_PHONE_MAP[event.target.value];
+                                  if (dialCode) setAgencyField("phone", `${dialCode} `);
+                                }}
+                              >
+                                <option value="">{t("signup_state_placeholder")}</option>
+                                {SIGNUP_COUNTRIES.map((c) => (
+                                  <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                              </select>
                             </LabeledInput>
                             <LabeledInput label={t("signup_city_label")} error={errors.city}>
-                              <input className={inputClass(!!errors.city)} placeholder="São Paulo" value={agency.city} onChange={(event) => setAgencyField("city", event.target.value)} />
+                              <input className={inputClass(!!errors.city)} placeholder="Miami" value={agency.city} onChange={(event) => setAgencyField("city", event.target.value)} />
                             </LabeledInput>
                             <LabeledInput label={t("signup_state_label")} error={errors.state}>
-                              <select className={inputClass(!!errors.state)} value={agency.state} onChange={(event) => setAgencyField("state", event.target.value)}>
-                                <option value="">{t("signup_state_placeholder")}</option>
-                                {BRAZIL_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
-                              </select>
+                              <input
+                                className={inputClass(!!errors.state)}
+                                placeholder="FL"
+                                value={agency.state}
+                                onChange={(event) => setAgencyField("state", event.target.value)}
+                              />
                             </LabeledInput>
                           </div>
                         </div>

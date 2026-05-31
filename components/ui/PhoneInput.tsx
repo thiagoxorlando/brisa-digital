@@ -64,26 +64,41 @@ function parsePhoneValue(value: string): { code: string; num: string } {
       return { code: cc.code, num: value.slice(cc.code.length + 1) };
     }
   }
-  // Might be just a bare number (no prefix stored yet)
-  return { code: "+55", num: value };
+  // Bare number with no prefix — default to US
+  return { code: "+1", num: value };
 }
 
 export default function PhoneInput({
   value,
   onChange,
   hasError = false,
-  placeholder = "11 99999-9999",
+  placeholder = "555-1234",
   required,
+  countryCode: externalCode,
 }: {
   value: string;
   onChange: (full: string) => void;
   hasError?: boolean;
   placeholder?: string;
   required?: boolean;
+  /** When the parent changes the country, pass the new dial code here. */
+  countryCode?: string;
 }) {
   const initialized = useRef(false);
-  const [code, setCode] = useState("+55");
+  const [code, setCode] = useState("+1");
   const [num,  setNum]  = useState("");
+
+  // Sync internal code when parent explicitly changes the country dial code
+  const prevExternal = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!externalCode) return;
+    if (externalCode === prevExternal.current) return;
+    prevExternal.current = externalCode;
+    setCode(externalCode);
+    // Update the composed value so the parent's onChange fires
+    onChange(num ? `${externalCode} ${num}` : "");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalCode]);
 
   // Sync once when the value becomes non-empty (e.g. data loads from DB)
   useEffect(() => {
