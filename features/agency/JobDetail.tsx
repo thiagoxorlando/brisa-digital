@@ -669,6 +669,10 @@ function SubmissionCard({
   onDelete?: () => void;
 }) {
   const { t } = useT();
+  const jobStatusLabel = (s: string) => ({
+    open: t("status_open"), closed: t("status_closed"), draft: t("status_draft"),
+    inactive: t("status_inactive"), paused: t("status_paused"),
+  }[s] ?? s);
   const [expanded, setExpanded] = useState(false);
   const hasMedia = !!(submission.photoFrontUrl || submission.photoLeftUrl || submission.photoRightUrl || submission.videoUrl || submission.curriculumUrl || submission.portfolioUrl);
   const photos = [submission.photoFrontUrl, submission.photoLeftUrl, submission.photoRightUrl].filter(Boolean) as string[];
@@ -725,7 +729,7 @@ function SubmissionCard({
             )}
           </div>
           <p className="text-[11px] text-zinc-400 mt-0.5">
-            {submission.mode === "self" ? "Candidatura própria" : "Indicado"}
+            {t(submission.mode === "self" ? "submission_source_self" : "submission_source_referred")}
             {" · "}
             {formatDate(submission.submittedAt)}
             {hasMedia && (
@@ -1062,6 +1066,11 @@ export default function JobDetail({
 }) {
   const router = useRouter();
   const { role } = useRole();
+  const { t } = useT();
+  const jobStatusLabel = (s: string) => ({
+    open: t("status_open"), closed: t("status_closed"), draft: t("status_draft"),
+    inactive: t("status_inactive"), paused: t("status_paused"),
+  }[s] ?? s);
   const [contractModal, setContractModal] = useState<ContractTarget[] | null>(null);
   const [sentContracts, setSentContracts] = useState<Set<string>>(() => {
     const bookedTalentIds = new Set(
@@ -1269,7 +1278,7 @@ export default function JobDetail({
             <h1 className="text-[1.85rem] font-black tracking-[-0.04em] leading-tight text-white">{job.title}</h1>
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-[12px] font-medium px-2.5 py-1 rounded-full ${jobStatusTone(currentStatus)}`}>
-                {{ open: "Aberta", closed: "Fechada", draft: "Rascunho", inactive: "Inativa", paused: "Pausada" }[currentStatus] ?? currentStatus}
+                {jobStatusLabel(currentStatus)}
               </span>
               <span className="inline-flex items-center gap-1 text-[12px] font-medium bg-violet-50 text-violet-600 border border-violet-100 px-2.5 py-1 rounded-full">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1291,7 +1300,7 @@ export default function JobDetail({
                 <p className="mt-1 text-xl font-black text-white">{formatBudget(job.budget)}</p>
               </div>
               <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Candidaturas</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">{t("jobs_applicants")}</p>
                 <p className="mt-1 text-xl font-black text-white">{safeSubmissions.length}</p>
               </div>
               <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
@@ -1406,7 +1415,7 @@ export default function JobDetail({
           <DetailRow label="Categoria" value={job.category}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
           />
-          <DetailRow label="Orçamento" value={formatBudget(job.budget)}
+          <DetailRow label={t("jobs_budget")} value={formatBudget(job.budget)}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
           <DetailRow
@@ -1427,10 +1436,10 @@ export default function JobDetail({
               icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             />
           )}
-          <DetailRow label="Candidaturas" value={`${safeSubmissions.length} recebida${safeSubmissions.length !== 1 ? "s" : ""}`}
+          <DetailRow label={t("jobs_applicants")} value={`${safeSubmissions.length} ${t("jobs_applicants").toLowerCase()}`}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" /></svg>}
           />
-          <DetailRow label="Status" value={{ open: "Aberta", closed: "Fechada", draft: "Rascunho", inactive: "Inativa", paused: "Pausada" }[currentStatus] ?? currentStatus}
+          <DetailRow label={t("bookings_status")} value={jobStatusLabel(currentStatus)}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
 
@@ -1521,7 +1530,7 @@ export default function JobDetail({
       <div className="space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Candidaturas</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("jobs_applicants")}</p>
             <p className="text-lg font-semibold tracking-tight text-zinc-900">
               {safeSubmissions.length > 0 ? `${safeSubmissions.length} talento${safeSubmissions.length !== 1 ? "s" : ""} candidatado${safeSubmissions.length !== 1 ? "s" : ""}` : "Nenhuma candidatura ainda"}
             </p>

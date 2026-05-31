@@ -310,9 +310,6 @@ function JobCard({ job, onUpdate, onRemove }: {
 // ─── Filter bar ───────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = ["All", "Open", "Draft", "Paused", "Closed"] as const;
-const STATUS_LABELS: Record<typeof STATUS_OPTIONS[number], string> = {
-  All: "Todas", Open: "Aberta", Draft: "Rascunho", Paused: "Pausada", Closed: "Fechada",
-};
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -322,6 +319,10 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
   const [status, setStatus] = useState<typeof STATUS_OPTIONS[number]>("All");
   const [showSecondary, setShowSecondary] = useState(false);
   const { t } = useT();
+  const statusLabel = (s: typeof STATUS_OPTIONS[number]) => ({
+    All: t("status_filter_all"), Open: t("status_filter_open"), Draft: t("status_filter_draft"),
+    Paused: t("status_filter_paused"), Closed: t("status_filter_closed"),
+  }[s] ?? s);
 
   function handleUpdate(id: string, patch: Partial<Job>) {
     setJobs((prev) => prev.map((j) => j.id === id ? { ...j, ...patch } : j));
@@ -354,8 +355,8 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
       <FeatureGuideCard
         id="jobs-share-tip"
         icon="link"
-        title="Compartilhe vagas diretamente com seus talentos"
-        description="Use o botão de copiar link ou WhatsApp em cada vaga para enviar o link de candidatura. Seus talentos aplicam em segundos — sem precisar de um marketplace público."
+        title={t("jobs_share_title")}
+        description={t("jobs_share_desc")}
       />
 
       {/* Page header */}
@@ -407,7 +408,7 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
                   : "text-[#647B7B] hover:text-[#1F2D2E]",
               ].join(" ")}
             >
-              {STATUS_LABELS[s]}
+              {statusLabel(s)}
             </button>
           ))}
         </div>
@@ -496,9 +497,9 @@ export default function JobList({ jobs: initial }: { jobs: Job[] }) {
             </div>
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left max-w-lg mx-auto">
               {[
-                { icon: "🔗", text: "Compartilhe o link diretamente" },
-                { icon: "📋", text: "Contratos gerados automaticamente" },
-                { icon: "💳", text: "Pagamentos rastreados e organizados" },
+                { icon: "🔗", text: t("jobs_share_direct") },
+                { icon: "📋", text: t("jobs_contracts_auto") },
+                { icon: "💳", text: t("jobs_payments_tracked") },
               ].map((item) => (
                 <div key={item.text} className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2.5">
                   <span className="text-[16px]">{item.icon}</span>

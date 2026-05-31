@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { avatarGradient, initials } from "@/lib/talentDisplay";
+import { useT } from "@/lib/LanguageContext";
 
 export type SubmissionEntry = {
   id: string;
@@ -66,6 +67,7 @@ const PHOTO_LABELS = ["Front", "Left", "Right"] as const;
 function SubmissionRow({ submission, onRemove }: { submission: SubmissionEntry; onRemove: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const { t } = useT();
   const pipeline = pipelineStatus(submission);
 
   async function handleReject(e: React.MouseEvent) {
@@ -99,7 +101,7 @@ function SubmissionRow({ submission, onRemove }: { submission: SubmissionEntry; 
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-zinc-900 truncate">{submission.talentName}</p>
           <p className="text-[12px] text-zinc-400 mt-0.5">
-            {submission.mode === "self" ? "Candidatura própria" : "Indicado"} · {formatDate(submission.submittedAt)}
+            {t(submission.mode === "self" ? "submission_source_self" : "submission_source_referred")} · {formatDate(submission.submittedAt)}
           </p>
         </div>
         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${pipeline.cls}`}>
@@ -204,6 +206,7 @@ function SubmissionRow({ submission, onRemove }: { submission: SubmissionEntry; 
 }
 
 export default function AgencySubmissions({ submissions: initialSubmissions }: { submissions: SubmissionEntry[] }) {
+  const { t } = useT();
   const [submissions, setSubmissions] = useState(initialSubmissions);
 
   function removeSubmission(id: string) {
@@ -226,10 +229,10 @@ export default function AgencySubmissions({ submissions: initialSubmissions }: {
 
       {/* Header */}
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Agência</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Candidaturas</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("portal_agency")}</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{t("jobs_applicants")}</h1>
         <p className="text-[13px] text-zinc-400 mt-1">
-          {submissions.length} candidatura{submissions.length !== 1 ? "s" : ""} em {groups.length} vaga{groups.length !== 1 ? "s" : ""}
+          {submissions.length} {t("jobs_applicants").toLowerCase()} · {groups.length} {t("nav_jobs").toLowerCase()}
         </p>
       </div>
 

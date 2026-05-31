@@ -334,10 +334,10 @@ export default function AgencyDashboardOverview({
   const isEscrow = agencyConfig.showEscrow;
 
   const statEntries: { key: string; label: string; value: number; isCurrency?: boolean }[] = [
-    { key: "totalJobs",      label: "Vagas abertas",          value: stats.totalJobs },
-    { key: "submissions",    label: "Candidaturas recebidas", value: stats.submissions },
-    { key: "pendingPayment", label: "Reservas em andamento",  value: stats.pendingPayment },
-    { key: "contractsPaid",  label: "Contratos pagos",        value: stats.paidContracts },
+    { key: "totalJobs",      label: t("dashboard_open_jobs"),          value: stats.totalJobs },
+    { key: "submissions",    label: t("jobs_applicants"),              value: stats.submissions },
+    { key: "pendingPayment", label: t("dashboard_pending_bookings"),   value: stats.pendingPayment },
+    { key: "contractsPaid",  label: t("dashboard_pending_contracts"),  value: stats.paidContracts },
   ];
 
   return (
@@ -410,7 +410,7 @@ export default function AgencyDashboardOverview({
             </div>
             <div className="flex-shrink-0 grid grid-cols-1 gap-2.5 min-w-[200px]">
               {[
-                { icon: "🔗", text: "Compartilhe o link de candidatura diretamente" },
+                { icon: "🔗", text: t("jobs_share_direct") },
                 { icon: "📋", text: "Contratos gerados automaticamente após aprovação" },
                 { icon: "💳", text: "Pagamentos rastreados sem intermediário" },
               ].map((item) => (
