@@ -74,6 +74,15 @@ export function usd(value: number | string | null | undefined): string {
 }
 
 /**
+ * Language-aware money formatter for the talent portal.
+ * EN mode → USD ($1,500.00), PT mode → BRL (R$ 1.500,00).
+ * Display only — never affects stored values.
+ */
+export function fmtMoney(value: number | string | null | undefined, lang: string): string {
+  return String(lang) === "en" ? usd(value) : brl(value);
+}
+
+/**
  * Parse a BRL input string (accepts both "9,59" and "9.59") and return
  * a number rounded to 2 decimal places.
  */

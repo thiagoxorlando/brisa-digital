@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { brl } from "@/lib/brl";
+import { fmtMoney } from "@/lib/brl";
 import { formatJobLocation } from "@/lib/jobLocation";
 import { submissionStatusLabel, submissionStatusTone } from "@/lib/submissionStatus";
 import { useT } from "@/lib/LanguageContext";
@@ -24,9 +24,10 @@ type FilterTab = "open" | "applied" | "all";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatDate(s: string | null) {
+function formatDate(s: string | null, lang: string) {
   if (!s) return null;
-  return new Date(s + "T00:00:00").toLocaleDateString("pt-BR", {
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(s + "T00:00:00").toLocaleDateString(locale, {
     month: "short", day: "numeric", year: "numeric",
   });
 }
@@ -95,8 +96,8 @@ function SegmentedFilter({
 
 function JobCard({ job, lang }: { job: TalentJob; lang: "pt-BR" | "en" }) {
   const [expanded, setExpanded] = useState(false);
-  const deadline = formatDate(job.deadline);
-  const jobDate  = formatDate(job.jobDate);
+  const deadline = formatDate(job.deadline, lang);
+  const jobDate  = formatDate(job.jobDate, lang);
   const statusLabel = job.submissionStatus
     ? submissionStatusLabel(job.submissionStatus, lang)
     : null;
@@ -159,7 +160,7 @@ function JobCard({ job, lang }: { job: TalentJob; lang: "pt-BR" | "en" }) {
         {/* Actions */}
         <div className="flex items-center justify-between pt-3 border-t border-zinc-50">
           <div className="flex items-center gap-3">
-            <span className="text-[13px] font-semibold text-emerald-600">{brl(job.budget)}</span>
+            <span className="text-[13px] font-semibold text-emerald-600">{fmtMoney(job.budget, lang)}</span>
             <button
               onClick={() => setExpanded((v) => !v)}
               className="text-[12px] text-zinc-400 hover:text-zinc-600 transition-colors"

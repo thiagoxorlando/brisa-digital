@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
-import { brl } from "@/lib/brl";
+import { fmtMoney } from "@/lib/brl";
 import { formatJobLocation } from "@/lib/jobLocation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ export default function TalentDashboard({
 
   const statCards = [
     {
-      label: lang === "pt-BR" ? "Trabalhos" : "Applied Jobs",
+      label: lang === "en" ? "Applied Jobs" : "Trabalhos",
       value: String(stats.applied),
       sub:   t("page_jobs"),
       href:  "/talent/jobs",
@@ -187,14 +187,14 @@ export default function TalentDashboard({
       ),
     },
     isInternal ? {
-      label:  lang === "pt-BR" ? "Ganhos Confirmados" : "Confirmed Earnings",
-      value:  brl(stats.totalEarned),
+      label:  t("talent_finances_stat_total"),
+      value:  fmtMoney(stats.totalEarned, lang),
       sub:    (() => {
         const count = stats.paidContractsCount ?? 0;
-        if (count === 0) return lang === "pt-BR" ? "Nenhum pagamento confirmado" : "No payments yet";
-        return lang === "pt-BR"
-          ? `${count} pagamento${count !== 1 ? "s" : ""} confirmado${count !== 1 ? "s" : ""}`
-          : `${count} payment${count !== 1 ? "s" : ""} confirmed`;
+        if (count === 0) return t("talent_finances_no_paid");
+        return lang === "en"
+          ? `${count} payment${count !== 1 ? "s" : ""} confirmed`
+          : `${count} pagamento${count !== 1 ? "s" : ""} confirmado${count !== 1 ? "s" : ""}`;
       })(),
       href:   "/talent/finances",
       stripe: "from-emerald-400 to-teal-500",
@@ -206,8 +206,8 @@ export default function TalentDashboard({
       ),
     } : {
       label:  t("finances_available"),
-      value:  brl(stats.pendingWithdraw),
-      sub:    stats.totalEarned > 0 ? `${brl(stats.totalEarned)} ${t("finances_earnings")}` : t("finances_ready"),
+      value:  fmtMoney(stats.pendingWithdraw, lang),
+      sub:    stats.totalEarned > 0 ? `${fmtMoney(stats.totalEarned, lang)} ${t("finances_earnings")}` : t("finances_ready"),
       href:   "/talent/finances",
       stripe: "from-emerald-400 to-teal-500",
       icon: (
@@ -278,7 +278,7 @@ export default function TalentDashboard({
           {upcomingBookings.length === 0 ? (
             <Empty
               msg={t("bookings_no_bookings")}
-              cta={lang === "pt-BR" ? "Ver Vagas" : "View Jobs"}
+              cta={lang === "en" ? "View Jobs" : "Ver Vagas"}
               href="/talent/jobs"
             />
           ) : (
@@ -326,7 +326,7 @@ export default function TalentDashboard({
 
                     {/* Right: amount + countdown */}
                     <div className="flex-shrink-0 text-right">
-                      <p className="text-[13px] font-semibold text-zinc-900 tabular-nums">{brl(b.amount)}</p>
+                      <p className="text-[13px] font-semibold text-zinc-900 tabular-nums">{fmtMoney(b.amount, lang)}</p>
                       {countdown && (
                         <span className={[
                           "text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 inline-block",
@@ -362,7 +362,7 @@ export default function TalentDashboard({
               </div>
               <div className="min-w-0">
                 <p className="text-[12px] font-semibold text-emerald-800">
-                  {brl(stats.pendingWithdraw)} {t("finances_available")}
+                  {fmtMoney(stats.pendingWithdraw, lang)} {t("finances_available")}
                 </p>
                 <p className="text-[11px] text-emerald-600 mt-0.5">{t("finances_withdraw_btn")}</p>
               </div>
@@ -370,9 +370,7 @@ export default function TalentDashboard({
           )}
 
           {pendingPayments.length === 0 && (isInternal ? stats.totalEarned === 0 : stats.pendingWithdraw === 0) ? (
-            <Empty msg={isInternal
-              ? (lang === "pt-BR" ? "Nenhum pagamento confirmado ainda." : "No confirmed payments yet.")
-              : t("finances_no_funds")} />
+            <Empty msg={isInternal ? t("talent_finances_no_paid") : t("finances_no_funds")} />
           ) : (
             <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
 
@@ -384,7 +382,7 @@ export default function TalentDashboard({
                     <p className="text-[11px] text-zinc-400 mt-0.5">{t("status_pending_payment")}</p>
                   </div>
                   <p className="text-[12px] font-semibold text-zinc-700 tabular-nums flex-shrink-0">
-                    {brl(p.amount)}
+                    {fmtMoney(p.amount, lang)}
                   </p>
                 </div>
               ))}
@@ -393,7 +391,7 @@ export default function TalentDashboard({
               {(stats.totalEarned > 0 || pendingPayments.length > 0) && (
                 <div className="px-5 py-3 bg-zinc-50/60 flex items-center justify-between">
                   <p className="text-[11px] text-zinc-400">{t("finances_earnings")}</p>
-                  <p className="text-[13px] font-semibold text-zinc-900 tabular-nums">{brl(stats.totalEarned)}</p>
+                  <p className="text-[13px] font-semibold text-zinc-900 tabular-nums">{fmtMoney(stats.totalEarned, lang)}</p>
                 </div>
               )}
             </div>

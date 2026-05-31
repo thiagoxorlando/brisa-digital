@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { generateReceiptPdf } from "@/lib/generateReceiptPdf";
-import { brl } from "@/lib/brl";
+import { fmtMoney } from "@/lib/brl";
 import { REFERRAL_RATE } from "@/lib/plans";
 import { withdrawalStatusLabel, withdrawalStatusTone } from "@/lib/withdrawalStatus";
 import PixSetup, { type PixKeyType, type PixProfileRow, maskPixKey, PIX_LABELS } from "@/features/talent/PixSetup";
+import { useT } from "@/lib/LanguageContext";
 
 
 type PeriodFilter = "today" | "month" | "all";
@@ -27,10 +28,11 @@ function periodMatches(date: string | null | undefined, period: PeriodFilter) {
 }
 
 function FilterTabs({ value, onChange }: { value: PeriodFilter; onChange: (value: PeriodFilter) => void }) {
+  const { t } = useT();
   const options: Array<{ value: PeriodFilter; label: string }> = [
-    { value: "today", label: "Hoje" },
-    { value: "month", label: "Este mês" },
-    { value: "all", label: "Total" },
+    { value: "today", label: t("talent_finances_filter_today") },
+    { value: "month", label: t("talent_finances_filter_month") },
+    { value: "all",   label: t("talent_finances_filter_all") },
   ];
 
   return (
@@ -67,14 +69,16 @@ function ShowMoreButton({
   expanded: boolean;
   onClick: () => void;
 }) {
+  const { t } = useT();
   if (total <= LIST_PREVIEW_LIMIT) return null;
+  const remaining = total - LIST_PREVIEW_LIMIT;
   return (
     <button
       type="button"
       onClick={onClick}
       className="w-full border-t border-zinc-50 px-5 py-3 text-[12px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 cursor-pointer"
     >
-      {expanded ? "Ver menos" : `Ver mais ${total - LIST_PREVIEW_LIMIT}`}
+      {expanded ? t("talent_finances_show_less") : t("talent_finances_show_more").replace("{n}", String(remaining))}
     </button>
   );
 }
@@ -168,7 +172,10 @@ async function downloadReceipt(w: TalentWithdrawal, pix: PixProfileRow | null, t
 }
 
 export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode?: "escrow" | "internal" }) {
+  const { t, lang } = useT();
   const isInternal = paymentMode === "internal";
+  const fm = (n: number) => fmtMoney(n, lang);
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
   const referralRateLabel = `${REFERRAL_RATE * 100}%`;
   const [payments, setPayments]         = useState<Payment[]>([]);
   const [referrals, setReferrals]       = useState<Referral[]>([]);
@@ -531,7 +538,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
       setWithdrawAmount("");
       setWithdrawMsg(
         withdrawData.message
-          ?? `Saque via PIX enviado: ${brl(withdrawAmountNum)}. Acompanhe o status abaixo.`,
+          ?? `${t("talent_finances_withdraw_pix_label")}: ${fm(withdrawAmountNum)}.`,
       );
       await load(false);
     } catch {
@@ -543,24 +550,26 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
   return (
     <div className="max-w-3xl space-y-8">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Visão Geral</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Financeiro</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("talent_finances_overview")}</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{t("talent_finances_title")}</h1>
         <div className="flex items-center gap-3 mt-1">
           {!loading && (
             <p className="text-[13px] text-zinc-400">
-              {payments.length} reservas · {referrals.length} indicaç{referrals.length !== 1 ? "ões" : "ão"}
+              {lang === "en"
+                ? `${payments.length} booking${payments.length !== 1 ? "s" : ""} · ${referrals.length} referral${referrals.length !== 1 ? "s" : ""}`
+                : `${payments.length} reservas · ${referrals.length} indicaç${referrals.length !== 1 ? "ões" : "ão"}`}
             </p>
           )}
           {refreshing && (
             <span className="flex items-center gap-1.5 text-[11px] text-zinc-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Atualizando…
+              {t("talent_finances_updating")}
             </span>
           )}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[12px] text-zinc-400">Filtrar listas por período</p>
+        <p className="text-[12px] text-zinc-400">{t("talent_finances_filter_label")}</p>
         <FilterTabs value={period} onChange={setPeriod} />
       </div>
 
@@ -573,30 +582,30 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           {/* Stats */}
           <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
             <StatCard
-              label="Total Ganho"
-              value={brl(paidContractEarnings + (isInternal ? 0 : referralEarnings))}
-              sub={isInternal ? "Contratos com pagamento confirmado" : "Contratos pagos + indicações"}
+              label={t("talent_finances_stat_total")}
+              value={fm(paidContractEarnings + (isInternal ? 0 : referralEarnings))}
+              sub={isInternal ? t("talent_finances_stat_total_sub_i") : t("talent_finances_stat_total_sub_e")}
               stripe="from-indigo-500 to-violet-500"
             />
             <StatCard
-              label="Aguardando Pagamento"
-              value={brl(pendingEarnings)}
-              sub="Agência ainda não liberou"
+              label={t("talent_finances_stat_pending")}
+              value={fm(pendingEarnings)}
+              sub={t("talent_finances_stat_pending_sub")}
               stripe="from-amber-400 to-orange-500"
             />
             {!isInternal && (
               <StatCard
-                label="Disponível para saque"
-                value={brl(availableToWithdraw)}
-                sub={alreadyWithdrawn > 0 ? `${brl(alreadyWithdrawn)} já sacado` : "Pronto para saque"}
+                label={t("talent_finances_stat_available")}
+                value={fm(availableToWithdraw)}
+                sub={alreadyWithdrawn > 0 ? `${fm(alreadyWithdrawn)} ${t("talent_finances_already_withdrawn")}` : t("talent_finances_ready")}
                 stripe="from-emerald-400 to-teal-500"
               />
             )}
             {!isInternal && (
               <StatCard
-                label="Indicações"
-                value={brl(referralEarnings)}
-                sub={`${referrals.length} reserva${referrals.length !== 1 ? "s" : ""} (${referralRateLabel})`}
+                label={t("talent_finances_stat_referrals")}
+                value={fm(referralEarnings)}
+                sub={`${referrals.length} ${lang === "en" ? `booking${referrals.length !== 1 ? "s" : ""}` : `reserva${referrals.length !== 1 ? "s" : ""}`} (${referralRateLabel})`}
                 stripe="from-violet-400 to-purple-500"
               />
             )}
@@ -610,7 +619,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-[13px] text-teal-800 leading-relaxed">
-                Pagamentos são feitos diretamente pela agência. O BrisaHub registra comprovantes e confirmações, mas não guarda saldo nem realiza saques neste modo.
+                {t("talent_finances_internal_notice")}
               </p>
             </div>
           )}
@@ -619,10 +628,10 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           {!isInternal && <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
             <div className="px-6 py-5">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Saque via PIX</p>
-                <p className="break-words text-[1.55rem] sm:text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{brl(availableToWithdraw)}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("talent_finances_withdraw_label")}</p>
+                <p className="break-words text-[1.55rem] sm:text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{fm(availableToWithdraw)}</p>
                 {alreadyWithdrawn > 0 && (
-                  <p className="text-[12px] text-zinc-400 mt-1">{brl(alreadyWithdrawn)} já sacado</p>
+                  <p className="text-[12px] text-zinc-400 mt-1">{fm(alreadyWithdrawn)} {t("talent_finances_already_withdrawn")}</p>
                 )}
               </div>
             </div>
@@ -630,7 +639,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
             <div className="px-6 pb-5">
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1 min-w-0">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">R$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-zinc-400 pointer-events-none">{lang === "en" ? "$" : "R$"}</span>
                   <input
                     type="number"
                     min={0.01}
@@ -656,16 +665,16 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                       </svg>
-                      Solicitado
+                      {t("talent_finances_requested")}
                     </>
-                  ) : "Solicitar saque"}
+                  ) : t("talent_finances_request_btn")}
                 </button>
               </div>
               {withdrawAmountNum > availableToWithdraw && (
-                <p className="text-[11px] text-rose-600 mt-2">Valor superior ao saldo disponível.</p>
+                <p className="text-[11px] text-rose-600 mt-2">{t("talent_finances_exceeds_balance")}</p>
               )}
               {!pixReady && (
-                <p className="text-[11px] text-amber-700 mt-2">Cadastre sua chave PIX para sacar.</p>
+                <p className="text-[11px] text-amber-700 mt-2">{t("talent_finances_register_pix")}</p>
               )}
             </div>
 
@@ -692,18 +701,18 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
             {pendingWithdrawals.length > 0 && (
               <div className="mx-6 mb-5 rounded-xl border border-zinc-100 bg-zinc-50">
                 <div className="px-4 py-3 border-b border-zinc-100">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Saques pendentes</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("talent_finances_pending_withdrawals")}</p>
                 </div>
                 <div className="divide-y divide-zinc-100">
                   {pendingWithdrawals.map((withdrawal) => (
                     <div key={withdrawal.id} className="px-4 py-3 flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-zinc-900">{brl(withdrawal.amount)}</p>
+                        <p className="text-[13px] font-semibold text-zinc-900">{fm(withdrawal.amount)}</p>
                         <p className="text-[11px] text-zinc-400">
-                          {withdrawalStatusLabel(withdrawal.status ?? "pending")} · {new Date(withdrawal.created_at).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" })}
+                          {withdrawalStatusLabel(withdrawal.status ?? "pending")} · {new Date(withdrawal.created_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}
                         </p>
                         <p className="text-[11px] text-zinc-500 mt-0.5">
-                          Saque via PIX
+                          {t("talent_finances_withdraw_pix_label")}
                           {withdrawal.provider_status ? ` · ${withdrawal.provider_status}` : ""}
                         </p>
                         {withdrawal.admin_note && (
@@ -726,7 +735,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-[12px] text-amber-800 leading-relaxed">
-                <strong>{brl(pendingEarnings)}</strong> aguardando pagamento da agência{isInternal ? " — confirmação pendente." : " — será adicionado ao seu saldo disponível quando pago."}
+                <strong>{fm(pendingEarnings)}</strong> {t("talent_finances_pending_notice")}{isInternal ? t("talent_finances_pending_suffix_i") : t("talent_finances_pending_suffix_e")}
               </p>
             </div>
           )}
@@ -738,9 +747,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>
-                Os valores exibidos refletem reservas, contratos pagos, indicações e saques registrados na carteira.
-              </span>
+              <span>{t("talent_finances_wallet_info")}</span>
             </div>
           )}
 
@@ -750,13 +757,13 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           {/* Withdrawal history — escrow mode only */}
           {!isInternal && filteredWithdrawalHistory.length > 0 && (
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Histórico de Saques</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("talent_finances_history")}</p>
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-zinc-50">
                 {visibleItems(filteredWithdrawalHistory, showAllWithdrawals).map((withdrawal) => {
                   const isExpanded = expandedWithdrawal === withdrawal.id;
                   const refDate = new Date(withdrawal.processed_at ?? withdrawal.created_at);
                   const transferRef = withdrawal.asaas_transfer_id ?? withdrawal.provider_transfer_id;
-                  const netDisplay = withdrawal.net_amount !== null ? brl(withdrawal.net_amount) : brl(withdrawal.amount);
+                  const netDisplay = withdrawal.net_amount !== null ? fm(withdrawal.net_amount) : fm(withdrawal.amount);
                   const pixTypeLabel = pixProfile?.pix_key_type
                     ? ({ cpf: "CPF", cnpj: "CNPJ", email: "E-mail", phone: "Telefone", random: "Chave Aleatória" }[pixProfile.pix_key_type] ?? pixProfile.pix_key_type)
                     : null;
@@ -779,16 +786,16 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-semibold text-zinc-900">{withdrawalStatusLabel(withdrawal.status ?? "paid")}</p>
                           <p className="text-[11px] text-zinc-400 mt-0.5">
-                            {refDate.toLocaleDateString("pt-BR", { weekday: "short", month: "long", day: "numeric", year: "numeric" })}
+                            {refDate.toLocaleDateString(locale, { weekday: "short", month: "long", day: "numeric", year: "numeric" })}
                             {" · "}
-                            {refDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            {refDate.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           <div className="text-right">
                             <p className={`text-[20px] font-semibold tracking-tight tabular-nums leading-none ${isPaid ? "text-emerald-700" : "text-zinc-400"}`}>{netDisplay}</p>
                             {withdrawal.net_amount !== null && withdrawal.fee_amount !== null && withdrawal.fee_amount > 0 && (
-                              <p className="text-[10px] text-zinc-400 mt-0.5">bruto {brl(withdrawal.amount)}</p>
+                              <p className="text-[10px] text-zinc-400 mt-0.5">{t("talent_finances_gross")} {fm(withdrawal.amount)}</p>
                             )}
                           </div>
                           <svg className={`w-4 h-4 text-zinc-300 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -806,22 +813,22 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                               <p className="font-semibold text-zinc-800">{withdrawalStatusLabel(withdrawal.status)}</p>
                             </div>
                             <div>
-                              <p className="text-zinc-400 mb-0.5">Valor líquido</p>
+                              <p className="text-zinc-400 mb-0.5">{t("talent_finances_net_value")}</p>
                               <p className="font-semibold text-emerald-700">{netDisplay}</p>
                             </div>
                             {withdrawal.fee_amount !== null && withdrawal.fee_amount > 0 && (
                               <div>
-                                <p className="text-zinc-400 mb-0.5">Taxa</p>
-                                <p className="font-semibold text-zinc-800">{brl(withdrawal.fee_amount)}</p>
+                                <p className="text-zinc-400 mb-0.5">{t("talent_finances_fee")}</p>
+                                <p className="font-semibold text-zinc-800">{fm(withdrawal.fee_amount ?? 0)}</p>
                               </div>
                             )}
                             <div>
-                              <p className="text-zinc-400 mb-0.5">Data</p>
-                              <p className="font-semibold text-zinc-800">{refDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                              <p className="text-zinc-400 mb-0.5">{t("talent_finances_date_label")}</p>
+                              <p className="font-semibold text-zinc-800">{refDate.toLocaleDateString(locale, { day: "2-digit", month: "long", year: "numeric" })}</p>
                             </div>
                             <div>
-                              <p className="text-zinc-400 mb-0.5">Horário</p>
-                              <p className="font-semibold text-zinc-800">{refDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+                              <p className="text-zinc-400 mb-0.5">{t("contracts_time")}</p>
+                              <p className="font-semibold text-zinc-800">{refDate.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}</p>
                             </div>
                             {pixTypeLabel && (
                               <div>
@@ -856,7 +863,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                               </div>
                             )}
                             <div className="col-span-2">
-                              <p className="text-zinc-400 mb-0.5">ID interno</p>
+                              <p className="text-zinc-400 mb-0.5">{lang === "en" ? "Internal ID" : "ID interno"}</p>
                               <p className="font-medium text-zinc-500 font-mono text-[10px] break-all">{withdrawal.id}</p>
                             </div>
                             {withdrawal.provider_status && (
@@ -900,7 +907,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           {/* Paid contract breakdown */}
           {paidContracts.length > 0 && (
             <div className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{isInternal ? "Pagamentos Confirmados" : "Detalhamento dos Pagamentos"}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{isInternal ? t("talent_finances_confirmed_section") : t("talent_finances_detail_section")}</p>
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden divide-y divide-zinc-50">
                 {visibleItems(paidContracts, showAllPaid).map((contract) => (
                   <div key={contract.id} className="px-5 py-4">
@@ -909,40 +916,40 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                         <p className="text-[13px] font-semibold text-zinc-900 truncate">{contract.jobTitle}</p>
                         {contract.paid_at && (
                           <p className="text-[11px] text-zinc-400 mt-0.5">
-                            {isInternal ? "Confirmado em" : "Pago em"} {new Date(contract.paid_at).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" })}
+                            {isInternal ? t("talent_finances_confirmed_on") : t("talent_finances_paid_on")} {new Date(contract.paid_at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}
                           </p>
                         )}
                       </div>
-                      <p className="text-[15px] font-semibold text-emerald-700 tabular-nums flex-shrink-0">{brl(contract.earnings)}</p>
+                      <p className="text-[15px] font-semibold text-emerald-700 tabular-nums flex-shrink-0">{fm(contract.earnings)}</p>
                     </div>
                     {isInternal ? (
                       <div className="mt-1.5 text-[11px] text-zinc-500">
                         <div className="flex justify-between">
-                          <span>Valor combinado</span>
-                          <span className="tabular-nums text-zinc-700">{brl(contract.amount)}</span>
+                          <span>{t("talent_finances_agreed_value")}</span>
+                          <span className="tabular-nums text-zinc-700">{fm(contract.amount)}</span>
                         </div>
                       </div>
                     ) : (
                       <div className="mt-2 space-y-0.5 text-[11px] text-zinc-500">
                         <div className="flex justify-between">
-                          <span>Valor bruto</span>
-                          <span className="tabular-nums text-zinc-700">{brl(contract.amount)}</span>
+                          <span>{t("talent_finances_gross_value")}</span>
+                          <span className="tabular-nums text-zinc-700">{fm(contract.amount)}</span>
                         </div>
                         {contract.commissionAmount > 0 && (
                           <div className="flex justify-between">
-                            <span>Comissão da plataforma</span>
-                            <span className="tabular-nums text-rose-600">−{brl(contract.commissionAmount)}</span>
+                            <span>{t("talent_finances_platform_commission")}</span>
+                            <span className="tabular-nums text-rose-600">−{fm(contract.commissionAmount)}</span>
                           </div>
                         )}
                         {contract.referralCommission > 0 && (
                           <div className="flex justify-between">
-                            <span>Comissão de indicação</span>
-                            <span className="tabular-nums text-violet-600">−{brl(contract.referralCommission)}</span>
+                            <span>{t("talent_finances_referral_commission")}</span>
+                            <span className="tabular-nums text-violet-600">−{fm(contract.referralCommission)}</span>
                           </div>
                         )}
                         <div className="flex justify-between border-t border-zinc-100 pt-1 mt-1">
-                          <span className="font-semibold text-zinc-700">Líquido recebido</span>
-                          <span className="tabular-nums font-semibold text-emerald-700">{brl(contract.earnings)}</span>
+                          <span className="font-semibold text-zinc-700">{t("talent_finances_net_received")}</span>
+                          <span className="tabular-nums font-semibold text-emerald-700">{fm(contract.earnings)}</span>
                         </div>
                       </div>
                     )}
@@ -960,14 +967,14 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           {/* Referral earnings — escrow mode only */}
           {!isInternal && <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Ganhos de Indicação</p>
-              <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">{referralRateLabel} por reserva</span>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("talent_finances_referral_section")}</p>
+              <span className="text-[10px] font-semibold bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">{referralRateLabel} {t("talent_finances_referral_rate")}</span>
             </div>
 
             {filteredReferrals.length === 0 ? (
               <div className="bg-white rounded-2xl border border-zinc-100 py-12 text-center">
-                <p className="text-[14px] font-medium text-zinc-500">Nenhum ganho de indicação ainda</p>
-                <p className="text-[13px] text-zinc-400 mt-1">Indique talentos para vagas e ganhe quando forem reservados.</p>
+                <p className="text-[14px] font-medium text-zinc-500">{t("talent_finances_referral_empty")}</p>
+                <p className="text-[13px] text-zinc-400 mt-1">{t("talent_finances_referral_empty_hint")}</p>
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
@@ -978,11 +985,11 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                       <p className="text-[12px] text-zinc-400 mt-0.5 truncate">{r.job}</p>
                     </div>
                     <span className="text-[11px] font-semibold bg-violet-50 text-violet-700 ring-1 ring-violet-100 px-2.5 py-1 rounded-full flex-shrink-0">
-                      Indicação
+                      {lang === "en" ? "Referral" : "Indicação"}
                     </span>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-[15px] font-semibold text-violet-700 tabular-nums">{brl(r.commission)}</p>
-                      <p className="text-[11px] text-zinc-400 tabular-nums">de {brl(r.amount)}</p>
+                      <p className="text-[15px] font-semibold text-violet-700 tabular-nums">{fm(r.commission)}</p>
+                      <p className="text-[11px] text-zinc-400 tabular-nums">{lang === "en" ? "of" : "de"} {fm(r.amount)}</p>
                     </div>
                   </div>
                 ))}

@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import PhoneInput from "@/components/ui/PhoneInput";
-import { TALENT_CATEGORY_LABELS, talentCategoryLabel } from "@/lib/talentCategories";
+import { TALENT_CATEGORY_LABELS, talentCategoryLabel, talentCategoryLabelForLang } from "@/lib/talentCategories";
 import { formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
 import AccountActions from "@/features/profile/AccountActions";
+import { useT } from "@/lib/LanguageContext";
 
 const TALENT_CATEGORIES = TALENT_CATEGORY_LABELS;
 
@@ -53,24 +54,24 @@ const DEFAULTS: Form = {
 
 const BIO_MAX = 300;
 
-function validate(form: Form): FormErrors {
+function validate(form: Form, t: (k: string) => string, lang: string): FormErrors {
   const e: FormErrors = {};
   if (!form.fullName.trim())
-    e.fullName = "Nome completo é obrigatório.";
+    e.fullName = t("talent_profile_err_name");
   else if (form.fullName.trim().length < 2)
-    e.fullName = "O nome deve ter pelo menos 2 caracteres.";
+    e.fullName = t("talent_profile_err_name_min");
   if (form.bio.length > BIO_MAX)
-    e.bio = `A bio deve ter no máximo ${BIO_MAX} caracteres (atualmente ${form.bio.length}).`;
+    e.bio = `${t("profile_save_error")} (${form.bio.length}/${BIO_MAX})`;
   if (form.instagram && /[\s@]/.test(form.instagram))
-    e.instagram = "Digite seu @ sem o símbolo ou espaços.";
+    e.instagram = t("talent_profile_err_handle");
   if (form.tiktok && /[\s@]/.test(form.tiktok))
-    e.tiktok = "Digite seu @ sem o símbolo ou espaços.";
+    e.tiktok = t("talent_profile_err_handle");
   if (form.xHandle && /[\s@]/.test(form.xHandle))
-    e.xHandle = "Digite seu @ sem o símbolo ou espaços.";
+    e.xHandle = t("talent_profile_err_handle");
   if (form.age && (isNaN(Number(form.age)) || Number(form.age) < 1 || Number(form.age) > 120))
-    e.age = "Digite uma idade válida.";
-  if (!isValidCpfCnpj(form.cpf))
-    e.cpf = "CPF/CNPJ inválido";
+    e.age = t("talent_profile_err_age");
+  if (String(lang) !== "en" && !isValidCpfCnpj(form.cpf))
+    e.cpf = t("talent_profile_err_doc");
   return e;
 }
 
@@ -104,6 +105,7 @@ function normalizeGender(value: string | null | undefined) {
 }
 
 export default function TalentProfileEdit() {
+  const { t, lang } = useT();
   const [form, setForm]       = useState<Form>(DEFAULTS);
   const [errors, setErrors]   = useState<FormErrors>({});
   const [touched, setTouched] = useState<Partial<Record<keyof Form, boolean>>>({});
@@ -172,7 +174,7 @@ export default function TalentProfileEdit() {
     const updated = { ...form, [key]: value };
     setForm(updated);
     setTouched((t) => ({ ...t, [key]: true }));
-    setErrors(validate(updated));
+    setErrors(validate(updated, t, lang));
   }
 
   function toggleCategory(cat: string) {
@@ -199,7 +201,7 @@ export default function TalentProfileEdit() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setTouched({ fullName: true, bio: true, instagram: true, tiktok: true, xHandle: true, age: true, cpf: true });
-    const errs = validate(form);
+    const errs = validate(form, t, lang);
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -207,7 +209,7 @@ export default function TalentProfileEdit() {
     setSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setServerError("Não autenticado."); setSaving(false); return; }
+    if (!user) { setServerError(t("talent_profile_err_auth")); setSaving(false); return; }
 
     const normalizedCpf = normalizeCpfCnpj(form.cpf);
 
@@ -221,7 +223,7 @@ export default function TalentProfileEdit() {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const json = await res.json();
       if (!res.ok) {
-        setServerError("Falha no envio da foto: " + (json.error ?? "Erro desconhecido"));
+        setServerError(t("talent_profile_err_upload") + (json.error ?? t("general_error")));
         setSaving(false);
         return;
       }
@@ -287,16 +289,16 @@ export default function TalentProfileEdit() {
   return (
     <div className="max-w-2xl space-y-6 pb-8">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Conta</p>
-        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">Meu Perfil</h1>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("portal_talent")}</p>
+        <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900 leading-tight">{t("talent_profile_title")}</h1>
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
 
         {/* Profile Photo */}
-        <Section title="Foto de Perfil">
+        <Section title={t("talent_profile_photo_label")}>
           <div>
-            <p className={labelCls}>Foto</p>
+            <p className={labelCls}>{t("talent_profile_photo_label")}</p>
             <div
               onClick={() => fileRef.current?.click()}
               className="w-24 h-24 rounded-2xl border-2 border-dashed border-zinc-200 hover:border-zinc-400 cursor-pointer transition-colors flex items-center justify-center overflow-hidden bg-zinc-50"
@@ -313,15 +315,15 @@ export default function TalentProfileEdit() {
               ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
               onChange={(e) => { if (e.target.files?.[0]) handleAvatarChange(e.target.files[0]); }}
             />
-            <p className="text-[11px] text-zinc-400 mt-1.5">Clique para enviar · JPG, PNG, WebP · máx 5 MB</p>
+            <p className="text-[11px] text-zinc-400 mt-1.5">{lang === "en" ? "Click to upload · JPG, PNG, WebP · max 5 MB" : "Clique para enviar · JPG, PNG, WebP · máx 5 MB"}</p>
           </div>
         </Section>
 
         {/* Personal Info */}
-        <Section title="Informações Pessoais">
+        <Section title={t("talent_profile_section_basic")}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className={labelCls}>Nome Completo <span className="text-rose-400">*</span></label>
+              <label className={labelCls}>{t("talent_profile_full_name")} <span className="text-rose-400">*</span></label>
               <input
                 className={inputCls(!!errors.fullName && !!touched.fullName)}
                 placeholder="Sofia Mendes"
@@ -333,7 +335,7 @@ export default function TalentProfileEdit() {
 
             {/* Phone with country code */}
             <div className="sm:col-span-2">
-              <label className={labelCls}>Telefone</label>
+              <label className={labelCls}>{t("profile_phone")}</label>
               <PhoneInput
                 value={form.phone}
                 onChange={(v) => set("phone", v)}
@@ -341,29 +343,29 @@ export default function TalentProfileEdit() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className={labelCls}>CPF ou CNPJ</label>
+              <label className={labelCls}>{t("talent_profile_document")}</label>
               <input
                 className={inputCls(!!errors.cpf && !!touched.cpf)}
-                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                placeholder={lang === "en" ? "Document number" : "000.000.000-00 ou 00.000.000/0000-00"}
                 value={form.cpf}
-                onChange={(e) => set("cpf", formatCpfCnpj(e.target.value))}
+                onChange={(e) => set("cpf", String(lang) === "en" ? e.target.value : formatCpfCnpj(e.target.value))}
               />
               {touched.cpf && <FieldError msg={errors.cpf} />}
             </div>
 
             <div>
-              <label className={labelCls}>País</label>
-              <input className={inputCls(false)} placeholder="Brasil" value={form.country}
+              <label className={labelCls}>{t("talent_profile_country")}</label>
+              <input className={inputCls(false)} placeholder={lang === "en" ? "United States" : "Brasil"} value={form.country}
                 onChange={(e) => set("country", e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>Cidade</label>
-              <input className={inputCls(false)} placeholder="São Paulo" value={form.city}
+              <label className={labelCls}>{t("talent_profile_city")}</label>
+              <input className={inputCls(false)} placeholder={lang === "en" ? "New York" : "São Paulo"} value={form.city}
                 onChange={(e) => set("city", e.target.value)} />
             </div>
 
             <div>
-              <label className={labelCls}>Idade</label>
+              <label className={labelCls}>{t("talent_profile_age")}</label>
               <input
                 type="number" min="1" max="120"
                 className={inputCls(!!errors.age && !!touched.age)}
@@ -375,16 +377,21 @@ export default function TalentProfileEdit() {
             </div>
 
             <div>
-              <label className={labelCls}>Gênero</label>
+              <label className={labelCls}>{t("talent_profile_gender")}</label>
               <div className="relative">
                 <select
                   value={form.gender}
                   onChange={(e) => set("gender", e.target.value)}
                   className={selectCls}
                 >
-                  <option value="">Selecione…</option>
-                  {GENDER_OPTIONS.map((g) => (
-                    <option key={g.value} value={g.value}>{g.label}</option>
+                  <option value="">{lang === "en" ? "Select…" : "Selecione…"}</option>
+                  {([
+                    { value: "male", key: "talent_profile_gender_male" },
+                    { value: "female", key: "talent_profile_gender_female" },
+                    { value: "other", key: "talent_profile_gender_other" },
+                    { value: "prefer_not_to_say", key: "talent_profile_gender_prefer" },
+                  ] as const).map((g) => (
+                    <option key={g.value} value={g.value}>{t(g.key)}</option>
                   ))}
                 </select>
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
@@ -398,14 +405,14 @@ export default function TalentProfileEdit() {
 
           <div>
             <label className={labelCls}>
-              Bio
+              {t("talent_profile_bio")}
               <span className={`ml-2 font-normal ${form.bio.length > BIO_MAX ? "text-rose-400" : "text-[#647B7B]"}`}>
                 {form.bio.length}/{BIO_MAX}
               </span>
             </label>
             <textarea
               rows={4} className={`${inputCls(!!errors.bio && !!touched.bio)} resize-none`}
-              placeholder="Conte às agências o que te torna único(a)."
+              placeholder={lang === "en" ? "Tell agencies what makes you unique." : "Conte às agências o que te torna único(a)."}
               value={form.bio} onChange={(e) => set("bio", e.target.value)}
             />
             {touched.bio && <FieldError msg={errors.bio} />}
@@ -413,7 +420,7 @@ export default function TalentProfileEdit() {
         </Section>
 
         {/* Categories */}
-        <Section title="Categorias">
+        <Section title={t("talent_profile_section_cats")}>
           {form.categories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {form.categories.map((cat) => (
@@ -423,7 +430,7 @@ export default function TalentProfileEdit() {
                   onClick={() => toggleCategory(talentCategoryLabel(cat))}
                   className="inline-flex items-center gap-1.5 rounded-full bg-[#1F2D2E] px-3 py-1.5 text-[12px] font-semibold text-white"
                 >
-                  {talentCategoryLabel(cat)}
+                  {talentCategoryLabelForLang(cat, lang)}
                   <span className="text-white/60">×</span>
                 </button>
               ))}
@@ -440,7 +447,7 @@ export default function TalentProfileEdit() {
                     active ? "bg-[#1F2D2E] text-white" : "bg-[#E6F0F0] text-[#647B7B] hover:bg-[#DDE6E6]",
                   ].join(" ")}
                 >
-                  {cat === "Outro" ? "Outro / Personalizado" : cat}
+                  {cat === "Outro" ? t("talent_profile_cat_other") : talentCategoryLabelForLang(cat, lang)}
                 </button>
               );
             })}
@@ -448,7 +455,7 @@ export default function TalentProfileEdit() {
           <div className="flex gap-2">
             <input
               className={inputCls(false)}
-              placeholder="Digite uma categoria personalizada"
+              placeholder={t("talent_profile_cat_ph")}
               value={customCategory}
               onChange={(e) => setCustomCategory(e.target.value)}
               onKeyDown={(e) => {
@@ -463,16 +470,16 @@ export default function TalentProfileEdit() {
               onClick={addCustomCategory}
               className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 text-[13px] font-semibold text-white transition-colors hover:from-[#17A58A] hover:to-[#22B5C2]"
             >
-              Adicionar
+              {t("talent_profile_cat_add")}
             </button>
           </div>
         </Section>
 
         {/* Social Links */}
-        <Section title="Redes Sociais">
+        <Section title={t("talent_profile_section_social")}>
           {/* Instagram */}
           <div>
-            <label className={labelCls}>Instagram</label>
+            <label className={labelCls}>{t("talent_profile_instagram")}</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
               <input
@@ -487,7 +494,7 @@ export default function TalentProfileEdit() {
 
           {/* TikTok */}
           <div>
-            <label className={labelCls}>TikTok</label>
+            <label className={labelCls}>{t("talent_profile_tiktok")}</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
               <input
@@ -502,7 +509,7 @@ export default function TalentProfileEdit() {
 
           {/* X (Twitter) */}
           <div>
-            <label className={labelCls}>X (Twitter)</label>
+            <label className={labelCls}>{t("talent_profile_x_handle")}</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[13px] text-zinc-400">@</span>
               <input
@@ -517,14 +524,14 @@ export default function TalentProfileEdit() {
 
           {/* YouTube */}
           <div>
-            <label className={labelCls}>YouTube</label>
+            <label className={labelCls}>{t("talent_profile_youtube")}</label>
             <input className={inputCls(false)} placeholder="https://youtube.com/@channel" value={form.youtube}
               onChange={(e) => set("youtube", e.target.value)} />
           </div>
 
           {/* Website */}
           <div>
-            <label className={labelCls}>Website</label>
+            <label className={labelCls}>{t("talent_profile_website")}</label>
             <input className={inputCls(false)} placeholder="https://yourwebsite.com" value={form.website}
               onChange={(e) => set("website", e.target.value)} />
           </div>
@@ -541,7 +548,7 @@ export default function TalentProfileEdit() {
             <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <p className="text-[13px] text-emerald-700 font-medium">Perfil salvo com sucesso.</p>
+            <p className="text-[13px] text-emerald-700 font-medium">{t("talent_profile_saved")}</p>
           </div>
         )}
 
@@ -549,7 +556,7 @@ export default function TalentProfileEdit() {
           type="submit" disabled={saving}
           className="w-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[14px] font-semibold py-3.5 rounded-xl transition-colors cursor-pointer active:scale-[0.99]"
         >
-          {saving ? "Salvando…" : "Salvar Perfil"}
+          {saving ? t("talent_profile_saving") : t("talent_profile_save_btn")}
         </button>
       </form>
 

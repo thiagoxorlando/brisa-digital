@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useT } from "@/lib/LanguageContext";
 
 type Entry = {
   id: string;
@@ -19,10 +20,15 @@ interface Props {
   talentId: string;
 }
 
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const MONTH_NAMES = [
+const WEEKDAYS_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES_PT = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+const MONTH_NAMES_EN = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 function iso(date: Date) {
@@ -60,16 +66,18 @@ function getDatesInRange(start: string, end: string) {
   return result;
 }
 
-function formatDateLabel(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR", {
+function formatDateLabel(date: string, lang: string) {
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(`${date}T00:00:00`).toLocaleDateString(locale, {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
 }
 
-function formatShortDateLabel(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString("pt-BR", {
+function formatShortDateLabel(date: string, lang: string) {
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(`${date}T00:00:00`).toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
   });
@@ -119,8 +127,11 @@ function ChoiceButton({
 }
 
 export default function AvailabilityCalendar({ talentId }: Props) {
+  const { t, lang } = useT();
   const today = iso(new Date());
   const now = new Date();
+  const WEEKDAYS = String(lang) === "en" ? WEEKDAYS_EN : WEEKDAYS_PT;
+  const MONTH_NAMES = String(lang) === "en" ? MONTH_NAMES_EN : MONTH_NAMES_PT;
 
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -304,14 +315,14 @@ export default function AvailabilityCalendar({ talentId }: Props) {
         type: "success",
         message:
           selectionCount === 1
-            ? "Disponibilidade atualizada com sucesso."
-            : `Disponibilidade aplicada a ${selectionCount} datas.`,
+            ? t("avail_saved")
+            : t("avail_saved_n").replace("{n}", String(selectionCount)),
       });
       clearSelection({ clearFeedback: false, resetMode: false });
     } catch (error) {
       setFeedback({
         type: "error",
-        message: error instanceof Error ? error.message : "Não foi possível salvar a disponibilidade.",
+        message: error instanceof Error ? error.message : t("avail_save_error"),
       });
     } finally {
       setSaving((current) => {
@@ -343,13 +354,13 @@ export default function AvailabilityCalendar({ talentId }: Props) {
       });
       setFeedback({
         type: "success",
-        message: selectionCount === 1 ? "Informação removida da data selecionada." : "Informação removida das datas selecionadas.",
+        message: t("avail_saved"),
       });
       clearSelection({ clearFeedback: false, resetMode: false });
     } catch (error) {
       setFeedback({
         type: "error",
-        message: error instanceof Error ? error.message : "Não foi possível limpar a disponibilidade.",
+        message: error instanceof Error ? error.message : t("avail_save_error"),
       });
     } finally {
       setSaving((current) => {
@@ -362,24 +373,24 @@ export default function AvailabilityCalendar({ talentId }: Props) {
 
   const selectionSummary =
     selectionCount === 0
-      ? "Nenhuma data selecionada"
+      ? t("avail_no_dates")
       : selectionCount === 1
-        ? formatDateLabel(selectedDateList[0])
-        : `${selectionCount} datas selecionadas`;
+        ? formatDateLabel(selectedDateList[0], lang)
+        : lang === "en" ? `${selectionCount} dates selected` : `${selectionCount} datas selecionadas`;
 
   const selectionDescription =
     selectionCount === 0
-      ? "Escolha um ou mais dias no calendário para aplicar a disponibilidade."
+      ? (lang === "en" ? "Choose one or more days in the calendar to apply availability." : "Escolha um ou mais dias no calendário para aplicar a disponibilidade.")
       : selectionCount === 1
-        ? "A ação abaixo será aplicada apenas a esta data."
-        : "A ação abaixo será aplicada a todas as datas selecionadas.";
+        ? (lang === "en" ? "The action below will apply to this date only." : "A ação abaixo será aplicada apenas a esta data.")
+        : (lang === "en" ? "The action below will apply to all selected dates." : "A ação abaixo será aplicada a todas as datas selecionadas.");
 
   const selectionModeDescription =
     selectionMode === "range"
       ? rangeStart
-        ? `Data inicial definida em ${formatShortDateLabel(rangeStart)}. Agora clique na data final.`
-        : "Clique na data inicial e depois na data final para selecionar um intervalo."
-      : "Clique em um dia para selecionar. Clique em outros dias para adicionar ou remover datas.";
+        ? (lang === "en" ? `Start date set to ${formatShortDateLabel(rangeStart, lang)}. Now click the end date.` : `Data inicial definida em ${formatShortDateLabel(rangeStart, lang)}. Agora clique na data final.`)
+        : t("avail_range_hint")
+      : (lang === "en" ? "Click a day to select. Click other days to add or remove dates." : "Clique em um dia para selecionar. Clique em outros dias para adicionar ou remover datas.");
 
   const todayEntry = entries.get(today);
   const availToday = todayEntry?.is_available;
@@ -401,7 +412,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
           {availToday === true ? (
             <>
               <p className="text-[13px] font-semibold text-emerald-800">
-                Você está disponível hoje
+                {lang === "en" ? "You are available today" : "Você está disponível hoje"}
                 {todayEntry?.start_time && (
                   <span className="font-normal text-emerald-600">
                     {" "}· {todayEntry.start_time.slice(0, 5)}
@@ -409,17 +420,17 @@ export default function AvailabilityCalendar({ talentId }: Props) {
                   </span>
                 )}
               </p>
-              <p className="text-[12px] text-emerald-600 mt-0.5">Agências podem ver sua disponibilidade e entrar em contato.</p>
+              <p className="text-[12px] text-emerald-600 mt-0.5">{lang === "en" ? "Agencies can see your availability and contact you." : "Agências podem ver sua disponibilidade e entrar em contato."}</p>
             </>
           ) : availToday === false ? (
             <>
-              <p className="text-[13px] font-semibold text-zinc-600">Você está indisponível hoje</p>
-              <p className="text-[12px] text-zinc-400 mt-0.5">Altere no calendário abaixo.</p>
+              <p className="text-[13px] font-semibold text-zinc-600">{lang === "en" ? "You are unavailable today" : "Você está indisponível hoje"}</p>
+              <p className="text-[12px] text-zinc-400 mt-0.5">{t("avail_modify_hint")}</p>
             </>
           ) : (
             <>
-              <p className="text-[13px] font-semibold text-violet-700">Marque sua disponibilidade para hoje</p>
-              <p className="text-[12px] text-violet-500 mt-0.5">Agências priorizam talentos com disponibilidade informada.</p>
+              <p className="text-[13px] font-semibold text-violet-700">{lang === "en" ? "Mark your availability for today" : "Marque sua disponibilidade para hoje"}</p>
+              <p className="text-[12px] text-violet-500 mt-0.5">{lang === "en" ? "Agencies prioritize talents who share their availability." : "Agências priorizam talentos com disponibilidade informada."}</p>
             </>
           )}
         </div>
@@ -428,9 +439,9 @@ export default function AvailabilityCalendar({ talentId }: Props) {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-5">
         <div className="rounded-3xl border border-emerald-100 bg-emerald-50/70 px-5 py-4">
-          <p className="text-[13px] font-semibold text-emerald-900">Selecione as datas primeiro</p>
+          <p className="text-[13px] font-semibold text-emerald-900">{lang === "en" ? "Select dates first" : "Selecione as datas primeiro"}</p>
           <p className="mt-1 text-[12px] leading-relaxed text-emerald-700">
-            1. Selecione uma ou mais datas. 2. Escolha a disponibilidade no painel ao lado. 3. Clique em Aplicar.
+            {lang === "en" ? "1. Select one or more dates. 2. Choose availability in the side panel. 3. Click Apply." : "1. Selecione uma ou mais datas. 2. Escolha a disponibilidade no painel ao lado. 3. Clique em Aplicar."}
           </p>
         </div>
 
@@ -476,14 +487,14 @@ export default function AvailabilityCalendar({ talentId }: Props) {
                 onClick={selectWholeMonth}
                 className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 cursor-pointer"
               >
-                Selecionar mês inteiro
+                {t("avail_select_month")}
               </button>
               <button
                 type="button"
                 onClick={() => clearSelection()}
                 className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-[12px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900 cursor-pointer"
               >
-                Limpar seleção
+                {t("avail_clear")}
               </button>
             </div>
           </div>
@@ -572,15 +583,15 @@ export default function AvailabilityCalendar({ talentId }: Props) {
         <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-zinc-100 bg-white px-4 py-3 text-[12px] text-zinc-500 shadow-[0_1px_4px_rgba(0,0,0,0.03)]">
           <span className="inline-flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            Disponível
+            {t("avail_available")}
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-zinc-400" />
-            Indisponível
+            {t("avail_unavailable")}
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[#1F2D2E]" />
-            Selecionado
+            {lang === "en" ? "Selected" : "Selecionado"}
           </span>
         </div>
       </div>
@@ -588,8 +599,8 @@ export default function AvailabilityCalendar({ talentId }: Props) {
       <aside className="lg:sticky lg:top-6">
         <div className="space-y-4 rounded-3xl border border-zinc-100 bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_8px_32px_rgba(0,0,0,0.04)]">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Ação</p>
-            <h3 className="mt-1 text-[20px] font-semibold tracking-tight text-zinc-950">Aplicar disponibilidade</h3>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{lang === "en" ? "Action" : "Ação"}</p>
+            <h3 className="mt-1 text-[20px] font-semibold tracking-tight text-zinc-950">{t("avail_apply_btn")}</h3>
           </div>
 
           <div className="rounded-2xl border border-zinc-100 bg-zinc-50 px-4 py-4">
@@ -599,7 +610,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               <div className="mt-3 flex flex-wrap gap-2">
                 {selectedDateList.slice(0, 6).map((date) => (
                   <span key={date} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-600 ring-1 ring-zinc-200">
-                    {formatShortDateLabel(date)}
+                    {formatShortDateLabel(date, lang)}
                   </span>
                 ))}
                 {selectedDateList.length > 6 && (
@@ -613,18 +624,18 @@ export default function AvailabilityCalendar({ talentId }: Props) {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-[12px] font-semibold uppercase tracking-widest text-zinc-400">Modo de seleção</p>
+              <p className="text-[12px] font-semibold uppercase tracking-widest text-zinc-400">{lang === "en" ? "Selection mode" : "Modo de seleção"}</p>
               {rangeStart && selectionMode === "range" && (
                 <span className="text-[11px] font-medium text-emerald-700">
-                  Início: {formatShortDateLabel(rangeStart)}
+                  {lang === "en" ? "Start:" : "Início:"} {formatShortDateLabel(rangeStart, lang)}
                 </span>
               )}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <ChoiceButton
                 active={selectionMode === "manual"}
-                title="Seleção livre"
-                description="Clique em dias individuais para montar sua seleção."
+                title={t("avail_manual_mode")}
+                description={lang === "en" ? "Click individual days to build your selection." : "Clique em dias individuais para montar sua seleção."}
                 onClick={() => {
                   setSelectionMode("manual");
                   setRangeStart(null);
@@ -632,8 +643,8 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               />
               <ChoiceButton
                 active={selectionMode === "range"}
-                title="Selecionar intervalo"
-                description="Defina data inicial e final para selecionar uma faixa."
+                title={t("avail_range_mode")}
+                description={lang === "en" ? "Set a start and end date to select a range." : "Defina data inicial e final para selecionar uma faixa."}
                 onClick={() => {
                   setSelectionMode("range");
                   setRangeStart(null);
@@ -644,12 +655,12 @@ export default function AvailabilityCalendar({ talentId }: Props) {
           </div>
 
           <div className="space-y-3">
-            <p className="text-[12px] font-semibold uppercase tracking-widest text-zinc-400">Disponibilidade</p>
+            <p className="text-[12px] font-semibold uppercase tracking-widest text-zinc-400">{t("avail_title")}</p>
             <div className="grid gap-2">
               <ChoiceButton
                 active={availabilityType !== "unavailable"}
-                title="Disponível"
-                description="Seu perfil pode aparecer para convites nessas datas."
+                title={t("avail_available")}
+                description={t("avail_available_desc")}
                 onClick={() => {
                   setAvailabilityType("full_day");
                   setStartTime("");
@@ -659,8 +670,8 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               <div className="grid grid-cols-2 gap-2">
                 <ChoiceButton
                   active={availabilityType === "full_day"}
-                  title="Dia inteiro"
-                  description="Sem definir horário."
+                  title={lang === "en" ? "Full day" : "Dia inteiro"}
+                  description={lang === "en" ? "No specific hours." : "Sem definir horário."}
                   disabled={availabilityType === "unavailable"}
                   onClick={() => {
                     setAvailabilityType("full_day");
@@ -670,16 +681,16 @@ export default function AvailabilityCalendar({ talentId }: Props) {
                 />
                 <ChoiceButton
                   active={availabilityType === "custom_hours"}
-                  title="Horário personalizado"
-                  description="Defina início e fim."
+                  title={t("avail_custom")}
+                  description={t("avail_custom_desc")}
                   disabled={availabilityType === "unavailable"}
                   onClick={() => setAvailabilityType("custom_hours")}
                 />
               </div>
               <ChoiceButton
                 active={availabilityType === "unavailable"}
-                title="Indisponível"
-                description="As agências não devem considerar essas datas."
+                title={t("avail_unavailable")}
+                description={t("avail_unavailable_desc")}
                 onClick={() => {
                   setAvailabilityType("unavailable");
                   setStartTime("");
@@ -692,7 +703,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
           {availabilityType === "custom_hours" && (
             <div className="grid grid-cols-2 gap-3 rounded-2xl border border-zinc-100 bg-zinc-50 px-4 py-4">
               <div>
-                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Início</label>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("avail_start_time")}</label>
                 <input
                   type="time"
                   value={startTime}
@@ -701,7 +712,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Fim</label>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("avail_end_time")}</label>
                 <input
                   type="time"
                   value={endTime}
@@ -714,9 +725,9 @@ export default function AvailabilityCalendar({ talentId }: Props) {
 
           {hasMixedSelection && (
             <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-              <p className="text-[12px] font-semibold text-amber-900">Atenção</p>
+              <p className="text-[12px] font-semibold text-amber-900">{lang === "en" ? "Note" : "Atenção"}</p>
               <p className="mt-1 text-[12px] leading-relaxed text-amber-700">
-                As datas selecionadas têm configurações diferentes no momento. A ação abaixo vai substituir todas elas.
+                {t("avail_mixed_hint")}
               </p>
             </div>
           )}
@@ -741,7 +752,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               disabled={selectionCount === 0 || (availabilityType === "custom_hours" && (!startTime || !endTime))}
               className="w-full rounded-2xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-3 text-[13px] font-semibold text-white transition-all hover:from-[#17A58A] hover:to-[#22B5C2] disabled:cursor-not-allowed disabled:bg-none disabled:bg-[#E6F0F0] disabled:text-[#B8D4D4]"
             >
-              Aplicar
+              {t("avail_apply_btn")}
             </button>
             <button
               type="button"
@@ -749,7 +760,7 @@ export default function AvailabilityCalendar({ talentId }: Props) {
               disabled={selectionCount === 0}
               className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-[13px] font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:border-zinc-100 disabled:text-[#647B7B]"
             >
-              Remover informação das datas selecionadas
+              {lang === "en" ? "Clear selected dates" : "Remover informação das datas selecionadas"}
             </button>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { CONTRACTS_BUCKET } from "@/lib/contractFiles";
 import { getContractComputedState } from "@/lib/contractState";
-import { brl } from "@/lib/brl";
+import { fmtMoney } from "@/lib/brl";
 import { useT } from "@/lib/LanguageContext";
 import AbrirDisputaButton from "@/features/disputes/AbrirDisputaButton";
 import { formatJobLocation } from "@/lib/jobLocation";
@@ -48,13 +48,15 @@ export type ApprovedSubmission = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtDate(s: string | null) {
+function fmtDate(s: string | null, lang: string) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(s).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" });
 }
-function fmtJobDate(s: string | null) {
+function fmtJobDate(s: string | null, lang: string) {
   if (!s) return "—";
-  return new Date(s + "T00:00:00").toLocaleDateString("pt-BR", {
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(s + "T00:00:00").toLocaleDateString(locale, {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
   });
 }
@@ -141,18 +143,18 @@ function getTalentContractBucket(status: string, jobDate: string | null, now = n
   return "active";
 }
 
-function downloadFallback(c: TalentContract) {
+function downloadFallback(c: TalentContract, lang: string) {
   const lines = [
-    "DETALHES DO CONTRATO",
-    "====================",
-    `Agência:            ${c.agencyName}`,
-    `Status:             ${c.status}`,
-    `Valor do Pagamento: ${brl(c.paymentAmount)}`,
-    `Forma de Pagamento: ${c.paymentMethod ?? "—"}`,
-    `Data do Trabalho:   ${c.jobDate ? fmtJobDate(c.jobDate) : "A definir"}`,
-    `Horário:            ${c.jobTime ?? "—"}`,
-    `Local:              ${formatJobLocation(c.location) ?? "—"}`,
-    `Recebido em:        ${fmtDate(c.createdAt)}`,
+    "CONTRACT DETAILS",
+    "================",
+    `Agency:         ${c.agencyName}`,
+    `Status:         ${c.status}`,
+    `Payment:        ${fmtMoney(c.paymentAmount, lang)}`,
+    `Method:         ${c.paymentMethod ?? "—"}`,
+    `Job Date:       ${c.jobDate ? fmtJobDate(c.jobDate, lang) : "TBD"}`,
+    `Time:           ${c.jobTime ?? "—"}`,
+    `Location:       ${formatJobLocation(c.location) ?? "—"}`,
+    `Received:       ${fmtDate(c.createdAt, lang)}`,
     "",
     "DESCRIÇÃO DA VAGA",
     "-----------------",
@@ -171,7 +173,7 @@ function downloadFallback(c: TalentContract) {
   URL.revokeObjectURL(url);
 }
 
-function openOrDownload(c: TalentContract) {
+function openOrDownload(c: TalentContract, lang: string) {
   const url = latestFileUrl(c);
   if (url) {
     const a    = document.createElement("a");
@@ -180,7 +182,7 @@ function openOrDownload(c: TalentContract) {
     a.rel      = "noopener noreferrer";
     a.click();
   } else {
-    downloadFallback(c);
+    downloadFallback(c, lang);
   }
 }
 
@@ -195,7 +197,7 @@ function ContractRow({
   onAction: (id: string, action: "sign" | "reject" | "confirm_payment_received", extra?: string) => void;
   acting: string | null;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [open, setOpen]           = useState(c.status === "sent");
   const [showReject, setShowReject] = useState(false);
   const [signedFile, setSignedFile] = useState<File | null>(null);
@@ -275,11 +277,11 @@ function ContractRow({
 
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-zinc-900 truncate">{c.agencyName}</p>
-          <p className="text-[12px] text-zinc-400 mt-0.5">{t("contracts_received_at")} {fmtDate(c.createdAt)}</p>
+          <p className="text-[12px] text-zinc-400 mt-0.5">{t("contracts_received_at")} {fmtDate(c.createdAt, lang)}</p>
         </div>
 
         <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0 hidden sm:block">
-          {brl(c.paymentAmount)}
+          {fmtMoney(c.paymentAmount, lang)}
         </p>
 
         {/* Status badge — show "Assinado" if talent uploaded signed version */}
@@ -295,7 +297,7 @@ function ContractRow({
         {fileUrl && (
           <span
             role="button"
-            onClick={(e) => { e.stopPropagation(); openOrDownload(c); }}
+            onClick={(e) => { e.stopPropagation(); openOrDownload(c, lang); }}
             className="flex-shrink-0 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
             aria-label="Download"
             title={hasSigned ? t("contracts_signed_version") : t("contracts_download_contract")}
@@ -316,7 +318,7 @@ function ContractRow({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("contracts_job_date")}</p>
-              <p className="text-[13px] font-medium text-zinc-800">{fmtJobDate(c.jobDate)}</p>
+              <p className="text-[13px] font-medium text-zinc-800">{fmtJobDate(c.jobDate, lang)}</p>
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("contracts_time")}</p>
@@ -329,7 +331,7 @@ function ContractRow({
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("contracts_payment")}</p>
               <p className="text-[13px] font-medium text-zinc-800">
-                {brl(c.paymentAmount)}{c.paymentMethod ? ` · ${c.paymentMethod}` : ""}
+                {fmtMoney(c.paymentAmount, lang)}{c.paymentMethod ? ` · ${c.paymentMethod}` : ""}
               </p>
             </div>
           </div>

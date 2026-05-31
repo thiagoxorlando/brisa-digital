@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { getUnifiedBookingStatus, unifiedStatusInfo, type UnifiedBookingStatus } from "@/lib/bookingStatus";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
-import { brl } from "@/lib/brl";
+import { fmtMoney } from "@/lib/brl";
 import { useT } from "@/lib/LanguageContext";
 import { formatJobLocation } from "@/lib/jobLocation";
 
@@ -29,13 +29,15 @@ type Booking = {
   agency_payment_sent_at: string | null;
 };
 
-function formatDate(s: string | null) {
+function formatDate(s: string | null, lang: string) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("pt-BR", { month: "short", day: "numeric", year: "numeric" });
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(s).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" });
 }
-function formatJobDate(s: string | null) {
+function formatJobDate(s: string | null, lang: string) {
   if (!s) return null;
-  return new Date(s + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(s + "T00:00:00").toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 function BookingCard({ booking: b, onCancel, cancelling }: {
@@ -47,12 +49,10 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
   const [open, setOpen] = useState(false);
   const unified   = b.derived_status as UnifiedBookingStatus;
   const st        = unifiedStatusInfo(unified, lang === "en" ? "en" : "pt-BR");
-  // No cancel once agency has confirmed payment was sent (internal mode) or once
-  // the booking has moved past the deposit stage.
   const canCancel =
     ["aguardando_assinatura", "aguardando_deposito"].includes(unified) &&
     !b.agency_payment_sent_at;
-  const jobDate   = formatJobDate(b.job_date);
+  const jobDate   = formatJobDate(b.job_date, lang);
 
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.03)] overflow-hidden">
@@ -63,14 +63,14 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-zinc-900 truncate">{b.job_title}</p>
           <p className="text-[12px] text-zinc-400 mt-0.5">
-            {jobDate ?? formatDate(b.created_at)}
+            {jobDate ?? formatDate(b.created_at, lang)}
           </p>
         </div>
         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${st.badge}`}>
           {st.label}
         </span>
         <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0 min-w-[60px] text-right">
-          {b.price > 0 ? brl(b.price) : "—"}
+          {b.price > 0 ? fmtMoney(b.price, lang) : "—"}
         </p>
         <svg className={`w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,8 +89,8 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
             )}
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{t("bookings_agreed_value")}</p>
-              <p className="text-zinc-700 font-semibold">{b.price > 0 ? brl(b.price) : "—"}</p>
-              {b.net_amount != null && b.net_amount < b.price && <p className="text-zinc-400 mt-0.5">{t("bookings_you_receive")} {brl(b.net_amount)}</p>}
+              <p className="text-zinc-700 font-semibold">{b.price > 0 ? fmtMoney(b.price, lang) : "—"}</p>
+              {b.net_amount != null && b.net_amount < b.price && <p className="text-zinc-400 mt-0.5">{t("bookings_you_receive")} {fmtMoney(b.net_amount, lang)}</p>}
             </div>
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{t("contracts_job_date")}</p>
@@ -103,7 +103,7 @@ function BookingCard({ booking: b, onCancel, cancelling }: {
             </div>
             <div>
               <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] mb-0.5">{t("bookings_booked_at")}</p>
-              <p className="text-zinc-700">{formatDate(b.created_at)}</p>
+              <p className="text-zinc-700">{formatDate(b.created_at, lang)}</p>
             </div>
           </div>
 

@@ -43,9 +43,10 @@ export type TalentJobDetailProps = {
   availabilityMessage?: string;
 };
 
-function formatDate(s: string) {
+function formatDate(s: string, lang?: string) {
   if (!s) return "—";
-  return new Date(s).toLocaleDateString("pt-BR", {
+  const locale = String(lang) === "en" ? "en-US" : "pt-BR";
+  return new Date(s).toLocaleDateString(locale, {
     month: "short", day: "numeric", year: "numeric",
   });
 }
@@ -947,7 +948,7 @@ export default function TalentJobDetail({
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{pt ? "Prazo" : "Deadline"}</p>
-              <p className="text-[16px] font-semibold text-zinc-900">{formatDate(job.deadline)}</p>
+              <p className="text-[16px] font-semibold text-zinc-900">{formatDate(job.deadline, lang)}</p>
             </div>
             {formatJobLocation(job.location) && (
               <div>
