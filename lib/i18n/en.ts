@@ -601,6 +601,12 @@ export const en: Record<string, string> = {
   // â"€â"€ Plan card universal labels â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
   plan_popular_badge: "Most popular",
   plan_coming_soon: "Coming soon",
+  plan_pro_trial_badge: "FREE TRIAL",
+  plan_pro_cta: "Start Free Trial",
+  plan_pro_zero_today: "$0 Today",
+  plan_pro_then_first: "Then only {price} for your first month",
+  plan_pro_regular: "Regular price:",
+  plan_pro_no_charge: "No charge today · Cancel anytime",
   plan_per_month: "/month",
   plan_per_month_label: "per month",
   plan_commission_label: "Platform commission",

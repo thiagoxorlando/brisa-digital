@@ -1094,8 +1094,8 @@ export default function Home() {
                 ].join(" ")}
               >
                 {plan.featured && (
-                  <span className="absolute right-5 top-5 rounded-full bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-white shadow-[0_4px_16px_rgba(26,188,156,0.28)]">
-                    {t("plan_popular_badge")}
+                  <span className="absolute right-5 top-5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-white shadow-[0_4px_20px_rgba(26,188,156,0.40)]">
+                    🎁 {t("plan_pro_trial_badge")}
                   </span>
                 )}
                 {isDisabled && (
@@ -1108,34 +1108,37 @@ export default function Home() {
                   <h3 className="mt-4 text-2xl font-black text-white">{livePlan.name}</h3>
                   <p className="mt-3 text-sm leading-6 text-white/50">{plan.summary}</p>
                   {livePlan.is_available ? (
-                    <div className="mt-4">
-                      <span className="text-4xl font-black tracking-[-0.04em] text-white">{pricing.primaryPrice}</span>
-                      {plan.key !== "free" && pricing.isIntroOffer && (
-                        <div className="mt-3 space-y-1.5">
-                          {pricing.trialLine && (
-                            <p className="flex items-center gap-2 text-[13px] font-semibold text-emerald-400">
-                              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                              {pricing.trialLine}
-                            </p>
-                          )}
-                          {pricing.introLine && (
-                            <p className="flex items-center gap-2 text-[13px] text-white/70">
-                              <svg className="w-3.5 h-3.5 flex-shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                              {pricing.introLine}
-                            </p>
-                          )}
-                          {pricing.recurringLine && (
-                            <p className="flex items-center gap-2 text-[13px] text-white/50">
-                              <svg className="w-3.5 h-3.5 flex-shrink-0 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                              {pricing.recurringLine}
-                            </p>
-                          )}
+                    plan.key === "pro" && pricing.isIntroOffer && pricing.hasTrial ? (
+                      /* ── PRO trial offer — new high-impact hierarchy ── */
+                      <div className="mt-5 space-y-3">
+                        {/* Tier 1: 7 DAYS FREE — largest element */}
+                        <div>
+                          <p className="text-[2.75rem] font-black tracking-[-0.04em] leading-none text-emerald-400">
+                            {livePlan.trial_days} {lang === "en" ? "DAYS FREE" : "DIAS GRÁTIS"}
+                          </p>
+                          {/* Tier 2: $0 TODAY */}
+                          <p className="mt-2 text-[1.6rem] font-black tracking-[-0.03em] text-white leading-none">
+                            {t("plan_pro_zero_today")}
+                          </p>
                         </div>
-                      )}
-                      {plan.key !== "free" && !pricing.isIntroOffer && pricing.trialLine && (
-                        <p className="mt-2 text-[13px] font-semibold text-emerald-400">{pricing.trialLine}</p>
-                      )}
-                    </div>
+                        {/* Tier 3: Then only $29 first month */}
+                        <p className="text-[14px] font-semibold text-white/75 leading-snug">
+                          {t("plan_pro_then_first").replace("{price}", pricing.introLine?.replace(/Then |Depois /i, "").replace(/ first month.*|no primeiro.*$/i, "").trim() ?? "")}
+                        </p>
+                        {/* Tier 4: Regular price $79/month */}
+                        <p className="text-[12px] text-white/40">
+                          {t("plan_pro_regular")} {pricing.recurringLine?.replace(/^Then |^Depois /i, "")}
+                        </p>
+                      </div>
+                    ) : (
+                      /* Default pricing display (free plan, no trial, PT mode) */
+                      <div className="mt-4">
+                        <span className="text-4xl font-black tracking-[-0.04em] text-white">{pricing.primaryPrice}</span>
+                        {plan.key !== "free" && !pricing.isIntroOffer && pricing.trialLine && (
+                          <p className="mt-2 text-[13px] font-semibold text-emerald-400">{pricing.trialLine}</p>
+                        )}
+                      </div>
+                    )
                   ) : (
                     <p className="mt-4 text-4xl font-black tracking-[-0.04em] text-white/45">{t("plan_coming_soon")}</p>
                   )}
@@ -1144,8 +1147,8 @@ export default function Home() {
                       {isEscrow ? "20% por contratação concluída" : "Sem mensalidade"}
                     </p>
                   )}
-                  {livePlan.is_available && plan.key === "pro" && lang === "en" && (
-                    <p className="mt-3 text-[12px] text-white/40">Cancel anytime · No contracts</p>
+                  {livePlan.is_available && plan.key === "pro" && (
+                    <p className="mt-3 text-[12px] text-white/40">{t("plan_pro_no_charge")}</p>
                   )}
                   <ul className="mt-6 space-y-3 pb-7">
                     {highlights.map((feature) => (
@@ -1165,11 +1168,13 @@ export default function Home() {
                       className={[
                         "mt-auto inline-flex w-full items-center justify-center rounded-2xl px-5 py-3.5 text-sm font-black transition-all",
                         plan.featured
-                          ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white shadow-[0_8px_24px_rgba(26,188,156,0.28)] hover:brightness-105"
+                          ? "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] text-white shadow-[0_8px_24px_rgba(26,188,156,0.28)] hover:brightness-105 active:scale-[0.98]"
                           : "border border-white/12 bg-white/8 text-white hover:bg-white/12",
                       ].join(" ")}
                     >
-                      {t("plan_cta_prefix")} {livePlan.name}
+                      {plan.featured && pricing.hasTrial
+                        ? t("plan_pro_cta")
+                        : `${t("plan_cta_prefix")} ${livePlan.name}`}
                     </Link>
                   )}
                 </div>
