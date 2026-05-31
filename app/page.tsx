@@ -215,7 +215,9 @@ export default function Home() {
   const [checking, setChecking] = useState(true);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [livePlans, setLivePlans] = useState<LivePlanMap>(buildPlanSettingsFallback);
-  const [paymentMode, setPaymentMode] = useState<"escrow" | "internal">("escrow");
+  // Default to internal so "Escrow" never flashes before the API responds.
+  // If global mode is actually escrow, the fetch below corrects it.
+  const [paymentMode, setPaymentMode] = useState<"escrow" | "internal">("internal");
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const isEscrow = paymentMode === "escrow";
 
@@ -259,7 +261,9 @@ export default function Home() {
   const statsItems = [
     { value: "100%", label: t("landing_stat1_label"), desc: t("landing_stat1_desc") },
     { value: "2",    label: t("landing_stat2_label"), desc: t("landing_stat2_desc") },
-    { value: "PIX",  label: t("landing_stat3_label"), desc: t("landing_stat3_desc") },
+    lang === "en"
+      ? { value: "Stripe", label: "Billing", desc: "Secure card billing" }
+      : { value: "PIX",  label: t("landing_stat3_label"), desc: t("landing_stat3_desc") },
     { value: "PT/EN", label: t("landing_stat4_label"), desc: t("landing_stat4_desc") },
   ];
 
@@ -303,14 +307,23 @@ export default function Home() {
 
   function getPlanHighlights(livePlan: PublicPlanSetting) {
     if (livePlan.plan_key === "pro") {
-      return [
-        "Contratos digitais",
-        "Upload de comprovantes",
-        "Dashboard operacional",
-        "Compartilhamento por WhatsApp",
-        "Gestão de talentos",
-        "Workflow completo",
-      ];
+      return lang === "en"
+        ? [
+            "Digital contracts",
+            "Payment proof uploads",
+            "Operational dashboard",
+            "WhatsApp sharing",
+            "Talent management",
+            "Full workflow",
+          ]
+        : [
+            "Contratos digitais",
+            "Upload de comprovantes",
+            "Dashboard operacional",
+            "Compartilhamento por WhatsApp",
+            "Gestão de talentos",
+            "Workflow completo",
+          ];
     }
     const liveHighlights = planLimitHighlights(livePlan, lang, isEscrow);
     return livePlan.plan_key === "premium"
@@ -341,7 +354,7 @@ export default function Home() {
     void fetch("/api/platform/mode").then(async (res) => {
       if (!res.ok) return;
       const { mode } = await res.json() as { mode: "escrow" | "internal" };
-      if (mode === "internal") setPaymentMode("internal");
+      setPaymentMode(mode === "escrow" ? "escrow" : "internal");
     }).catch(() => undefined);
   }, []);
 
@@ -373,18 +386,18 @@ export default function Home() {
           <div className="hidden flex-1 items-center justify-center gap-0.5 md:flex">
             {(
               [
-                { id: "como-funciona",  label: "Como funciona"   },
-                { id: "funcionalidades", label: "Funcionalidades" },
-                { id: "workspace",      label: "Workspace"       },
-                { id: "planos",         label: "Planos"          },
+                { id: "como-funciona",   labelKey: "landing_nav_how"       },
+                { id: "funcionalidades", labelKey: "landing_nav_features"   },
+                { id: "workspace",       labelKey: "landing_nav_workspace"  },
+                { id: "planos",          labelKey: "landing_nav_plans"      },
               ] as const
-            ).map(({ id, label }) => (
+            ).map(({ id, labelKey }) => (
               <button
                 key={id}
                 onClick={() => scrollToSection(id)}
                 className="rounded-xl px-3 py-2 text-[13px] font-semibold text-white/50 transition-colors hover:bg-white/8 hover:text-white cursor-pointer"
               >
-                {label}
+                {t(labelKey as never)}
               </button>
             ))}
           </div>
@@ -396,6 +409,13 @@ export default function Home() {
               className="rounded-xl px-3 py-2 text-[13px] font-semibold text-white/50 transition-colors hover:bg-white/8 hover:text-white"
             >
               {t("landing_nav_signin")}
+            </Link>
+            {/* Mobile: direct signup link visible on small screens */}
+            <Link
+              href="/signup?role=agency&plan=pro"
+              className="rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-2 text-[13px] font-black text-white shadow-[0_4px_16px_rgba(26,188,156,0.28)] transition-all hover:brightness-105 sm:hidden"
+            >
+              {t("landing_nav_register")}
             </Link>
             <div className="relative hidden sm:block">
               <button
@@ -473,7 +493,7 @@ export default function Home() {
               {t("landing_hero_subtitle")}
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link href="/signup?role=agency&plan=premium" className={primaryLink}>
+              <Link href="/signup?role=agency&plan=pro" className={primaryLink}>
                 {t("landing_hero_cta_agency")}
               </Link>
               <Link href="/signup?role=talent" className={ghostLink}>
@@ -764,7 +784,7 @@ export default function Home() {
           </div>
 
           <div className="mt-10 text-center">
-            <Link href="/signup?role=agency&plan=premium" className={primaryLink}>
+            <Link href="/signup?role=agency&plan=pro" className={primaryLink}>
               {t("landing_ws_cta")}
             </Link>
           </div>
