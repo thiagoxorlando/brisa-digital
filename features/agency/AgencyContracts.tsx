@@ -166,16 +166,26 @@ function ContractCard({
   const [receiptError,     setReceiptError]     = useState<string | null>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const { t, lang } = useT();
+  const pt = lang !== "en";
+
+  // Currency-aware formatter: USD for EN, BRL for PT
+  const fmtMoney = (n: number) =>
+    pt
+      ? brl(n)
+      : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 
   const state = getContractComputedState(
     { status: c.status, paid_at: c.paidAt, deposit_paid_at: c.depositPaidAt, workspace_id: c.isAgentJobBacked ? "ws" : null },
     { isAgentJobBacked: c.isAgentJobBacked ?? false, viewerRole: "agency" },
   );
   const stCls   = state.displayTone;
-  // Premium agent-reserved: use Portuguese displayBadge; open-space: use i18n translation
+  // Premium agent-reserved: use displayBadge; escrow: standard i18n key;
+  // Internal mode: override specific statuses with internal-payment wording.
   const stLabel = state.isAgentReserved
     ? state.displayBadge
-    : t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
+    : showInternal && c.status === "signed"
+      ? t("contract_internal_status_signed")
+      : t((STATUS_LABEL_KEY[c.status] ?? "general_unknown") as Parameters<typeof t>[0]);
   const isPaid  = c.status === "paid";
 
   const isJobPast = jobDatePassed(c.jobDate);
@@ -196,7 +206,7 @@ function ContractCard({
       onUpdate(c.id, { status: nextStatus, ...updates });
     } else {
       const data = await res.json().catch(() => ({})) as { error?: string };
-      setBalanceError(data.error ?? "Erro ao processar ação.");
+      setBalanceError(data.error ?? t("agency_contracts_error_generic"));
     }
     setActing(null);
   }
@@ -239,7 +249,7 @@ function ContractCard({
       onUpdate(c.id, { agencyPaymentSentAt: new Date().toISOString() });
     } else {
       const data = await res.json().catch(() => ({})) as { error?: string };
-      setBalanceError(data.error ?? "Erro ao registrar envio do pagamento.");
+      setBalanceError(data.error ?? t("agency_contracts_error_generic"));
     }
     setActing(null);
   }
@@ -279,10 +289,10 @@ function ContractCard({
         onUpdate(c.id, { paymentReceiptUrl: buildContractFileAccessUrl(c.id, "receipt") });
         setReceiptFile(null);
       } else {
-        setReceiptError("Arquivo enviado, mas houve erro ao salvar. Tente novamente.");
+        setReceiptError(t("agency_contracts_error_receipt_save"));
       }
     } catch {
-      setReceiptError("Erro inesperado ao fazer upload.");
+      setReceiptError(t("agency_contracts_error_receipt_upload"));
     } finally {
       setUploadingReceipt(false);
     }
@@ -301,7 +311,7 @@ function ContractCard({
         </div>
 
         {/* Amount */}
-        <p className="text-[15px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">{brl(c.paymentAmount)}</p>
+        <p className="text-[15px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">{fmtMoney(c.paymentAmount)}</p>
 
         {/* Status */}
         <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0 ${stCls}`}>
@@ -324,13 +334,13 @@ function ContractCard({
             disabled={acting !== null}
             className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
           >
-            {acting === "payment_sent" ? "Registrando…" : "Marcar pagamento enviado"}
+            {acting === "payment_sent" ? t("contract_internal_marking") : t("contract_internal_mark_sent")}
           </button>
         )}
 
         {showInternal && c.status === "signed" && c.agencyPaymentSentAt && (
           <span className="flex-shrink-0 text-[12px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
-            Enviado · aguardando talento
+            {t("contract_internal_sent_badge")}
           </span>
         )}
 
@@ -346,7 +356,7 @@ function ContractCard({
                 const file = e.target.files?.[0] ?? null;
                 if (!file) return;
                 if (file.size > 10 * 1024 * 1024) {
-                  setReceiptError("Arquivo maior que 10MB.");
+                  setReceiptError(t("agency_contracts_error_receipt_size"));
                   return;
                 }
                 setReceiptFile(file);
@@ -359,7 +369,7 @@ function ContractCard({
               disabled={uploadingReceipt}
               className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300 transition-colors cursor-pointer disabled:opacity-50"
             >
-              {uploadingReceipt ? "Enviando…" : "Upload comprovante"}
+              {uploadingReceipt ? t("contract_internal_uploading") : t("contract_internal_upload_btn")}
             </button>
           </>
         )}
@@ -371,12 +381,12 @@ function ContractCard({
             target="_blank"
             rel="noopener noreferrer"
             className="flex-shrink-0 inline-flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors whitespace-nowrap"
-            title="Ver comprovante de pagamento"
+            title={t("contract_receipt_view_title")}
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
-            Comprovante
+            {t("contract_receipt_label")}
           </a>
         )}
 
@@ -420,7 +430,7 @@ function ContractCard({
               disabled={acting !== null}
               className="flex-shrink-0 text-[12px] font-semibold px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
             >
-              {acting === "cancel_job" ? "…" : "Cancelar"}
+              {acting === "cancel_job" ? "…" : t("action_cancel")}
             </button>
           </>
         )}
@@ -469,17 +479,17 @@ function ContractCard({
 
         <div className="flex items-center gap-2 flex-wrap">
           <ContractFileButton
-            label="Original"
-            missingLabel="Original indisponível"
+            label={t("contract_file_original")}
+            missingLabel={t("contract_file_original_missing")}
             url={c.contractFileUrl}
             tone="neutral"
           />
           <ContractFileButton
-            label="Assinado"
+            label={t("contract_file_signed")}
             missingLabel={
               !c.signedContractUrl && (c.signedAt || ["signed", "confirmed", "paid"].includes(c.status))
-                ? "Aceito digitalmente"
-                : "Aguardando assinatura"
+                ? t("contract_file_accepted")
+                : t("contract_file_awaiting_sig")
             }
             url={c.signedContractUrl}
             tone="success"
@@ -542,13 +552,17 @@ function ContractCard({
             <Field label={t("contracts_job_date")} value={fmtJobDate(c.jobDate, lang)} />
             <Field label={t("contracts_job_time")} value={c.jobTime ?? "—"} />
             <Field label={t("contracts_location")} value={formatJobLocation(c.location) ?? "—"} />
-            <Field label={t("contracts_payment_method")} value={c.paymentMethod ?? "—"} />
+            <Field label={t("contracts_payment_method")} value={
+              showInternal && (!c.paymentMethod || c.paymentMethod === "PIX")
+                ? t("contract_payment_method_direct")
+                : c.paymentMethod ?? "—"
+            } />
           </div>
 
           {/* Payment timeline — shows mode-appropriate progress */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">
-              {showInternal ? "Progresso do pagamento" : t("contracts_signed")}
+              {showInternal ? t("contract_internal_progress") : t("contracts_signed")}
             </p>
             <PaymentTimeline
               mode={showInternal ? "internal" : "escrow"}
@@ -563,28 +577,28 @@ function ContractCard({
           {/* Receipt section — internal mode */}
           {showInternal && (
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Comprovante de pagamento</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("contract_internal_receipt_title")}</p>
               {c.paymentReceiptUrl ? (
                 <div className="flex items-center gap-3 rounded-xl border border-teal-100 bg-teal-50 px-4 py-3">
                   <svg className="w-4 h-4 text-teal-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <p className="text-[13px] font-semibold text-teal-800 flex-1">Comprovante enviado</p>
+                  <p className="text-[13px] font-semibold text-teal-800 flex-1">{t("contract_internal_receipt_uploaded")}</p>
                   <a
                     href={c.paymentReceiptUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[12px] font-semibold text-teal-700 hover:text-teal-900 underline underline-offset-2 transition-colors"
                   >
-                    Ver arquivo
+                    {t("contract_internal_receipt_view")}
                   </a>
                   {!c.agencyPaymentSentAt && (
                     <button
                       onClick={() => receiptInputRef.current?.click()}
                       className="text-[11px] text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer ml-2"
                     >
-                      Substituir
+                      {t("contract_internal_receipt_replace")}
                     </button>
                   )}
                 </div>
@@ -595,13 +609,13 @@ function ContractCard({
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   <p className="text-[13px] text-zinc-500 flex-1">
-                    Pagamentos são gerenciados externamente pela agência.{" "}
+                    {t("contract_internal_managed_desc")}{" "}
                     <button
                       onClick={() => receiptInputRef.current?.click()}
                       disabled={uploadingReceipt}
                       className="font-semibold text-[#0E7C86] hover:underline cursor-pointer disabled:opacity-50"
                     >
-                      {uploadingReceipt ? "Enviando…" : "Fazer upload do comprovante"}
+                      {uploadingReceipt ? t("contract_internal_uploading") : t("contract_internal_upload_receipt")}
                     </button>
                   </p>
                 </div>
@@ -619,7 +633,7 @@ function ContractCard({
                   { label: t("contracts_signed"),       date: fmtDateTime(c.signedAt, lang),           done: !!c.signedAt, sublabel: null },
                   { label: t("contracts_deposit_paid"), date: fmtDateTime(c.depositPaidAt, lang),      done: isCustodyActive(c.status, c.isAgentJobBacked ?? false), sublabel: null },
                   { label: t("jobs_job_date"),           date: c.jobDate ? fmtJobDate(c.jobDate, lang) : t("general_tbd"), done: isJobPast, sublabel: null },
-                  { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt,   sublabel: c.paidByName ? `Pago por ${c.paidByName}` : null },
+                  { label: t("contracts_pay_talent"),   date: fmtDateTime(c.paidAt, lang),             done: !!c.paidAt,   sublabel: c.paidByName ? `${t("agency_contracts_paid_by")} ${c.paidByName}` : null },
                 ].map((step, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className={[
@@ -692,10 +706,12 @@ function JobGroup({
   showPaymentActions?: boolean;
   agencyConfig?: AgencyConfig;
 }) {
+  const { t } = useT();
   const pendingDeposit = contracts.filter((c) => c.status === "signed").length;
   const confirmed      = contracts.filter((c) => c.status === "confirmed" || c.status === "paid").length;
   const jobDate        = contracts[0]?.jobDate ?? null;
   const location       = contracts[0]?.location ?? null;
+  const showEscrowGroup = !agencyConfig || agencyConfig.showEscrow;
 
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
@@ -709,12 +725,12 @@ function JobGroup({
             >
               {jobTitle}
             </Link>
-            {pendingDeposit > 0 && (!agencyConfig || agencyConfig.showEscrow) && (
+            {pendingDeposit > 0 && showEscrowGroup && (
               <Link
                 href={bookingsHref}
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors"
               >
-                {pendingDeposit} depósito{pendingDeposit !== 1 ? "s" : ""} pendente{pendingDeposit !== 1 ? "s" : ""}
+                {pendingDeposit} {t("contracts_pending_deposits")}{pendingDeposit !== 1 ? "s" : ""}
               </Link>
             )}
           </div>
@@ -740,9 +756,9 @@ function JobGroup({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 text-[12px] text-zinc-400">
-          <span>{contracts.length} talento{contracts.length !== 1 ? "s" : ""}</span>
+          <span>{contracts.length} {t("contracts_talent_count")}{contracts.length !== 1 ? "s" : ""}</span>
           {confirmed > 0 && (
-            <span className="text-emerald-600 font-medium">· {confirmed} confirmado{confirmed !== 1 ? "s" : ""}</span>
+            <span className="text-emerald-600 font-medium">· {confirmed} {t("contracts_confirmed_count")}{confirmed !== 1 ? "s" : ""}</span>
           )}
         </div>
       </div>
@@ -856,7 +872,8 @@ export default function AgencyContracts({
         </div>
       )}
 
-      {pendingDeposit > 0 && (
+      {/* Pending signed contracts: escrow = "X awaiting deposit", internal = "X awaiting agency payment" */}
+      {pendingDeposit > 0 && (!agencyConfig || agencyConfig.showEscrow) && (
         <Link
           href={bookingsHref}
           className="flex items-center gap-3 bg-violet-50 border border-violet-100 hover:border-violet-200 hover:bg-violet-100 rounded-xl px-4 py-3 transition-colors"
@@ -866,6 +883,14 @@ export default function AgencyContracts({
             {pendingDeposit} {t("contract_status_signed").toLowerCase()}.
           </p>
         </Link>
+      )}
+      {pendingDeposit > 0 && agencyConfig?.showInternalConfirmation && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+          <p className="text-[13px] font-medium text-amber-800">
+            {pendingDeposit} {t("contracts_pending_signed_internal")}.
+          </p>
+        </div>
       )}
 
       {contracts.length > 0 && (!agencyConfig || agencyConfig.showCommission) && (
@@ -909,7 +934,7 @@ export default function AgencyContracts({
           <p className="text-[14px] font-medium text-zinc-500">{t("contracts_no_contracts")}</p>
           <p className="text-[13px] text-zinc-400 mt-1 max-w-sm mx-auto">
             {agencyConfig?.paymentMode === "internal"
-              ? "Acompanhe aprovações, comprovantes e confirmações de pagamento em um único lugar. Pagamentos são gerenciados diretamente pela sua agência."
+              ? t("contracts_empty_internal")
               : t("contracts_no_contracts_hint")}
           </p>
           <Link

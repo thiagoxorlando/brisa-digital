@@ -281,6 +281,49 @@ export const en: Record<string, string> = {
   agency_contracts_confirm_release: "Confirm release",
   agency_contracts_payment_confirmed_banner: "Payment confirmed! The contract will update in a moment.",
   agency_contracts_payment_cancelled_banner: "Payment cancelled. The contract remains awaiting payment.",
+
+  // ── Internal payment mode strings ──────────────────────────────────────────
+  // Status labels
+  contract_internal_status_signed:    "Awaiting Agency Payment",
+  contract_internal_status_sent_awaiting: "Sent · Awaiting Talent",
+  // Actions
+  contract_internal_mark_sent:        "Mark payment as sent",
+  contract_internal_marking:          "Registering…",
+  contract_internal_sent_badge:       "Sent · awaiting talent confirmation",
+  // Receipt
+  contract_internal_upload_btn:       "Upload receipt",
+  contract_internal_uploading:        "Uploading…",
+  contract_internal_receipt_title:    "Payment receipt",
+  contract_internal_receipt_uploaded: "Receipt uploaded",
+  contract_internal_receipt_view:     "View file",
+  contract_internal_receipt_replace:  "Replace",
+  contract_internal_managed_desc:     "Payments are handled directly by the agency.",
+  contract_internal_upload_receipt:   "Upload payment receipt",
+  contract_internal_progress:         "Payment progress",
+  // Contract file buttons
+  contract_file_original:             "Original",
+  contract_file_original_missing:     "Original unavailable",
+  contract_file_signed:               "Signed",
+  contract_file_accepted:             "Accepted digitally",
+  contract_file_awaiting_sig:         "Awaiting signature",
+  contract_receipt_label:             "Receipt",
+  contract_receipt_view_title:        "View payment receipt",
+  // Group header
+  contracts_pending_deposits:         "pending deposit",
+  contracts_talent_count:             "talent",
+  contracts_confirmed_count:          "confirmed",
+  // Empty state
+  contracts_empty_internal:           "Track approvals, receipts and payment confirmations in one place. Payments are handled directly by your agency.",
+  // Signed contracts pending banner
+  contracts_pending_signed_internal:  "awaiting agency payment",
+  // Errors
+  agency_contracts_error_generic:     "Action failed. Please try again.",
+  agency_contracts_error_receipt_size:"File exceeds 10 MB.",
+  agency_contracts_error_receipt_save:"File uploaded but failed to save. Try again.",
+  agency_contracts_error_receipt_upload: "Unexpected error during upload.",
+  agency_contracts_paid_by:           "Paid by",
+  // Payment method
+  contract_payment_method_direct:     "Direct payment",
   finances_on_the_way:          "on the way.",
   finances_no_funds:            "No funds available for withdrawal.",
   finances_history:             "Withdrawal History",
