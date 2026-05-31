@@ -12,9 +12,44 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "BrisaHub",
-  description: "Platform for managing talent, contracts, payments and bookings",
+  title: { default: "BrisaHub", template: "%s — BrisaHub" },
+  description:
+    "BrisaHub gives creative agencies a private workspace with branded talent portal, digital contracts, escrow payments and internal agents — all in one platform.",
+  keywords: [
+    "talent management",
+    "agency platform",
+    "digital contracts",
+    "talent portal",
+    "escrow payments",
+    "creative agency",
+    "talent booking",
+    "agency workspace",
+    "BrisaHub",
+  ],
   icons: { icon: "/logo.png" },
+  openGraph: {
+    title: "BrisaHub — Agency Talent Management Platform",
+    description:
+      "Private workspace for creative agencies: branded talent portal, digital contracts, escrow payments and internal agents in one place.",
+    url: "https://brisahub.com.br",
+    siteName: "BrisaHub",
+    images: [
+      {
+        url: "/images/screenshots/agencydashboard.png",
+        width: 1280,
+        height: 800,
+        alt: "BrisaHub agency dashboard",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BrisaHub — Agency Talent Management Platform",
+    description:
+      "Private workspace for creative agencies: branded talent portal, digital contracts, escrow payments and internal agents in one place.",
+    images: ["/images/screenshots/agencydashboard.png"],
+  },
 };
 
 export default async function RootLayout({
