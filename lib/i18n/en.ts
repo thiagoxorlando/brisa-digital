@@ -1797,6 +1797,7 @@ export const en: Record<string, string> = {
   // ── Billing page ──────────────────────────────────────────────────────────
   billing_title:               "Plan & Billing",
   billing_current_plan:        "Current plan",
+  billing_plan_status:         "Status",
   billing_stripe_note:         "Payments securely processed via Stripe.",
   billing_renews_on:           "renews on",
   billing_first_charge_on:     "first charge on",
@@ -1867,6 +1868,12 @@ export const en: Record<string, string> = {
   billing_plan_pro_headline:   "Complete operation without limits",
   billing_plan_premium_headline:"Premium space for private operations",
   billing_plan_trial_tag:      "Trial",
+  billing_trial_days_remaining:     "days left",
+  billing_trial_day_remaining:      "day left",
+  billing_trial_promo_first_month:  "first month",
+  billing_trial_promo_then:         "then",
+  billing_charges_trialing:         "No charges yet. Your first charge is scheduled for",
+  billing_charges_no_local:         "No local charge history yet.",
   billing_plan_scheduled_tag:  "Scheduled",
   billing_plan_next_charge_tag:"Next charge",
 

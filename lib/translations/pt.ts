@@ -1741,6 +1741,7 @@
   // ── Billing page ──────────────────────────────────────────────────────────
   billing_title:               "Plano & Cobrança",
   billing_current_plan:        "Plano atual",
+  billing_plan_status:         "Status",
   billing_stripe_note:         "Pagamentos processados com segurança via Stripe.",
   billing_renews_on:           "renova em",
   billing_first_charge_on:     "primeira cobrança em",
@@ -1811,6 +1812,12 @@
   billing_plan_pro_headline:   "Operação completa sem limites",
   billing_plan_premium_headline:"Espaço Premium para operação privada",
   billing_plan_trial_tag:      "Trial",
+  billing_trial_days_remaining:     "dias restantes",
+  billing_trial_day_remaining:      "dia restante",
+  billing_trial_promo_first_month:  "no primeiro mês",
+  billing_trial_promo_then:         "depois",
+  billing_charges_trialing:         "Nenhuma cobrança ainda. Sua primeira cobrança está agendada para",
+  billing_charges_no_local:         "Nenhum histórico local ainda.",
   billing_plan_scheduled_tag:  "Agendado",
   billing_plan_next_charge_tag:"Agendada",
 

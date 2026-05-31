@@ -365,8 +365,16 @@ export default function BillingDashboard({
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
   const { refreshPlan } = useSubscription();
 
-  const isTrialing = activePlanStatus === "trialing";
   const [currentTrialEndsAt, setCurrentTrialEndsAt] = useState<string | null>(trialEndsAt ?? null);
+  // Use trial_ends_at being in the future as the authoritative trial signal.
+  // plan_status may be "active" if the subscription.updated webhook fired before
+  // checkout.session.completed during race conditions — this makes the check robust.
+  const isEffectivelyTrialing =
+    activePlanStatus === "trialing" ||
+    (currentTrialEndsAt !== null &&
+      new Date(currentTrialEndsAt) > new Date() &&
+      activePlan !== "free");
+  const isTrialing = isEffectivelyTrialing;
   const trialDaysLeft = currentTrialEndsAt ? Math.max(0, Math.ceil((new Date(currentTrialEndsAt).getTime() - Date.now()) / 86_400_000)) : null;
   const [expiresAt, setExpiresAt] = useState(planExpiresAt);
   const [pendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
@@ -489,27 +497,60 @@ export default function BillingDashboard({
 
   return (
     <div className="max-w-3xl space-y-8">
-      {/* Trial countdown banner */}
+      {/* Trial countdown banner — prominent version with days + pricing */}
       {isTrialing && trialDaysLeft !== null && (
-        <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3.5">
-          <svg className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-semibold text-indigo-800">
-              {trialDaysLeft > 0 ? t("billing_trial_active") : t("billing_trial_ended")}
-            </p>
-            {currentTrialEndsAt && trialDaysLeft > 0 && (
-              <p className="text-[12px] text-indigo-700 mt-0.5">
-                {t("billing_trial_first_charge")} {fmtDate(currentTrialEndsAt, lang)}.{" "}
+        <div className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-5 text-white shadow-[0_8px_28px_rgba(99,102,241,0.3)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">
+                  {t("billing_trial_active")}
+                </span>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">
+                  {t("billing_plan_trial_tag")}
+                </span>
+              </div>
+              {trialDaysLeft > 0 ? (
+                <>
+                  <p className="text-[2rem] font-black tracking-[-0.04em] leading-none text-white">
+                    {trialDaysLeft} {trialDaysLeft === 1 ? t("billing_trial_day_remaining") : t("billing_trial_days_remaining")}
+                  </p>
+                  {currentTrialEndsAt && (() => {
+                    const setting = effectiveSetting(getPlanDef("pro"));
+                    const fmt = (n: number) => formatPlanPrice(n, setting.currency);
+                    const perMonth = setting.currency === "USD" ? "/month" : "/mês";
+                    return (
+                      <div className="space-y-0.5">
+                        <p className="text-[13px] text-white/90">
+                          {t("billing_trial_first_charge")} {fmtDate(currentTrialEndsAt, lang)}
+                        </p>
+                        {setting.intro_price > 0 && setting.recurring_price > 0 ? (
+                          <p className="text-[12px] text-white/70">
+                            {fmt(setting.intro_price)} {t("billing_trial_promo_first_month")} · {t("billing_trial_promo_then")} {fmt(setting.recurring_price)}{perMonth}
+                          </p>
+                        ) : setting.recurring_price > 0 ? (
+                          <p className="text-[12px] text-white/70">
+                            {fmt(setting.recurring_price)}{perMonth}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <p className="text-[15px] font-semibold text-white">{t("billing_trial_ended")}</p>
+              )}
+            </div>
+            {trialDaysLeft > 0 && (
+              <div className="flex-shrink-0">
                 <button
                   onClick={handleCancelSubscription}
                   disabled={cancelingSubscription}
-                  className="underline hover:no-underline disabled:opacity-50 cursor-pointer"
+                  className="rounded-xl border border-white/30 bg-white/10 hover:bg-white/20 px-4 py-2.5 text-[13px] font-medium text-white transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {cancelingSubscription ? t("billing_canceling") : t("billing_cancel_before_charge")}
                 </button>
-              </p>
+              </div>
             )}
           </div>
         </div>
@@ -592,8 +633,10 @@ export default function BillingDashboard({
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("billing_current_plan")}</p>
             <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{effectiveSetting(currentPlanDef).name}</p>
             <p className="text-[13px] text-zinc-500">
-              {t("billing_plan_status")}: <strong className="text-zinc-800">{planStatusLabel(activePlanStatus ?? "inactive", t)}</strong>
-              {isTrialing && currentTrialEndsAt
+              {t("billing_plan_status")}: <strong className="text-zinc-800">
+                {isEffectivelyTrialing ? t("billing_status_trialing") : planStatusLabel(activePlanStatus ?? "inactive", t)}
+              </strong>
+              {isEffectivelyTrialing && currentTrialEndsAt
                 ? ` · ${t("billing_first_charge_on")} ${fmtDate(currentTrialEndsAt, lang)}`
                 : expiresAt && activePlan !== "free"
                   ? ` · ${t("billing_renews_on")} ${fmtDate(expiresAt, lang)}`
@@ -635,9 +678,11 @@ export default function BillingDashboard({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("billing_plans_heading")}</p>
-          {expiresAt && activePlan !== "free" && (
+          {(expiresAt || (isEffectivelyTrialing && currentTrialEndsAt)) && activePlan !== "free" && (
             <p className="text-[12px] text-zinc-400">
-              {isTrialing ? `${t("billing_trial_first_charge")} ${fmtDate(expiresAt, lang)}` : `${t("billing_renews_on")} ${fmtDate(expiresAt, lang)}`}
+              {isEffectivelyTrialing
+                ? `${t("billing_trial_first_charge")} ${fmtDate((expiresAt ?? currentTrialEndsAt)!, lang)}`
+                : `${t("billing_renews_on")} ${fmtDate(expiresAt!, lang)}`}
             </p>
           )}
         </div>
@@ -804,42 +849,57 @@ export default function BillingDashboard({
               </button>
             </div>
           ) : (
-            <p className="text-[13px] text-zinc-400">{t("billing_no_charge")}</p>
+            <p className="text-[13px] text-zinc-400">
+              {isEffectivelyTrialing && currentTrialEndsAt
+                ? `${t("billing_charges_trialing")} ${fmtDate(currentTrialEndsAt, lang)}.`
+                : t("billing_no_charge")}
+            </p>
           )}
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("billing_next_charge")}</p>
-          {(expiresAt || nextChargeDate || (isTrialing && currentTrialEndsAt)) && activePlan !== "free" ? (
+          {(expiresAt || nextChargeDate || (isEffectivelyTrialing && currentTrialEndsAt)) && activePlan !== "free" ? (
             <div className="space-y-1.5">
               {(() => {
                 const setting = effectiveSetting(currentPlanDef);
                 const introPrice = setting.intro_price;
                 const recurringPrice = setting.recurring_price;
-                const showIntroPrice = isTrialing && introCyclesRemaining != null && introCyclesRemaining > 0 && introPrice > 0;
-                const displayPrice = showIntroPrice
-                  ? formatPlanPrice(introPrice, setting.currency)
-                  : effectivePriceLabel(currentPlanDef);
                 const perMonth = setting.currency === "USD" ? "/month" : "/mês";
+                const fmt = (n: number) => formatPlanPrice(n, setting.currency);
+                // During trial: show intro price as first charge amount
+                if (isEffectivelyTrialing && introPrice > 0) {
+                  return (
+                    <>
+                      <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{fmt(introPrice)}</p>
+                      {recurringPrice > 0 && recurringPrice !== introPrice && (
+                        <p className="text-[11px] text-indigo-600 font-medium">
+                          {t("billing_trial_promo_first_month")} · {t("billing_trial_promo_then")} {fmt(recurringPrice)}{perMonth}
+                        </p>
+                      )}
+                    </>
+                  );
+                }
+                // Active plan (post-trial): show recurring price
                 return (
                   <>
-                    <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{displayPrice}</p>
-                    {showIntroPrice && recurringPrice > 0 && (
+                    <p className="text-[1.5rem] font-bold tracking-tight text-zinc-900">{effectivePriceLabel(currentPlanDef)}</p>
+                    {introCyclesRemaining != null && introCyclesRemaining > 0 && recurringPrice > 0 && (
                       <p className="text-[11px] text-indigo-600 font-medium">
-                        {lang === "en" ? "Intro price · then " : "Preço intro · depois "}{formatPlanPrice(recurringPrice, setting.currency)}{perMonth}
+                        {lang === "en" ? "Intro price · then " : "Preço intro · depois "}{fmt(recurringPrice)}{perMonth}
                       </p>
                     )}
                   </>
                 );
               })()}
               <p className="text-[13px] text-zinc-600">
-                {isTrialing
+                {isEffectivelyTrialing
                   ? `${t("billing_plan_first_charge")} ${effectiveSetting(currentPlanDef).name}`
                   : `${t("billing_plan_renewal")} ${effectiveSetting(currentPlanDef).name}`}
               </p>
               <p className="text-[12px] text-zinc-400">{fmtDate((expiresAt ?? nextChargeDate ?? currentTrialEndsAt)!, lang)}</p>
               <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                {isTrialing ? t("billing_plan_trial_tag") : expiresAt ? t("billing_plan_next_charge_tag") : t("billing_plan_scheduled_tag")}
+                {isEffectivelyTrialing ? t("billing_plan_trial_tag") : expiresAt ? t("billing_plan_next_charge_tag") : t("billing_plan_scheduled_tag")}
               </span>
             </div>
           ) : (
@@ -852,8 +912,12 @@ export default function BillingDashboard({
       <div className="space-y-3">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{t("billing_charge_history")}</p>
         {planCharges.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-100 py-10 text-center">
-            <p className="text-[13px] text-zinc-400">{t("billing_no_charges_yet")}</p>
+          <div className="bg-white rounded-2xl border border-zinc-100 py-10 text-center px-6">
+            <p className="text-[13px] text-zinc-400">
+              {isEffectivelyTrialing && currentTrialEndsAt
+                ? `${t("billing_charges_trialing")} ${fmtDate(currentTrialEndsAt, lang)}.`
+                : t("billing_no_charges_yet")}
+            </p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
