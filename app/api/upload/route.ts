@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 
+// Keep the Node.js runtime and raise the body size limit so that files uploaded
+// through this route (e.g. contract PDFs from agency pages) are not silently
+// rejected by the serverless payload gate.
+export const runtime = "nodejs";
+
+// 20 MB — matches the largest limit we advertise in the UI.
+// Note: talent submission files now bypass this route entirely and upload
+// directly to Supabase Storage from the browser.
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
 function isSafeStoragePath(path: string) {
   return (
     path.length <= 500 &&
@@ -48,6 +58,11 @@ export async function POST(req: NextRequest) {
 
   if (!file || !path) {
     return NextResponse.json({ error: "file and path are required" }, { status: 400 });
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    const mb = Math.round(MAX_UPLOAD_BYTES / 1024 / 1024);
+    return NextResponse.json({ error: `File is too large. Maximum size is ${mb} MB.` }, { status: 413 });
   }
 
   if (!isSafeStoragePath(path)) {

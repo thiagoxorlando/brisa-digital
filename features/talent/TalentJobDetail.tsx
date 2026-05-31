@@ -4,6 +4,21 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+// ── File size limits ──────────────────────────────────────────────────────────
+// These limits are enforced client-side before upload.
+// Files go directly to Supabase Storage (bypassing Vercel's 4.5 MB API limit).
+const MAX_PHOTO_MB       = 5;
+const MAX_VIDEO_MB       = 200;
+const MAX_CURRICULUM_MB  = 10;
+const MAX_PORTFOLIO_MB   = 20;
+
+function fileTooLarge(file: File, maxMb: number): string | null {
+  if (file.size > maxMb * 1024 * 1024) {
+    return `File is too large. Please upload a file up to ${maxMb} MB.`;
+  }
+  return null;
+}
 import { REFERRAL_RATE } from "@/lib/plans";
 import { brl } from "@/lib/brl";
 import { isGenderEligible, genderLabel, normalizeGender } from "@/lib/genderNormalization";
@@ -232,7 +247,7 @@ function VideoStep({
                 d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
             </svg>
             <p className="text-[13px] font-medium text-zinc-500">Clique para enviar vídeo</p>
-            <p className="text-[11px] text-zinc-400 mt-1">MP4, MOV · máx 500 MB</p>
+            <p className="text-[11px] text-zinc-400 mt-1">MP4, MOV · max {MAX_VIDEO_MB} MB</p>
           </div>
         )}
       </div>
@@ -307,7 +322,7 @@ function CurriculumStep({
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{stepLabel}</p>
         <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Enviar Currículo</h2>
-        <p className="text-[13px] text-zinc-400 mt-0.5">PDF, DOC ou DOCX · máx 10 MB.</p>
+        <p className="text-[13px] text-zinc-400 mt-0.5">PDF, DOC ou DOCX · max {MAX_CURRICULUM_MB} MB.</p>
       </div>
       <div
         onClick={() => !submitting && ref.current?.click()}
@@ -379,7 +394,7 @@ function PortfolioStep({
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{stepLabel}</p>
         <h2 className="text-[1.1rem] font-semibold tracking-tight text-zinc-900">Enviar Portfólio</h2>
-        <p className="text-[13px] text-zinc-400 mt-0.5">PDF, imagem ou documento · máx 20 MB.</p>
+        <p className="text-[13px] text-zinc-400 mt-0.5">PDF, imagem ou documento · max {MAX_PORTFOLIO_MB} MB.</p>
       </div>
       <div
         onClick={() => !submitting && ref.current?.click()}
@@ -650,17 +665,22 @@ export default function TalentJobDetail({
     return labelMap[nextS] ?? "Próximo →";
   };
 
+  /**
+   * Upload directly to Supabase Storage from the browser.
+   * Bypasses the Next.js/Vercel API route entirely — no 4.5 MB serverless limit.
+   * The function returns the public URL of the uploaded file.
+   */
   async function uploadFile(file: File, path: string): Promise<string> {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("path", path);
-    const res = await fetch("/api/upload", { method: "POST", body: form });
-    if (!res.ok) {
-      const d = await res.json();
-      throw new Error(d.error ?? "Upload failed");
+    const { error } = await supabase.storage
+      .from("talent-media")
+      .upload(path, file, { upsert: true });
+
+    if (error) {
+      throw new Error(error.message ?? "Upload failed");
     }
-    const { url } = await res.json();
-    return url;
+
+    const { data } = supabase.storage.from("talent-media").getPublicUrl(path);
+    return data.publicUrl;
   }
 
   async function handleSubmit() {
@@ -694,6 +714,26 @@ export default function TalentJobDetail({
         (orderedSteps.includes("video") ? 1 : 0) +
         (orderedSteps.includes("curriculum") ? 1 : 0) +
         (orderedSteps.includes("portfolio") ? 1 : 0);
+
+      // ── Client-side size validation before any upload ──────────────────────
+      if (orderedSteps.includes("photos")) {
+        for (const f of [photos.front!, photos.left!, photos.right!]) {
+          const err = fileTooLarge(f, MAX_PHOTO_MB);
+          if (err) throw new Error(err);
+        }
+      }
+      if (orderedSteps.includes("video") && video) {
+        const err = fileTooLarge(video, MAX_VIDEO_MB);
+        if (err) throw new Error(err);
+      }
+      if (orderedSteps.includes("curriculum") && curriculum) {
+        const err = fileTooLarge(curriculum, MAX_CURRICULUM_MB);
+        if (err) throw new Error(err);
+      }
+      if (orderedSteps.includes("portfolio") && portfolio) {
+        const err = fileTooLarge(portfolio, MAX_PORTFOLIO_MB);
+        if (err) throw new Error(err);
+      }
 
       if (orderedSteps.includes("photos")) {
         setUploadProgress(`Enviando foto 1 de ${totalFiles}…`);
