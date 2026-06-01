@@ -1874,6 +1874,21 @@ export const en: Record<string, string> = {
   billing_trial_promo_then:         "then",
   billing_charges_trialing:         "No charges yet. Your first charge is scheduled for",
   billing_charges_no_local:         "No local charge history yet.",
+
+  // ── Trial status banner ──────────────────────────────────────────────────
+  trial_banner_active_title:   "Your PRO trial is active",
+  trial_banner_ended_title:    "Trial period ended",
+  trial_banner_body_before:    "You have full access to the PRO plan until",
+  trial_banner_body_after:     "Your subscription will be activated automatically — no action needed.",
+  trial_banner_ended_body:     "The trial has ended. Your subscription is now active.",
+  trial_banner_manage_link:    "Manage subscription",
+  trial_banner_compact_ended:  "PRO trial ended",
+  trial_banner_compact_charge: "charge on",
+  trial_banner_compact_manage: "Manage",
+  trial_banner_past_due_title: "Subscription payment failed",
+  trial_banner_past_due_body1: "We couldn't charge your card. Visit",
+  trial_banner_past_due_body2: "to update.",
+  trial_banner_billing_link:   "Billing",
   billing_plan_scheduled_tag:  "Scheduled",
   billing_plan_next_charge_tag:"Next charge",
 

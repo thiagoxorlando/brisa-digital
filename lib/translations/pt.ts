@@ -1818,6 +1818,21 @@
   billing_trial_promo_then:         "depois",
   billing_charges_trialing:         "Nenhuma cobrança ainda. Sua primeira cobrança está agendada para",
   billing_charges_no_local:         "Nenhum histórico local ainda.",
+
+  // ── Trial status banner ──────────────────────────────────────────────────
+  trial_banner_active_title:   "Seu trial PRO está ativo",
+  trial_banner_ended_title:    "Período de trial encerrado",
+  trial_banner_body_before:    "Você tem acesso completo ao plano PRO até",
+  trial_banner_body_after:     "Sua assinatura será ativada automaticamente — nenhuma ação necessária.",
+  trial_banner_ended_body:     "O trial encerrou. Sua assinatura já está ativa.",
+  trial_banner_manage_link:    "Gerenciar assinatura",
+  trial_banner_compact_ended:  "Trial PRO encerrado",
+  trial_banner_compact_charge: "cobrança em",
+  trial_banner_compact_manage: "Gerenciar",
+  trial_banner_past_due_title: "Falha no pagamento da assinatura",
+  trial_banner_past_due_body1: "Não foi possível cobrar seu cartão. Acesse",
+  trial_banner_past_due_body2: "para atualizar.",
+  trial_banner_billing_link:   "Cobrança",
   billing_plan_scheduled_tag:  "Agendado",
   billing_plan_next_charge_tag:"Agendada",
 

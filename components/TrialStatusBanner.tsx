@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSubscription } from "@/lib/SubscriptionContext";
+import { useT } from "@/lib/LanguageContext";
 
 type TrialStatusBannerProps = {
   className?: string;
@@ -11,6 +12,7 @@ type TrialStatusBannerProps = {
 
 export default function TrialStatusBanner({ className = "", compact = false }: TrialStatusBannerProps) {
   const { isTrialing, trialDaysRemaining, trialEndsAt, subscriptionStatus } = useSubscription();
+  const { t, lang } = useT();
 
   if (!isTrialing && subscriptionStatus !== "past_due") return null;
 
@@ -21,11 +23,11 @@ export default function TrialStatusBanner({ className = "", compact = false }: T
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-rose-800">Falha no pagamento da assinatura</p>
+          <p className="text-[13px] font-semibold text-rose-800">{t("trial_banner_past_due_title")}</p>
           <p className="text-[12px] text-rose-700 mt-0.5">
-            Não foi possível cobrar seu cartão. Acesse{" "}
-            <Link href="/agency/billing" className="underline hover:no-underline">Cobrança</Link>{" "}
-            para atualizar.
+            {t("trial_banner_past_due_body1")}{" "}
+            <Link href="/agency/billing" className="underline hover:no-underline">{t("trial_banner_billing_link")}</Link>{" "}
+            {t("trial_banner_past_due_body2")}
           </p>
         </div>
       </div>
@@ -35,8 +37,9 @@ export default function TrialStatusBanner({ className = "", compact = false }: T
   if (!isTrialing) return null;
 
   const days = trialDaysRemaining ?? 0;
+  const locale = lang === "en" ? "en-US" : "pt-BR";
   const endsDateStr = trialEndsAt
-    ? new Date(trialEndsAt).toLocaleDateString("pt-BR", { day: "numeric", month: "long" })
+    ? new Date(trialEndsAt).toLocaleDateString(locale, { day: "numeric", month: "long" })
     : null;
 
   if (compact) {
@@ -47,14 +50,14 @@ export default function TrialStatusBanner({ className = "", compact = false }: T
         </svg>
         <p className="text-[12px] font-medium text-indigo-800 flex-1">
           {days > 0
-            ? `Trial PRO: ${days} dia${days !== 1 ? "s" : ""} restante${days !== 1 ? "s" : ""}`
-            : "Trial PRO encerrado"}
+            ? `Trial PRO: ${days} ${days !== 1 ? t("billing_trial_days_remaining") : t("billing_trial_day_remaining")}`
+            : t("trial_banner_compact_ended")}
           {endsDateStr && days > 0 && (
-            <span className="text-indigo-600 ml-1">· cobrança em {endsDateStr}</span>
+            <span className="text-indigo-600 ml-1">· {t("trial_banner_compact_charge")} {endsDateStr}</span>
           )}
         </p>
         <Link href="/agency/billing" className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline flex-shrink-0">
-          Gerenciar
+          {t("trial_banner_compact_manage")}
         </Link>
       </div>
     );
@@ -66,23 +69,23 @@ export default function TrialStatusBanner({ className = "", compact = false }: T
       <div className="flex-shrink-0 flex flex-col items-center justify-center bg-indigo-600 text-white rounded-xl w-12 h-12 shadow-sm">
         <span className="text-[18px] font-black leading-none">{days}</span>
         <span className="text-[9px] font-semibold uppercase tracking-wider opacity-80 leading-none mt-0.5">
-          {days !== 1 ? "dias" : "dia"}
+          {days !== 1 ? t("billing_trial_days_remaining") : t("billing_trial_day_remaining")}
         </span>
       </div>
 
       <div className="flex-1 min-w-0">
         <p className="text-[14px] font-bold text-indigo-900">
-          {days > 0 ? "Seu trial PRO está ativo" : "Período de trial encerrado"}
+          {days > 0 ? t("trial_banner_active_title") : t("trial_banner_ended_title")}
         </p>
         {days > 0 && endsDateStr ? (
           <p className="text-[12px] text-indigo-700 mt-0.5 leading-relaxed">
-            Você tem acesso completo ao plano PRO até{" "}
-            <span className="font-semibold">{endsDateStr}</span>.
-            Sua assinatura será ativada automaticamente — nenhuma ação necessária.
+            {t("trial_banner_body_before")}{" "}
+            <span className="font-semibold">{endsDateStr}</span>.{" "}
+            {t("trial_banner_body_after")}
           </p>
         ) : (
           <p className="text-[12px] text-indigo-700 mt-0.5">
-            O trial encerrou. Sua assinatura já está ativa.
+            {t("trial_banner_ended_body")}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-3 mt-2.5">
@@ -90,7 +93,7 @@ export default function TrialStatusBanner({ className = "", compact = false }: T
             href="/agency/billing"
             className="inline-flex items-center gap-1.5 text-[12px] font-bold text-indigo-700 hover:text-indigo-900 underline"
           >
-            Gerenciar assinatura
+            {t("trial_banner_manage_link")}
           </Link>
         </div>
       </div>
