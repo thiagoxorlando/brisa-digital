@@ -365,7 +365,8 @@ function SignupPageContent() {
     else if (account.password.trim().length < 6) nextErrors.password = t("signup_val_password_len");
     if (!talent.fullName.trim()) nextErrors.fullName = t("signup_val_full_name");
     if (!talent.cpf.trim()) nextErrors.cpf = t("signup_val_cpf");
-    else if (!isValidCpf(talent.cpf)) nextErrors.cpf = t("signup_val_cpf_invalid");
+    // CPF format validation only for PT users — EN accepts any document number
+    else if (lang !== "en" && !isValidCpf(talent.cpf)) nextErrors.cpf = t("signup_val_cpf_invalid");
     if (!talent.phone.trim()) nextErrors.phone = t("signup_val_phone");
     if (!talent.country.trim()) nextErrors.country = t("signup_val_country");
     if (!talent.city.trim()) nextErrors.city = t("signup_val_city");
@@ -876,7 +877,14 @@ function SignupPageContent() {
                               </LabeledInput>
                             </div>
                             <LabeledInput label={t("signup_cpf_label")} error={errors.cpf} hint={t("signup_cpf_hint")}>
-                              <input className={inputClass(!!errors.cpf)} placeholder="000.000.000-00" inputMode="numeric" maxLength={14} value={talent.cpf} onChange={(event) => setTalentField("cpf", formatCpf(event.target.value))} />
+                              <input
+                                className={inputClass(!!errors.cpf)}
+                                placeholder={lang === "en" ? "Passport, SSN, National ID, Tax ID, etc." : "000.000.000-00"}
+                                inputMode={lang === "en" ? "text" : "numeric"}
+                                maxLength={lang === "en" ? 50 : 14}
+                                value={talent.cpf}
+                                onChange={(event) => setTalentField("cpf", lang === "en" ? event.target.value : formatCpf(event.target.value))}
+                              />
                             </LabeledInput>
                             <div className="sm:col-span-2">
                               <LabeledInput label={t("signup_phone_label")} error={errors.phone}>

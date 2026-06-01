@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useT } from "@/lib/LanguageContext";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabel } from "@/lib/talentCategories";
 import { formatCpf, isValidCpf, digitsOnly, formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
@@ -253,12 +254,12 @@ function SocialInput({
   );
 }
 
-function validateTalent(form: TalentForm, customOtherText: string): TalentErrors {
+function validateTalent(form: TalentForm, customOtherText: string, lang: string): TalentErrors {
   const errors: TalentErrors = {};
-  if (!form.fullName.trim()) errors.fullName = "Nome completo é obrigatório.";
-  else if (form.fullName.trim().length < 2) errors.fullName = "Mínimo de 2 caracteres.";
-  if (!form.cpf.trim()) errors.cpf = "CPF é obrigatório.";
-  else if (!isValidCpf(digitsOnly(form.cpf))) errors.cpf = "CPF inválido. Verifique os números.";
+  if (!form.fullName.trim()) errors.fullName = lang === "en" ? "Full name is required." : "Nome completo é obrigatório.";
+  else if (form.fullName.trim().length < 2) errors.fullName = lang === "en" ? "Minimum 2 characters." : "Mínimo de 2 caracteres.";
+  if (!form.cpf.trim()) errors.cpf = lang === "en" ? "Document number is required." : "Documento é obrigatório.";
+  else if (lang !== "en" && !isValidCpf(digitsOnly(form.cpf))) errors.cpf = "CPF inválido. Verifique os números.";
   if (!form.phone.trim()) errors.phone = "Telefone é obrigatório.";
   if (!form.country.trim()) errors.country = "País é obrigatório.";
   if (!form.city.trim()) errors.city = "Cidade é obrigatória.";
@@ -269,21 +270,25 @@ function validateTalent(form: TalentForm, customOtherText: string): TalentErrors
   return errors;
 }
 
-function validateAgency(form: AgencyForm): AgencyErrors {
+function validateAgency(form: AgencyForm, lang: string): AgencyErrors {
   const errors: AgencyErrors = {};
-  if (!form.companyName.trim()) errors.companyName = "Nome da empresa é obrigatório.";
-  else if (form.companyName.trim().length < 2) errors.companyName = "Deve ter pelo menos 2 caracteres.";
-  if (!form.contactName.trim()) errors.contactName = "Nome do contato é obrigatório.";
-  if (!form.phone.trim()) errors.phone = "Telefone é obrigatório.";
-  if (!form.country.trim()) errors.country = "País é obrigatório.";
-  if (!form.city.trim()) errors.city = "Cidade é obrigatória.";
-  if (form.description.length > 500) errors.description = "Descrição deve ter no máximo 500 caracteres.";
-  if (!form.cpfCnpj.trim()) errors.cpfCnpj = "CPF ou CNPJ é obrigatório.";
-  else if (!isValidCpfCnpj(normalizeCpfCnpj(form.cpfCnpj))) errors.cpfCnpj = "CPF (11 dígitos) ou CNPJ (14 dígitos) inválido.";
+  if (!form.companyName.trim()) errors.companyName = lang === "en" ? "Company name is required." : "Nome da empresa é obrigatório.";
+  else if (form.companyName.trim().length < 2) errors.companyName = lang === "en" ? "Must be at least 2 characters." : "Deve ter pelo menos 2 caracteres.";
+  if (!form.contactName.trim()) errors.contactName = lang === "en" ? "Contact name is required." : "Nome do contato é obrigatório.";
+  if (!form.phone.trim()) errors.phone = lang === "en" ? "Phone is required." : "Telefone é obrigatório.";
+  if (!form.country.trim()) errors.country = lang === "en" ? "Country is required." : "País é obrigatório.";
+  if (!form.city.trim()) errors.city = lang === "en" ? "City is required." : "Cidade é obrigatória.";
+  if (form.description.length > 500) errors.description = lang === "en" ? "Description must be at most 500 characters." : "Descrição deve ter no máximo 500 caracteres.";
+  // CPF/CNPJ only required for PT/Brazilian users — EN users use Stripe (no CPF needed)
+  if (lang !== "en") {
+    if (!form.cpfCnpj.trim()) errors.cpfCnpj = "CPF ou CNPJ é obrigatório.";
+    else if (!isValidCpfCnpj(normalizeCpfCnpj(form.cpfCnpj))) errors.cpfCnpj = "CPF (11 dígitos) ou CNPJ (14 dígitos) inválido.";
+  }
   return errors;
 }
 
 function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void }) {
+  const { lang } = useT();
   const [form, setForm] = useState<TalentForm>(TALENT_DEFAULTS);
   const [errors, setErrors] = useState<TalentErrors>({});
   const [customOtherText, setCustomOtherText] = useState("");
@@ -374,7 +379,7 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
   async function handleSubmit() {
     if (loading) return;
 
-    const validation = validateTalent(form, customOtherText);
+    const validation = validateTalent(form, customOtherText, lang);
     setErrors(validation);
     if (Object.keys(validation).length > 0) return;
 
@@ -457,14 +462,18 @@ function TalentSetup({ userId, onDone }: { userId: string; onDone: () => void })
                 />
               </Field>
             </div>
-            <Field label="CPF *" error={errors.cpf} hint="Somente números — 11 dígitos">
+            <Field
+              label={lang === "en" ? "Document Number *" : "Documento *"}
+              error={errors.cpf}
+              hint={lang === "en" ? "Enter your identification document number" : "Somente números — 11 dígitos (CPF)"}
+            >
               <input
                 className={inputCls(!!errors.cpf)}
-                placeholder="000.000.000-00"
-                inputMode="numeric"
-                maxLength={14}
+                placeholder={lang === "en" ? "Passport, SSN, National ID, Tax ID, etc." : "000.000.000-00"}
+                inputMode={lang === "en" ? "text" : "numeric"}
+                maxLength={lang === "en" ? 50 : 14}
                 value={form.cpf}
-                onChange={(event) => update("cpf", formatCpf(event.target.value))}
+                onChange={(event) => update("cpf", lang === "en" ? event.target.value : formatCpf(event.target.value))}
               />
             </Field>
             <Field label="Telefone *" error={errors.phone}>
@@ -613,6 +622,7 @@ function AgencySetup({
   onDone: () => void;
   initialPlan?: "free" | "pro" | "premium";
 }) {
+  const { lang } = useT();
   const [form, setForm] = useState<AgencyForm>({ ...AGENCY_DEFAULTS, plan: initialPlan });
   const [errors, setErrors] = useState<AgencyErrors>({});
   const [logo, setLogo] = useState<File | null>(null);
@@ -690,7 +700,7 @@ function AgencySetup({
   function set<K extends keyof AgencyForm>(key: K, value: AgencyForm[K]) {
     const updated = { ...form, [key]: value };
     setForm(updated);
-    setErrors(validateAgency(updated));
+    setErrors(validateAgency(updated, lang));
     setServerError("");
   }
 
@@ -723,7 +733,7 @@ function AgencySetup({
   async function handleSubmit() {
     if (loading) return;
 
-    const validation = validateAgency(form);
+    const validation = validateAgency(form, lang);
     setErrors(validation);
     if (Object.keys(validation).length > 0) return;
 
@@ -789,7 +799,7 @@ function AgencySetup({
         const cleanDoc = normalizeCpfCnpj(form.cpfCnpj);
         if (!isValidCpfCnpj(cleanDoc)) {
           paymentWindow?.close();
-          setServerError("CPF/CNPJ inválido. Verifique os números e tente novamente.");
+          setServerError(lang === "en" ? "Invalid document number. Please check and try again." : "CPF/CNPJ inválido. Verifique os números e tente novamente.");
           setLoading(false);
           return;
         }
@@ -902,16 +912,18 @@ function AgencySetup({
           <Field label="Nome do contato/responsável *" error={errors.contactName}>
             <input className={inputCls(!!errors.contactName)} placeholder="Carlos Rodrigues" value={form.contactName} onChange={(event) => set("contactName", event.target.value)} />
           </Field>
-          <Field label="CPF / CNPJ *" error={errors.cpfCnpj} hint="Necessário para emissão de cobranças">
-            <input
-              className={inputCls(!!errors.cpfCnpj)}
-              placeholder="000.000.000-00 ou 00.000.000/0001-00"
-              inputMode="numeric"
-              maxLength={18}
-              value={form.cpfCnpj}
-              onChange={(event) => set("cpfCnpj", formatCpfCnpj(event.target.value))}
-            />
-          </Field>
+          {lang !== "en" && (
+            <Field label="CPF / CNPJ *" error={errors.cpfCnpj} hint="Necessário para emissão de cobranças">
+              <input
+                className={inputCls(!!errors.cpfCnpj)}
+                placeholder="000.000.000-00 ou 00.000.000/0001-00"
+                inputMode="numeric"
+                maxLength={18}
+                value={form.cpfCnpj}
+                onChange={(event) => set("cpfCnpj", formatCpfCnpj(event.target.value))}
+              />
+            </Field>
+          )}
           <Field label="Telefone *" error={errors.phone}>
             <PhoneInput value={form.phone} onChange={(value) => set("phone", value)} hasError={!!errors.phone} required />
           </Field>
