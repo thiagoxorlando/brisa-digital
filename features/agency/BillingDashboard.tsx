@@ -648,16 +648,20 @@ export default function BillingDashboard({
               </p>
               <p className="text-[1.25rem] font-black tracking-tight text-white">
                 {lang === "en"
-                  ? "Your agency workspace is paused."
-                  : "Seu workspace de agência está pausado."}
+                  ? proTrialUsed
+                    ? "Reactivate your PRO subscription."
+                    : "Your agency workspace is paused."
+                  : proTrialUsed
+                    ? "Reative sua assinatura PRO."
+                    : "Seu workspace de agência está pausado."}
               </p>
               <p className="text-[13px] text-white/75">
                 {lang === "en"
                   ? proTrialUsed
-                    ? "Reactivate PRO to restore full access. No free trial — charge is immediate."
+                    ? "Reactivate your PRO subscription to restore full access."
                     : "Start your 7-day free PRO trial to restore full access."
                   : proTrialUsed
-                    ? "Reative o PRO para restaurar o acesso completo. Sem trial — cobrança imediata."
+                    ? "Reative sua assinatura PRO para restaurar o acesso completo."
                     : "Inicie seu teste grátis de 7 dias do PRO para restaurar o acesso completo."}
               </p>
             </div>
@@ -849,6 +853,8 @@ export default function BillingDashboard({
                         ? t("billing_plan_processing")
                         : p.key === "pro" && activePlan === "free" && proTrialEnabled && !proTrialUsed
                           ? t("billing_plan_start_trial")
+                        : p.key === "pro" && activePlan === "free" && proTrialUsed
+                          ? (lang === "en" ? "Reactivate PRO" : "Reativar PRO")
                         : p.key === "premium" && activePlan === "free"
                           ? t("billing_plan_choose_premium")
                         : activePlan === "free"
