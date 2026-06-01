@@ -8,7 +8,7 @@ import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { supabase } from "@/lib/supabase";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabelForLang } from "@/lib/talentCategories";
-import { formatCpf, formatCpfCnpj, isValidCpf, isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
+import { formatCpf, formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
@@ -364,9 +364,8 @@ function SignupPageContent() {
     if (!account.password.trim()) nextErrors.password = t("signup_val_password");
     else if (account.password.trim().length < 6) nextErrors.password = t("signup_val_password_len");
     if (!talent.fullName.trim()) nextErrors.fullName = t("signup_val_full_name");
+    // Document number: required but no format validation — field is international.
     if (!talent.cpf.trim()) nextErrors.cpf = t("signup_val_cpf");
-    // CPF format validation only for PT users — EN accepts any document number
-    else if (lang !== "en" && !isValidCpf(talent.cpf)) nextErrors.cpf = t("signup_val_cpf_invalid");
     if (!talent.phone.trim()) nextErrors.phone = t("signup_val_phone");
     if (!talent.country.trim()) nextErrors.country = t("signup_val_country");
     if (!talent.city.trim()) nextErrors.city = t("signup_val_city");
@@ -887,7 +886,7 @@ function SignupPageContent() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="sm:col-span-2">
                         <LabeledInput label={t("signup_email_label")} error={errors.email}>
-                          <input type="email" required value={account.email} onChange={isEmailLocked ? undefined : (event) => setAccountField("email", event.target.value)} readOnly={isEmailLocked} placeholder="voce@empresa.com" className={inputClass(!!errors.email, isEmailLocked)} />
+                          <input type="email" required value={account.email} onChange={isEmailLocked ? undefined : (event) => setAccountField("email", event.target.value)} readOnly={isEmailLocked} placeholder={lang === "en" ? "you@company.com" : "voce@empresa.com"} className={inputClass(!!errors.email, isEmailLocked)} />
                         </LabeledInput>
                         {isEmailLocked && (
                           <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-teal-600">
@@ -919,7 +918,7 @@ function SignupPageContent() {
                           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="sm:col-span-2">
                               <LabeledInput label={t("signup_full_name_label")} error={errors.fullName}>
-                                <input className={inputClass(!!errors.fullName)} placeholder="Sofia Mendes" value={talent.fullName} onChange={(event) => setTalentField("fullName", event.target.value)} />
+                                <input className={inputClass(!!errors.fullName)} placeholder={lang === "en" ? "Alex Johnson" : "Sofia Mendes"} value={talent.fullName} onChange={(event) => setTalentField("fullName", event.target.value)} />
                               </LabeledInput>
                             </div>
                             <LabeledInput label={t("signup_cpf_label")} error={errors.cpf} hint={t("signup_cpf_hint")}>
@@ -1026,10 +1025,10 @@ function SignupPageContent() {
 
                       <SectionCard eyebrow={t("signup_social_eyebrow")} title={t("signup_social_title")}>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <SocialInput label="Instagram" prefix="@" placeholder="seuhandle" value={talent.instagram} onChange={(value) => setTalentField("instagram", value)} />
-                          <SocialInput label="TikTok" prefix="@" placeholder="seuhandle" value={talent.tiktok} onChange={(value) => setTalentField("tiktok", value)} />
-                          <SocialInput label="YouTube" placeholder="https://youtube.com/@canal" value={talent.youtube} onChange={(value) => setTalentField("youtube", value)} />
-                          <SocialInput label="LinkedIn" placeholder="https://linkedin.com/in/seuperfil" value={talent.linkedin} onChange={(value) => setTalentField("linkedin", value)} />
+                          <SocialInput label="Instagram" prefix="@" placeholder="yourhandle" value={talent.instagram} onChange={(value) => setTalentField("instagram", value)} />
+                          <SocialInput label="TikTok" prefix="@" placeholder="yourhandle" value={talent.tiktok} onChange={(value) => setTalentField("tiktok", value)} />
+                          <SocialInput label="YouTube" placeholder="https://youtube.com/@channel" value={talent.youtube} onChange={(value) => setTalentField("youtube", value)} />
+                          <SocialInput label="LinkedIn" placeholder="https://linkedin.com/in/yourprofile" value={talent.linkedin} onChange={(value) => setTalentField("linkedin", value)} />
                           <div className="sm:col-span-2">
                             <SocialInput label={t("signup_website_label")} placeholder="https://seuperfil.com" value={talent.website} onChange={(value) => setTalentField("website", value)} />
                           </div>
@@ -1104,7 +1103,7 @@ function SignupPageContent() {
                       <SectionCard eyebrow={t("signup_agency_profile_eyebrow")} title={t("signup_agency_profile_title")}>
                         <div className="grid grid-cols-1 gap-4">
                           <LabeledInput label={t("signup_website_label")}>
-                            <input className={inputClass()} placeholder="https://suaagencia.com" value={agency.website} onChange={(event) => setAgencyField("website", event.target.value)} />
+                            <input className={inputClass()} placeholder={lang === "en" ? "https://youragency.com" : "https://suaagencia.com"} value={agency.website} onChange={(event) => setAgencyField("website", event.target.value)} />
                           </LabeledInput>
                           <LabeledInput label={`${t("signup_desc_label")} — ${agency.description.length}/500`} error={errors.description}>
                             <textarea rows={4} className={`${inputClass(!!errors.description)} resize-none`} placeholder={lang === "en" ? "Briefly describe what your agency does..." : "Conte rapidamente o que faz a sua agência..."} value={agency.description} onChange={(event) => setAgencyField("description", event.target.value)} />
