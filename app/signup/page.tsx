@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { supabase } from "@/lib/supabase";
-import { TALENT_CATEGORY_LABELS } from "@/lib/talentCategories";
+import { TALENT_CATEGORY_LABELS, talentCategoryLabelForLang } from "@/lib/talentCategories";
 import { formatCpf, formatCpfCnpj, isValidCpf, isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
@@ -985,7 +985,7 @@ function SignupPageContent() {
                             </LabeledInput>
                           </div>
                           <LabeledInput label={`${t("signup_bio_label")} — ${talent.bio.length}/300`} error={errors.bio}>
-                            <textarea rows={4} className={`${inputClass(!!errors.bio)} resize-none`} placeholder="Sou um criador de lifestyle baseado em São Paulo..." value={talent.bio} onChange={(event) => setTalentField("bio", event.target.value)} />
+                            <textarea rows={4} className={`${inputClass(!!errors.bio)} resize-none`} placeholder={lang === "en" ? "Tell agencies what makes you unique and what you do..." : "Sou um criador de lifestyle baseado em São Paulo..."} value={talent.bio} onChange={(event) => setTalentField("bio", event.target.value)} />
                           </LabeledInput>
                           <div>
                             <p className="mb-1.5 block text-[12px] font-medium text-[#516667]">{t("signup_categories_label")}</p>
@@ -1008,7 +1008,7 @@ function SignupPageContent() {
                                       active ? "bg-[#1F2D2E] text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
                                     ].join(" ")}
                                   >
-                                    {category === "Outro" ? t("signup_category_other") : category}
+                                    {category === "Outro" ? t("signup_category_other") : talentCategoryLabelForLang(category, lang)}
                                   </button>
                                 );
                               })}
@@ -1016,7 +1016,7 @@ function SignupPageContent() {
                             {talent.categories.includes("Outro") ? (
                               <div className="mt-4">
                                 <LabeledInput label={t("signup_other_desc_label")} error={errors.customOther}>
-                                  <input className={inputClass(!!errors.customOther)} placeholder="Ex: DJ, Mágico, Dublador..." value={customOtherText} onChange={(event) => setCustomOtherText(event.target.value)} />
+                                  <input className={inputClass(!!errors.customOther)} placeholder={lang === "en" ? "e.g. DJ, Magician, Voice Actor..." : "Ex: DJ, Mágico, Dublador..."} value={customOtherText} onChange={(event) => setCustomOtherText(event.target.value)} />
                                 </LabeledInput>
                               </div>
                             ) : null}
@@ -1107,7 +1107,7 @@ function SignupPageContent() {
                             <input className={inputClass()} placeholder="https://suaagencia.com" value={agency.website} onChange={(event) => setAgencyField("website", event.target.value)} />
                           </LabeledInput>
                           <LabeledInput label={`${t("signup_desc_label")} — ${agency.description.length}/500`} error={errors.description}>
-                            <textarea rows={4} className={`${inputClass(!!errors.description)} resize-none`} placeholder="Conte rapidamente o que faz a sua agência..." value={agency.description} onChange={(event) => setAgencyField("description", event.target.value)} />
+                            <textarea rows={4} className={`${inputClass(!!errors.description)} resize-none`} placeholder={lang === "en" ? "Briefly describe what your agency does..." : "Conte rapidamente o que faz a sua agência..."} value={agency.description} onChange={(event) => setAgencyField("description", event.target.value)} />
                           </LabeledInput>
                         </div>
                       </SectionCard>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildRateLimitKey, checkRateLimit, getRequestIp } from "@/lib/rateLimit";
 import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
-import { isValidCpf, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
 
 const VALID_ROLES = ["agency", "talent"] as const;
 const TERMS_VERSION = "terms_v1_2026_05";
@@ -129,11 +129,9 @@ export async function POST(req: NextRequest) {
 
   if (role === "talent") {
     const talentData = (talent ?? {}) as Record<string, unknown>;
+    // Accept any document number — the field is international (Passport, SSN, etc).
+    // CPF format validation has been removed; only normalization for storage.
     const talentCpf = normalizeCpfCnpj((talentData.cpf as string | null | undefined) ?? null);
-
-    if (talentCpf && !isValidCpf(talentCpf)) {
-      return NextResponse.json({ error: "CPF inválido." }, { status: 400 });
-    }
 
     // Reactivate if soft-deleted, create if missing
     const { error: talentErr } = await supabase
