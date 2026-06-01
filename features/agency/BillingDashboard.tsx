@@ -65,24 +65,24 @@ const PLANS = [
     gradient: "from-zinc-300 to-zinc-400",
     headlineKey: "billing_plan_free_headline",
     features: [
-      "1 vaga ativa",
-      "Ate 3 contratacoes por vaga",
-      "Contratos digitais",
+      "1 active job",
+      "Up to 3 hires per job",
+      "Digital contracts",
     ],
   },
   {
     key: "pro" as const,
     name: PLAN_DEFINITIONS.pro.label,
     price: PLAN_DEFINITIONS.pro.price,
-    period: "/mes",
+    period: "/month",
     badge: "POPULAR" as const,
     gradient: "from-indigo-500 to-violet-600",
     headlineKey: "billing_plan_pro_headline",
     features: [
-      "Vagas ilimitadas",
-      "Contratacoes ilimitadas",
-      "Upload de comprovantes de pagamento",
-      "Historico completo de contratos",
+      "Unlimited active jobs",
+      "Unlimited hires per job",
+      "Payment receipt uploads",
+      "Full contract history",
     ],
   },
   {
@@ -94,10 +94,10 @@ const PLANS = [
     gradient: "from-violet-500 to-purple-700",
     headlineKey: "billing_plan_premium_headline",
     features: [
-      "Espaco Premium com branding proprio",
-      "Vagas privadas por convite",
-      "Gestao de equipe e assentos",
-      "Controle de limites por agente",
+      "Premium Space with branding",
+      "Private invite-only jobs",
+      "Team and seat management",
+      "Per-agent usage limits",
     ],
   },
 ] as const;
@@ -402,7 +402,7 @@ export default function BillingDashboard({
   }
   function effectivePriceLabel(p: PlanDef) {
     const setting = effectiveSetting(p);
-    return setting.is_available ? formatPlanPricing(setting).primaryPrice : t("billing_plan_soon");
+    return setting.is_available ? formatPlanPricing(setting, lang).primaryPrice : t("billing_plan_soon");
   }
   function effectiveTrialLabel(p: PlanDef) {
     if (p.key !== "pro" || !proTrialEnabled) return null;
@@ -740,7 +740,7 @@ export default function BillingDashboard({
                     <span className="text-[1.75rem] font-bold tracking-tighter text-zinc-900">{effectivePriceLabel(p)}</span>
                   </div>
                   {available ? (() => {
-                    const pricingLines = formatPlanPricing(effectiveSetting(p));
+                    const pricingLines = formatPlanPricing(effectiveSetting(p), lang);
                     const trialLabel = effectiveTrialLabel(p);
                     if (pricingLines.isIntroOffer && !introCyclesRemaining) {
                       return (
