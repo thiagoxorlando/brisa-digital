@@ -50,7 +50,7 @@ export default async function AgencyLayout({
         .single(),
       supabase
         .from("profiles")
-        .select("plan")
+        .select("plan, plan_status, trial_ends_at")
         .eq("id", user?.id ?? "")
         .single(),
     ]),
@@ -75,7 +75,17 @@ export default async function AgencyLayout({
     }
   }
 
-  const planInfo = resolvePlanInfo(profile);
+  // If profiles.plan is still "free" but a Stripe trial is active, treat as "pro".
+  // This corrects the state where the checkout webhook wrote trial_ends_at/plan_status
+  // but a missing DB column (pro_trial_started_at) caused the plan write to fail.
+  const rawPlan = profile?.plan ?? "free";
+  const trialActive =
+    profile?.plan_status === "trialing" ||
+    (profile?.trial_ends_at
+      ? new Date(profile.trial_ends_at as string) > new Date()
+      : false);
+  const effectivePlan = rawPlan === "free" && trialActive ? "pro" : rawPlan;
+  const planInfo = resolvePlanInfo({ ...profile, plan: effectivePlan });
   const agencyStatus = agency?.subscription_status ?? "active";
 
   // Workspace members (owner or agent) are always considered active in the layout.

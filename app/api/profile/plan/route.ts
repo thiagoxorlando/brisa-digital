@@ -33,8 +33,17 @@ export async function GET() {
       console.warn("[profile/plan] recovery skipped", { userId: user.id, reason: recovery.reason });
     }
   }
-  const plan = ((profileRow?.plan as string | null) ?? "free") as Plan;
+  const rawPlan = ((profileRow?.plan as string | null) ?? "free") as Plan;
   const trialEndsAt = profileRow?.trial_ends_at ?? null;
+  const planStatusFromDb = profileRow?.plan_status ?? null;
+
+  // Apply the same correction as the billing page and agency layout:
+  // if plan is "free" but Stripe trial is active, treat as "pro".
+  const trialActive =
+    planStatusFromDb === "trialing" ||
+    (trialEndsAt ? new Date(trialEndsAt) > new Date() : false);
+  const plan: Plan = (rawPlan === "free" && trialActive) ? "pro" : rawPlan;
+
   const subscriptionStatus = getSubscriptionStatus({
     plan,
     plan_status:    profileRow?.plan_status ?? null,
