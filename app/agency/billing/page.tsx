@@ -206,17 +206,23 @@ export default async function BillingPage() {
   let directTrialEndsAt: string | null = null;
   let directStripeSubId: string | null = null;
   let directPlanStatus: string | null = null;
+  let directProTrialUsed: boolean = false;
   try {
     const { data: trialRow } = await supabase
       .from("profiles")
-      .select("trial_ends_at, stripe_subscription_id, plan_status")
+      // pro_trial_used is NOT in FULL_PROFILE_SELECT (asaasPlanSync.server.ts) so
+      // fetchAgencySubscriptionProfile never returns it — always undefined → false.
+      // We read it here directly so the billing UI correctly shows "Reactivate PRO"
+      // vs "Start free trial" based on the actual DB value.
+      .select("trial_ends_at, stripe_subscription_id, plan_status, pro_trial_used")
       .eq("id", userId)
       .maybeSingle();
     if (trialRow) {
       const r = trialRow as Record<string, unknown>;
-      directTrialEndsAt = (r.trial_ends_at as string | null) ?? null;
-      directStripeSubId = (r.stripe_subscription_id as string | null) ?? null;
-      directPlanStatus  = (r.plan_status as string | null) ?? null;
+      directTrialEndsAt  = (r.trial_ends_at as string | null) ?? null;
+      directStripeSubId  = (r.stripe_subscription_id as string | null) ?? null;
+      directPlanStatus   = (r.plan_status as string | null) ?? null;
+      directProTrialUsed = Boolean(r.pro_trial_used ?? false);
     }
   } catch {
     // non-fatal — column may not exist in this environment
@@ -313,7 +319,9 @@ export default async function BillingPage() {
     profileForIntro?.intro_cycles_remaining != null
       ? Number(profileForIntro.intro_cycles_remaining)
       : null;
-  const proTrialUsed = Boolean(profileForIntro?.pro_trial_used ?? false);
+  // directProTrialUsed is authoritative — profileRow never includes pro_trial_used
+  // (FULL_PROFILE_SELECT omits it) so profileForIntro?.pro_trial_used is always undefined.
+  const proTrialUsed = directProTrialUsed || Boolean(profileForIntro?.pro_trial_used ?? false);
 
   return (
     <BillingDashboard
