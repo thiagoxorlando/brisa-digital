@@ -263,7 +263,9 @@ function SignupPageContent() {
   const jobId = searchParams.get("job") ?? null;
   const nextPath = safeNextPath(searchParams.get("next")) ?? (jobId ? `/talent/jobs/${jobId}` : null);
   const isPortalWorkspaceSignup = Boolean(nextPath?.startsWith("/talent/workspaces/"));
-  const initialPlan = (["free", "pro", "premium"].includes(searchParams.get("plan") ?? "") ? searchParams.get("plan") : "free") as Plan;
+  // Free plan is hidden from signup UI but remains valid internally for enforcement.
+  // Default to Pro so users start the trial-first conversion funnel.
+  const initialPlan = (["pro", "premium"].includes(searchParams.get("plan") ?? "") ? searchParams.get("plan") : "pro") as Plan;
 
   const [account, setAccount] = useState<AccountForm>({
     role: initialRole === "talent" ? "talent" : "agency",
@@ -1059,48 +1061,7 @@ function SignupPageContent() {
                       <SectionCard eyebrow={t("signup_plan_eyebrow")} title={t("signup_plan_title")}>
                         <div className="space-y-3">
 
-                          {/* ── Free ── */}
-                          {(() => {
-                            const active = agency.plan === "free";
-                            const available = livePlans.free.is_available;
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => { if (available) setAgencyField("plan", "free"); }}
-                                disabled={!available}
-                                className={[
-                                  "w-full flex items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60",
-                                  active
-                                    ? "border-[#1ABC9C] bg-[#F0FDF9] shadow-[0_0_0_3px_rgba(26,188,156,0.1)]"
-                                    : "border-[#E2ECED] bg-white hover:border-[#A8D8D8] hover:bg-[#FAFEFE]",
-                                ].join(" ")}
-                              >
-                                <span className={["flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors", active ? "border-[#1ABC9C] bg-[#1ABC9C]" : "border-zinc-300 bg-white"].join(" ")}>
-                                  {active && <span className="w-2 h-2 rounded-full bg-white" />}
-                                </span>
-                                <div className="flex-shrink-0 w-24 text-left">
-                                  <p className="text-[18px] font-black tracking-tight text-zinc-900 leading-none">
-                                    {formatPlanLine(livePlans.free)}
-                                  </p>
-                                  {available ? <p className="text-[11px] text-zinc-400 mt-0.5">{t("plan_per_month_label")}</p> : null}
-                                </div>
-                                <div className="flex-shrink-0 h-10 w-px bg-zinc-200" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <p className="text-[14px] font-bold text-zinc-800">{livePlans.free.name}</p>
-                                    {!available && (
-                                      <span className="text-[10px] font-semibold text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded-full">{t("plan_coming_soon")}</span>
-                                    )}
-                                  </div>
-                                  <p className="text-[12px] text-zinc-500 leading-relaxed">
-                                    {available ? planLimitHighlights(livePlans.free, lang).slice(0, 2).join(" · ") : t("plan_coming_soon")}
-                                  </p>
-                                </div>
-                              </button>
-                            );
-                          })()}
-
-                          {/* ── Pro (featured) ── */}
+                          {/* ── Pro (featured, default) ── */}
                           {(() => {
                             const active = agency.plan === "pro";
                             const proAvailable = livePlans.pro.is_available;
@@ -1186,13 +1147,31 @@ function SignupPageContent() {
                         </div>
                         {errors.plan ? <FieldError error={errors.plan} /> : null}
                         <div className="mt-4 rounded-2xl border border-[#DDE6E6] bg-[#F7FBFB] px-4 py-3">
-                          <p className="text-[12px] font-semibold text-[#1F2D2E]">{t("signup_chosen_plan_prefix")} {selectedPlan.name}</p>
+                          <p className="text-[12px] font-semibold text-[#1F2D2E]">
+                            {t("signup_chosen_plan_prefix")}{" "}
+                            {agency.plan === "pro"
+                              ? (lang === "en" ? "Pro Trial" : "Teste PRO")
+                              : selectedPlan.name}
+                          </p>
                           <p className="mt-1 text-[12px] leading-5 text-[#647B7B]">
-                            {selectedPlan.is_available && selectedPlan.price > 0
-                              ? `${t("signup_plan_paid_desc_a")} ${selectedPlan.name} ${t("signup_plan_paid_desc_b")}`
-                              : selectedPlan.is_available
-                                ? `${t("signup_plan_free_desc_a")} ${selectedPlan.name} ${t("signup_plan_free_desc_b")}`
-                                : t("signup_plan_unavail_msg")}
+                            {(() => {
+                              if (!selectedPlan.is_available) return t("signup_plan_unavail_msg");
+                              // Pro trial: show clear trial → intro → recurring breakdown
+                              if (agency.plan === "pro") {
+                                const pp = formatPlanPricing(selectedPlan, lang);
+                                const trial   = pp.trialLine   ?? (lang === "en" ? "7-day free trial" : "7 dias grátis");
+                                const intro   = pp.introLine   ?? "";
+                                const recur   = pp.recurringLine ?? "";
+                                return lang === "en"
+                                  ? `You will start with a ${trial}. Your first charge is ${intro}, ${recur}.`
+                                  : `Você começará com ${trial}. Sua primeira cobrança será ${intro}, ${recur}.`;
+                              }
+                              // Premium / other paid plans
+                              if (selectedPlan.price > 0) {
+                                return `${t("signup_plan_paid_desc_a")} ${selectedPlan.name} ${t("signup_plan_paid_desc_b")}`;
+                              }
+                              return t("signup_plan_unavail_msg");
+                            })()}
                           </p>
                         </div>
                       </SectionCard>
