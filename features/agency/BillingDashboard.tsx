@@ -367,6 +367,11 @@ export default function BillingDashboard({
       new Date(currentTrialEndsAt) > new Date() &&
       activePlan !== "free");
   const isTrialing = isEffectivelyTrialing;
+  // pro_trial_used is set to true as soon as the Stripe trial starts.
+  // It means "eligibility exhausted" (no second trial), NOT "currently reactivating".
+  // A brand-new account has pro_trial_used=true AND plan_status=trialing simultaneously.
+  // Use isReactivation (trial used + NOT currently in trial) to guard pricing display.
+  const isReactivation = proTrialUsed && !isTrialing;
   const trialDaysLeft = currentTrialEndsAt ? Math.max(0, Math.ceil((new Date(currentTrialEndsAt).getTime() - Date.now()) / 86_400_000)) : null;
   const [expiresAt, setExpiresAt] = useState(planExpiresAt);
   const [pendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
@@ -395,8 +400,9 @@ export default function BillingDashboard({
   function effectivePriceLabel(p: PlanDef) {
     const setting = effectiveSetting(p);
     if (!setting.is_available) return t("billing_plan_soon");
-    // When trial/intro already used, show recurring price as headline — not intro price.
-    if (p.key === "pro" && proTrialUsed && setting.recurring_price > 0) {
+    // Reactivation (not in trial, trial already used): show recurring price as headline.
+    // Active trial (isTrialing=true, proTrialUsed=true): keep intro price as headline.
+    if (p.key === "pro" && isReactivation && setting.recurring_price > 0) {
       return formatPlanPrice(setting.recurring_price, setting.currency);
     }
     return formatPlanPricing(setting, lang).primaryPrice;
@@ -418,7 +424,7 @@ export default function BillingDashboard({
     if (introCyclesRemaining === 0) {
       return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
     }
-    if (proTrialUsed) {
+    if (isReactivation) {
       return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
     }
     if (trialDays > 0 && introPrice > 0 && introCycles > 0 && recurringPrice > 0) {
@@ -804,9 +810,10 @@ export default function BillingDashboard({
                   {available ? (() => {
                     const pricingLines = formatPlanPricing(effectiveSetting(p), lang);
                     const trialLabel = effectiveTrialLabel(p);
-                    // Show trial/intro pricing lines only when trial hasn't been used.
-                    // proTrialUsed=true means this is a reactivation — show recurring price only.
-                    if (pricingLines.isIntroOffer && !introCyclesRemaining && !proTrialUsed) {
+                    // Show trial/intro pricing lines when not in reactivation mode.
+                    // isReactivation=true means trial was used AND not currently trialing.
+                    // Active first trial: proTrialUsed=true but isTrialing=true → isReactivation=false → show intro copy.
+                    if (pricingLines.isIntroOffer && !introCyclesRemaining && !isReactivation) {
                       return (
                         <div className="mb-4 space-y-0.5">
                           {pricingLines.trialLine && (
