@@ -30,6 +30,15 @@ import {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // TEMP DIAGNOSTIC — remove after root cause confirmed
+  console.log("WEBHOOK HIT", {
+    method: req.method,
+    url: req.url,
+    host: req.headers.get("host"),
+    contentType: req.headers.get("content-type"),
+    hasSignature: !!req.headers.get("stripe-signature"),
+  });
+
   const rawBody   = await req.text();
   const signature = req.headers.get("stripe-signature");
 
