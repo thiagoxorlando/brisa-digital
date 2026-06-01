@@ -251,11 +251,14 @@ export default async function BillingPage() {
         }
         const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
         if (periodEnd) syncPatch.plan_expires_at = new Date(periodEnd * 1000).toISOString();
-        void supabase.from("profiles").update(syncPatch).eq("id", userId);
+        // AWAIT (not void) — the cancel route reads plan from DB; if this update
+        // is still in-flight when Cancel is clicked, cancel sees "free" and skips
+        // the Stripe API call entirely, leaving the subscription alive.
+        await supabase.from("profiles").update(syncPatch).eq("id", userId);
 
       } else if (sub.status === "canceled") {
         // Subscription is canceled — wipe any stale trial data so re-promotion is impossible.
-        void supabase.from("profiles").update({
+        await supabase.from("profiles").update({
           plan:                   "free",
           plan_status:            "canceled",
           trial_ends_at:          null,

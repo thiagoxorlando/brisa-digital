@@ -1,17 +1,17 @@
 /**
  * POST /api/agency/subscription/cancel
  *
- * Cancels the agency's subscription. Works for both trial and active subscriptions.
+ * Cancels the agency's Stripe subscription immediately.
  *
- * Stripe strategy: cancel_at_period_end = false (immediate cancellation).
- * Rationale: For a 7-day trial, "cancel at period end" would mean the user
- * keeps PRO access until the trial naturally expires — but since no charge
- * has been made yet, there's no benefit to the user and it adds complexity.
- * Immediate cancellation revokes access now and prevents any future charge.
+ * Key invariant: we look up the live subscription in Stripe even when
+ * profiles.plan="free" — because billing page Pass 2 updates the plan
+ * asynchronously (it was "void update(...)"). If the user cancels before
+ * that async write completes the DB still shows "free" even though the
+ * Stripe subscription is active. We must NOT bail out early.
  *
- * Idempotency: safe to call multiple times — Stripe returns the already-
- * canceled subscription on repeat calls; Supabase update is a no-op if state
- * is already "canceled".
+ * Lookup order for stripe_subscription_id:
+ *   1. profiles.stripe_subscription_id (direct column)
+ *   2. Stripe customer subscription list via profiles.stripe_customer_id
  */
 
 import { NextResponse } from "next/server";
@@ -28,30 +28,29 @@ export async function POST() {
 
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("plan, plan_status, stripe_subscription_id, asaas_subscription_id, subscription_provider")
+    .select("plan, plan_status, stripe_subscription_id, stripe_customer_id, asaas_subscription_id, subscription_provider")
     .eq("id", user.id)
     .single();
 
-  const profile = profileRow as Record<string, unknown> | null;
-  const stripeSubscriptionId  = (profile?.stripe_subscription_id  as string | null) ?? null;
+  const profile               = profileRow as Record<string, unknown> | null;
+  let   stripeSubscriptionId  = (profile?.stripe_subscription_id as string | null) ?? null;
+  const stripeCustomerId      = (profile?.stripe_customer_id      as string | null) ?? null;
   const asaasSubscriptionId   = (profile?.asaas_subscription_id   as string | null) ?? null;
   const subscriptionProvider  = (profile?.subscription_provider   as string | null) ?? "asaas";
-  const currentPlan           = (profile?.plan                     as string | null) ?? "free";
   const currentPlanStatus     = (profile?.plan_status              as string | null) ?? "inactive";
 
-  // Nothing to cancel
-  if (currentPlan === "free") {
-    return NextResponse.json({ ok: true, message: "Already on free plan." });
-  }
-
-  // Already canceled — idempotent
+  // Already canceled — idempotent. Note: do NOT check currentPlan === "free" here.
+  // Billing page Pass 2 shows PRO from Stripe live without updating DB immediately.
+  // The DB can still say "free" while a live Stripe subscription exists.
   if (currentPlanStatus === "canceled" || currentPlanStatus === "cancelled") {
     return NextResponse.json({ ok: true, message: "Subscription already canceled." });
   }
 
-  // ── Stripe cancellation ───────────────────────────────────────────────────────
+  // ── Stripe path ───────────────────────────────────────────────────────────────
 
-  if (subscriptionProvider === "stripe" || stripeSubscriptionId) {
+  const isStripeUser = subscriptionProvider === "stripe" || !!stripeSubscriptionId || !!stripeCustomerId;
+
+  if (isStripeUser) {
     if (!isStripeConfigured()) {
       return NextResponse.json(
         { error: "Stripe billing is not configured on this server." },
@@ -59,36 +58,56 @@ export async function POST() {
       );
     }
 
+    const stripe = getStripe();
+
+    // If we don't have a subscription ID, look up the active subscription from
+    // the customer record. This happens when billing page Pass 2 hadn't yet
+    // written stripe_subscription_id to the DB when cancel was clicked.
+    if (!stripeSubscriptionId && stripeCustomerId) {
+      try {
+        const subs = await stripe.subscriptions.list({
+          customer: stripeCustomerId,
+          limit: 10,
+        });
+        const active = subs.data.find(
+          (s) => s.status === "trialing" || s.status === "active" || s.status === "past_due",
+        );
+        if (active) {
+          stripeSubscriptionId = active.id;
+          console.log("[subscription/cancel] resolved sub via customer list", {
+            userId:         user.id,
+            customerId:     stripeCustomerId,
+            subscriptionId: stripeSubscriptionId,
+            status:         active.status,
+          });
+        }
+      } catch (err) {
+        console.warn("[subscription/cancel] could not list customer subscriptions:", String(err));
+      }
+    }
+
     if (!stripeSubscriptionId) {
-      // No Stripe subscription ID — update DB directly (edge case: checkout
-      // completed but subscription events haven't fired yet).
-      console.warn("[subscription/cancel] no stripe_subscription_id on Stripe user; updating DB only", {
+      // No Stripe subscription found anywhere — DB-only cleanup is all we can do.
+      console.warn("[subscription/cancel] no stripe subscription found; cleaning DB only", {
         userId: user.id,
       });
       await cancelInDatabase(supabase, user.id);
       return NextResponse.json({ ok: true });
     }
 
-    const stripe = getStripe();
-
     try {
-      // Cancel immediately — prevents any future charges including end-of-trial.
-      const canceledSubscription = await stripe.subscriptions.cancel(stripeSubscriptionId);
-
+      const canceledSub = await stripe.subscriptions.cancel(stripeSubscriptionId);
       console.log("[subscription/cancel] Stripe subscription canceled", {
         userId:         user.id,
         subscriptionId: stripeSubscriptionId,
-        status:         canceledSubscription.status,
+        status:         canceledSub.status,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-
-      // "No such subscription" means it was already canceled on Stripe's side.
-      // Treat as success and clean up the local state.
       if (msg.includes("No such subscription") || msg.includes("resource_missing")) {
-        console.warn("[subscription/cancel] Stripe subscription already gone — cleaning up DB", {
-          userId: user.id,
-          stripeSubscriptionId,
+        // Already gone on Stripe's side — clean up DB.
+        console.warn("[subscription/cancel] Stripe subscription already gone", {
+          userId: user.id, stripeSubscriptionId,
         });
       } else {
         console.error("[subscription/cancel] Stripe cancel failed", { userId: user.id, msg });
@@ -96,13 +115,10 @@ export async function POST() {
       }
     }
 
-    // Update Supabase immediately. The customer.subscription.deleted webhook
-    // will also update the profile when it fires, but we must not leave the user
-    // in a paid state if the webhook is delayed or missed.
     await cancelInDatabase(supabase, user.id);
     await sendCancelNotification(user.id);
 
-    console.log("[subscription/cancel] profile updated to free/canceled", { userId: user.id });
+    console.log("[subscription/cancel] complete — profile set to free/canceled", { userId: user.id });
     return NextResponse.json({ ok: true });
   }
 
@@ -110,12 +126,10 @@ export async function POST() {
 
   if (asaasSubscriptionId) {
     try {
-      // Dynamic import keeps Asaas code out of the Stripe path
       const { cancelSubscription } = await import("@/lib/asaas");
       await cancelSubscription(asaasSubscriptionId);
       console.log("[subscription/cancel] Asaas subscription canceled", {
-        userId: user.id,
-        asaasSubscriptionId,
+        userId: user.id, asaasSubscriptionId,
       });
     } catch (err) {
       console.warn("[subscription/cancel] Asaas cancel non-fatal:", String(err));

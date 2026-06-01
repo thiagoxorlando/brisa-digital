@@ -107,8 +107,9 @@ export async function POST(req: NextRequest) {
       .from("stripe_webhook_events")
       .update({ error: processingError } as Record<string, unknown>)
       .eq("id", event.id);
-    // Return 200 so Stripe does not retry logic errors
-    return NextResponse.json({ ok: true, error: processingError });
+    // Return 500 so Stripe retries transient DB failures.
+    // "0 rows matched" warnings are logged but don't reach here (non-throwing).
+    return NextResponse.json({ error: processingError }, { status: 500 });
   }
 
   await supabase
