@@ -171,6 +171,9 @@ export async function POST(_req: NextRequest) {
     // Let Stripe collect a billing address (required for tax compliance)
     billing_address_collection: "auto",
 
+    // Force Checkout UI to English regardless of browser locale
+    locale: "en",
+
     // NOTE: allow_promotion_codes must NOT be set when `discounts` is present —
     // Stripe rejects sessions that include both parameters simultaneously.
     // When discounts is set (intro coupon), Stripe automatically hides the
