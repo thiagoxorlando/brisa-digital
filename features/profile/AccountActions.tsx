@@ -63,7 +63,11 @@ function ChangePasswordSection() {
       </div>
 
       {open && (
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        // autoComplete="off" on the form prevents the browser from showing
+        // saved-credential choosers when the user focuses a password field.
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4" autoComplete="off">
+          {/* Hidden username keeps browser autofill from misidentifying the form */}
+          <input type="text" name="username" autoComplete="username" className="hidden" readOnly tabIndex={-1} />
           <div>
             <label className="block text-[12px] font-medium text-zinc-600 mb-1.5">{t("account_current_pw")}</label>
             <input

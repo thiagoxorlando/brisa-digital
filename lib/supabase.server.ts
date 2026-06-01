@@ -14,7 +14,19 @@ export async function createSessionClient() {
   return createSSRClient(supabaseUrl, supabaseAnon, {
     cookies: {
       getAll() { return cookieStore.getAll(); },
-      setAll() { /* Server Components cannot set cookies */ },
+      setAll(cookiesToSet) {
+        // Route Handlers can write cookies; Server Components cannot.
+        // The try/catch handles both: Route Handlers succeed, Server Components
+        // throw which we swallow. Without this, an expired access token cannot
+        // be refreshed (setAll never fires → getUser() returns null → 401).
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options),
+          );
+        } catch {
+          // Server Component context — cookie writes not allowed, ignore.
+        }
+      },
     },
   });
 }
