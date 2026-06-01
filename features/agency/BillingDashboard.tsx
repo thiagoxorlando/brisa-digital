@@ -394,7 +394,12 @@ export default function BillingDashboard({
   }
   function effectivePriceLabel(p: PlanDef) {
     const setting = effectiveSetting(p);
-    return setting.is_available ? formatPlanPricing(setting, lang).primaryPrice : t("billing_plan_soon");
+    if (!setting.is_available) return t("billing_plan_soon");
+    // When trial/intro already used, show recurring price as headline — not intro price.
+    if (p.key === "pro" && proTrialUsed && setting.recurring_price > 0) {
+      return formatPlanPrice(setting.recurring_price, setting.currency);
+    }
+    return formatPlanPricing(setting, lang).primaryPrice;
   }
   function effectiveTrialLabel(p: PlanDef) {
     if (p.key !== "pro" || !proTrialEnabled) return null;
@@ -799,7 +804,9 @@ export default function BillingDashboard({
                   {available ? (() => {
                     const pricingLines = formatPlanPricing(effectiveSetting(p), lang);
                     const trialLabel = effectiveTrialLabel(p);
-                    if (pricingLines.isIntroOffer && !introCyclesRemaining) {
+                    // Show trial/intro pricing lines only when trial hasn't been used.
+                    // proTrialUsed=true means this is a reactivation — show recurring price only.
+                    if (pricingLines.isIntroOffer && !introCyclesRemaining && !proTrialUsed) {
                       return (
                         <div className="mb-4 space-y-0.5">
                           {pricingLines.trialLine && (
