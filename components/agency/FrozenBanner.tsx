@@ -2,9 +2,18 @@
 
 import Link from "next/link";
 import { useT } from "@/lib/LanguageContext";
+import { useSubscription } from "@/lib/SubscriptionContext";
 
 export default function FrozenBanner() {
+  const { isFrozen } = useSubscription();
   const { lang } = useT();
+
+  // Read isFrozen from SubscriptionContext (client state) — not from server props.
+  // The layout renders this component in the HTML based on a server-side estimate.
+  // refreshPlan() may correct isFrozen to false after Stripe sync completes.
+  // Without this check the banner would persist alongside the PRO/trial UI.
+  if (!isFrozen) return null;
+
   const isPT = lang !== "en";
   return (
     <div className="flex items-center justify-between gap-4 bg-rose-50 border border-rose-100 rounded-2xl px-5 py-3.5 mb-6">

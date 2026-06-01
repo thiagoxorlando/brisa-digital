@@ -99,13 +99,21 @@ export default async function AgencyLayout({
   // ── Active / frozen determination ─────────────────────────────────────────────
   // An agency is ACTIVE when they have a live PRO or Premium subscription.
   // Workspace agents/members inherit the workspace owner's entitlement.
-  const FROZEN_STATUSES = ["canceled", "inactive", "past_due", "unpaid", "overdue"];
-  const planStatusRaw = profile?.plan_status ?? "inactive";
+  //
+  // IMPORTANT: do NOT default null plan_status to "inactive".
+  // During the checkout → webhook propagation window, the DB may have
+  // plan_status = null even though a real Stripe subscription exists.
+  // Defaulting to "inactive" would freeze a trialing account before the
+  // webhook has had a chance to update the row.
+  // Only freeze when plan_status is EXPLICITLY a frozen/bad status.
+  const FROZEN_STATUSES = new Set(["canceled", "past_due", "unpaid", "overdue"]);
+  const planStatusRaw = profile?.plan_status ?? null;  // null = unknown, not frozen
   const subscriptionIsActive =
     effectivePlan === "pro" || effectivePlan === "premium";
   const isFrozen = !isWorkspaceMember &&
     !subscriptionIsActive &&
-    FROZEN_STATUSES.includes(planStatusRaw);
+    planStatusRaw !== null &&
+    FROZEN_STATUSES.has(planStatusRaw);
 
   const planInfo = resolvePlanInfo({ ...profile, plan: effectivePlan });
 
@@ -147,7 +155,10 @@ export default async function AgencyLayout({
         initialIsFrozen={isFrozen}
       >
         <DashboardShell initialWorkspacePortal={agentWorkspacePortal}>
-          {isFrozen && <FrozenBanner />}
+          {/* FrozenBanner reads isFrozen from SubscriptionContext (client state).
+              Always rendered so it can self-hide after refreshPlan() resolves.
+              Server-side isFrozen only controls the redirect gate below. */}
+          <FrozenBanner />
           {children}
         </DashboardShell>
       </SubscriptionProvider>
