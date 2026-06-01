@@ -9,7 +9,7 @@ const TERMS_VERSION = "terms_v1_2026_05";
 const TERMS_ERROR = "Você precisa aceitar os Termos de Uso para continuar.";
 
 export async function POST(req: NextRequest) {
-  const { user_id, role, termsAccepted, agency, talent, marketplaceVisible } = await req.json();
+  const { user_id, role, lang, termsAccepted, agency, talent, marketplaceVisible } = await req.json();
 
   if (!user_id || !role) {
     return NextResponse.json({ error: "Missing user_id or role" }, { status: 400 });
@@ -51,9 +51,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Profile role already set" }, { status: 409 });
   }
 
+  // Write language_preference immediately so the DB default ('pt-BR') never
+  // gets a chance to override the user's selected language in LanguageContext.
+  const profileBase: Record<string, unknown> = { id: user.id, role };
+  if (lang === "en" || lang === "pt-BR") profileBase.language_preference = lang;
+
   const { error } = await supabase
     .from("profiles")
-    .upsert({ id: user.id, role }, { onConflict: "id" });
+    .upsert(profileBase, { onConflict: "id" });
 
   if (error) {
     console.error("[signup/route] profile upsert failed:", error.message);

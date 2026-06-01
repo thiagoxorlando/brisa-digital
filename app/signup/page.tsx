@@ -557,9 +557,21 @@ function SignupPageContent() {
       let avatarUrl: string | undefined;
       let logoUrl: string | undefined;
 
+      // Upload directly via the client-side Supabase storage (not /api/upload).
+      // After supabase.auth.signUp() the session is in the client's memory but
+      // may not have been flushed to cookies yet, causing /api/upload to 401.
+      // The client-side supabase instance already holds the session and can
+      // write to storage without cookie authentication.
       if (account.role === "talent" && avatar) {
         try {
-          avatarUrl = await uploadAsset(avatar, `avatars/${data.user.id}.${avatar.name.split(".").pop()}`);
+          const ext  = avatar.name.split(".").pop() ?? "jpg";
+          const path = `avatars/${data.user.id}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("talent-media")
+            .upload(path, avatar, { upsert: true });
+          if (!upErr) {
+            avatarUrl = supabase.storage.from("talent-media").getPublicUrl(path).data.publicUrl;
+          }
         } catch {
           // avatar upload is optional — continue without it
         }
@@ -567,7 +579,14 @@ function SignupPageContent() {
 
       if (account.role === "agency" && logo) {
         try {
-          logoUrl = await uploadAsset(logo, `agency-avatars/${data.user.id}.${logo.name.split(".").pop()}`);
+          const ext  = logo.name.split(".").pop() ?? "jpg";
+          const path = `agency-avatars/${data.user.id}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("talent-media")
+            .upload(path, logo, { upsert: true });
+          if (!upErr) {
+            logoUrl = supabase.storage.from("talent-media").getPublicUrl(path).data.publicUrl;
+          }
         } catch {
           // logo upload is optional — continue without it
         }
@@ -578,6 +597,7 @@ function SignupPageContent() {
           ? {
               user_id: data.user.id,
               role: account.role,
+              lang,          // saved to profiles.language_preference — overrides DEFAULT 'pt-BR'
               termsAccepted: account.termsAccepted,
               agency: {
                 company_name: agency.agencyName.trim(),
@@ -595,6 +615,7 @@ function SignupPageContent() {
           : {
               user_id: data.user.id,
               role: account.role,
+              lang,          // saved to profiles.language_preference — overrides DEFAULT 'pt-BR'
               termsAccepted: account.termsAccepted,
               marketplaceVisible: !isPortalWorkspaceSignup,
               talent: {
