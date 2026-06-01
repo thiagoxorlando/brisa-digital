@@ -145,45 +145,51 @@ async function handleCheckoutSessionCompleted(
     return;
   }
 
-  const patch: Record<string, unknown> = {
-    subscription_provider: "stripe",
+  // ── Step 1: write the core plan fields unconditionally ──────────────────────
+  // These columns have existed since early migrations; this update must never fail.
+  // Kept separate so that a missing newer column (e.g. pro_trial_started_at) in
+  // Step 2 cannot block plan from being set to "pro".
+  const corePatch: Record<string, unknown> = {
     plan: planKey,
+    subscription_provider: "stripe",
   };
-  if (customerId)     patch.stripe_customer_id     = customerId;
-  if (subscriptionId) patch.stripe_subscription_id = subscriptionId;
+  if (customerId)     corePatch.stripe_customer_id     = customerId;
+  if (subscriptionId) corePatch.stripe_subscription_id = subscriptionId;
 
-  // Fetch the subscription so we can write plan_status + trial_ends_at right now.
-  // Without this, plan_status stays "inactive" if subscription events are delayed.
+  const count = await profileUpdate(supabase, userId, corePatch, "checkout.session.completed/core");
+
+  // ── Step 2: enrich with subscription details (trial fields, plan_status) ────
+  // Non-fatal: if the Stripe API call fails or newer columns are missing, Step 1
+  // already captured the critical plan assignment above.
   if (subscriptionId) {
     try {
       const stripe       = getStripe();
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       const planStatus   = mapStripeStatusToPlanStatus(subscription.status);
 
-      patch.plan_status = planStatus;
+      const enrichPatch: Record<string, unknown> = { plan_status: planStatus };
 
       if (subscription.trial_end) {
-        const trialEndsAt       = new Date(subscription.trial_end * 1000).toISOString();
-        patch.trial_ends_at     = trialEndsAt;
-        patch.trial_started_at  = new Date().toISOString();
-        // Mark trial as used — persists through cancellation, never reset.
-        patch.pro_trial_used       = true;
-        patch.pro_trial_started_at = new Date().toISOString();
-        console.log(`[stripe/webhook] checkout.session.completed: trial ends ${trialEndsAt} (trial marked used)`);
+        const trialEndsAt              = new Date(subscription.trial_end * 1000).toISOString();
+        enrichPatch.trial_ends_at      = trialEndsAt;
+        enrichPatch.trial_started_at   = new Date().toISOString();
+        enrichPatch.pro_trial_used     = true;
+        try { enrichPatch.pro_trial_started_at = new Date().toISOString(); } catch { /* column may not exist */ }
+        console.log(`[stripe/webhook] checkout.session.completed: trial ends ${trialEndsAt}`);
       }
+
+      await profileUpdate(supabase, userId, enrichPatch, "checkout.session.completed/enrich");
     } catch (err) {
-      // Non-fatal: subscription events will correct this state
+      // Non-fatal: customer.subscription.created will re-sync this state
       console.warn(
-        "[stripe/webhook] checkout.session.completed: could not fetch subscription",
+        "[stripe/webhook] checkout.session.completed: enrich step failed (non-fatal)",
         err instanceof Error ? err.message : String(err),
       );
     }
   }
-
-  const count = await profileUpdate(supabase, userId, patch, "checkout.session.completed");
   console.log(
     `[stripe/webhook] checkout.session.completed: user=${userId} rows_updated=${count}`,
-    `customer=${customerId} subscription=${subscriptionId} plan_status=${patch.plan_status ?? "not set"}`,
+    `customer=${customerId} subscription=${subscriptionId} plan=${corePatch.plan}`,
   );
 }
 
@@ -206,20 +212,30 @@ async function handleSubscriptionCreated(
     ? new Date(subscription.trial_end * 1000).toISOString()
     : null;
 
-  const patch: Record<string, unknown> = {
+  // Core fields first — must never be blocked by a missing newer column.
+  const corePatch: Record<string, unknown> = {
     plan:                   planKey,
     plan_status:            planStatus,
     stripe_subscription_id: subscription.id,
     subscription_provider:  "stripe",
   };
-  if (trialEnd) {
-    patch.trial_ends_at        = trialEnd;
-    patch.trial_started_at     = new Date().toISOString();
-    patch.pro_trial_used       = true;
-    patch.pro_trial_started_at = new Date().toISOString();
-  }
+  const count = await profileUpdate(supabase, userId, corePatch, "subscription.created/core");
 
-  const count = await profileUpdate(supabase, userId, patch, "subscription.created");
+  // Optional trial fields — safe to fail if newer columns are absent.
+  if (trialEnd) {
+    const trialPatch: Record<string, unknown> = {
+      trial_ends_at:    trialEnd,
+      trial_started_at: new Date().toISOString(),
+      pro_trial_used:   true,
+    };
+    try { trialPatch.pro_trial_started_at = new Date().toISOString(); } catch { /* column may not exist */ }
+    try {
+      await profileUpdate(supabase, userId, trialPatch, "subscription.created/trial");
+    } catch (err) {
+      console.warn("[stripe/webhook] subscription.created: trial fields update failed (non-fatal)",
+        err instanceof Error ? err.message : String(err));
+    }
+  }
   console.log(
     `[stripe/webhook] subscription.created: user=${userId} rows_updated=${count}`,
     `status=${planStatus} plan=${planKey} trial_ends=${trialEnd ?? "none"}`,
@@ -242,27 +258,31 @@ async function handleSubscriptionUpdated(
   const planStatus = mapStripeStatusToPlanStatus(subscription.status);
   const planKey    = getPlanKeyFromSubscription(subscription);
 
-  const patch: Record<string, unknown> = {
+  // Core: plan + status — must never fail due to missing optional columns.
+  const corePatch: Record<string, unknown> = {
     plan:        subscription.status === "canceled" ? "free" : planKey,
     plan_status: planStatus,
   };
-
-  // Sync trial end date while still in trial
   if (subscription.trial_end) {
-    patch.trial_ends_at = new Date(subscription.trial_end * 1000).toISOString();
+    corePatch.trial_ends_at = new Date(subscription.trial_end * 1000).toISOString();
   }
 
-  // Trial converted to paid — record when it ended.
-  // Detected by status becoming "active" while a trial_end timestamp exists.
-  if (subscription.status === "active" && subscription.trial_end) {
-    patch.pro_trial_ended_at = new Date(subscription.trial_end * 1000).toISOString();
-  }
-
-  const count = await profileUpdate(supabase, userId, patch, "subscription.updated");
+  const count = await profileUpdate(supabase, userId, corePatch, "subscription.updated");
   console.log(
     `[stripe/webhook] subscription.updated: user=${userId} rows_updated=${count}`,
-    `status=${planStatus} plan=${patch.plan}`,
+    `status=${planStatus} plan=${corePatch.plan}`,
   );
+
+  // Optional: pro_trial_ended_at — safe to fail if the column is absent.
+  if (subscription.status === "active" && subscription.trial_end) {
+    try {
+      await profileUpdate(supabase, userId,
+        { pro_trial_ended_at: new Date(subscription.trial_end * 1000).toISOString() },
+        "subscription.updated/trial_ended");
+    } catch {
+      // non-fatal
+    }
+  }
 }
 
 /**

@@ -232,10 +232,13 @@ export default async function BillingPage() {
       const sub = await stripe.subscriptions.retrieve(stripeSubId);
       if (sub.trial_end && sub.trial_end * 1000 > Date.now()) {
         liveStripeTrialEndsAt = new Date(sub.trial_end * 1000).toISOString();
-        // Sync back to DB for future page loads — non-blocking
+        // Sync back to DB: also write plan="pro" because the webhook may have
+        // failed to persist it (pro_trial_started_at column missing in production
+        // caused the whole profileUpdate to throw before plan was written).
         void supabase.from("profiles").update({
           trial_ends_at: liveStripeTrialEndsAt,
           plan_status:   "trialing",
+          plan:          "pro",
         } as Record<string, unknown>).eq("id", userId);
       }
     } catch {
@@ -243,9 +246,12 @@ export default async function BillingPage() {
     }
   }
 
-  // Merge: prefer profileRow (most complete), then direct query, then live Stripe
+  // Merge: prefer profileRow (most complete), then direct query, then live Stripe.
+  // If Stripe confirms an active trial but profiles.plan is still "free", treat as "pro"
+  // (the webhook's plan write failed; Pass 2 above also fixes it in the DB asynchronously).
   const planExpiresAt = profileRow?.plan_expires_at ?? null;
-  const planKey       = profileRow?.plan ?? "free";
+  const rawPlanKey    = profileRow?.plan ?? "free";
+  const planKey       = (rawPlanKey === "free" && liveStripeTrialEndsAt !== null) ? "pro" : rawPlanKey;
   const trialEndsAt   = profileRow?.trial_ends_at ?? directTrialEndsAt ?? liveStripeTrialEndsAt ?? null;
   // Use the most accurate plan_status: prefer live Stripe-derived "trialing" when trial is active
   const effectivePlanStatus =
