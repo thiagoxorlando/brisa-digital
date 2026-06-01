@@ -55,21 +55,10 @@ type PlanChangeResponse = {
 
 // ── Plan definitions (UI only) ────────────────────────────────────────────────
 
+// Free plan is intentionally removed from the plans grid.
+// Free exists internally as a status only (no active subscription),
+// not as a selectable product for agencies.
 const PLANS = [
-  {
-    key: "free" as const,
-    name: PLAN_DEFINITIONS.free.label,
-    price: PLAN_DEFINITIONS.free.price,
-    period: "",
-    badge: null,
-    gradient: "from-zinc-300 to-zinc-400",
-    headlineKey: "billing_plan_free_headline",
-    features: [
-      "1 active job",
-      "Up to 3 hires per job",
-      "Digital contracts",
-    ],
-  },
   {
     key: "pro" as const,
     name: PLAN_DEFINITIONS.pro.label,
@@ -102,18 +91,21 @@ const PLANS = [
   },
 ] as const;
 
-type PlanKey = Plan;
+// "free" is kept as a valid runtime value even though it has no card in the UI.
+// Frozen agencies have activePlan="free" and see the Reactivate PRO CTA.
+type PlanKey = "free" | "pro" | "premium";
 type PlanDef = typeof PLANS[number];
 
 type LivePlanMap = Record<string, PublicPlanSetting>;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getBillingReturnBanner(): "success" | "canceled" | null {
+function getBillingReturnBanner(): "success" | "canceled" | "frozen" | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
   if (params.get("stripe") === "success" || params.get("success") === "true") return "success";
   if (params.get("canceled") === "true") return "canceled";
+  if (params.get("frozen") === "1") return "frozen";
   return null;
 }
 
@@ -283,7 +275,7 @@ function PlanChangeModal({
   onClose,
   t,
 }: Pick<ModalProps, "plan" | "onUnavailable" | "onClose"> & { displayName: string; displayPriceLabel: string; t: (k: string) => string }) {
-  const isToFree = plan.key === "free";
+  const isToFree = (plan.key as string) === "free";
   const [submitting, setSubmitting] = useState(false);
 
   async function handleConfirm() {
@@ -380,7 +372,7 @@ export default function BillingDashboard({
   const [pendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
   const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | null>(getBillingReturnBanner);
+  const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | "frozen" | null>(getBillingReturnBanner);
   const [proLoading, setProLoading] = useState(false);
   const [premiumLoading, setPremiumLoading] = useState(false);
   const [receiptCharge, setReceiptCharge] = useState<PlanCharge | null>(null);
@@ -468,7 +460,7 @@ export default function BillingDashboard({
       showToast(t("billing_plan_soon"), false);
       return;
     }
-    if (p.key === "free" && activePlan !== "free") { void handleCancelSubscription(); return; }
+    if ((p.key as string) === "free" && activePlan !== "free") { void handleCancelSubscription(); return; }
     if (p.key === activePlan) return;
     if (p.key === "pro") { void handleStripeCheckout(); return; }
     if (setting.price > 0) { setChangingTo(p); return; }
@@ -582,6 +574,26 @@ export default function BillingDashboard({
           </button>
         </div>
       )}
+      {returnBanner === "frozen" && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3.5">
+          <svg className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-rose-800">
+              {lang === "en" ? "Access restricted" : "Acesso restrito"}
+            </p>
+            <p className="text-[12px] text-rose-700 mt-0.5">
+              {lang === "en"
+                ? "Your PRO subscription is inactive. Reactivate PRO to continue using BrisaHub."
+                : "Sua assinatura PRO está inativa. Reative o PRO para continuar usando o BrisaHub."}
+            </p>
+          </div>
+          <button type="button" onClick={() => setReturnBanner(null)} className="text-rose-400 hover:text-rose-600 flex-shrink-0 cursor-pointer">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
       {returnBanner === "canceled" && (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
           <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -625,6 +637,47 @@ export default function BillingDashboard({
         <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("portal_agency")}</p>
         <h1 className="text-[1.75rem] font-semibold tracking-tight text-zinc-900">{t("billing_title")}</h1>
       </div>
+
+      {/* Frozen / Reactivate PRO card — shown when agency has no active subscription */}
+      {activePlan === "free" && (
+        <div className="rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 px-5 py-5 text-white shadow-[0_8px_28px_rgba(225,29,72,0.25)]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">
+                {lang === "en" ? "Subscription Inactive" : "Assinatura Inativa"}
+              </p>
+              <p className="text-[1.25rem] font-black tracking-tight text-white">
+                {lang === "en"
+                  ? "Your agency workspace is paused."
+                  : "Seu workspace de agência está pausado."}
+              </p>
+              <p className="text-[13px] text-white/75">
+                {lang === "en"
+                  ? proTrialUsed
+                    ? "Reactivate PRO to restore full access. No free trial — charge is immediate."
+                    : "Start your 7-day free PRO trial to restore full access."
+                  : proTrialUsed
+                    ? "Reative o PRO para restaurar o acesso completo. Sem trial — cobrança imediata."
+                    : "Inicie seu teste grátis de 7 dias do PRO para restaurar o acesso completo."}
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleStripeCheckout}
+                disabled={proLoading}
+                className="rounded-xl bg-white px-6 py-3 text-[14px] font-black text-rose-600 hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_14px_rgba(0,0,0,0.15)] whitespace-nowrap"
+              >
+                {proLoading
+                  ? t("billing_plan_processing")
+                  : lang === "en"
+                    ? proTrialUsed ? "Reactivate PRO" : "Start PRO Trial"
+                    : proTrialUsed ? "Reativar PRO" : "Iniciar Trial PRO"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Current plan card */}
       <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">

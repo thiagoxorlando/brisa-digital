@@ -98,7 +98,7 @@ export default function Topbar({ onMenuClick, homeHref }: TopbarProps) {
   const pathname = usePathname();
   const { displayName, email, initials, avatarUrl, loading } = useUserProfile();
   const { role } = useRole();
-  const { plan, isWorkspaceAgent } = useSubscription();
+  const { plan, isWorkspaceAgent, isFrozen } = useSubscription();
   const { t } = useT();
   const [imgError, setImgError] = useState(false);
 
@@ -176,11 +176,16 @@ export default function Topbar({ onMenuClick, homeHref }: TopbarProps) {
                     isWorkspaceAgent
                       ? "badge-premium"
                       : plan === "premium" ? "badge-premium"
-                      : plan === "pro" ? "badge-pro"
+                      : plan === "pro"     ? "badge-pro"
+                      : isFrozen          ? "bg-rose-100 text-rose-600"
                       : "bg-[#E6F0F0] text-[#647B7B]",
                   ].join(" ")}
                 >
-                  {isWorkspaceAgent ? t("workspace_role_agent" as never) : plan.toUpperCase()}
+                  {isWorkspaceAgent
+                    ? t("workspace_role_agent" as never)
+                    : isFrozen
+                      ? "INACTIVE"
+                      : plan.toUpperCase()}
                 </span>
               ) : null}
             </div>

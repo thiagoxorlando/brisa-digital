@@ -11,6 +11,7 @@ type SubscriptionContextValue = {
   isPro:                 boolean;
   isPremium:             boolean;
   isWorkspaceAgent:      boolean;
+  isFrozen:              boolean;
   subscriptionStatus:    SubscriptionStatus;
   trialDaysRemaining:    number | null;
   trialEndsAt:           string | null;
@@ -30,6 +31,7 @@ const SubscriptionContext = createContext<SubscriptionContextValue>({
   isPro:               false,
   isPremium:           false,
   isWorkspaceAgent:    false,
+  isFrozen:            false,
   subscriptionStatus:  "free",
   trialDaysRemaining:  null,
   trialEndsAt:         null,
@@ -45,12 +47,14 @@ export function SubscriptionProvider({
   initialIsActive,
   initialIsPro,
   initialIsWorkspaceAgent = false,
+  initialIsFrozen = false,
   children,
 }: {
   initialPlan:               string;
   initialIsActive:           boolean;
   initialIsPro:              boolean;
   initialIsWorkspaceAgent?:  boolean;
+  initialIsFrozen?:          boolean;
   children:                  React.ReactNode;
 }) {
   const initDef = PLAN_DEFINITIONS[initialPlan as keyof typeof PLAN_DEFINITIONS] ?? PLAN_DEFINITIONS[PLAN_DEFAULT];
@@ -60,6 +64,7 @@ export function SubscriptionProvider({
   const [isTrialing,          setIsTrialing]          = useState(false);
   const [isPro,               setIsPro]               = useState(initialIsPro);
   const [isWorkspaceAgent]                            = useState(initialIsWorkspaceAgent);
+  const [isFrozen,            setIsFrozen]            = useState(initialIsFrozen);
   const [isPremium,           setIsPremium]           = useState(initialPlan === "premium");
   const [subscriptionStatus,  setSubscriptionStatus]  = useState<SubscriptionStatus>("free");
   const [trialDaysRemaining,  setTrialDaysRemaining]  = useState<number | null>(null);
@@ -79,6 +84,7 @@ export function SubscriptionProvider({
       setIsActive(data.is_active ?? false);
       setIsTrialing(data.is_trialing ?? false);
       setIsPro(data.is_pro ?? false);
+      setIsFrozen(!(data.is_active ?? false) && !(data.is_pro ?? false));
       setIsPremium(data.is_premium ?? false);
       setSubscriptionStatus(data.subscription_status ?? "free");
       setTrialDaysRemaining(data.trial_days_remaining ?? null);
@@ -103,6 +109,7 @@ export function SubscriptionProvider({
       isPro,
       isPremium,
       isWorkspaceAgent,
+      isFrozen,
       subscriptionStatus,
       trialDaysRemaining,
       trialEndsAt,

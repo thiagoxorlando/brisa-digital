@@ -5,12 +5,14 @@ import { createSessionClient } from "@/lib/supabase.server";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { SubscriptionProvider } from "@/lib/SubscriptionContext";
 import { AgencyConfigProvider } from "@/lib/AgencyConfigContext";
-import SubscriptionBanner from "@/components/agency/SubscriptionBanner";
+import FrozenBanner from "@/components/agency/FrozenBanner";
 import { resolvePlanInfo, parsePlan } from "@/lib/plans";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import { resolveAgencyConfig } from "@/lib/agencyConfig";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
+
+// ── Routes private workspace agents may NOT access ────────────────────────────
 
 const AGENT_BLOCKED_PREFIXES = [
   "/agency/dashboard",
@@ -27,6 +29,15 @@ const AGENT_BLOCKED_PREFIXES = [
   "/agency/talent-history",
   "/agency/create",
   "/agency/submissions",
+];
+
+// ── Routes a FROZEN (no active subscription) agency owner can still access ───
+// All other /agency/* paths redirect to /agency/billing with a frozen message.
+
+const FROZEN_ALLOWED_PREFIXES = [
+  "/agency/billing",
+  "/agency/support",
+  "/agency/profile",
 ];
 
 export default async function AgencyLayout({
@@ -61,9 +72,7 @@ export default async function AgencyLayout({
   const planSetting = await getLivePlanSetting(parsePlan(profile?.plan));
   const agencyConfig = resolveAgencyConfig(agency, planSetting.commission_percent, globalDefaults);
 
-  // Invited workspace agents (role="agent") are NOT the plan payer —
-  // their access derives from membership, not their own profiles.plan.
-  const isWorkspaceAgent = ws?.membership.role === "agent" && ws.membership.status === "active";
+  const isWorkspaceAgent  = ws?.membership.role === "agent" && ws.membership.status === "active";
   const isWorkspaceMember = !!ws;
 
   // Guard: private agents must not access open-platform routes.
@@ -75,25 +84,47 @@ export default async function AgencyLayout({
     }
   }
 
-  // Resolve effective plan: promote "free" → "pro" when Stripe trial is genuinely active.
-  // Guard: never promote when plan_status="canceled" — even if trial_ends_at is in the
-  // future (the subscription.updated webhook can write a stale trial_end on cancel).
-  const rawPlan     = profile?.plan ?? "free";
-  const isCanceled  = profile?.plan_status === "canceled";
+  // ── Resolve effective plan ────────────────────────────────────────────────────
+  // Promote "free" → "pro" when Stripe trial is confirmed active in DB.
+  // Guard: never promote when plan_status="canceled" (webhook may leave a stale
+  // trial_ends_at timestamp on canceled subscriptions).
+  const rawPlan    = profile?.plan ?? "free";
+  const isCanceled = profile?.plan_status === "canceled";
   const trialActive = !isCanceled && (
     profile?.plan_status === "trialing" ||
     (profile?.trial_ends_at ? new Date(profile.trial_ends_at as string) > new Date() : false)
   );
   const effectivePlan = rawPlan === "free" && trialActive ? "pro" : rawPlan;
-  const planInfo = resolvePlanInfo({ ...profile, plan: effectivePlan });
-  const agencyStatus = agency?.subscription_status ?? "active";
 
-  // Workspace members (owner or agent) are always considered active in the layout.
-  const isActive = isWorkspaceMember
-    ? true
-    : (planInfo.plan === "free"
-        ? agencyStatus !== "cancelling" && agencyStatus !== "suspended"
-        : planInfo.isPaid);
+  // ── Active / frozen determination ─────────────────────────────────────────────
+  // An agency is ACTIVE when they have a live PRO or Premium subscription.
+  // Workspace agents/members inherit the workspace owner's entitlement.
+  const FROZEN_STATUSES = ["canceled", "inactive", "past_due", "unpaid", "overdue"];
+  const planStatusRaw = profile?.plan_status ?? "inactive";
+  const subscriptionIsActive =
+    effectivePlan === "pro" || effectivePlan === "premium";
+  const isFrozen = !isWorkspaceMember &&
+    !subscriptionIsActive &&
+    FROZEN_STATUSES.includes(planStatusRaw);
+
+  const planInfo = resolvePlanInfo({ ...profile, plan: effectivePlan });
+
+  // isActive controls SubscriptionBanner visibility and feature limits.
+  const isActive = isWorkspaceMember || subscriptionIsActive;
+
+  // ── Freeze gate ───────────────────────────────────────────────────────────────
+  // Frozen agencies (canceled/inactive subscription) can only access billing,
+  // support, and profile. All other routes redirect to billing.
+  if (isFrozen && !isWorkspaceAgent) {
+    const hdrs = await headers();
+    const pathname = hdrs.get("x-pathname") ?? "";
+    const allowed = FROZEN_ALLOWED_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    );
+    if (!allowed) {
+      redirect("/agency/billing?frozen=1");
+    }
+  }
 
   const agentWorkspacePortal = isWorkspaceAgent && ws
     ? {
@@ -113,9 +144,10 @@ export default async function AgencyLayout({
         initialIsActive={isActive}
         initialIsPro={planInfo.isPaid}
         initialIsWorkspaceAgent={isWorkspaceAgent}
+        initialIsFrozen={isFrozen}
       >
         <DashboardShell initialWorkspacePortal={agentWorkspacePortal}>
-          {!isActive && <SubscriptionBanner />}
+          {isFrozen && <FrozenBanner />}
           {children}
         </DashboardShell>
       </SubscriptionProvider>
