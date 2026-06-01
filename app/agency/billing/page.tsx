@@ -6,7 +6,7 @@ import { fetchAgencySubscriptionProfile, recoverAgencyTrialingFromAsaas } from "
 import BillingDashboard from "@/features/agency/BillingDashboard";
 import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
-import { isStripeConfigured, getStripe } from "@/lib/stripe";
+import { isStripeConfigured, getStripe, mapStripeStatusToPlanStatus } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Plan & Billing — BrisaHub" };
 
@@ -222,41 +222,69 @@ export default async function BillingPage() {
     // non-fatal — column may not exist in this environment
   }
 
-  // Pass 2: live Stripe sync — if trial_ends_at is still null but sub_id is known
-  // This fixes the case where the webhook wrote stripe_subscription_id but not trial_ends_at
+  // Pass 2: authoritative Stripe sync.
+  // Fires when we have a stripe_subscription_id AND the plan looks inconsistent
+  // (plan="free" but subscription may be active, or trial_ends_at is missing).
+  // Does NOT fire when plan_status="canceled" — prevents re-promotion after cancel.
   let liveStripeTrialEndsAt: string | null = null;
   const stripeSubId = directStripeSubId;
-  if (!directTrialEndsAt && stripeSubId && isStripeConfigured()) {
+  const isCanceledLocally = directPlanStatus === "canceled";
+  const needsSync = stripeSubId && isStripeConfigured() && !isCanceledLocally &&
+    (!directTrialEndsAt || (profileRow?.plan ?? "free") === "free");
+
+  if (needsSync) {
     try {
       const stripe = getStripe();
       const sub = await stripe.subscriptions.retrieve(stripeSubId);
-      if (sub.trial_end && sub.trial_end * 1000 > Date.now()) {
-        liveStripeTrialEndsAt = new Date(sub.trial_end * 1000).toISOString();
-        // Sync back to DB: also write plan="pro" because the webhook may have
-        // failed to persist it (pro_trial_started_at column missing in production
-        // caused the whole profileUpdate to throw before plan was written).
+
+      if (sub.status === "trialing" || sub.status === "active") {
+        const syncPatch: Record<string, unknown> = {
+          plan:                   "pro",
+          plan_status:            mapStripeStatusToPlanStatus(sub.status),
+          stripe_subscription_id: sub.id,
+          pro_trial_used:         true,
+        };
+        if (typeof sub.customer === "string") syncPatch.stripe_customer_id = sub.customer;
+        if (sub.trial_end) {
+          liveStripeTrialEndsAt = new Date(sub.trial_end * 1000).toISOString();
+          syncPatch.trial_ends_at = liveStripeTrialEndsAt;
+        }
+        const periodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
+        if (periodEnd) syncPatch.plan_expires_at = new Date(periodEnd * 1000).toISOString();
+        void supabase.from("profiles").update(syncPatch).eq("id", userId);
+
+      } else if (sub.status === "canceled") {
+        // Subscription is canceled — wipe any stale trial data so re-promotion is impossible.
         void supabase.from("profiles").update({
-          trial_ends_at: liveStripeTrialEndsAt,
-          plan_status:   "trialing",
-          plan:          "pro",
+          plan:                   "free",
+          plan_status:            "canceled",
+          trial_ends_at:          null,
+          stripe_subscription_id: null,
+          plan_expires_at:        null,
         } as Record<string, unknown>).eq("id", userId);
+        directPlanStatus = "canceled"; // prevent downstream promotion on this render
       }
     } catch {
-      // non-fatal
+      // non-fatal — billing page still renders with available DB data
     }
   }
 
   // Merge: prefer profileRow (most complete), then direct query, then live Stripe.
-  // If Stripe confirms an active trial but profiles.plan is still "free", treat as "pro"
-  // (the webhook's plan write failed; Pass 2 above also fixes it in the DB asynchronously).
+  // Guard: never promote to "pro" when plan is confirmed canceled.
+  const isConfirmedCanceled = directPlanStatus === "canceled" || profileRow?.plan_status === "canceled";
   const planExpiresAt = profileRow?.plan_expires_at ?? null;
   const rawPlanKey    = profileRow?.plan ?? "free";
-  const planKey       = (rawPlanKey === "free" && liveStripeTrialEndsAt !== null) ? "pro" : rawPlanKey;
-  const trialEndsAt   = profileRow?.trial_ends_at ?? directTrialEndsAt ?? liveStripeTrialEndsAt ?? null;
-  // Use the most accurate plan_status: prefer live Stripe-derived "trialing" when trial is active
-  const effectivePlanStatus =
-    liveStripeTrialEndsAt
-      ? "trialing"                                       // Stripe confirmed still in trial
+  const planKey       = (!isConfirmedCanceled && rawPlanKey === "free" && liveStripeTrialEndsAt !== null)
+    ? "pro"
+    : rawPlanKey;
+  const trialEndsAt   = isConfirmedCanceled
+    ? null
+    : (profileRow?.trial_ends_at ?? directTrialEndsAt ?? liveStripeTrialEndsAt ?? null);
+  // Effective status: Stripe live overrides DB when subscription confirmed active/trialing
+  const effectivePlanStatus = isConfirmedCanceled
+    ? "canceled"
+    : liveStripeTrialEndsAt
+      ? "trialing"
       : directPlanStatus ?? profileRow?.plan_status ?? null;
 
   let nextChargeDate: string | null = null;

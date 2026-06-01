@@ -6,16 +6,6 @@ import { NextRequest, NextResponse } from "next/server";
 // run on every request and can corrupt the forwarded session cookies when
 // @supabase/ssr decides to clear an unverifiable token before layouts run.
 export function proxy(req: NextRequest) {
-  // TEMP DIAGNOSTIC — remove after root cause confirmed
-  const { pathname } = req.nextUrl;
-  if (pathname.startsWith("/api/webhooks/")) {
-    console.log("PROXY (webhook path)", {
-      method: req.method,
-      pathname,
-      host: req.headers.get("host"),
-    });
-  }
-
   // Pass pathname to server layouts via header so they can make routing decisions.
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-pathname", req.nextUrl.pathname);

@@ -30,15 +30,6 @@ import {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // TEMP DIAGNOSTIC — remove after root cause confirmed
-  console.log("WEBHOOK HIT", {
-    method: req.method,
-    url: req.url,
-    host: req.headers.get("host"),
-    contentType: req.headers.get("content-type"),
-    hasSignature: !!req.headers.get("stripe-signature"),
-  });
-
   const rawBody   = await req.text();
   const signature = req.headers.get("stripe-signature");
 
@@ -267,12 +258,23 @@ async function handleSubscriptionUpdated(
   const planStatus = mapStripeStatusToPlanStatus(subscription.status);
   const planKey    = getPlanKeyFromSubscription(subscription);
 
+  const isCanceled = subscription.status === "canceled";
+
   // Core: plan + status — must never fail due to missing optional columns.
   const corePatch: Record<string, unknown> = {
-    plan:        subscription.status === "canceled" ? "free" : planKey,
+    plan:        isCanceled ? "free" : planKey,
     plan_status: planStatus,
   };
-  if (subscription.trial_end) {
+
+  // CRITICAL: when canceling, also clear trial_ends_at and stripe_subscription_id.
+  // If we leave trial_ends_at set (Stripe keeps the original timestamp on canceled subs),
+  // the layout/plan-api will see trial_ends_at > now and re-promote "free" → "pro" on
+  // every page load, making the cancellation appear to not stick.
+  if (isCanceled) {
+    corePatch.trial_ends_at          = null;
+    corePatch.stripe_subscription_id = null;
+    corePatch.plan_expires_at        = null;
+  } else if (subscription.trial_end) {
     corePatch.trial_ends_at = new Date(subscription.trial_end * 1000).toISOString();
   }
 

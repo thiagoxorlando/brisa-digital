@@ -37,11 +37,15 @@ export async function GET() {
   const trialEndsAt = profileRow?.trial_ends_at ?? null;
   const planStatusFromDb = profileRow?.plan_status ?? null;
 
-  // Apply the same correction as the billing page and agency layout:
-  // if plan is "free" but Stripe trial is active, treat as "pro".
-  const trialActive =
+  // Promote "free" → "pro" when Stripe trial is genuinely active.
+  // Guard: never promote when plan_status="canceled" — the subscription.updated webhook
+  // can write a stale trial_end timestamp even after cancellation, which would otherwise
+  // cause infinite re-promotion on every page load.
+  const isCanceled  = planStatusFromDb === "canceled";
+  const trialActive = !isCanceled && (
     planStatusFromDb === "trialing" ||
-    (trialEndsAt ? new Date(trialEndsAt) > new Date() : false);
+    (trialEndsAt ? new Date(trialEndsAt) > new Date() : false)
+  );
   const plan: Plan = (rawPlan === "free" && trialActive) ? "pro" : rawPlan;
 
   const subscriptionStatus = getSubscriptionStatus({

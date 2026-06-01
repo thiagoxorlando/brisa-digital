@@ -75,15 +75,15 @@ export default async function AgencyLayout({
     }
   }
 
-  // If profiles.plan is still "free" but a Stripe trial is active, treat as "pro".
-  // This corrects the state where the checkout webhook wrote trial_ends_at/plan_status
-  // but a missing DB column (pro_trial_started_at) caused the plan write to fail.
-  const rawPlan = profile?.plan ?? "free";
-  const trialActive =
+  // Resolve effective plan: promote "free" → "pro" when Stripe trial is genuinely active.
+  // Guard: never promote when plan_status="canceled" — even if trial_ends_at is in the
+  // future (the subscription.updated webhook can write a stale trial_end on cancel).
+  const rawPlan     = profile?.plan ?? "free";
+  const isCanceled  = profile?.plan_status === "canceled";
+  const trialActive = !isCanceled && (
     profile?.plan_status === "trialing" ||
-    (profile?.trial_ends_at
-      ? new Date(profile.trial_ends_at as string) > new Date()
-      : false);
+    (profile?.trial_ends_at ? new Date(profile.trial_ends_at as string) > new Date() : false)
+  );
   const effectivePlan = rawPlan === "free" && trialActive ? "pro" : rawPlan;
   const planInfo = resolvePlanInfo({ ...profile, plan: effectivePlan });
   const agencyStatus = agency?.subscription_status ?? "active";
