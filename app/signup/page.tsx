@@ -478,6 +478,26 @@ function SignupPageContent() {
         return;
       }
 
+      // Upload logo NOW — after signUp the Supabase client has the session.
+      // This was missing from the PRO path; avatar_url was hardcoded null.
+      let proLogoUrl: string | null = null;
+      if (logo) {
+        try {
+          const ext  = logo.name.split(".").pop() ?? "jpg";
+          const path = `agency-avatars/${suData.user.id}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("talent-media")
+            .upload(path, logo, { upsert: true });
+          if (upErr) {
+            console.error("[signup/pro] logo upload failed:", upErr.message);
+          } else {
+            proLogoUrl = supabase.storage.from("talent-media").getPublicUrl(path).data.publicUrl;
+          }
+        } catch (err) {
+          console.error("[signup/pro] logo upload exception:", err);
+        }
+      }
+
       // Create profile + agency records before redirecting to Stripe.
       // /api/auth/signup is the same route used by free agency signup.
       const profileRes = await fetch("/api/auth/signup", {
@@ -486,6 +506,7 @@ function SignupPageContent() {
         body: JSON.stringify({
           user_id:       suData.user.id,
           role:          "agency",
+          lang,
           termsAccepted: account.termsAccepted,
           agency: {
             company_name: agency.agencyName.trim(),
@@ -497,7 +518,7 @@ function SignupPageContent() {
             state:         agency.state.trim(),
             website:       agency.website.trim()     || null,
             description:   agency.description.trim() || null,
-            avatar_url:    null,
+            avatar_url:    proLogoUrl,
           },
         }),
       });
@@ -569,11 +590,13 @@ function SignupPageContent() {
           const { error: upErr } = await supabase.storage
             .from("talent-media")
             .upload(path, avatar, { upsert: true });
-          if (!upErr) {
+          if (upErr) {
+            console.error("[signup] talent avatar upload failed:", upErr.message);
+          } else {
             avatarUrl = supabase.storage.from("talent-media").getPublicUrl(path).data.publicUrl;
           }
-        } catch {
-          // avatar upload is optional — continue without it
+        } catch (err) {
+          console.error("[signup] talent avatar upload exception:", err);
         }
       }
 
@@ -584,11 +607,13 @@ function SignupPageContent() {
           const { error: upErr } = await supabase.storage
             .from("talent-media")
             .upload(path, logo, { upsert: true });
-          if (!upErr) {
+          if (upErr) {
+            console.error("[signup] agency logo upload failed:", upErr.message);
+          } else {
             logoUrl = supabase.storage.from("talent-media").getPublicUrl(path).data.publicUrl;
           }
-        } catch {
-          // logo upload is optional — continue without it
+        } catch (err) {
+          console.error("[signup] agency logo upload exception:", err);
         }
       }
 
