@@ -4,7 +4,9 @@ export const metadata: Metadata = {
   title: "Terms of Use — BrisaHub",
 };
 
-const termsSections = [
+// ── Portuguese sections ────────────────────────────────────────────────────────
+
+const ptSections = [
   {
     title: "1. Definições",
     paragraphs: [
@@ -253,9 +255,7 @@ const termsSections = [
   },
   {
     title: "17. Responsabilidades da agência",
-    paragraphs: [
-      "A agência é responsável por:",
-    ],
+    paragraphs: ["A agência é responsável por:"],
     bullets: [
       "publicar informações corretas;",
       "contratar talentos de forma ética e legal;",
@@ -272,9 +272,7 @@ const termsSections = [
   },
   {
     title: "18. Responsabilidades do talento",
-    paragraphs: [
-      "O talento é responsável por:",
-    ],
+    paragraphs: ["O talento é responsável por:"],
     bullets: [
       "manter perfil verdadeiro;",
       "comparecer ao trabalho aceito;",
@@ -288,9 +286,7 @@ const termsSections = [
   },
   {
     title: "19. Condutas proibidas",
-    paragraphs: [
-      "É proibido utilizar a BrisaHub para:",
-    ],
+    paragraphs: ["É proibido utilizar a BrisaHub para:"],
     bullets: [
       "fraude;",
       "lavagem de dinheiro;",
@@ -358,9 +354,7 @@ const termsSections = [
   },
   {
     title: "24. Suspensão ou encerramento pela BrisaHub",
-    paragraphs: [
-      "A BrisaHub poderá suspender, limitar ou encerrar contas em caso de:",
-    ],
+    paragraphs: ["A BrisaHub poderá suspender, limitar ou encerrar contas em caso de:"],
     bullets: [
       "violação destes Termos;",
       "suspeita de fraude;",
@@ -417,9 +411,7 @@ const termsSections = [
   },
   {
     title: "30. Limitação de responsabilidade",
-    paragraphs: [
-      "Na máxima extensão permitida pela legislação aplicável, a BrisaHub não será responsável por:",
-    ],
+    paragraphs: ["Na máxima extensão permitida pela legislação aplicável, a BrisaHub não será responsável por:"],
     bullets: [
       "descumprimento de obrigação por agência ou talento;",
       "informações falsas enviadas por usuários;",
@@ -447,7 +439,6 @@ const termsSections = [
     paragraphs: [
       "Para dúvidas, solicitações ou suporte, o usuário poderá entrar em contato pelo e-mail:",
       "suporte@brisahub.com.br",
-      "Caso ainda não exista esse e-mail, substituir pelo canal oficial de atendimento da BrisaHub antes do lançamento.",
     ],
   },
   {
@@ -459,9 +450,7 @@ const termsSections = [
   },
   {
     title: "34. Aceite",
-    paragraphs: [
-      "Ao criar uma conta ou utilizar a BrisaHub, o usuário declara que:",
-    ],
+    paragraphs: ["Ao criar uma conta ou utilizar a BrisaHub, o usuário declara que:"],
     bullets: [
       "leu estes Termos;",
       "compreendeu suas condições;",
@@ -472,7 +461,466 @@ const termsSections = [
   },
 ];
 
-type TermsSection = (typeof termsSections)[number];
+// ── English sections ───────────────────────────────────────────────────────────
+
+const enSections = [
+  {
+    title: "1. Definitions",
+    paragraphs: [
+      "For the purposes of these Terms:",
+      "BrisaHub: a digital platform that connects agencies and talents for job posting, applications, hiring, escrow of funds, payment release, and withdrawal management.",
+      "Agency: an individual or legal entity that posts jobs, hires talents, and makes payments within the platform.",
+      "Talent: a user who creates a professional profile, applies to jobs, accepts contracts, and receives payments for completed work.",
+      "User: any person registered on the platform, including agencies and talents.",
+      "Wallet: the user's internal balance on the platform, used for deposits, escrow, payments, receipts, and withdrawals.",
+      "Escrow or custody: funds set aside from the agency's wallet to guarantee payment to a talent until the payment is released.",
+      "Asaas: a third-party provider used for payment processing, billing, PIX deposits, subscriptions, and PIX transfers.",
+      "Contract: an agreement created within the platform between an agency and a talent for the performance of a specific job.",
+    ],
+  },
+  {
+    title: "2. About BrisaHub",
+    paragraphs: [
+      "BrisaHub acts as an intermediary platform between agencies and talents.",
+      "BrisaHub is not an employer of talents, does not automatically represent agencies, and does not guarantee the perfect execution of contracted services. The working relationship, delivery, attendance, conduct, negotiation, and fulfillment of services occurs between the agency and the talent.",
+      "BrisaHub provides tools to facilitate:",
+    ],
+    bullets: [
+      "job posting;",
+      "talent applications;",
+      "contract sending and signing;",
+      "escrow of funds;",
+      "payment release;",
+      "history records;",
+      "PIX withdrawals;",
+      "plan and subscription management.",
+    ],
+  },
+  {
+    title: "3. User registration",
+    paragraphs: [
+      "To use the platform, the user must create an account and provide accurate, up-to-date, and complete information.",
+      "BrisaHub may request information such as:",
+    ],
+    bullets: [
+      "full name;",
+      "agency name;",
+      "responsible person's name;",
+      "CPF or CNPJ (Brazilian tax IDs) or equivalent;",
+      "phone number;",
+      "email address;",
+      "city and state;",
+      "PIX key;",
+      "professional information;",
+      "profile picture;",
+      "information required for payments and withdrawals.",
+    ],
+    trailingParagraphs: [
+      "The user is responsible for keeping their information up to date.",
+      "BrisaHub may suspend, limit, or close accounts that contain false, incomplete, fraudulent, or irregularly used information.",
+    ],
+  },
+  {
+    title: "4. Agency account",
+    paragraphs: [
+      "The agency may use the platform to post jobs, review talents, send contracts, confirm bookings, and release payments.",
+      "The agency declares that:",
+    ],
+    bullets: [
+      "it has authorization to hire talents;",
+      "it will provide accurate information about the job;",
+      "it will respect the conditions agreed with the talent;",
+      "it will maintain sufficient balance to confirm bookings;",
+      "it will not use the platform for illegal, abusive, fraudulent, or discriminatory activities.",
+    ],
+    trailingParagraphs: [
+      "The agency is responsible for the information published in its job postings, the contracts sent, and the correct release of payments after the work is completed.",
+    ],
+  },
+  {
+    title: "5. Talent account",
+    paragraphs: [
+      "The talent may create their profile, apply to jobs, accept contracts, receive funds in their wallet, and request PIX withdrawals.",
+      "The talent declares that:",
+    ],
+    bullets: [
+      "the information on their profile is truthful;",
+      "they have the ability to perform the jobs they apply for;",
+      "they will comply with the agreed schedules, locations, and conditions;",
+      "they will keep their PIX key accurate and up to date;",
+      "they will not use the platform for fraud, false information, or improper conduct.",
+    ],
+    trailingParagraphs: [
+      "BrisaHub is not responsible for withdrawal errors caused by an incorrect PIX key provided by the talent.",
+    ],
+  },
+  {
+    title: "6. Agency plans",
+    paragraphs: [
+      "BrisaHub may offer free and paid plans for agencies.",
+      "Plans may vary in:",
+    ],
+    bullets: [
+      "number of job postings;",
+      "hiring limits;",
+      "platform commission;",
+      "visibility features;",
+      "access to history;",
+      "additional tools.",
+    ],
+    trailingParagraphs: [
+      "The prices, benefits, and conditions of each plan will be displayed within the platform.",
+      "BrisaHub may change plans, prices, and benefits, with notice or an update on the platform, respecting charges already made when applicable.",
+    ],
+  },
+  {
+    title: "7. Free plan",
+    paragraphs: [
+      "The free plan may allow limited use of the platform.",
+      "When available, the free plan may allow the agency to post and complete one job within the limits defined by BrisaHub.",
+      "After reaching the free plan limit, the agency may need to subscribe to a paid plan to continue posting new jobs or accessing additional features.",
+    ],
+  },
+  {
+    title: "8. Subscriptions and plan billing",
+    paragraphs: [
+      "Paid plans may be billed on a recurring basis, monthly, or as otherwise stated on the platform.",
+      "Billing will be processed through the integrated payment provider, currently Asaas.",
+      "By subscribing to a paid plan, the agency authorizes the charge of the amount corresponding to the chosen plan.",
+      "Renewal, expiration, billing history, and receipts may be displayed in the agency's billing or plan section.",
+      "If a charge is declined, cancelled, disputed, or not confirmed, BrisaHub may suspend, limit, or downgrade access to the plan until the issue is resolved.",
+    ],
+  },
+  {
+    title: "9. Wallet deposits",
+    paragraphs: [
+      "The agency may add funds to their wallet using the methods available on the platform, such as PIX via Asaas.",
+      "The balance will be credited to the wallet after payment confirmation by the payment provider.",
+      "BrisaHub may show the deposit as pending until it receives confirmation from the provider.",
+      "The agency should verify the details before making payments. BrisaHub is not responsible for payments made outside the platform's official channels.",
+    ],
+  },
+  {
+    title: "10. Escrow and value reservation",
+    paragraphs: [
+      "To confirm a booking, the agency must have sufficient balance in their wallet.",
+      "When confirming a booking, the corresponding amount will be set aside from the agency's wallet to guarantee payment to the talent.",
+      "Escrow does not mean immediate payment to the talent. The amount will be released after the payment step or completion defined on the platform.",
+      "The agency may not use already-reserved funds for other purposes until the hiring is completed, cancelled, or resolved according to platform rules.",
+    ],
+  },
+  {
+    title: "11. Payment to talent",
+    paragraphs: [
+      "After the work is performed or in accordance with the flow defined on the platform, the agency may release payment to the talent.",
+      "When payment is released:",
+    ],
+    bullets: [
+      "the platform commission will be calculated according to the agency's plan;",
+      "the net amount will be credited to the talent's wallet;",
+      "the commission amount will be recorded as platform revenue;",
+      "the transaction history will be recorded.",
+    ],
+    trailingParagraphs: [
+      "BrisaHub may maintain financial and operational records for audit, support, fraud prevention, and legal compliance purposes.",
+    ],
+  },
+  {
+    title: "12. Platform commission",
+    paragraphs: [
+      "BrisaHub may charge a commission on hires made within the platform.",
+      "The commission may vary depending on the agency's plan.",
+      "Commission examples, when applicable:",
+    ],
+    bullets: [
+      "free plan: higher percentage;",
+      "Pro plan: reduced percentage;",
+      "Premium plan: percentage as stated on the platform.",
+    ],
+    trailingParagraphs: [
+      "The applicable commission will be displayed before or during the hiring/payment flow.",
+      "BrisaHub may change commission percentages for new contracts or new plans, upon platform update.",
+    ],
+  },
+  {
+    title: "13. PIX withdrawals",
+    paragraphs: [
+      "The talent may request withdrawal of available wallet balance to a registered PIX key.",
+      "The agency may also request withdrawal of available balance when this feature is enabled.",
+      "Withdrawals will be processed by the integrated payment provider, currently Asaas.",
+      "The user is responsible for providing a valid PIX key belonging to the correct account holder.",
+      "BrisaHub may block or review withdrawals in case of:",
+    ],
+    bullets: [
+      "suspected fraud;",
+      "incorrect data;",
+      "registration inconsistency;",
+      "court order;",
+      "payment provider requirements;",
+      "pending account issues;",
+      "need for additional verification.",
+    ],
+    trailingParagraphs: [
+      "The receipt time may depend on the payment provider, the PIX system, and security checks.",
+    ],
+  },
+  {
+    title: "14. External fees",
+    paragraphs: [
+      "The payment provider may charge fees for billing, transfers, notifications, cards, PIX, or other services.",
+      "These fees may be absorbed by BrisaHub or passed on to the user, according to the rule displayed on the platform.",
+      "BrisaHub may adjust fee-pass-through rules in accordance with operational costs, commercial conditions, or changes by the payment provider.",
+    ],
+  },
+  {
+    title: "15. Cancellations",
+    paragraphs: [
+      "Cancellations of jobs, bookings, contracts, or payments may follow specific rules displayed on the platform.",
+      "BrisaHub may prevent automatic cancellation when there is:",
+    ],
+    bullets: [
+      "an accepted contract;",
+      "a confirmed booking;",
+      "a payment already released;",
+      "a withdrawal in progress;",
+      "an open dispute;",
+      "suspected fraud;",
+      "a pending obligation between the parties.",
+    ],
+    trailingParagraphs: [
+      "When payment has already been made or funds are in escrow, cancellation may require manual review.",
+    ],
+  },
+  {
+    title: "16. Disputes",
+    paragraphs: [
+      "If an agency and a talent disagree about the execution of work, payment, attendance, delivery, or contract terms, they may contact support or open a dispute if that feature is available.",
+      "BrisaHub may review information recorded on the platform, such as:",
+    ],
+    bullets: [
+      "job data;",
+      "contract;",
+      "available messages or records;",
+      "booking status;",
+      "payment history;",
+      "receipts;",
+      "dates and times.",
+    ],
+    trailingParagraphs: [
+      "BrisaHub may take reasonable administrative measures, such as keeping funds in escrow, releasing payment, cancelling an operation, blocking an account, or requesting additional documentation.",
+    ],
+  },
+  {
+    title: "17. Agency responsibilities",
+    paragraphs: ["The agency is responsible for:"],
+    bullets: [
+      "publishing accurate information;",
+      "hiring talents ethically and legally;",
+      "respecting agreed conditions;",
+      "maintaining sufficient balance;",
+      "releasing payments when due;",
+      "not discriminating against users;",
+      "not requesting illegal services;",
+      "not attempting to circumvent the platform.",
+    ],
+    trailingParagraphs: [
+      "The agency must not make payments outside the platform when the hiring was initiated within BrisaHub, unless expressly authorized by BrisaHub.",
+    ],
+  },
+  {
+    title: "18. Talent responsibilities",
+    paragraphs: ["The talent is responsible for:"],
+    bullets: [
+      "maintaining an accurate profile;",
+      "showing up for accepted work;",
+      "fulfilling the agreed service;",
+      "providing correct information;",
+      "registering the correct PIX key;",
+      "respecting the agency and platform rules;",
+      "not accepting jobs they cannot perform;",
+      "not attempting to circumvent the platform.",
+    ],
+  },
+  {
+    title: "19. Prohibited conduct",
+    paragraphs: ["It is prohibited to use BrisaHub for:"],
+    bullets: [
+      "fraud;",
+      "money laundering;",
+      "false data;",
+      "scams;",
+      "hiring for illegal activities;",
+      "harassment;",
+      "discrimination;",
+      "violation of third-party rights;",
+      "spam;",
+      "unauthorized access attempts;",
+      "unauthorized automated use;",
+      "manipulation of ratings, payments, or invitations;",
+      "circumventing platform commissions or payments.",
+    ],
+    trailingParagraphs: [
+      "Violation of these rules may result in suspension, blocking, fund retention for review, account termination, and notification to authorities when necessary.",
+    ],
+  },
+  {
+    title: "20. Personal data and privacy",
+    paragraphs: [
+      "BrisaHub may process personal data necessary for registration, platform operation, payments, fraud prevention, support, security, and compliance with legal obligations.",
+      "Data may include registration information, documents, contact details, payment data, usage history, hiring records, PIX keys, and technical access information.",
+      "BrisaHub shall process data in accordance with applicable legislation, including Brazil's General Data Protection Law (LGPD) and other applicable privacy laws.",
+      "The user may request information about their data, correction, update, or deletion, subject to legal limits and the need to maintain financial, anti-fraud, audit, and legal compliance records.",
+      "Account deletion does not imply immediate deletion of all records, particularly financial, tax, transactional, contractual, or records necessary for the defense of rights.",
+    ],
+  },
+  {
+    title: "21. Account security",
+    paragraphs: [
+      "The user is responsible for maintaining the confidentiality of their password and access credentials.",
+      "BrisaHub is not responsible for damages caused by password sharing, unauthorized access due to the user's negligence, or use of insecure devices.",
+      "The user must immediately report any suspected unauthorized use of their account.",
+    ],
+  },
+  {
+    title: "22. Password and profile changes",
+    paragraphs: [
+      "The user may change their password and profile information through the means available on the platform.",
+      "Information saved in the profile will remain recorded until the user changes it, except in cases of technical correction, legal requirement, moderation, security, or a valid request from the user.",
+    ],
+  },
+  {
+    title: "23. Account deletion",
+    paragraphs: [
+      "The user may request the deletion or deactivation of their account.",
+      "Deletion may be blocked while there is:",
+    ],
+    bullets: [
+      "wallet balance;",
+      "pending withdrawal;",
+      "active booking;",
+      "pending contract;",
+      "payment in progress;",
+      "open dispute;",
+      "financial obligation;",
+      "required action on a job or hiring.",
+    ],
+    trailingParagraphs: [
+      "Before deleting their account, the user should resolve pending items and withdraw available balance.",
+      "BrisaHub may retain records necessary for audit, security, fraud prevention, legal compliance, and defense of rights.",
+    ],
+  },
+  {
+    title: "24. Suspension or termination by BrisaHub",
+    paragraphs: ["BrisaHub may suspend, limit, or close accounts in case of:"],
+    bullets: [
+      "violation of these Terms;",
+      "suspected fraud;",
+      "financial risk;",
+      "misuse;",
+      "false data;",
+      "chargeback;",
+      "court order;",
+      "conduct harmful to the platform or other users.",
+    ],
+    trailingParagraphs: [
+      "BrisaHub may temporarily block funds while investigating suspected fraud, disputes, or irregularities.",
+    ],
+  },
+  {
+    title: "25. Platform availability",
+    paragraphs: [
+      "BrisaHub will strive to keep the platform available but does not guarantee uninterrupted operation.",
+      "The platform may be unavailable due to maintenance, technical failures, third-party unavailability, attacks, fortuitous events, force majeure, or issues with external providers.",
+      "BrisaHub is not responsible for unavailability caused by third-party services, including payment providers, hosting, internet, banks, or the PIX system.",
+    ],
+  },
+  {
+    title: "26. Third-party providers",
+    paragraphs: [
+      "BrisaHub uses third-party services for payment processing, authentication, hosting, email sending, and other features.",
+      "The use of these services may be subject to the providers' own terms and policies.",
+      "The user acknowledges that certain operations, such as payments, billing, subscriptions, transfers, and withdrawals, depend on the approval and availability of these third parties.",
+    ],
+  },
+  {
+    title: "27. Receipts and records",
+    paragraphs: [
+      "BrisaHub may provide internal receipts for operations performed on the platform.",
+      "Internal receipts serve for consultation and control within BrisaHub.",
+      "When applicable, receipts or records from the payment provider may be used as additional reference.",
+      "BrisaHub may maintain a history of contracts, bookings, payments, withdrawals, deposits, subscriptions, and administrative actions for audit purposes.",
+    ],
+  },
+  {
+    title: "28. Intellectual property",
+    paragraphs: [
+      "The BrisaHub brand, system, design, code, texts, logos, flows, features, and other platform elements belong to BrisaHub or their respective owners.",
+      "The user may not copy, reproduce, sell, exploit, modify, or distribute parts of the platform without authorization.",
+    ],
+  },
+  {
+    title: "29. User-submitted content",
+    paragraphs: [
+      "The user is responsible for all content they submit to the platform, including photos, texts, descriptions, documents, resumes, portfolios, contracts, and professional information.",
+      "The user declares they have the rights or authorization to use the submitted content.",
+      "BrisaHub may remove content that violates these Terms, third-party rights, applicable law, or internal rules.",
+    ],
+  },
+  {
+    title: "30. Limitation of liability",
+    paragraphs: ["To the fullest extent permitted by applicable law, BrisaHub shall not be liable for:"],
+    bullets: [
+      "failure to fulfill obligations by an agency or talent;",
+      "false information submitted by users;",
+      "absence, delay, or poor execution of services;",
+      "loss caused by incorrect payment information;",
+      "unavailability of third-party providers;",
+      "blocks, refusals, or delays by the payment provider;",
+      "conduct outside the platform;",
+      "negotiations made outside of BrisaHub.",
+    ],
+    trailingParagraphs: [
+      "Nothing in these Terms excludes rights that cannot be excluded by applicable law.",
+    ],
+  },
+  {
+    title: "31. Changes to these Terms",
+    paragraphs: [
+      "BrisaHub may change these Terms at any time.",
+      "When there are significant changes, BrisaHub may notify users through the platform, email, or another available channel.",
+      "Continued use of the platform after the Terms are updated will be considered acceptance of the new version.",
+    ],
+  },
+  {
+    title: "32. Contact",
+    paragraphs: [
+      "For questions, requests, or support, the user may contact us at:",
+      "support@brisahub.com.br",
+    ],
+  },
+  {
+    title: "33. Governing law and jurisdiction",
+    paragraphs: [
+      "These Terms shall be governed by the laws of the Federative Republic of Brazil.",
+      "The competent court shall be chosen in accordance with applicable law, without prejudice to mandatory consumer rights where applicable.",
+    ],
+  },
+  {
+    title: "34. Acceptance",
+    paragraphs: ["By creating an account or using BrisaHub, the user declares that they:"],
+    bullets: [
+      "have read these Terms;",
+      "have understood their conditions;",
+      "agree to use the platform in accordance with these rules;",
+      "acknowledge that payments and withdrawals depend on external providers;",
+      "understand that BrisaHub acts as an intermediary platform between agencies and talents.",
+    ],
+  },
+];
+
+// ── Component ──────────────────────────────────────────────────────────────────
+
+type TermsSection = (typeof ptSections)[number];
 
 function Section({ section }: { section: TermsSection }) {
   return (
@@ -510,6 +958,8 @@ export default async function TermsPage() {
   const lang = cookieStore.get("lang")?.value ?? "pt-BR";
   const isEn = lang === "en";
 
+  const sections = isEn ? enSections : ptSections;
+
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-10 text-zinc-900 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-4xl space-y-6">
@@ -528,20 +978,36 @@ export default async function TermsPage() {
 
         <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="space-y-4 text-[15px] leading-7 text-zinc-600">
-            <p>
-              Estes Termos de Uso e Condições regulam o acesso e uso da plataforma BrisaHub,
-              disponível em brisahub.com.br, por agências, talentos, administradores e demais
-              usuários cadastrados.
-            </p>
-            <p>
-              Ao criar uma conta, acessar ou utilizar a BrisaHub, o usuário declara que leu,
-              compreendeu e concorda com estes Termos.
-            </p>
+            {isEn ? (
+              <>
+                <p>
+                  These Terms of Use and Conditions govern access to and use of the BrisaHub
+                  platform, available at brisahub.com.br, by agencies, talents, administrators,
+                  and other registered users.
+                </p>
+                <p>
+                  By creating an account, accessing, or using BrisaHub, the user declares that
+                  they have read, understood, and agree to these Terms.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Estes Termos de Uso e Condições regulam o acesso e uso da plataforma BrisaHub,
+                  disponível em brisahub.com.br, por agências, talentos, administradores e demais
+                  usuários cadastrados.
+                </p>
+                <p>
+                  Ao criar uma conta, acessar ou utilizar a BrisaHub, o usuário declara que leu,
+                  compreendeu e concorda com estes Termos.
+                </p>
+              </>
+            )}
           </div>
         </section>
 
         <div className="space-y-4">
-          {termsSections.map((section) => (
+          {sections.map((section) => (
             <Section key={section.title} section={section} />
           ))}
         </div>
