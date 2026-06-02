@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -86,9 +86,10 @@ type ContractForm = {
 
 function formatBudget(n: number) { return brl(n); }
 
-function formatDate(raw: string) {
+function formatDate(raw: string, lang = "pt-BR") {
   if (!raw) return "—";
-  return new Date(raw).toLocaleDateString("pt-BR", {
+  const locale = lang === "en" ? "en-US" : "pt-BR";
+  return new Date(raw).toLocaleDateString(locale, {
     month: "short", day: "numeric", year: "numeric",
   });
 }
@@ -120,7 +121,6 @@ function buildPublicJobUrl(jobId: string) {
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-
 
 const CATEGORY_STRIPES: Record<string, string> = {
   "Lifestyle & Fashion": "from-rose-400 via-pink-400 to-fuchsia-400",
@@ -166,6 +166,7 @@ const PHOTO_LABELS = ["Front", "Left", "Right"] as const;
 
 
 function VideoPlayer({ url }: { url: string }) {
+  const { t } = useT();
   const [playing, setPlaying] = useState(false);
   return (
     <div className="relative aspect-video bg-[#1F2D2E] overflow-hidden">
@@ -178,7 +179,7 @@ function VideoPlayer({ url }: { url: string }) {
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
-          <p className="text-[11px] font-medium text-white/50 uppercase tracking-widest">Vídeo de Apresentação</p>
+          <p className="text-[11px] font-medium text-white/50 uppercase tracking-widest">{t("video_presentation_label")}</p>
         </button>
       )}
     </div>
@@ -196,7 +197,8 @@ function ContractConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const names = targets.map((t) => t.talentName).join(", ");
+  const { t } = useT();
+  const names = targets.map((tgt) => tgt.talentName).join(", ");
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onCancel} />
@@ -210,27 +212,25 @@ function ContractConfirmModal({
               </svg>
             </div>
             <h3 className="text-[16px] font-semibold text-zinc-900">
-              Enviar {targets.length > 1 ? `${targets.length} contratos` : "contrato"}?
+              {targets.length > 1
+                ? `${t("contract_confirm_send_title").replace("contrato?", "").replace("contract?", "").trim()} ${targets.length} ${t("contract_confirm_contracts_many")}?`
+                : t("contract_confirm_send_title")}
             </h3>
-            <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">
-              {names}
-            </p>
-            <p className="text-[12px] text-zinc-400 mt-1">
-              Cada talento receberá os mesmos termos do contrato e poderá aceitar ou rejeitar.
-            </p>
+            <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed">{names}</p>
+            <p className="text-[12px] text-zinc-400 mt-1">{t("contract_confirm_desc")}</p>
           </div>
           <div className="flex gap-3">
             <button
               onClick={onCancel}
               className="flex-1 py-2.5 text-[13px] font-medium border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer"
             >
-              Não, voltar
+              {t("contract_confirm_no")}
             </button>
             <button
               onClick={onConfirm}
               className="flex-1 py-2.5 text-[13px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors cursor-pointer"
             >
-              Sim, enviar
+              {t("contract_confirm_yes")}
             </button>
           </div>
         </div>
@@ -256,6 +256,7 @@ function ContractModal({
 }) {
   const { plan, commissionLabel, talentShareLabel } = useSubscription();
   const agencyConfig = useAgencyConfig();
+  const { t } = useT();
   const [form, setForm] = useState<ContractForm>({
     job_date:        job.jobDate ?? "",
     job_time:        job.jobTime ?? "",
@@ -296,7 +297,6 @@ function ContractModal({
 
     let uploadedContractPath: string | null = null;
     if (contractFile) {
-      // Step 1: ask the server for a signed upload URL (no file body → no 413)
       const signRes = await fetch("/api/contracts/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -304,20 +304,19 @@ function ContractModal({
       });
       if (!signRes.ok) {
         const body = await signRes.json().catch(() => ({})) as { error?: string };
-        setError(body.error ?? "Falha ao iniciar upload do contrato.");
+        setError(body.error ?? t("contract_upload_init_error"));
         setSubmitting(false);
         return;
       }
       const { signedUrl, token, path } = await signRes.json() as { signedUrl: string; token: string; path: string };
 
-      // Step 2: upload PDF directly to Supabase Storage — bypasses Vercel entirely
       const { error: storageError } = await supabase.storage
         .from(CONTRACTS_BUCKET)
         .uploadToSignedUrl(path, token, contractFile, { contentType: "application/pdf" });
 
       if (storageError) {
         console.error("[contract upload ui] storage", storageError);
-        setError("Falha ao enviar arquivo para o Storage. Tente novamente.");
+        setError(t("contract_upload_storage_error"));
         setSubmitting(false);
         return;
       }
@@ -339,11 +338,11 @@ function ContractModal({
     };
 
     const responses = await Promise.all(
-      targets.map((t) =>
+      targets.map((tgt) =>
         fetch("/api/contracts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, talent_id: t.talentId, talent_user_id: t.talentId }),
+          body: JSON.stringify({ ...payload, talent_id: tgt.talentId, talent_user_id: tgt.talentId }),
         })
       )
     );
@@ -352,7 +351,7 @@ function ContractModal({
       if (r.status === 402) {
         const body = await r.clone().json().catch(() => ({})) as { error?: string; message?: string; details?: string };
         if (body.error === "plan_limit") {
-          setError(resolveApiError(body, "Limite de contratações atingido. Faça upgrade para contratar mais talentos."));
+          setError(resolveApiError(body, t("contract_send_error_default")));
           setSubmitting(false);
           return;
         }
@@ -362,18 +361,18 @@ function ContractModal({
     const failed = responses.filter((r) => !r.ok);
     if (failed.length > 0) {
       const firstFailure = await failed[0].clone().json().catch(() => ({})) as { error?: string; message?: string; details?: string };
-      const firstMessage = resolveApiError(firstFailure, "Não foi possível enviar o contrato.");
+      const firstMessage = resolveApiError(firstFailure, t("contract_send_error_default"));
       setError(
         failed.length === 1
           ? (firstFailure.details ? `${firstMessage}\n${firstFailure.details}` : firstMessage)
-          : `${failed.length} contrato(s) não puderam ser enviados. ${firstMessage}`,
+          : `${failed.length} ${t("contract_send_error_many_sfx")} ${firstMessage}`,
       );
       setSubmitting(false);
       return;
     }
 
     setSent(true);
-    onSent(targets.map((t) => t.submissionId));
+    onSent(targets.map((tgt) => tgt.submissionId));
     setSubmitting(false);
   }
 
@@ -411,12 +410,12 @@ function ContractModal({
                 </div>
                 <div>
                   <h3 className="text-[17px] font-semibold text-zinc-900">
-                    {targets.length > 1 ? `${targets.length} Contratos Enviados` : "Contrato Enviado"}
+                    {targets.length > 1 ? `${targets.length} ${t("contract_success_title_many_sfx")}` : t("contract_success_title_one")}
                   </h3>
                   <p className="text-[13px] text-zinc-400 mt-1">
                     {targets.length > 1
-                      ? `${targets.map((t) => t.talentName).join(", ")} serão notificados. Reservas pendentes criadas.`
-                      : `${targets[0]?.talentName} será notificado e poderá aceitar ou rejeitar. Uma reserva pendente foi criada.`
+                      ? `${targets.map((tgt) => tgt.talentName).join(", ")} ${t("contract_success_notify_many")}`
+                      : `${targets[0]?.talentName} ${t("contract_success_notify_one")}`
                     }
                   </p>
                 </div>
@@ -425,13 +424,13 @@ function ContractModal({
                     onClick={onClose}
                     className="flex-1 py-2.5 text-[13px] font-medium border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer"
                   >
-                    Voltar para Vaga
+                    {t("contract_success_back")}
                   </button>
                   <Link
                     href={contractsHref}
                     className="flex-1 py-2.5 text-[13px] font-semibold bg-[#1F2D2E] text-white rounded-xl hover:bg-[#2D4142] transition-colors text-center"
                   >
-                    Ver Contratos
+                    {t("contract_success_view")}
                   </Link>
                 </div>
               </div>
@@ -441,13 +440,13 @@ function ContractModal({
                 {/* Title + talent */}
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">Novo Contrato</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-0.5">{t("contract_modal_new")}</p>
                     <h3 className="text-[16px] font-semibold text-zinc-900 truncate">{job.title}</h3>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0 bg-zinc-50 border border-zinc-100 rounded-xl px-3 py-2">
-                    {targets.slice(0, 3).map((t) => (
-                      <div key={t.talentId} className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarGradient(t.talentName)} flex items-center justify-center text-[10px] font-bold text-white`}>
-                        {initials(t.talentName)}
+                    {targets.slice(0, 3).map((tgt) => (
+                      <div key={tgt.talentId} className={`w-7 h-7 rounded-full bg-gradient-to-br ${avatarGradient(tgt.talentName)} flex items-center justify-center text-[10px] font-bold text-white`}>
+                        {initials(tgt.talentName)}
                       </div>
                     ))}
                     {targets.length > 3 && (
@@ -465,7 +464,7 @@ function ContractModal({
                 {/* Schedule */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelCls}>Data da Vaga *</label>
+                    <label className={labelCls}>{t("contract_modal_job_date_label")}</label>
                     <input
                       type="date"
                       required
@@ -475,7 +474,7 @@ function ContractModal({
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Horário da Vaga *</label>
+                    <label className={labelCls}>{t("contract_modal_job_time_label")}</label>
                     <input
                       type="time"
                       required
@@ -488,11 +487,11 @@ function ContractModal({
 
                 {/* Location */}
                 <div>
-                  <label className={labelCls}>Localização *</label>
+                  <label className={labelCls}>{t("contracts_location")} *</label>
                   <input
                     type="text"
                     required
-                    placeholder="Cidade, endereço ou 'Remoto'"
+                    placeholder={t("contract_modal_location_ph")}
                     value={form.location}
                     onChange={(e) => set("location", e.target.value)}
                     className={inputCls}
@@ -501,7 +500,7 @@ function ContractModal({
 
                 {/* Job description */}
                 <div>
-                  <label className={labelCls}>Descrição da Vaga *</label>
+                  <label className={labelCls}>{t("job_detail_description_section")} *</label>
                   <textarea
                     required
                     rows={3}
@@ -514,7 +513,7 @@ function ContractModal({
                 {/* Payment */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelCls}>Valor do Pagamento (BRL) *</label>
+                    <label className={labelCls}>{t("contracts_payment_amount")} *</label>
                     <input
                       type="number"
                       required
@@ -526,10 +525,10 @@ function ContractModal({
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Método de Pagamento</label>
+                    <label className={labelCls}>{t("contracts_payment_method")}</label>
                     <input
                       type="text"
-                      placeholder="Transferência bancária, cheque…"
+                      placeholder={t("contract_modal_location_ph")}
                       value={form.payment_method}
                       onChange={(e) => set("payment_method", e.target.value)}
                       className={inputCls}
@@ -539,10 +538,10 @@ function ContractModal({
 
                 {/* Notes */}
                 <div>
-                  <label className={labelCls}>Observações Adicionais</label>
+                  <label className={labelCls}>{t("contracts_notes")}</label>
                   <textarea
                     rows={2}
-                    placeholder="Requisitos de vestuário, pessoa de contato, etc."
+                    placeholder={t("contract_modal_location_ph")}
                     value={form.additional_notes}
                     onChange={(e) => set("additional_notes", e.target.value)}
                     className={`${inputCls} resize-none`}
@@ -551,14 +550,14 @@ function ContractModal({
 
                 {/* Contract file upload */}
                 <div>
-                  <label className={labelCls}>Contrato (PDF) — opcional</label>
+                  <label className={labelCls}>{t("contract_modal_pdf_label")}</label>
                   <label className="flex items-center gap-3 w-full px-3.5 py-2.5 text-[13px] bg-zinc-50 border border-zinc-200 rounded-xl hover:border-zinc-300 cursor-pointer transition-colors">
                     <svg className="w-4 h-4 text-zinc-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
                     <span className={contractFile ? "text-zinc-800 truncate" : "text-zinc-400"}>
-                      {contractFile ? contractFile.name : "Anexar contrato para o talento assinar…"}
+                      {contractFile ? contractFile.name : t("contract_modal_pdf_attach")}
                     </span>
                     {contractFile && (
                       <button
@@ -584,12 +583,12 @@ function ContractModal({
                         const validPdf = (file.type === "application/pdf" || !file.type) && /\.pdf$/i.test(file.name);
                         if (!validPdf) {
                           setContractFile(null);
-                          setError("Envie um arquivo PDF válido de até 20MB.");
+                          setError(t("contract_pdf_format_error"));
                           return;
                         }
                         if (file.size > 20 * 1024 * 1024) {
                           setContractFile(null);
-                          setError("Arquivo muito grande. Envie um PDF de até 20MB.");
+                          setError(t("contract_pdf_size_error"));
                           return;
                         }
                         setError("");
@@ -597,12 +596,10 @@ function ContractModal({
                       }}
                     />
                   </label>
-                  <p className="text-[11px] text-zinc-400 mt-1.5">
-                    Se anexar, o talento precisará assinar e reenviar o documento.
-                  </p>
+                  <p className="text-[11px] text-zinc-400 mt-1.5">{t("contract_modal_pdf_hint")}</p>
                 </div>
 
-                {/* Fee info — escrow mode only: in internal mode the agency pays talent directly */}
+                {/* Fee info — escrow mode only */}
                 {agencyConfig.paymentMode !== "internal" && (
                   <div className="flex items-center gap-2 text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl px-4 py-2.5">
                     <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -615,7 +612,7 @@ function ContractModal({
                     ].join(" ")}>
                       {plan.toUpperCase()}
                     </span>
-                    Taxa da plataforma: <strong className="text-zinc-600 mx-1">{commissionLabel}</strong> · Talento recebe: <strong className="text-zinc-600 mx-1">{talentShareLabel}</strong> do valor combinado
+                    {t("contract_modal_platform_fee")}: <strong className="text-zinc-600 mx-1">{commissionLabel}</strong> · {t("contract_modal_talent_gets")}: <strong className="text-zinc-600 mx-1">{talentShareLabel}</strong> {t("contract_modal_of_amount")}
                   </div>
                 )}
 
@@ -626,14 +623,14 @@ function ContractModal({
                     onClick={onClose}
                     className="flex-1 py-2.5 text-[13px] font-medium border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors cursor-pointer"
                   >
-                    Cancelar
+                    {t("action_cancel")}
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
                     className="flex-1 py-2.5 text-[13px] font-semibold bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? "Enviando…" : "Revisar e Enviar"}
+                    {submitting ? t("contract_modal_sending") : t("contract_modal_review_send")}
                   </button>
                 </div>
               </form>
@@ -668,7 +665,7 @@ function SubmissionCard({
   onToggleSelect?: () => void;
   onDelete?: () => void;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const jobStatusLabel = (s: string) => ({
     open: t("status_open"), closed: t("status_closed"), draft: t("status_draft"),
     inactive: t("status_inactive"), paused: t("status_paused"),
@@ -679,13 +676,12 @@ function SubmissionCard({
   const displayName =
     submission.talentName || (submission.isReferral ? t("submission_referral_fallback_name") : t("general_unknown"));
 
-  // Derive display status from booking state first, then fall back to submission status.
   const { statusLabel, statusCls } = (() => {
     if (bookingStatus && bookingStatus !== "cancelled" && bookingStatus !== "rejected") {
       if (bookingStatus === "paid") {
-        return { statusLabel: "Pago", statusCls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" };
+        return { statusLabel: t("status_paid") ?? "Paid", statusCls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100" };
       }
-      return { statusLabel: "Contratado", statusCls: "bg-teal-50 text-teal-700 ring-1 ring-teal-100" };
+      return { statusLabel: t("status_hired") ?? "Hired", statusCls: "bg-teal-50 text-teal-700 ring-1 ring-teal-100" };
     }
     const cls = submissionStatusTone(submission.status);
     const label =
@@ -731,16 +727,16 @@ function SubmissionCard({
           <p className="text-[11px] text-zinc-400 mt-0.5">
             {t(submission.mode === "self" ? "submission_source_self" : "submission_source_referred")}
             {" · "}
-            {formatDate(submission.submittedAt)}
+            {formatDate(submission.submittedAt, lang)}
             {hasMedia && (
               <span className="ml-2 text-violet-500 font-medium">
-                {photos.length > 0 && `${photos.length} foto${photos.length !== 1 ? "s" : ""}`}
+                {photos.length > 0 && `${photos.length} ${photos.length !== 1 ? t("job_submission_photo_many") : t("job_submission_photo_one")}`}
                 {photos.length > 0 && submission.videoUrl && " · "}
-                {submission.videoUrl && "vídeo"}
+                {submission.videoUrl && t("job_submission_video_media")}
                 {(photos.length > 0 || submission.videoUrl) && submission.curriculumUrl && " · "}
-                {submission.curriculumUrl && "currículo"}
+                {submission.curriculumUrl && t("job_submission_curriculum")}
                 {(photos.length > 0 || submission.videoUrl || submission.curriculumUrl) && submission.portfolioUrl && " · "}
-                {submission.portfolioUrl && "portfólio"}
+                {submission.portfolioUrl && t("job_submission_portfolio")}
               </span>
             )}
           </p>
@@ -756,7 +752,7 @@ function SubmissionCard({
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
               className="w-6 h-6 flex items-center justify-center rounded-lg text-[#647B7B] hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
-              title="Deletar candidatura"
+              title={t("job_submission_delete_hint")}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -771,7 +767,7 @@ function SubmissionCard({
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
-                Enviado
+                {t("contracts_sent")}
               </span>
             ) : submission.talentId ? (
               <div className="flex items-center gap-1.5">
@@ -781,7 +777,7 @@ function SubmissionCard({
                     "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer",
                     isSelected ? "bg-[#1ABC9C] border-[#1ABC9C]" : "border-zinc-300 hover:border-zinc-500",
                   ].join(" ")}
-                  title={isSelected ? "Desmarcar" : "Selecionar para contrato em lote"}
+                  title={isSelected ? t("job_submission_deselect_hint") : t("job_submission_select_hint")}
                 >
                   {isSelected && (
                     <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -796,7 +792,7 @@ function SubmissionCard({
                   }}
                   className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2] text-white"
                 >
-                  Contratar
+                  {t("job_submission_hire_btn")}
                 </button>
               </div>
             ) : null
@@ -832,7 +828,7 @@ function SubmissionCard({
               )}
               {submission.videoUrl && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">Vídeo</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-2">{t("job_submission_video_label")}</p>
                   <VideoPlayer url={submission.videoUrl} />
                 </div>
               )}
@@ -849,7 +845,7 @@ function SubmissionCard({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      Abrir currículo
+                      {t("job_submission_open_curriculum") ?? `Open ${t("job_submission_curriculum")}`}
                     </a>
                   )}
                   {submission.portfolioUrl && (
@@ -863,7 +859,7 @@ function SubmissionCard({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                           d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      Abrir portfólio
+                      {t("job_submission_open_portfolio") ?? `Open ${t("job_submission_portfolio")}`}
                     </a>
                   )}
                 </div>
@@ -875,7 +871,7 @@ function SubmissionCard({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <p className="text-[12px]">Nenhuma mídia enviada</p>
+              <p className="text-[12px]">{t("job_submission_no_media")}</p>
             </div>
           )}
           {submission.bio && (
@@ -896,6 +892,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
   onMarkPaid: (id: string) => void;
   financesHref?: string;
 }) {
+  const { t, lang } = useT();
   const [busy, setBusy] = useState<"cancel" | "confirm" | "paid" | null>(null);
   const [balanceError, setBalanceError] = useState<{ required: number; available: number } | null>(null);
   const agencyConfig = useAgencyConfig();
@@ -915,7 +912,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
   }
 
   async function handleCancel() {
-    if (!confirm(`Cancelar reserva de ${booking.talentName}?`)) return;
+    if (!confirm(`Cancel booking for ${booking.talentName}?`)) return;
     setBusy("cancel");
     const res = await contractFetch("cancel_job");
     if (res?.ok) onCancel(booking.id);
@@ -959,7 +956,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
       <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-zinc-900 truncate">{booking.talentName}</p>
-          <p className="text-[12px] text-zinc-400 mt-0.5">{formatDate(booking.createdAt)}</p>
+          <p className="text-[12px] text-zinc-400 mt-0.5">{formatDate(booking.createdAt, lang)}</p>
         </div>
         <p className="text-[14px] font-semibold text-zinc-900 tabular-nums flex-shrink-0">
           {booking.price > 0 ? brl(booking.price) : "—"}
@@ -974,7 +971,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
               disabled={busy === "confirm"}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-colors cursor-pointer disabled:opacity-50"
             >
-              {busy === "confirm" ? "Confirmando..." : "Confirmar reserva"}
+              {busy === "confirm" ? t("booking_confirming_btn") : t("booking_confirm_booking_btn")}
             </button>
           )}
           {canMarkPaid && (
@@ -983,7 +980,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
               disabled={busy === "paid"}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100 transition-colors cursor-pointer disabled:opacity-50"
             >
-              {busy === "paid" ? "…" : "Marcar como Pago"}
+              {busy === "paid" ? "…" : t("booking_mark_paid_btn")}
             </button>
           )}
           {canCancel && (
@@ -992,7 +989,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
               disabled={busy === "cancel"}
               className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-zinc-500 hover:text-rose-600 border border-zinc-200 hover:border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
             >
-              {busy === "cancel" ? "…" : "Cancelar"}
+              {busy === "cancel" ? "…" : t("action_cancel")}
             </button>
           )}
         </div>
@@ -1006,16 +1003,16 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
               d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-semibold text-amber-800">Saldo insuficiente na carteira.</p>
+            <p className="text-[12px] font-semibold text-amber-800">{t("booking_balance_title")}</p>
             <p className="text-[11px] text-amber-700 mt-0.5">
-              Necessário: <strong>{brl(balanceError.required)}</strong> · Disponível: <strong>{brl(balanceError.available)}</strong>
+              {t("booking_balance_required")}: <strong>{brl(balanceError.required)}</strong> · {t("booking_balance_available")}: <strong>{brl(balanceError.available)}</strong>
             </p>
           </div>
           <Link
             href={financesHref}
             className="flex-shrink-0 text-[12px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
           >
-            Depositar fundos
+            {t("booking_deposit_funds_btn")}
           </Link>
         </div>
       )}
@@ -1026,6 +1023,7 @@ function BookingRow({ booking, onCancel, onConfirm, onMarkPaid, financesHref = "
 // ─── Not found ────────────────────────────────────────────────────────────────
 
 function NotFound() {
+  const { t } = useT();
   return (
     <div className="max-w-sm mx-auto pt-20 text-center">
       <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center mx-auto mb-4">
@@ -1034,8 +1032,8 @@ function NotFound() {
             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
-      <p className="text-[15px] font-medium text-zinc-700">Vaga não encontrada</p>
-      <p className="text-[13px] text-zinc-400 mt-1 mb-6">Esta vaga pode ter sido removida.</p>
+      <p className="text-[15px] font-medium text-zinc-700">{t("job_not_found_title")}</p>
+      <p className="text-[13px] text-zinc-400 mt-1 mb-6">{t("job_not_found_desc")}</p>
       <Link
         href="/agency/jobs"
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-500 hover:text-zinc-900 transition-colors"
@@ -1043,7 +1041,7 @@ function NotFound() {
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        Voltar para Vagas
+        {t("job_not_found_back")}
       </Link>
     </div>
   );
@@ -1066,7 +1064,7 @@ export default function JobDetail({
 }) {
   const router = useRouter();
   const { role } = useRole();
-  const { t } = useT();
+  const { t, lang } = useT();
   const jobStatusLabel = (s: string) => ({
     open: t("status_open"), closed: t("status_closed"), draft: t("status_draft"),
     inactive: t("status_inactive"), paused: t("status_paused"),
@@ -1101,8 +1099,6 @@ export default function JobDetail({
 
   if (!job) return <NotFound />;
 
-  // Map talentId → booking status so submission cards can show the correct derived state
-  // (Contratado / Pago) instead of the stale application-level status.
   const bookingStatusByTalentId = new Map<string, string>();
   for (const b of bookings) {
     if (b.talentId && b.status !== "cancelled") {
@@ -1119,8 +1115,6 @@ export default function JobDetail({
   const jobsHref = isWorkspaceJob ? "/agency/workspace/jobs" : "/agency/jobs";
   const editHref = isWorkspaceJob ? `/agency/workspace/jobs/${job.id}/edit` : `/agency/jobs/${job.id}/edit`;
   const financesHref = isWorkspaceJob ? "/agency/workspace/wallet" : "/agency/finances";
-  // canReopenJob is false when the job has paid contracts or is already full.
-  // Plan-limit checks (Free: 1 active job) are enforced only server-side.
   const canReopenJob = !hasPaidBookings && !isJobFull;
   const canShareJob = !isWorkspaceJob && currentStatus === "open" && !isJobFull;
   const canHire = !readOnly && currentStatus === "open" && !isJobFull;
@@ -1174,7 +1168,7 @@ export default function JobDetail({
   }
 
   async function handleDeleteSubmission(submissionId: string) {
-    if (!confirm("Deletar esta candidatura?")) return;
+    if (!confirm("Delete this application?")) return;
     const res = await fetch(`/api/submissions/${submissionId}`, { method: "DELETE" });
     if (res.ok) {
       setSubmissionList((prev) => prev.filter((s) => s.id !== submissionId));
@@ -1195,14 +1189,14 @@ export default function JobDetail({
       if (res.ok) {
         setCurrentStatus(newStatus);
         setPendingStatus(newStatus);
-        setStatusFeedback({ ok: true, msg: "Status da vaga atualizado." });
+        setStatusFeedback({ ok: true, msg: t("job_detail_status_updated") });
         router.refresh();
       } else {
         const d = await res.json().catch(() => ({})) as { error?: string };
-        setStatusFeedback({ ok: false, msg: d.error ?? "Não foi possível atualizar o status da vaga." });
+        setStatusFeedback({ ok: false, msg: d.error ?? t("job_detail_status_error") });
       }
     } catch {
-      setStatusFeedback({ ok: false, msg: "Não foi possível atualizar o status da vaga." });
+      setStatusFeedback({ ok: false, msg: t("job_detail_status_error") });
     }
     setStatusChanging(false);
   }
@@ -1214,10 +1208,10 @@ export default function JobDetail({
     try {
       await navigator.clipboard.writeText(publicJobUrl);
       setManualCopyUrl("");
-      setCopyFeedback("Link da vaga copiado. Envie para quem quiser se candidatar.");
+      setCopyFeedback(t("job_detail_link_copied"));
     } catch {
       setManualCopyUrl(publicJobUrl);
-      setCopyFeedback("Copie o link abaixo manualmente.");
+      setCopyFeedback(t("job_detail_copy_link_manual"));
     }
   }
 
@@ -1229,7 +1223,7 @@ export default function JobDetail({
       const res = await fetch(`/api/agency/jobs/${job.id}/invite-link`, { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setInviteCopyFeedback(body.error ?? "Não foi possível gerar o link.");
+        setInviteCopyFeedback(body.error ?? t("job_detail_invite_generate_error"));
         setInviteLinkLoading(false);
         return;
       }
@@ -1237,12 +1231,12 @@ export default function JobDetail({
       setInviteLinkUrl(inviteUrl);
       try {
         await navigator.clipboard.writeText(inviteUrl);
-        setInviteCopyFeedback("Link de convite copiado!");
+        setInviteCopyFeedback(t("job_detail_invite_copied"));
       } catch {
-        setInviteCopyFeedback("Copie o link abaixo manualmente.");
+        setInviteCopyFeedback(t("job_detail_copy_link_manual"));
       }
     } catch {
-      setInviteCopyFeedback("Erro ao gerar link.");
+      setInviteCopyFeedback(t("job_detail_invite_link_error"));
     }
     setInviteLinkLoading(false);
   }
@@ -1270,7 +1264,7 @@ export default function JobDetail({
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Todas as Vagas
+          {t("job_detail_all_jobs")}
         </Link>
 
         <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -1292,11 +1286,11 @@ export default function JobDetail({
               <span className="text-[12px] font-medium bg-white/20 text-white border border-white/20 px-2.5 py-1 rounded-full">
                 {job.category}
               </span>
-              <span className="text-[12px] text-white/70">Publicado em {formatDate(job.postedAt)}</span>
+              <span className="text-[12px] text-white/70">{t("job_detail_published_on")} {formatDate(job.postedAt, lang)}</span>
             </div>
             <div className="grid gap-3 pt-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Orçamento</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">{t("jobs_budget")}</p>
                 <p className="mt-1 text-xl font-black text-white">{formatBudget(job.budget)}</p>
               </div>
               <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
@@ -1304,7 +1298,7 @@ export default function JobDetail({
                 <p className="mt-1 text-xl font-black text-white">{safeSubmissions.length}</p>
               </div>
               <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">Reservas</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">{t("bookings_title")}</p>
                 <p className="mt-1 text-xl font-black text-white">{bookings.length}</p>
               </div>
             </div>
@@ -1330,7 +1324,7 @@ export default function JobDetail({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     )}
-                    Copiar convite privado
+                    {t("job_detail_copy_invite")}
                   </button>
                 ) : !isWorkspaceJob ? (
                 <button
@@ -1342,7 +1336,7 @@ export default function JobDetail({
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-8-4h5m-6 12h10a2 2 0 002-2V6a2 2 0 00-2-2h-3.172a2 2 0 01-1.414-.586l-.828-.828A2 2 0 0010.172 2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
-                  Compartilhar Vaga
+                  {t("job_detail_share_job")}
                 </button>
                 ) : null}
 
@@ -1355,7 +1349,7 @@ export default function JobDetail({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
-                    Editar Vaga
+                    {t("job_detail_edit_job")}
                   </Link>
                 )}
               </div>
@@ -1368,7 +1362,7 @@ export default function JobDetail({
                 <p className="text-[12px] font-medium text-white/80">{inviteCopyFeedback}</p>
               )}
 
-              {inviteLinkUrl && inviteCopyFeedback === "Copie o link abaixo manualmente." && (
+              {inviteLinkUrl && inviteCopyFeedback === t("job_detail_copy_link_manual") && (
                 <input
                   readOnly
                   value={inviteLinkUrl}
@@ -1379,14 +1373,14 @@ export default function JobDetail({
 
               {!canShareJob && !isWorkspaceJob && job.visibility !== "private_invite" && (
                 <p className="text-[12px] font-medium text-white/80">
-                  Esta vaga não está aberta para novas candidaturas.
+                  {t("job_detail_job_not_open")}
                 </p>
               )}
 
               {manualCopyUrl && (
                 <div className="rounded-2xl border border-white/20 bg-white/10 p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70 mb-2">
-                    Copie manualmente
+                    {t("job_detail_copy_manual_label")}
                   </p>
                   <input
                     readOnly
@@ -1405,33 +1399,33 @@ export default function JobDetail({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
         <div className="lg:col-span-3 bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] overflow-hidden">
           <div className="p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Descrição da Vaga</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">{t("job_detail_description_section")}</p>
             <p className="text-[15px] text-zinc-700 leading-relaxed">{job.description}</p>
           </div>
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">Detalhes da Vaga</p>
-          <DetailRow label="Categoria" value={job.category}
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">{t("job_detail_details_section")}</p>
+          <DetailRow label={t("jobs_category")} value={job.category}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>}
           />
           <DetailRow label={t("jobs_budget")} value={formatBudget(job.budget)}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
           <DetailRow
-            label="Candidatar até"
-            value={urgent ? `${formatDate(job.deadline)} — ${days}d restantes` : formatDate(job.deadline)}
+            label={t("job_detail_apply_by_label")}
+            value={urgent ? `${formatDate(job.deadline, lang)} — ${days}${t("job_detail_days_remaining_suffix")}` : formatDate(job.deadline, lang)}
             highlight={urgent}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
           />
           <DetailRow
-            label="Data da Vaga"
-            value={job.jobDate ? formatDate(job.jobDate) : "—"}
+            label={t("jobs_job_date")}
+            value={job.jobDate ? formatDate(job.jobDate, lang) : "—"}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
           />
           {job.jobTime && (
             <DetailRow
-              label="Horário"
+              label={t("job_detail_schedule_label")}
               value={job.jobTime}
               icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             />
@@ -1442,7 +1436,6 @@ export default function JobDetail({
           <DetailRow label={t("bookings_status")} value={jobStatusLabel(currentStatus)}
             icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           />
-
         </div>
       </div>
 
@@ -1450,7 +1443,7 @@ export default function JobDetail({
       {(role === "agency" || !!agencyId) && currentStatus !== "inactive" && !readOnly && (
         <div className="bg-white rounded-[1.5rem] border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-4">
-            Status da vaga
+            {t("job_detail_status_section")}
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <select
@@ -1459,29 +1452,29 @@ export default function JobDetail({
               disabled={statusChanging || (currentStatus !== "open" && currentStatus !== "paused" && !canReopenJob)}
               className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-[14px] font-medium text-zinc-800 hover:border-zinc-300 focus:outline-none focus:border-[#1F2D2E] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {currentStatus === "draft" && <option value="draft">Rascunho</option>}
-              {(currentStatus === "open" || currentStatus === "paused" || canReopenJob) && <option value="open">Aberta</option>}
-              {(currentStatus === "open" || currentStatus === "paused") && <option value="paused">Pausada</option>}
-              <option value="closed">Fechada</option>
+              {currentStatus === "draft" && <option value="draft">{t("status_draft")}</option>}
+              {(currentStatus === "open" || currentStatus === "paused" || canReopenJob) && <option value="open">{t("status_open")}</option>}
+              {(currentStatus === "open" || currentStatus === "paused") && <option value="paused">{t("status_paused")}</option>}
+              <option value="closed">{t("status_closed")}</option>
             </select>
             <button
               onClick={() => handleChangeStatus(pendingStatus)}
               disabled={pendingStatus === currentStatus || statusChanging || (currentStatus !== "open" && currentStatus !== "paused" && !canReopenJob)}
               className="px-5 py-2.5 rounded-xl bg-[#1F2D2E] text-white text-[13px] font-semibold hover:bg-[#2a3d3e] transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
-              {statusChanging ? "Salvando…" : "Salvar status"}
+              {statusChanging ? t("job_detail_saving_status") : t("job_detail_save_status_btn")}
             </button>
           </div>
           {currentStatus !== "open" && !canReopenJob && (
             <p className="text-[12px] font-medium mt-3 text-rose-500">
               {hasPaidBookings
-                ? "Esta vaga já possui reserva paga e não pode ser reaberta."
-                : "Esta vaga já atingiu o número de talentos necessários."}
+                ? t("job_detail_paid_booking_restrict")
+                : t("job_detail_full_restrict")}
             </p>
           )}
           {currentStatus === "open" && isJobFull && (
             <p className="text-[12px] font-medium mt-3 text-zinc-500">
-              Esta vaga já atingiu o número de talentos necessários.
+              {t("job_detail_full_restrict")}
             </p>
           )}
           {statusFeedback && (
@@ -1496,9 +1489,9 @@ export default function JobDetail({
       {bookings.length > 0 && (
         <div className="space-y-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">Reservas</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("bookings_title")}</p>
             <p className="text-lg font-semibold tracking-tight text-zinc-900">
-              {bookings.length} reserva{bookings.length !== 1 ? "s" : ""}
+              {bookings.length} {bookings.length !== 1 ? t("job_detail_booking_many") : t("job_detail_booking_one")}
             </p>
           </div>
           <div className="bg-white rounded-2xl border border-zinc-100 shadow-[0_1px_4px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] divide-y divide-zinc-50 overflow-hidden">
@@ -1519,10 +1512,8 @@ export default function JobDetail({
       {/* ── Read-only notice ── */}
       {readOnly && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <p className="text-[13px] font-semibold text-amber-800">Acesso somente leitura</p>
-          <p className="mt-1 text-[12px] text-amber-700">
-            Esta vaga pertence a outro agente. Somente o responsável ou o proprietário pode editar ou enviar contratos.
-          </p>
+          <p className="text-[13px] font-semibold text-amber-800">{t("job_detail_readonly_title")}</p>
+          <p className="mt-1 text-[12px] text-amber-700">{t("job_detail_readonly_desc")}</p>
         </div>
       )}
 
@@ -1532,14 +1523,18 @@ export default function JobDetail({
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-1">{t("jobs_applicants")}</p>
             <p className="text-lg font-semibold tracking-tight text-zinc-900">
-              {safeSubmissions.length > 0 ? `${safeSubmissions.length} talento${safeSubmissions.length !== 1 ? "s" : ""} candidatado${safeSubmissions.length !== 1 ? "s" : ""}` : "Nenhuma candidatura ainda"}
+              {safeSubmissions.length > 0
+                ? `${safeSubmissions.length} ${safeSubmissions.length !== 1 ? t("job_detail_talent_applied_many") : t("job_detail_talent_applied_one")}`
+                : t("job_detail_no_applications")}
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {sentContracts.size > 0 && (
               <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-[13px] font-medium text-emerald-700">{sentContracts.size}/{numberOfTalentsRequired} contrato{sentContracts.size !== 1 ? "s" : ""} enviado{sentContracts.size !== 1 ? "s" : ""}</span>
+                <span className="text-[13px] font-medium text-emerald-700">
+                  {sentContracts.size}/{numberOfTalentsRequired} {sentContracts.size !== 1 ? t("job_detail_contracts_sent_many") : t("job_detail_contracts_sent_one")}
+                </span>
               </div>
             )}
             {role === "agency" && selected.size > 0 && !readOnly && (
@@ -1559,7 +1554,7 @@ export default function JobDetail({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Enviar Contratos ({selected.size}/{numberOfTalentsRequired})
+                {t("job_detail_send_contracts_btn")} ({selected.size}/{numberOfTalentsRequired})
               </button>
             )}
           </div>
@@ -1590,8 +1585,8 @@ export default function JobDetail({
                   d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z" />
               </svg>
             </div>
-            <p className="text-[14px] font-medium text-zinc-500">Nenhuma candidatura ainda</p>
-            <p className="text-[13px] text-zinc-400 mt-1">Talentos aparecerão aqui quando se candidatarem.</p>
+            <p className="text-[14px] font-medium text-zinc-500">{t("job_detail_no_applications")}</p>
+            <p className="text-[13px] text-zinc-400 mt-1">{t("job_detail_no_apps_hint")}</p>
           </div>
         )}
       </div>

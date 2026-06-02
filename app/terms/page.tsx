@@ -504,20 +504,25 @@ function Section({ section }: { section: TermsSection }) {
   );
 }
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const lang = cookieStore.get("lang")?.value ?? "pt-BR";
+  const isEn = lang === "en";
+
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-10 text-zinc-900 sm:px-6 sm:py-14">
       <div className="mx-auto max-w-4xl space-y-6">
         <header className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
-            Documento público
+            {isEn ? "Public document" : "Documento público"}
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl">
-            Termos de Uso e Condições — BrisaHub
+            {isEn ? "Terms of Use and Conditions — BrisaHub" : "Termos de Uso e Condições — BrisaHub"}
           </h1>
           <div className="mt-4 space-y-1 text-sm text-zinc-500">
-            <p>Versão 1.0</p>
-            <p>Última atualização: Maio de 2026</p>
+            <p>{isEn ? "Version 1.0" : "Versão 1.0"}</p>
+            <p>{isEn ? "Last updated: May 2026" : "Última atualização: Maio de 2026"}</p>
           </div>
         </header>
 
