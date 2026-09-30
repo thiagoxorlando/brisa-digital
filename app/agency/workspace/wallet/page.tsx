@@ -24,7 +24,7 @@ import {
   type TFn,
 } from "@/lib/readModels/workspaceLedger";
 
-export const metadata: Metadata = { title: "Premium Wallet — BrisaHub" };
+export const metadata: Metadata = { title: "Premium Wallet — CastAnet" };
 
 function StatCard({
   label,

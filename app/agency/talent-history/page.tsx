@@ -5,7 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import TalentHistory from "@/features/agency/TalentHistory";
 import TalentHistoryHeader from "@/features/agency/TalentHistoryHeader";
 
-export const metadata: Metadata = { title: "Talent History — BrisaHub" };
+export const metadata: Metadata = { title: "Talent History — CastAnet" };
 
 export default async function TalentHistoryPage({
   searchParams,

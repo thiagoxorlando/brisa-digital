@@ -1085,7 +1085,7 @@ function ExpandedAgencyPanel({ agency, globalPaymentDefaults }: { agency: AdminP
                         >
                           <option value="">— Padrão global ({globalPaymentDefaults.default_payment_mode})</option>
                           <option value="internal">Internal (pagamento externo)</option>
-                          <option value="escrow">Escrow (custódia BrisaHub)</option>
+                          <option value="escrow">Escrow (custódia CastAnet)</option>
                         </select>
                         {paymentModeOverride === "" && (
                           <p className="mt-1 text-[10px] text-zinc-400">

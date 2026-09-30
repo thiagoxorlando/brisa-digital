@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import TalentJobList from "@/features/talent/TalentJobList";
 import { guardOpenSpacePage } from "@/lib/talentPortalLanding";
 
-export const metadata: Metadata = { title: "Jobs — BrisaHub" };
+export const metadata: Metadata = { title: "Jobs — CastAnet" };
 
 export default async function TalentJobsPage() {
   const userId = await guardOpenSpacePage();

@@ -4,7 +4,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import SetupProfile from "@/features/onboarding/SetupProfile";
 
-export const metadata: Metadata = { title: "Set Up Profile — BrisaHub" };
+export const metadata: Metadata = { title: "Set Up Profile — CastAnet" };
 
 type Props = { searchParams: Promise<{ next?: string; plan?: string }> };
 

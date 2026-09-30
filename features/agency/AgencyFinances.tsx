@@ -709,7 +709,7 @@ export default function AgencyFinances({
                                     <p><strong>{t("detail_datetime")}:</strong> {fmtDateTime(transaction.processedAt ?? transaction.date)}</p>
                                     <p><strong>{t("detail_value")}:</strong> {brl(Math.abs(transaction.amount))}</p>
                                     <p><strong>{t("detail_status")}:</strong> {transaction.withdrawalStatus ? withdrawalStatusLabel(transaction.withdrawalStatus) : ledgerEntryLabel(transaction.status, t)}</p>
-                                    <p><strong>{t("detail_provider")}:</strong> {transaction.provider ?? "BrisaHub"}</p>
+                                    <p><strong>{t("detail_provider")}:</strong> {transaction.provider ?? "CastAnet"}</p>
                                     {transaction.providerStatus && <p><strong>{t("detail_provider_status")}:</strong> {transaction.providerStatus}</p>}
                                   </div>
                                 </div>

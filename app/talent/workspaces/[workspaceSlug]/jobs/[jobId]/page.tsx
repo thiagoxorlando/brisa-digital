@@ -66,7 +66,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   ]);
 
   if (!workspace || !job) {
-    return { title: "Vaga privada - BrisaHub" };
+    return { title: "Vaga privada - CastAnet" };
   }
 
   return { title: `${job.title} - ${workspace.name}` };

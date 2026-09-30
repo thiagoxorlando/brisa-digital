@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Use — BrisaHub",
+  title: "Terms of Use — CastAnet",
 };
 
 // ── Portuguese sections ────────────────────────────────────────────────────────
@@ -11,7 +11,7 @@ const ptSections = [
     title: "1. Definições",
     paragraphs: [
       "Para fins destes Termos:",
-      "BrisaHub: plataforma digital que conecta agências e talentos para divulgação de vagas, candidaturas, contratação, reserva de valores, liberação de pagamentos e gestão de saques.",
+      "CastAnet: plataforma digital que conecta agências e talentos para divulgação de vagas, candidaturas, contratação, reserva de valores, liberação de pagamentos e gestão de saques.",
       "Agência: usuário pessoa física ou jurídica que publica vagas, contrata talentos e realiza pagamentos dentro da plataforma.",
       "Talento: usuário que cria perfil profissional, candidata-se a vagas, aceita contratos e recebe pagamentos por trabalhos realizados.",
       "Usuário: qualquer pessoa cadastrada na plataforma, incluindo agências e talentos.",
@@ -22,11 +22,11 @@ const ptSections = [
     ],
   },
   {
-    title: "2. Sobre a BrisaHub",
+    title: "2. Sobre a CastAnet",
     paragraphs: [
-      "A BrisaHub atua como uma plataforma de intermediação entre agências e talentos.",
-      "A BrisaHub não é empregadora dos talentos, não representa automaticamente as agências e não garante a execução perfeita dos serviços contratados. A relação de trabalho, entrega, presença, conduta, negociação e cumprimento do serviço ocorre entre agência e talento.",
-      "A BrisaHub fornece ferramentas para facilitar:",
+      "A CastAnet atua como uma plataforma de intermediação entre agências e talentos.",
+      "A CastAnet não é empregadora dos talentos, não representa automaticamente as agências e não garante a execução perfeita dos serviços contratados. A relação de trabalho, entrega, presença, conduta, negociação e cumprimento do serviço ocorre entre agência e talento.",
+      "A CastAnet fornece ferramentas para facilitar:",
     ],
     bullets: [
       "publicação de vagas;",
@@ -43,7 +43,7 @@ const ptSections = [
     title: "3. Cadastro de usuários",
     paragraphs: [
       "Para utilizar a plataforma, o usuário deverá criar uma conta e fornecer informações verdadeiras, atualizadas e completas.",
-      "A BrisaHub poderá solicitar dados como:",
+      "A CastAnet poderá solicitar dados como:",
     ],
     bullets: [
       "nome completo;",
@@ -60,7 +60,7 @@ const ptSections = [
     ],
     trailingParagraphs: [
       "O usuário é responsável por manter seus dados atualizados.",
-      "A BrisaHub poderá suspender, limitar ou encerrar contas que contenham informações falsas, incompletas, fraudulentas ou utilizadas de forma irregular.",
+      "A CastAnet poderá suspender, limitar ou encerrar contas que contenham informações falsas, incompletas, fraudulentas ou utilizadas de forma irregular.",
     ],
   },
   {
@@ -94,13 +94,13 @@ const ptSections = [
       "não utilizará a plataforma para fraudes, dados falsos ou condutas indevidas.",
     ],
     trailingParagraphs: [
-      "A BrisaHub não se responsabiliza por erros de saque causados por chave PIX incorreta informada pelo talento.",
+      "A CastAnet não se responsabiliza por erros de saque causados por chave PIX incorreta informada pelo talento.",
     ],
   },
   {
     title: "6. Planos da agência",
     paragraphs: [
-      "A BrisaHub poderá oferecer planos gratuitos e pagos para agências.",
+      "A CastAnet poderá oferecer planos gratuitos e pagos para agências.",
       "Os planos podem variar em:",
     ],
     bullets: [
@@ -113,14 +113,14 @@ const ptSections = [
     ],
     trailingParagraphs: [
       "Os valores, benefícios e condições de cada plano serão exibidos dentro da plataforma.",
-      "A BrisaHub poderá alterar planos, valores e benefícios, mediante comunicação ou atualização na plataforma, respeitando eventuais cobranças já realizadas quando aplicável.",
+      "A CastAnet poderá alterar planos, valores e benefícios, mediante comunicação ou atualização na plataforma, respeitando eventuais cobranças já realizadas quando aplicável.",
     ],
   },
   {
     title: "7. Plano gratuito",
     paragraphs: [
       "O plano gratuito poderá permitir o uso limitado da plataforma.",
-      "Quando disponível, o plano gratuito poderá permitir que a agência publique e conclua uma vaga dentro dos limites definidos pela BrisaHub.",
+      "Quando disponível, o plano gratuito poderá permitir que a agência publique e conclua uma vaga dentro dos limites definidos pela CastAnet.",
       "Após atingir o limite do plano gratuito, a agência poderá precisar contratar um plano pago para continuar publicando novas vagas ou acessando recursos adicionais.",
     ],
   },
@@ -131,7 +131,7 @@ const ptSections = [
       "A cobrança será processada por meio do provedor de pagamento integrado, atualmente o Asaas.",
       "Ao contratar um plano pago, a agência autoriza a cobrança do valor correspondente ao plano escolhido.",
       "A renovação, vencimento, histórico de cobranças e comprovantes poderão ser exibidos na área de billing ou plano da agência.",
-      "Caso uma cobrança seja recusada, cancelada, contestada ou não confirmada, a BrisaHub poderá suspender, limitar ou rebaixar o acesso ao plano até a regularização.",
+      "Caso uma cobrança seja recusada, cancelada, contestada ou não confirmada, a CastAnet poderá suspender, limitar ou rebaixar o acesso ao plano até a regularização.",
     ],
   },
   {
@@ -139,8 +139,8 @@ const ptSections = [
     paragraphs: [
       "A agência poderá adicionar saldo à sua carteira por meio dos métodos disponíveis na plataforma, como PIX via Asaas.",
       "O saldo será creditado na carteira após confirmação do pagamento pelo provedor de pagamento.",
-      "A BrisaHub poderá exibir o depósito como pendente até receber a confirmação do provedor.",
-      "A agência deve verificar os dados antes de realizar pagamentos. A BrisaHub não se responsabiliza por pagamentos realizados fora dos canais oficiais da plataforma.",
+      "A CastAnet poderá exibir o depósito como pendente até receber a confirmação do provedor.",
+      "A agência deve verificar os dados antes de realizar pagamentos. A CastAnet não se responsabiliza por pagamentos realizados fora dos canais oficiais da plataforma.",
     ],
   },
   {
@@ -165,13 +165,13 @@ const ptSections = [
       "o histórico da operação será registrado.",
     ],
     trailingParagraphs: [
-      "A BrisaHub poderá manter registros financeiros e operacionais para fins de auditoria, suporte, prevenção a fraude e cumprimento legal.",
+      "A CastAnet poderá manter registros financeiros e operacionais para fins de auditoria, suporte, prevenção a fraude e cumprimento legal.",
     ],
   },
   {
     title: "12. Comissão da plataforma",
     paragraphs: [
-      "A BrisaHub poderá cobrar comissão sobre contratações realizadas dentro da plataforma.",
+      "A CastAnet poderá cobrar comissão sobre contratações realizadas dentro da plataforma.",
       "A comissão pode variar conforme o plano da agência.",
       "Exemplos de comissão, quando aplicável:",
     ],
@@ -182,7 +182,7 @@ const ptSections = [
     ],
     trailingParagraphs: [
       "A comissão aplicável será exibida antes ou durante o fluxo de contratação/pagamento.",
-      "A BrisaHub poderá alterar percentuais de comissão para novos contratos ou novos planos, mediante atualização na plataforma.",
+      "A CastAnet poderá alterar percentuais de comissão para novos contratos ou novos planos, mediante atualização na plataforma.",
     ],
   },
   {
@@ -192,7 +192,7 @@ const ptSections = [
       "A agência também poderá solicitar saque de saldo disponível, quando essa funcionalidade estiver habilitada.",
       "O saque será processado pelo provedor de pagamento integrado, atualmente Asaas.",
       "O usuário é responsável por informar uma chave PIX válida e pertencente ao titular correto.",
-      "A BrisaHub poderá bloquear ou revisar saques em caso de:",
+      "A CastAnet poderá bloquear ou revisar saques em caso de:",
     ],
     bullets: [
       "suspeita de fraude;",
@@ -211,15 +211,15 @@ const ptSections = [
     title: "14. Taxas externas",
     paragraphs: [
       "O provedor de pagamento poderá cobrar taxas por cobranças, transferências, notificações, cartões, PIX ou outros serviços.",
-      "Essas taxas poderão ser absorvidas pela BrisaHub ou repassadas ao usuário, conforme regra exibida na plataforma.",
-      "A BrisaHub poderá ajustar regras de repasse de taxas conforme custos operacionais, condições comerciais ou alterações do provedor de pagamento.",
+      "Essas taxas poderão ser absorvidas pela CastAnet ou repassadas ao usuário, conforme regra exibida na plataforma.",
+      "A CastAnet poderá ajustar regras de repasse de taxas conforme custos operacionais, condições comerciais ou alterações do provedor de pagamento.",
     ],
   },
   {
     title: "15. Cancelamentos",
     paragraphs: [
       "Cancelamentos de vagas, reservas, contratos ou pagamentos poderão seguir regras específicas exibidas na plataforma.",
-      "A BrisaHub poderá impedir o cancelamento automático quando houver:",
+      "A CastAnet poderá impedir o cancelamento automático quando houver:",
     ],
     bullets: [
       "contrato já aceito;",
@@ -238,7 +238,7 @@ const ptSections = [
     title: "16. Disputas",
     paragraphs: [
       "Caso agência e talento discordem sobre a execução do trabalho, pagamento, presença, entrega ou condições do contrato, poderão acionar suporte ou abrir disputa, se essa funcionalidade estiver disponível.",
-      "A BrisaHub poderá analisar informações registradas na plataforma, como:",
+      "A CastAnet poderá analisar informações registradas na plataforma, como:",
     ],
     bullets: [
       "dados da vaga;",
@@ -250,7 +250,7 @@ const ptSections = [
       "datas e horários.",
     ],
     trailingParagraphs: [
-      "A BrisaHub poderá tomar medidas administrativas razoáveis, como manter valores em custódia, liberar pagamento, cancelar operação, bloquear conta ou solicitar documentos adicionais.",
+      "A CastAnet poderá tomar medidas administrativas razoáveis, como manter valores em custódia, liberar pagamento, cancelar operação, bloquear conta ou solicitar documentos adicionais.",
     ],
   },
   {
@@ -267,7 +267,7 @@ const ptSections = [
       "não tentar burlar a plataforma.",
     ],
     trailingParagraphs: [
-      "A agência não deve realizar pagamentos por fora da plataforma quando a contratação tiver sido iniciada dentro da BrisaHub, salvo autorização expressa da BrisaHub.",
+      "A agência não deve realizar pagamentos por fora da plataforma quando a contratação tiver sido iniciada dentro da CastAnet, salvo autorização expressa da CastAnet.",
     ],
   },
   {
@@ -286,7 +286,7 @@ const ptSections = [
   },
   {
     title: "19. Condutas proibidas",
-    paragraphs: ["É proibido utilizar a BrisaHub para:"],
+    paragraphs: ["É proibido utilizar a CastAnet para:"],
     bullets: [
       "fraude;",
       "lavagem de dinheiro;",
@@ -309,9 +309,9 @@ const ptSections = [
   {
     title: "20. Dados pessoais e privacidade",
     paragraphs: [
-      "A BrisaHub poderá tratar dados pessoais necessários para cadastro, operação da plataforma, pagamentos, prevenção a fraude, suporte, segurança e cumprimento de obrigações legais.",
+      "A CastAnet poderá tratar dados pessoais necessários para cadastro, operação da plataforma, pagamentos, prevenção a fraude, suporte, segurança e cumprimento de obrigações legais.",
       "Os dados poderão incluir informações cadastrais, documentos, dados de contato, dados de pagamento, histórico de uso, registros de contratação, chaves PIX e informações técnicas de acesso.",
-      "A BrisaHub deverá tratar os dados de acordo com a legislação aplicável, incluindo a Lei Geral de Proteção de Dados Pessoais.",
+      "A CastAnet deverá tratar os dados de acordo com a legislação aplicável, incluindo a Lei Geral de Proteção de Dados Pessoais.",
       "O usuário poderá solicitar informações sobre seus dados, correção, atualização ou exclusão, observados os limites legais e a necessidade de manutenção de registros financeiros, antifraude, auditoria e cumprimento de obrigação legal.",
       "A exclusão da conta não implica exclusão imediata de todos os registros, especialmente registros financeiros, fiscais, transacionais, contratuais ou necessários para defesa de direitos.",
     ],
@@ -320,7 +320,7 @@ const ptSections = [
     title: "21. Segurança da conta",
     paragraphs: [
       "O usuário é responsável por manter a confidencialidade de sua senha e acesso.",
-      "A BrisaHub não se responsabiliza por danos causados por compartilhamento de senha, acesso indevido por culpa do usuário ou uso de dispositivos inseguros.",
+      "A CastAnet não se responsabiliza por danos causados por compartilhamento de senha, acesso indevido por culpa do usuário ou uso de dispositivos inseguros.",
       "O usuário deverá comunicar imediatamente qualquer suspeita de uso não autorizado de sua conta.",
     ],
   },
@@ -349,12 +349,12 @@ const ptSections = [
     ],
     trailingParagraphs: [
       "Antes de excluir a conta, o usuário deverá finalizar pendências e sacar o saldo disponível.",
-      "A BrisaHub poderá manter registros necessários para auditoria, segurança, prevenção a fraude, cumprimento legal e defesa de direitos.",
+      "A CastAnet poderá manter registros necessários para auditoria, segurança, prevenção a fraude, cumprimento legal e defesa de direitos.",
     ],
   },
   {
-    title: "24. Suspensão ou encerramento pela BrisaHub",
-    paragraphs: ["A BrisaHub poderá suspender, limitar ou encerrar contas em caso de:"],
+    title: "24. Suspensão ou encerramento pela CastAnet",
+    paragraphs: ["A CastAnet poderá suspender, limitar ou encerrar contas em caso de:"],
     bullets: [
       "violação destes Termos;",
       "suspeita de fraude;",
@@ -366,21 +366,21 @@ const ptSections = [
       "comportamento prejudicial à plataforma ou a outros usuários.",
     ],
     trailingParagraphs: [
-      "A BrisaHub poderá bloquear temporariamente valores enquanto investiga suspeitas de fraude, disputa ou irregularidade.",
+      "A CastAnet poderá bloquear temporariamente valores enquanto investiga suspeitas de fraude, disputa ou irregularidade.",
     ],
   },
   {
     title: "25. Disponibilidade da plataforma",
     paragraphs: [
-      "A BrisaHub buscará manter a plataforma disponível, mas não garante funcionamento ininterrupto.",
+      "A CastAnet buscará manter a plataforma disponível, mas não garante funcionamento ininterrupto.",
       "A plataforma poderá ficar indisponível por manutenção, falhas técnicas, indisponibilidade de terceiros, ataques, caso fortuito, força maior ou problemas em provedores externos.",
-      "A BrisaHub não se responsabiliza por indisponibilidades causadas por serviços de terceiros, incluindo provedores de pagamento, hospedagem, internet, bancos ou sistema PIX.",
+      "A CastAnet não se responsabiliza por indisponibilidades causadas por serviços de terceiros, incluindo provedores de pagamento, hospedagem, internet, bancos ou sistema PIX.",
     ],
   },
   {
     title: "26. Provedores terceiros",
     paragraphs: [
-      "A BrisaHub utiliza serviços de terceiros para processar pagamentos, autenticação, hospedagem, envio de e-mails e outras funcionalidades.",
+      "A CastAnet utiliza serviços de terceiros para processar pagamentos, autenticação, hospedagem, envio de e-mails e outras funcionalidades.",
       "O uso desses serviços pode estar sujeito aos próprios termos e políticas dos respectivos provedores.",
       "O usuário reconhece que certas operações, como pagamentos, cobranças, assinaturas, transferências e saques, dependem da aprovação e disponibilidade desses terceiros.",
     ],
@@ -388,16 +388,16 @@ const ptSections = [
   {
     title: "27. Comprovantes e registros",
     paragraphs: [
-      "A BrisaHub poderá disponibilizar comprovantes internos de operações realizadas na plataforma.",
-      "Comprovantes internos servem para consulta e controle dentro da BrisaHub.",
+      "A CastAnet poderá disponibilizar comprovantes internos de operações realizadas na plataforma.",
+      "Comprovantes internos servem para consulta e controle dentro da CastAnet.",
       "Quando aplicável, comprovantes ou registros do provedor de pagamento poderão ser utilizados como referência adicional.",
-      "A BrisaHub poderá manter histórico de contratos, reservas, pagamentos, saques, depósitos, assinaturas e ações administrativas para fins de auditoria.",
+      "A CastAnet poderá manter histórico de contratos, reservas, pagamentos, saques, depósitos, assinaturas e ações administrativas para fins de auditoria.",
     ],
   },
   {
     title: "28. Propriedade intelectual",
     paragraphs: [
-      "A marca BrisaHub, o sistema, design, código, textos, logos, fluxos, funcionalidades e demais elementos da plataforma pertencem à BrisaHub ou a seus respectivos titulares.",
+      "A marca CastAnet, o sistema, design, código, textos, logos, fluxos, funcionalidades e demais elementos da plataforma pertencem à CastAnet ou a seus respectivos titulares.",
       "O usuário não pode copiar, reproduzir, vender, explorar, modificar ou distribuir partes da plataforma sem autorização.",
     ],
   },
@@ -406,12 +406,12 @@ const ptSections = [
     paragraphs: [
       "O usuário é responsável por todo conteúdo que enviar à plataforma, incluindo fotos, textos, descrições, documentos, currículos, portfólios, contratos e informações profissionais.",
       "O usuário declara possuir direitos ou autorização para utilizar o conteúdo enviado.",
-      "A BrisaHub poderá remover conteúdo que viole estes Termos, direitos de terceiros, legislação aplicável ou regras internas.",
+      "A CastAnet poderá remover conteúdo que viole estes Termos, direitos de terceiros, legislação aplicável ou regras internas.",
     ],
   },
   {
     title: "30. Limitação de responsabilidade",
-    paragraphs: ["Na máxima extensão permitida pela legislação aplicável, a BrisaHub não será responsável por:"],
+    paragraphs: ["Na máxima extensão permitida pela legislação aplicável, a CastAnet não será responsável por:"],
     bullets: [
       "descumprimento de obrigação por agência ou talento;",
       "informações falsas enviadas por usuários;",
@@ -420,7 +420,7 @@ const ptSections = [
       "indisponibilidade de provedores terceiros;",
       "bloqueios, recusas ou atrasos do provedor de pagamento;",
       "condutas fora da plataforma;",
-      "negociações realizadas por fora da BrisaHub.",
+      "negociações realizadas por fora da CastAnet.",
     ],
     trailingParagraphs: [
       "Nada nestes Termos exclui direitos que não possam ser excluídos pela legislação aplicável.",
@@ -429,8 +429,8 @@ const ptSections = [
   {
     title: "31. Alterações nos Termos",
     paragraphs: [
-      "A BrisaHub poderá alterar estes Termos a qualquer momento.",
-      "Quando houver alterações relevantes, a BrisaHub poderá comunicar os usuários pela plataforma, e-mail ou outro meio disponível.",
+      "A CastAnet poderá alterar estes Termos a qualquer momento.",
+      "Quando houver alterações relevantes, a CastAnet poderá comunicar os usuários pela plataforma, e-mail ou outro meio disponível.",
       "O uso contínuo da plataforma após a atualização dos Termos será considerado aceite da nova versão.",
     ],
   },
@@ -450,13 +450,13 @@ const ptSections = [
   },
   {
     title: "34. Aceite",
-    paragraphs: ["Ao criar uma conta ou utilizar a BrisaHub, o usuário declara que:"],
+    paragraphs: ["Ao criar uma conta ou utilizar a CastAnet, o usuário declara que:"],
     bullets: [
       "leu estes Termos;",
       "compreendeu suas condições;",
       "aceita utilizar a plataforma conforme estas regras;",
       "reconhece que pagamentos e saques dependem de provedores externos;",
-      "entende que a BrisaHub atua como plataforma intermediadora entre agências e talentos.",
+      "entende que a CastAnet atua como plataforma intermediadora entre agências e talentos.",
     ],
   },
 ];
@@ -468,7 +468,7 @@ const enSections = [
     title: "1. Definitions",
     paragraphs: [
       "For the purposes of these Terms:",
-      "BrisaHub: a digital platform that connects agencies and talents for job posting, applications, hiring, escrow of funds, payment release, and withdrawal management.",
+      "CastAnet: a digital platform that connects agencies and talents for job posting, applications, hiring, escrow of funds, payment release, and withdrawal management.",
       "Agency: an individual or legal entity that posts jobs, hires talents, and makes payments within the platform.",
       "Talent: a user who creates a professional profile, applies to jobs, accepts contracts, and receives payments for completed work.",
       "User: any person registered on the platform, including agencies and talents.",
@@ -479,11 +479,11 @@ const enSections = [
     ],
   },
   {
-    title: "2. About BrisaHub",
+    title: "2. About CastAnet",
     paragraphs: [
-      "BrisaHub acts as an intermediary platform between agencies and talents.",
-      "BrisaHub is not an employer of talents, does not automatically represent agencies, and does not guarantee the perfect execution of contracted services. The working relationship, delivery, attendance, conduct, negotiation, and fulfillment of services occurs between the agency and the talent.",
-      "BrisaHub provides tools to facilitate:",
+      "CastAnet acts as an intermediary platform between agencies and talents.",
+      "CastAnet is not an employer of talents, does not automatically represent agencies, and does not guarantee the perfect execution of contracted services. The working relationship, delivery, attendance, conduct, negotiation, and fulfillment of services occurs between the agency and the talent.",
+      "CastAnet provides tools to facilitate:",
     ],
     bullets: [
       "job posting;",
@@ -500,7 +500,7 @@ const enSections = [
     title: "3. User registration",
     paragraphs: [
       "To use the platform, the user must create an account and provide accurate, up-to-date, and complete information.",
-      "BrisaHub may request information such as:",
+      "CastAnet may request information such as:",
     ],
     bullets: [
       "full name;",
@@ -517,7 +517,7 @@ const enSections = [
     ],
     trailingParagraphs: [
       "The user is responsible for keeping their information up to date.",
-      "BrisaHub may suspend, limit, or close accounts that contain false, incomplete, fraudulent, or irregularly used information.",
+      "CastAnet may suspend, limit, or close accounts that contain false, incomplete, fraudulent, or irregularly used information.",
     ],
   },
   {
@@ -551,13 +551,13 @@ const enSections = [
       "they will not use the platform for fraud, false information, or improper conduct.",
     ],
     trailingParagraphs: [
-      "BrisaHub is not responsible for withdrawal errors caused by an incorrect PIX key provided by the talent.",
+      "CastAnet is not responsible for withdrawal errors caused by an incorrect PIX key provided by the talent.",
     ],
   },
   {
     title: "6. Agency plans",
     paragraphs: [
-      "BrisaHub may offer free and paid plans for agencies.",
+      "CastAnet may offer free and paid plans for agencies.",
       "Plans may vary in:",
     ],
     bullets: [
@@ -570,14 +570,14 @@ const enSections = [
     ],
     trailingParagraphs: [
       "The prices, benefits, and conditions of each plan will be displayed within the platform.",
-      "BrisaHub may change plans, prices, and benefits, with notice or an update on the platform, respecting charges already made when applicable.",
+      "CastAnet may change plans, prices, and benefits, with notice or an update on the platform, respecting charges already made when applicable.",
     ],
   },
   {
     title: "7. Free plan",
     paragraphs: [
       "The free plan may allow limited use of the platform.",
-      "When available, the free plan may allow the agency to post and complete one job within the limits defined by BrisaHub.",
+      "When available, the free plan may allow the agency to post and complete one job within the limits defined by CastAnet.",
       "After reaching the free plan limit, the agency may need to subscribe to a paid plan to continue posting new jobs or accessing additional features.",
     ],
   },
@@ -588,7 +588,7 @@ const enSections = [
       "Billing will be processed through the integrated payment provider, currently Asaas.",
       "By subscribing to a paid plan, the agency authorizes the charge of the amount corresponding to the chosen plan.",
       "Renewal, expiration, billing history, and receipts may be displayed in the agency's billing or plan section.",
-      "If a charge is declined, cancelled, disputed, or not confirmed, BrisaHub may suspend, limit, or downgrade access to the plan until the issue is resolved.",
+      "If a charge is declined, cancelled, disputed, or not confirmed, CastAnet may suspend, limit, or downgrade access to the plan until the issue is resolved.",
     ],
   },
   {
@@ -596,8 +596,8 @@ const enSections = [
     paragraphs: [
       "The agency may add funds to their wallet using the methods available on the platform, such as PIX via Asaas.",
       "The balance will be credited to the wallet after payment confirmation by the payment provider.",
-      "BrisaHub may show the deposit as pending until it receives confirmation from the provider.",
-      "The agency should verify the details before making payments. BrisaHub is not responsible for payments made outside the platform's official channels.",
+      "CastAnet may show the deposit as pending until it receives confirmation from the provider.",
+      "The agency should verify the details before making payments. CastAnet is not responsible for payments made outside the platform's official channels.",
     ],
   },
   {
@@ -622,13 +622,13 @@ const enSections = [
       "the transaction history will be recorded.",
     ],
     trailingParagraphs: [
-      "BrisaHub may maintain financial and operational records for audit, support, fraud prevention, and legal compliance purposes.",
+      "CastAnet may maintain financial and operational records for audit, support, fraud prevention, and legal compliance purposes.",
     ],
   },
   {
     title: "12. Platform commission",
     paragraphs: [
-      "BrisaHub may charge a commission on hires made within the platform.",
+      "CastAnet may charge a commission on hires made within the platform.",
       "The commission may vary depending on the agency's plan.",
       "Commission examples, when applicable:",
     ],
@@ -639,7 +639,7 @@ const enSections = [
     ],
     trailingParagraphs: [
       "The applicable commission will be displayed before or during the hiring/payment flow.",
-      "BrisaHub may change commission percentages for new contracts or new plans, upon platform update.",
+      "CastAnet may change commission percentages for new contracts or new plans, upon platform update.",
     ],
   },
   {
@@ -649,7 +649,7 @@ const enSections = [
       "The agency may also request withdrawal of available balance when this feature is enabled.",
       "Withdrawals will be processed by the integrated payment provider, currently Asaas.",
       "The user is responsible for providing a valid PIX key belonging to the correct account holder.",
-      "BrisaHub may block or review withdrawals in case of:",
+      "CastAnet may block or review withdrawals in case of:",
     ],
     bullets: [
       "suspected fraud;",
@@ -668,15 +668,15 @@ const enSections = [
     title: "14. External fees",
     paragraphs: [
       "The payment provider may charge fees for billing, transfers, notifications, cards, PIX, or other services.",
-      "These fees may be absorbed by BrisaHub or passed on to the user, according to the rule displayed on the platform.",
-      "BrisaHub may adjust fee-pass-through rules in accordance with operational costs, commercial conditions, or changes by the payment provider.",
+      "These fees may be absorbed by CastAnet or passed on to the user, according to the rule displayed on the platform.",
+      "CastAnet may adjust fee-pass-through rules in accordance with operational costs, commercial conditions, or changes by the payment provider.",
     ],
   },
   {
     title: "15. Cancellations",
     paragraphs: [
       "Cancellations of jobs, bookings, contracts, or payments may follow specific rules displayed on the platform.",
-      "BrisaHub may prevent automatic cancellation when there is:",
+      "CastAnet may prevent automatic cancellation when there is:",
     ],
     bullets: [
       "an accepted contract;",
@@ -695,7 +695,7 @@ const enSections = [
     title: "16. Disputes",
     paragraphs: [
       "If an agency and a talent disagree about the execution of work, payment, attendance, delivery, or contract terms, they may contact support or open a dispute if that feature is available.",
-      "BrisaHub may review information recorded on the platform, such as:",
+      "CastAnet may review information recorded on the platform, such as:",
     ],
     bullets: [
       "job data;",
@@ -707,7 +707,7 @@ const enSections = [
       "dates and times.",
     ],
     trailingParagraphs: [
-      "BrisaHub may take reasonable administrative measures, such as keeping funds in escrow, releasing payment, cancelling an operation, blocking an account, or requesting additional documentation.",
+      "CastAnet may take reasonable administrative measures, such as keeping funds in escrow, releasing payment, cancelling an operation, blocking an account, or requesting additional documentation.",
     ],
   },
   {
@@ -724,7 +724,7 @@ const enSections = [
       "not attempting to circumvent the platform.",
     ],
     trailingParagraphs: [
-      "The agency must not make payments outside the platform when the hiring was initiated within BrisaHub, unless expressly authorized by BrisaHub.",
+      "The agency must not make payments outside the platform when the hiring was initiated within CastAnet, unless expressly authorized by CastAnet.",
     ],
   },
   {
@@ -743,7 +743,7 @@ const enSections = [
   },
   {
     title: "19. Prohibited conduct",
-    paragraphs: ["It is prohibited to use BrisaHub for:"],
+    paragraphs: ["It is prohibited to use CastAnet for:"],
     bullets: [
       "fraud;",
       "money laundering;",
@@ -766,9 +766,9 @@ const enSections = [
   {
     title: "20. Personal data and privacy",
     paragraphs: [
-      "BrisaHub may process personal data necessary for registration, platform operation, payments, fraud prevention, support, security, and compliance with legal obligations.",
+      "CastAnet may process personal data necessary for registration, platform operation, payments, fraud prevention, support, security, and compliance with legal obligations.",
       "Data may include registration information, documents, contact details, payment data, usage history, hiring records, PIX keys, and technical access information.",
-      "BrisaHub shall process data in accordance with applicable legislation, including Brazil's General Data Protection Law (LGPD) and other applicable privacy laws.",
+      "CastAnet shall process data in accordance with applicable legislation, including Brazil's General Data Protection Law (LGPD) and other applicable privacy laws.",
       "The user may request information about their data, correction, update, or deletion, subject to legal limits and the need to maintain financial, anti-fraud, audit, and legal compliance records.",
       "Account deletion does not imply immediate deletion of all records, particularly financial, tax, transactional, contractual, or records necessary for the defense of rights.",
     ],
@@ -777,7 +777,7 @@ const enSections = [
     title: "21. Account security",
     paragraphs: [
       "The user is responsible for maintaining the confidentiality of their password and access credentials.",
-      "BrisaHub is not responsible for damages caused by password sharing, unauthorized access due to the user's negligence, or use of insecure devices.",
+      "CastAnet is not responsible for damages caused by password sharing, unauthorized access due to the user's negligence, or use of insecure devices.",
       "The user must immediately report any suspected unauthorized use of their account.",
     ],
   },
@@ -806,12 +806,12 @@ const enSections = [
     ],
     trailingParagraphs: [
       "Before deleting their account, the user should resolve pending items and withdraw available balance.",
-      "BrisaHub may retain records necessary for audit, security, fraud prevention, legal compliance, and defense of rights.",
+      "CastAnet may retain records necessary for audit, security, fraud prevention, legal compliance, and defense of rights.",
     ],
   },
   {
-    title: "24. Suspension or termination by BrisaHub",
-    paragraphs: ["BrisaHub may suspend, limit, or close accounts in case of:"],
+    title: "24. Suspension or termination by CastAnet",
+    paragraphs: ["CastAnet may suspend, limit, or close accounts in case of:"],
     bullets: [
       "violation of these Terms;",
       "suspected fraud;",
@@ -823,21 +823,21 @@ const enSections = [
       "conduct harmful to the platform or other users.",
     ],
     trailingParagraphs: [
-      "BrisaHub may temporarily block funds while investigating suspected fraud, disputes, or irregularities.",
+      "CastAnet may temporarily block funds while investigating suspected fraud, disputes, or irregularities.",
     ],
   },
   {
     title: "25. Platform availability",
     paragraphs: [
-      "BrisaHub will strive to keep the platform available but does not guarantee uninterrupted operation.",
+      "CastAnet will strive to keep the platform available but does not guarantee uninterrupted operation.",
       "The platform may be unavailable due to maintenance, technical failures, third-party unavailability, attacks, fortuitous events, force majeure, or issues with external providers.",
-      "BrisaHub is not responsible for unavailability caused by third-party services, including payment providers, hosting, internet, banks, or the PIX system.",
+      "CastAnet is not responsible for unavailability caused by third-party services, including payment providers, hosting, internet, banks, or the PIX system.",
     ],
   },
   {
     title: "26. Third-party providers",
     paragraphs: [
-      "BrisaHub uses third-party services for payment processing, authentication, hosting, email sending, and other features.",
+      "CastAnet uses third-party services for payment processing, authentication, hosting, email sending, and other features.",
       "The use of these services may be subject to the providers' own terms and policies.",
       "The user acknowledges that certain operations, such as payments, billing, subscriptions, transfers, and withdrawals, depend on the approval and availability of these third parties.",
     ],
@@ -845,16 +845,16 @@ const enSections = [
   {
     title: "27. Receipts and records",
     paragraphs: [
-      "BrisaHub may provide internal receipts for operations performed on the platform.",
-      "Internal receipts serve for consultation and control within BrisaHub.",
+      "CastAnet may provide internal receipts for operations performed on the platform.",
+      "Internal receipts serve for consultation and control within CastAnet.",
       "When applicable, receipts or records from the payment provider may be used as additional reference.",
-      "BrisaHub may maintain a history of contracts, bookings, payments, withdrawals, deposits, subscriptions, and administrative actions for audit purposes.",
+      "CastAnet may maintain a history of contracts, bookings, payments, withdrawals, deposits, subscriptions, and administrative actions for audit purposes.",
     ],
   },
   {
     title: "28. Intellectual property",
     paragraphs: [
-      "The BrisaHub brand, system, design, code, texts, logos, flows, features, and other platform elements belong to BrisaHub or their respective owners.",
+      "The CastAnet brand, system, design, code, texts, logos, flows, features, and other platform elements belong to CastAnet or their respective owners.",
       "The user may not copy, reproduce, sell, exploit, modify, or distribute parts of the platform without authorization.",
     ],
   },
@@ -863,12 +863,12 @@ const enSections = [
     paragraphs: [
       "The user is responsible for all content they submit to the platform, including photos, texts, descriptions, documents, resumes, portfolios, contracts, and professional information.",
       "The user declares they have the rights or authorization to use the submitted content.",
-      "BrisaHub may remove content that violates these Terms, third-party rights, applicable law, or internal rules.",
+      "CastAnet may remove content that violates these Terms, third-party rights, applicable law, or internal rules.",
     ],
   },
   {
     title: "30. Limitation of liability",
-    paragraphs: ["To the fullest extent permitted by applicable law, BrisaHub shall not be liable for:"],
+    paragraphs: ["To the fullest extent permitted by applicable law, CastAnet shall not be liable for:"],
     bullets: [
       "failure to fulfill obligations by an agency or talent;",
       "false information submitted by users;",
@@ -877,7 +877,7 @@ const enSections = [
       "unavailability of third-party providers;",
       "blocks, refusals, or delays by the payment provider;",
       "conduct outside the platform;",
-      "negotiations made outside of BrisaHub.",
+      "negotiations made outside of CastAnet.",
     ],
     trailingParagraphs: [
       "Nothing in these Terms excludes rights that cannot be excluded by applicable law.",
@@ -886,8 +886,8 @@ const enSections = [
   {
     title: "31. Changes to these Terms",
     paragraphs: [
-      "BrisaHub may change these Terms at any time.",
-      "When there are significant changes, BrisaHub may notify users through the platform, email, or another available channel.",
+      "CastAnet may change these Terms at any time.",
+      "When there are significant changes, CastAnet may notify users through the platform, email, or another available channel.",
       "Continued use of the platform after the Terms are updated will be considered acceptance of the new version.",
     ],
   },
@@ -907,13 +907,13 @@ const enSections = [
   },
   {
     title: "34. Acceptance",
-    paragraphs: ["By creating an account or using BrisaHub, the user declares that they:"],
+    paragraphs: ["By creating an account or using CastAnet, the user declares that they:"],
     bullets: [
       "have read these Terms;",
       "have understood their conditions;",
       "agree to use the platform in accordance with these rules;",
       "acknowledge that payments and withdrawals depend on external providers;",
-      "understand that BrisaHub acts as an intermediary platform between agencies and talents.",
+      "understand that CastAnet acts as an intermediary platform between agencies and talents.",
     ],
   },
 ];
@@ -968,7 +968,7 @@ export default async function TermsPage() {
             {isEn ? "Public document" : "Documento público"}
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl">
-            {isEn ? "Terms of Use and Conditions — BrisaHub" : "Termos de Uso e Condições — BrisaHub"}
+            {isEn ? "Terms of Use and Conditions — CastAnet" : "Termos de Uso e Condições — CastAnet"}
           </h1>
           <div className="mt-4 space-y-1 text-sm text-zinc-500">
             <p>{isEn ? "Version 1.0" : "Versão 1.0"}</p>
@@ -981,24 +981,24 @@ export default async function TermsPage() {
             {isEn ? (
               <>
                 <p>
-                  These Terms of Use and Conditions govern access to and use of the BrisaHub
+                  These Terms of Use and Conditions govern access to and use of the CastAnet
                   platform, available at brisahub.com.br, by agencies, talents, administrators,
                   and other registered users.
                 </p>
                 <p>
-                  By creating an account, accessing, or using BrisaHub, the user declares that
+                  By creating an account, accessing, or using CastAnet, the user declares that
                   they have read, understood, and agree to these Terms.
                 </p>
               </>
             ) : (
               <>
                 <p>
-                  Estes Termos de Uso e Condições regulam o acesso e uso da plataforma BrisaHub,
+                  Estes Termos de Uso e Condições regulam o acesso e uso da plataforma CastAnet,
                   disponível em brisahub.com.br, por agências, talentos, administradores e demais
                   usuários cadastrados.
                 </p>
                 <p>
-                  Ao criar uma conta, acessar ou utilizar a BrisaHub, o usuário declara que leu,
+                  Ao criar uma conta, acessar ou utilizar a CastAnet, o usuário declara que leu,
                   compreendeu e concorda com estes Termos.
                 </p>
               </>

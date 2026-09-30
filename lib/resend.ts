@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const DEVELOPMENT_FROM_EMAIL = "BrisaHub <noreply@brisahub.com.br>";
+const DEVELOPMENT_FROM_EMAIL = "CastAnet <noreply@brisahub.com.br>";
 
 let resendClient: Resend | null = null;
 let resendClientKey: string | null = null;

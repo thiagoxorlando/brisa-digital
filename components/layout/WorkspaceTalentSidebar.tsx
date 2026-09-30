@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase";
 import { useT } from "@/lib/LanguageContext";
 import { useUserProfile } from "@/lib/useUserProfile";
 import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
-import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
+import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
 
 type Props = {
   isOpen: boolean;
@@ -348,17 +348,17 @@ export default function WorkspaceTalentSidebar({ isOpen, onClose }: Props) {
             {t("nav_logout")}
           </button>
 
-          {/* Powered by BrisaHub */}
+          {/* Powered by CastAnet */}
           <Link
             href="/"
             className="flex items-center justify-center gap-2 py-1.5 opacity-40 hover:opacity-70 transition-opacity"
           >
             <Image
-              src={heroBrandImage}
-              alt="BrisaHub"
-              width={heroBrandImage.width}
-              height={heroBrandImage.height}
-              className="h-auto w-16"
+              src={brandLogo}
+              alt="CastAnet"
+              width={brandLogo.width}
+              height={brandLogo.height}
+              className="h-auto w-36"
             />
           </Link>
         </div>

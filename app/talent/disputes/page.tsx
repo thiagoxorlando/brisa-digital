@@ -7,7 +7,7 @@ import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@
 import { brl } from "@/lib/brl";
 import { guardOpenSpacePage } from "@/lib/talentPortalLanding";
 
-export const metadata: Metadata = { title: "Disputes — BrisaHub" };
+export const metadata: Metadata = { title: "Disputes — CastAnet" };
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "-";

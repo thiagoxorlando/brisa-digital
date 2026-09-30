@@ -5,7 +5,7 @@ import AdminNotifications, {
 } from "@/features/admin/AdminNotifications";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Notifications — Admin — BrisaHub" };
+export const metadata: Metadata = { title: "Notifications — Admin — CastAnet" };
 
 export default async function AdminNotificationsPage() {
   const supabase = createServerClient({ useServiceRole: true });

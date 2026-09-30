@@ -55,7 +55,7 @@ export async function POST(
   await notify(
     conv.user_id,
     "support",
-    "A equipe da BrisaHub respondeu sua solicitação de suporte.",
+    "A equipe da CastAnet respondeu sua solicitação de suporte.",
     notifLink,
     `support-admin-reply:${msg.id}`,
   );

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import SupportPage from "@/features/support/SupportPage";
 
 export const metadata: Metadata = {
-  title: "Support — BrisaHub",
+  title: "Support — CastAnet",
 };
 
 export default function TalentWorkspaceSupportPage() {

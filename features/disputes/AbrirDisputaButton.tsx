@@ -103,11 +103,11 @@ export default function AbrirDisputaButton({
           <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
             <h2 className="text-[18px] font-semibold text-zinc-950">Abrir disputa</h2>
             <p className="mt-1 text-[13px] leading-5 text-zinc-500">
-              Explique o problema com detalhes. O pagamento ficará bloqueado até a análise da equipe BrisaHub.
+              Explique o problema com detalhes. O pagamento ficará bloqueado até a análise da equipe CastAnet.
             </p>
 
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] leading-5 text-amber-800">
-              Pagamento ficará bloqueado até análise da equipe BrisaHub.
+              Pagamento ficará bloqueado até análise da equipe CastAnet.
             </div>
 
             {error ? (

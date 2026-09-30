@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import InviteAccept from "./InviteAccept";
 
-export const metadata: Metadata = { title: "Workspace Invite — BrisaHub" };
+export const metadata: Metadata = { title: "Workspace Invite — CastAnet" };
 
 function BuildingIcon() {
   return (
@@ -106,7 +106,7 @@ export default async function InvitePage({
       <div className="w-full max-w-md space-y-5">
         {/* Powered by */}
         <p className="text-center text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-          Powered by BrisaHub
+          Powered by CastAnet
         </p>
 
         <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">

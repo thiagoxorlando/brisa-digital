@@ -9,7 +9,7 @@ import { getAgencyLanding } from "@/lib/getAgencyLanding";
 import { getTalentLanding } from "@/lib/getTalentLanding";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
-import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
+import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
 
 const ROLE_HOME: Record<string, string> = {
   talent: "/talent/dashboard",
@@ -132,11 +132,11 @@ function LoginPageContent() {
 
         <div className="relative">
           <Image
-            src={heroBrandImage}
-            alt="BrisaHub"
-            width={heroBrandImage.width}
-            height={heroBrandImage.height}
-            className="h-auto w-full max-w-[120px]"
+            src={brandLogo}
+            alt="CastAnet"
+            width={brandLogo.width}
+            height={brandLogo.height}
+            className="h-auto w-full max-w-[200px]"
             priority
           />
         </div>
@@ -184,12 +184,12 @@ function LoginPageContent() {
             {/* Mobile logo */}
             <div className="flex justify-center mb-10 lg:hidden">
               <Image
-                src={heroBrandImage}
-                alt="BrisaHub"
-                width={heroBrandImage.width}
-                height={heroBrandImage.height}
+                src={brandLogo}
+                alt="CastAnet"
+                width={brandLogo.width}
+                height={brandLogo.height}
                 priority
-                className="h-auto w-full max-w-[140px]"
+                className="h-auto w-full max-w-[220px]"
               />
             </div>
 

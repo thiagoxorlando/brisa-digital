@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { redirect } from "next/navigation";
 import AdminAudit, { type AuditLogEntry, type AuditSummary } from "@/features/admin/AdminAudit";
 
-export const metadata: Metadata = { title: "Audit — Admin — BrisaHub" };
+export const metadata: Metadata = { title: "Audit — Admin — CastAnet" };
 
 export default async function AdminAuditPage() {
   const auth = await requireAdmin();

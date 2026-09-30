@@ -107,7 +107,7 @@ export default function RoleSelectionPage() {
         <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-zinc-100">
           <Logo size="md" />
         </div>
-        <span className="text-[16px] font-semibold tracking-tight text-zinc-900">BrisaHub</span>
+        <span className="text-[16px] font-semibold tracking-tight text-zinc-900">CastAnet</span>
       </div>
 
       {/* Heading */}

@@ -6,7 +6,7 @@ import { createServerClient } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/requireAdmin";
 import { batchValidateDisputes } from "@/lib/disputeValidation.server";
 
-export const metadata: Metadata = { title: "Disputes — Admin — BrisaHub" };
+export const metadata: Metadata = { title: "Disputes — Admin — CastAnet" };
 
 type ContractSummary = {
   job_id: string | null;

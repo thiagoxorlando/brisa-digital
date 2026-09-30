@@ -128,7 +128,7 @@ export default function WorkspaceFinancesClient({ paymentMode = "escrow" }: { pa
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p className="text-[13px] leading-relaxed text-teal-800">
-          Pagamentos são feitos diretamente pela agência. O BrisaHub registra confirmações, mas não guarda saldo nem processa saques neste portal.
+          Pagamentos são feitos diretamente pela agência. O CastAnet registra confirmações, mas não guarda saldo nem processa saques neste portal.
         </p>
       </div>
     );
@@ -237,7 +237,7 @@ export default function WorkspaceFinancesClient({ paymentMode = "escrow" }: { pa
       {historyWithdrawals.length > 0 ? (
         <section className="space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">
-            Histórico de saques da sua carteira BrisaHub
+            Histórico de saques da sua carteira CastAnet
           </p>
           <div className="divide-y divide-zinc-50 overflow-hidden rounded-2xl border border-zinc-100 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
             {historyWithdrawals.map((w) => {

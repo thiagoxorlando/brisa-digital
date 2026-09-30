@@ -9,7 +9,7 @@ import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@
 import { resolveContractAmounts } from "@/lib/contractStatus";
 import { brl } from "@/lib/brl";
 
-export const metadata: Metadata = { title: "Premium Dispute Detail — BrisaHub" };
+export const metadata: Metadata = { title: "Premium Dispute Detail — CastAnet" };
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -331,7 +331,7 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Status</p>
               <h2 className="mt-1 text-[18px] font-semibold text-zinc-950">Em andamento</h2>
               <div className="mt-5 rounded-2xl bg-zinc-50 p-4 text-[13px] leading-6 text-zinc-600">
-                A disputa está sendo analisada pela equipe BrisaHub. As partes serão notificadas quando houver uma decisão.
+                A disputa está sendo analisada pela equipe CastAnet. As partes serão notificadas quando houver uma decisão.
               </div>
               <div className="mt-4 rounded-2xl bg-amber-50 p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-600">Custódia bloqueada</p>
@@ -344,7 +344,7 @@ export default async function WorkspaceDisputeDetailPage({ params }: PageProps) 
       </div>
 
       <section className="rounded-3xl border border-zinc-100 bg-white p-5 shadow-sm">
-        <h2 className="text-[18px] font-semibold text-zinc-950">Comunicações da BrisaHub</h2>
+        <h2 className="text-[18px] font-semibold text-zinc-950">Comunicações da CastAnet</h2>
         <p className="mt-1 text-[12px] text-zinc-400">Atualizações públicas da equipe de suporte sobre esta disputa.</p>
 
         <div className="mt-5 space-y-3">

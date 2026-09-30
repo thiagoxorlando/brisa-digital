@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createSessionClient } from "@/lib/supabase.server";
 import TalentProfileEdit from "@/features/talent/TalentProfileEdit";
 
-export const metadata: Metadata = { title: "Profile — BrisaHub" };
+export const metadata: Metadata = { title: "Profile — CastAnet" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 

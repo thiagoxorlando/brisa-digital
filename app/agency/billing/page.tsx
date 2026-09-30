@@ -8,7 +8,7 @@ import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
 import { isStripeConfigured, getStripe, mapStripeStatusToPlanStatus } from "@/lib/stripe";
 
-export const metadata: Metadata = { title: "Plan & Billing — BrisaHub" };
+export const metadata: Metadata = { title: "Plan & Billing — CastAnet" };
 
 function AgentBillingScreen({ workspaceName }: { workspaceName: string }) {
   return (
@@ -181,7 +181,7 @@ export default async function BillingPage() {
     charges.push({
       id:               `webhook:${pid}`,
       amount:           Number(paymentRaw.value ?? 0),
-      description:      `Plano ${planLabel} - BrisaHub`,
+      description:      `Plano ${planLabel} - CastAnet`,
       created_at:       String(evt.created_at ?? ""),
       status:           "paid",
       asaas_payment_id: pid,

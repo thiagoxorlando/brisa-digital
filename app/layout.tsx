@@ -12,9 +12,10 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: { default: "BrisaHub", template: "%s — BrisaHub" },
+  title: { default: "CastAnet", template: "%s — CastAnet" },
+  applicationName: "CastAnet",
   description:
-    "BrisaHub gives creative agencies a private workspace with branded talent portal, digital contracts, escrow payments and internal agents — all in one platform.",
+    "CastAnet gives creative agencies a private workspace with branded talent portal, digital contracts, escrow payments and internal agents — all in one platform.",
   keywords: [
     "talent management",
     "agency platform",
@@ -24,31 +25,39 @@ export const metadata: Metadata = {
     "creative agency",
     "talent booking",
     "agency workspace",
-    "BrisaHub",
+    "CastAnet",
   ],
-  icons: { icon: "/logo.png" },
+  icons: {
+    icon: [
+      { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: { title: "CastAnet" },
+  other: { "msapplication-TileImage": "/brand/mstile-150x150.png" },
   openGraph: {
-    title: "BrisaHub — Agency Talent Management Platform",
+    title: "CastAnet — Agency Talent Management Platform",
     description:
       "Private workspace for creative agencies: branded talent portal, digital contracts, escrow payments and internal agents in one place.",
     url: "https://brisahub.com.br",
-    siteName: "BrisaHub",
+    siteName: "CastAnet",
     images: [
       {
-        url: "/images/screenshots/agencydashboard.png",
-        width: 1280,
-        height: 800,
-        alt: "BrisaHub agency dashboard",
+        url: "/brand/castanet-og-1200x630.png",
+        width: 1200,
+        height: 630,
+        alt: "CastAnet",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "BrisaHub — Agency Talent Management Platform",
+    title: "CastAnet — Agency Talent Management Platform",
     description:
       "Private workspace for creative agencies: branded talent portal, digital contracts, escrow payments and internal agents in one place.",
-    images: ["/images/screenshots/agencydashboard.png"],
+    images: ["/brand/castanet-og-1200x630.png"],
   },
 };
 

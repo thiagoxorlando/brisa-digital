@@ -57,7 +57,7 @@ function hex(h: string): [number, number, number] {
 
 async function fetchLogoDataUrl(): Promise<string | null> {
   try {
-    const res = await fetch("/logo.png");
+    const res = await fetch("/brand/castanet-symbol.png");
     if (!res.ok) return null;
     const blob = await res.blob();
     return new Promise((resolve) => {
@@ -167,7 +167,7 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<void> {
       // white rounded pill behind logo
       fill(C.white);
       doc.roundedRect(M - 1, 9, 22, 13, 2, 2, "F");
-      doc.addImage(logoDataUrl, "PNG", M + 0.5, 10, 20, 11);
+      doc.addImage(logoDataUrl, "PNG", M + 4.5, 10, 11, 11);
       logoEndX = M + 24;
     } catch {
       logoEndX = M;
@@ -184,7 +184,7 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<void> {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(200, 240, 235);
-  doc.text("Documento gerado automaticamente pela plataforma BrisaHub", logoEndX, 28);
+  doc.text("Documento gerado automaticamente pela plataforma CastAnet", logoEndX, 28);
 
   // Date line in header
   const dateRef = data.processedAt ?? data.createdAt;
@@ -302,9 +302,9 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<void> {
     ["Tipo da transação", TYPE_LABEL],
     data.transferId ? ["ID da transferência", data.transferId] : ["ID da transferência", null],
     ["ID interno", data.id],
-    ["Provedor", data.provider === "asaas" ? "Asaas PIX" : (data.provider ?? "BrisaHub")],
+    ["Provedor", data.provider === "asaas" ? "Asaas PIX" : (data.provider ?? "CastAnet")],
     data.providerStatus ? ["Status do provedor", data.providerStatus] : ["Status", null],
-    ["Origem", "BrisaHub"],
+    ["Origem", "CastAnet"],
     data.adminNote ? ["Observação", data.adminNote] : ["Observação", null],
   ], y);
 
@@ -341,16 +341,16 @@ export async function generateReceiptPdf(data: ReceiptData): Promise<void> {
   doc.setLineWidth(0.25);
   doc.line(M, FOOTER_Y - 2, PAGE_W - M, FOOTER_Y - 2);
 
-  // BrisaHub brand mark in footer
+  // CastAnet brand mark in footer
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   color(C.teal);
-  doc.text("BrisaHub", M, FOOTER_Y + 4);
+  doc.text("CastAnet", M, FOOTER_Y + 4);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   color(C.gray);
-  doc.text("Este comprovante foi gerado automaticamente pela BrisaHub.", M + 19, FOOTER_Y + 4);
+  doc.text("Este comprovante foi gerado automaticamente pela CastAnet.", M + 19, FOOTER_Y + 4);
   doc.text("Em caso de dúvida, acesse seu painel financeiro.", M, FOOTER_Y + 9);
 
   const generatedAt = new Date().toLocaleString("pt-BR", {

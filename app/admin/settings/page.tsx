@@ -4,10 +4,10 @@ import { redirect } from "next/navigation";
 import { getAllPlatformSettings } from "@/lib/platformSettings.server";
 import AdminSettings, { type PlatformSettings } from "@/features/admin/AdminSettings";
 
-export const metadata: Metadata = { title: "Settings — Admin — BrisaHub" };
+export const metadata: Metadata = { title: "Settings — Admin — CastAnet" };
 
 const DEFAULTS: PlatformSettings = {
-  platform_name:                      "BrisaHub",
+  platform_name:                      "CastAnet",
   support_email:                       null,
   new_agency_signup_enabled:           true,
   new_talent_signup_enabled:           true,
@@ -80,7 +80,7 @@ export default async function AdminSettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-[22px] font-semibold text-[#1F2D2E]">Configurações</h1>
-        <p className="text-[14px] text-[#647B7B] mt-1">Controles globais da plataforma BrisaHub.</p>
+        <p className="text-[14px] text-[#647B7B] mt-1">Controles globais da plataforma CastAnet.</p>
       </div>
       <AdminSettings initialSettings={settings} />
     </div>

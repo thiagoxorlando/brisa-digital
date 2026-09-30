@@ -11,7 +11,7 @@ import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import { useAgencyConfig } from "@/lib/AgencyConfigContext";
 import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
-import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
+import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
 import { buildAdminNavGroups } from "@/lib/adminNav";
 import type { AdminSidebarMetrics } from "@/lib/adminSidebarMetrics";
 import { ROUTE_TO_NAV_KEY } from "@/lib/adminSidebarMetrics";
@@ -673,11 +673,11 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideEscr
           ) : (
             <Link href={isWorkspaceAgent ? "/agency/workspace" : "/"} className="flex flex-1 items-center justify-center">
               <Image
-                src={heroBrandImage}
-                alt="BrisaHub"
-                width={heroBrandImage.width}
-                height={heroBrandImage.height}
-                className="h-auto w-full max-w-[72px]"
+                src={brandLogo}
+                alt="CastAnet"
+                width={brandLogo.width}
+                height={brandLogo.height}
+                className="h-auto w-full max-w-[170px]"
               />
             </Link>
           )}
@@ -941,7 +941,7 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideEscr
           <div className="h-px bg-white/[0.08]" />
         </div>
 
-        {/* Powered by BrisaHub — shown for workspace agents */}
+        {/* Powered by CastAnet — shown for workspace agents */}
         {isWorkspaceAgent && (
           <div className="relative px-5 py-1.5 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#4A7872]/70">

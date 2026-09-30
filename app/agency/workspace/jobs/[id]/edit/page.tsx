@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = createServerClient({ useServiceRole: true });
   const { data } = await supabase.from("jobs").select("title").eq("id", id).single();
-  return { title: data ? `Editar: ${data.title} — BrisaHub Premium` : "Editar vaga do Espaco Premium — BrisaHub" };
+  return { title: data ? `Editar: ${data.title} — CastAnet Premium` : "Editar vaga do Espaco Premium — CastAnet" };
 }
 
 export default async function WorkspaceEditJobPage({ params }: Props) {

@@ -20,7 +20,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import { createServerClient } from "@/lib/supabase";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 
-export const metadata: Metadata = { title: "Checkout Complete — BrisaHub" };
+export const metadata: Metadata = { title: "Checkout Complete — CastAnet" };
 
 type Props = {
   searchParams: Promise<{ session_id?: string }>;

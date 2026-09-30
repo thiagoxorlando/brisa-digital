@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdminTrash, { type TrashItem } from "@/features/admin/AdminTrash";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Trash — BrisaHub" };
+export const metadata: Metadata = { title: "Trash — CastAnet" };
 
 export default async function AdminTrashPage() {
   const supabase = createServerClient({ useServiceRole: true });

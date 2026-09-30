@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq("slug", workspaceSlug)
     .is("deleted_at", null)
     .maybeSingle();
-  if (!data) return { title: "BrisaHub" };
-  return { title: `Entrar em ${data.name} — BrisaHub` };
+  if (!data) return { title: "CastAnet" };
+  return { title: `Entrar em ${data.name} — CastAnet` };
 }
 
 export default async function WorkspacePortalPage({ params }: Props) {
@@ -139,7 +139,7 @@ export default async function WorkspacePortalPage({ params }: Props) {
           <p className="text-[12px] text-white/50">
             Powered by{" "}
             <Link href="/" className="font-semibold text-white/70 transition-colors hover:text-white">
-              BrisaHub
+              CastAnet
             </Link>
           </p>
         </div>
@@ -201,7 +201,7 @@ export default async function WorkspacePortalPage({ params }: Props) {
                 <Link href="/terms" className="underline hover:text-zinc-600">
                   Termos de Uso
                 </Link>{" "}
-                da BrisaHub.
+                da CastAnet.
               </p>
             </>
           )}

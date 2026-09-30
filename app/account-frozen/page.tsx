@@ -13,7 +13,7 @@ export default function AccountFrozenPage() {
         <div>
           <h1 className="text-[1.25rem] font-semibold text-zinc-900 mb-2">Conta suspensa</h1>
           <p className="text-[13px] text-zinc-500 leading-relaxed">
-            Sua conta foi temporariamente suspensa. Entre em contato com o suporte da BrisaHub para mais informações.
+            Sua conta foi temporariamente suspensa. Entre em contato com o suporte da CastAnet para mais informações.
           </p>
         </div>
         <Link

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
+import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { supabase } from "@/lib/supabase";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabelForLang } from "@/lib/talentCategories";
@@ -458,7 +458,7 @@ function SignupPageContent() {
     }
 
     // PRO: create auth user + profile, then redirect to Stripe Checkout.
-    // No card data is collected by BrisaHub — Stripe handles payment securely.
+    // No card data is collected by CastAnet — Stripe handles payment securely.
     if (account.role === "agency" && agency.plan === "pro") {
       setLoading(true);
 
@@ -529,7 +529,7 @@ function SignupPageContent() {
         return;
       }
 
-      // Redirect to Stripe Checkout — no card data is ever handled by BrisaHub.
+      // Redirect to Stripe Checkout — no card data is ever handled by CastAnet.
       const checkoutRes = await fetch("/api/stripe/create-checkout", { method: "POST" });
       const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
 
@@ -792,12 +792,12 @@ function SignupPageContent() {
           <div className="relative flex h-full flex-col">
             <div>
               <Image
-                src={heroBrandImage}
-                alt="BrisaHub"
-                width={heroBrandImage.width}
-                height={heroBrandImage.height}
+                src={brandLogo}
+                alt="CastAnet"
+                width={brandLogo.width}
+                height={brandLogo.height}
                 priority
-                className="h-auto w-full max-w-[120px]"
+                className="h-auto w-full max-w-[200px]"
               />
             </div>
 

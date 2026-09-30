@@ -7,7 +7,7 @@ import { hasActivePremiumWorkspaceTalentMembership } from "@/lib/workspacePortal
 import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@/lib/disputePolicy";
 import { brl } from "@/lib/brl";
 
-export const metadata: Metadata = { title: "Disputes — BrisaHub" };
+export const metadata: Metadata = { title: "Disputes — CastAnet" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 

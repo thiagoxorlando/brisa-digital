@@ -523,7 +523,7 @@ export default function WorkspaceTalentsBoard({ talents, workspaceSlug, brandPri
               </p>
             </div>
             <span className="inline-flex items-center rounded-full border border-[#DCEDEA] bg-[#F5FCFA] px-3 py-1 text-[11px] font-semibold text-[#0E7C86]">
-              Powered by BrisaHub Premium
+              Powered by CastAnet Premium
             </span>
           </div>
         </div>

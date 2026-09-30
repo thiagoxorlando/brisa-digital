@@ -401,7 +401,7 @@ export default function ProTrialCheckoutModal({
 
           <p className="text-center text-[11px] text-zinc-400">
             Os dados do cartao sao usados apenas para autorizar a assinatura no Asaas e nao sao armazenados no
-            BrisaHub.
+            CastAnet.
           </p>
         </form>
       </div>

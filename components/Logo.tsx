@@ -12,7 +12,7 @@ type LogoSize = keyof typeof SIZES;
 
 export default function Logo({
   size = "md",
-  src = "/logo.png",
+  src = "/brand/castanet-symbol.png",
   className = "",
 }: {
   size?: LogoSize;
@@ -23,7 +23,7 @@ export default function Logo({
   return (
     <Image
       src={src}
-      alt="BrisaHub"
+      alt="CastAnet"
       width={px}
       height={px}
       className={`object-contain flex-shrink-0 ${className}`.trim()}

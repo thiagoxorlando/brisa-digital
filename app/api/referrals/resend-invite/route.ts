@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     token: invite.token,
   });
   const email = buildReferralEmail({
-    referrerName: referrerProfile?.full_name ?? user.email ?? "Um talento da BrisaHub",
+    referrerName: referrerProfile?.full_name ?? user.email ?? "Um talento da CastAnet",
     jobTitle: job?.title ?? "uma oportunidade",
     agencyName: agency?.company_name ?? null,
     location: job?.location ?? null,

@@ -258,7 +258,7 @@ export default function AdminSupport({
                   <div key={msg.id} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[78%] flex flex-col gap-1 ${isAdmin ? "items-end" : "items-start"}`}>
                       <span className={`text-[10px] font-semibold uppercase tracking-wide px-1 ${isAdmin ? "text-teal-600" : "text-zinc-500"}`}>
-                        {isAdmin ? "Suporte BrisaHub" : selectedConv.userName}
+                        {isAdmin ? "Suporte CastAnet" : selectedConv.userName}
                       </span>
                       <div className={`rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words ${
                         isAdmin

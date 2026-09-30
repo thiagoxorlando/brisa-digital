@@ -25,13 +25,13 @@ async function sendAdminTestEmail() {
   const sentAt = new Date().toISOString();
   const emailResult = await sendEmail({
     to,
-    subject: "BrisaHub email test",
-    text: `BrisaHub email sending is configured. Sent at ${sentAt}.`,
+    subject: "CastAnet email test",
+    text: `CastAnet email sending is configured. Sent at ${sentAt}.`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#18181b">
-        <h1 style="font-size:22px;line-height:1.2;margin:0 0 12px">BrisaHub email test</h1>
+        <h1 style="font-size:22px;line-height:1.2;margin:0 0 12px">CastAnet email test</h1>
         <p style="font-size:15px;line-height:1.6;margin:0 0 18px">
-          BrisaHub email sending through Resend is configured.
+          CastAnet email sending through Resend is configured.
         </p>
         <p style="font-size:13px;line-height:1.5;margin:0;color:#71717a">
           Sent at ${sentAt}.

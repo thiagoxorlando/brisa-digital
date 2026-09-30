@@ -19,8 +19,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq("slug", workspaceSlug)
     .is("deleted_at", null)
     .maybeSingle();
-  if (!data) return { title: "Portal — BrisaHub" };
-  return { title: `${data.name} — BrisaHub` };
+  if (!data) return { title: "Portal — CastAnet" };
+  return { title: `${data.name} — CastAnet` };
 }
 
 export default async function WorkspacePortalLayout({ children, params }: Props) {

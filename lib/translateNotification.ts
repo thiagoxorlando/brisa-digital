@@ -219,8 +219,8 @@ const NOTIFICATION_TRANSLATIONS: TranslationEntry[] = [
     en: "You have a new message from support.",
   },
   {
-    pt: /^A equipe da BrisaHub respondeu sua solicitação de suporte\.$/,
-    en: "The BrisaHub team replied to your support request.",
+    pt: /^A equipe da (?:BrisaHub|CastAnet) respondeu sua solicitação de suporte\.$/,
+    en: "The CastAnet team replied to your support request.",
   },
   {
     pt: /^Nova solicitação de suporte recebida\.$/,

@@ -3,7 +3,7 @@ import AdminReferrals from "@/features/admin/AdminReferrals";
 import { createServerClient } from "@/lib/supabase";
 import { REFERRAL_RATE } from "@/lib/plans";
 
-export const metadata: Metadata = { title: "Referrals — Admin — BrisaHub" };
+export const metadata: Metadata = { title: "Referrals — Admin — CastAnet" };
 
 export default async function AdminReferralsPage() {
   const supabase = createServerClient({ useServiceRole: true });

@@ -143,7 +143,7 @@ function ReceiptModal({ charge, onClose, t, lang }: { charge: PlanCharge; onClos
         {/* Header */}
         <div className="bg-gradient-to-r from-violet-500 to-indigo-600 px-6 py-5 text-white">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-widest opacity-80">BrisaHub</span>
+            <span className="text-[11px] font-bold uppercase tracking-widest opacity-80">CastAnet</span>
             <button onClick={onClose} className="opacity-70 hover:opacity-100 transition-opacity cursor-pointer">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -596,8 +596,8 @@ export default function BillingDashboard({
             </p>
             <p className="text-[12px] text-rose-700 mt-0.5">
               {lang === "en"
-                ? "Your PRO subscription is inactive. Reactivate PRO to continue using BrisaHub."
-                : "Sua assinatura PRO está inativa. Reative o PRO para continuar usando o BrisaHub."}
+                ? "Your PRO subscription is inactive. Reactivate PRO to continue using CastAnet."
+                : "Sua assinatura PRO está inativa. Reative o PRO para continuar usando o CastAnet."}
             </p>
           </div>
           <button type="button" onClick={() => setReturnBanner(null)} className="text-rose-400 hover:text-rose-600 flex-shrink-0 cursor-pointer">

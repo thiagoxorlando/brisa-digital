@@ -9,7 +9,7 @@ import WorkspaceApplicationsClient, {
 } from "@/features/talent/WorkspaceApplicationsClient";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Bookings — BrisaHub" };
+export const metadata: Metadata = { title: "Bookings — CastAnet" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 

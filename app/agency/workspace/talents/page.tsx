@@ -8,7 +8,7 @@ import { brl } from "@/lib/brl";
 import { getContractComputedState } from "@/lib/contractState";
 import { requirePremiumWorkspacePageContext } from "@/lib/premiumWorkspaceApp.server";
 
-export const metadata: Metadata = { title: "Invited Talents — BrisaHub" };
+export const metadata: Metadata = { title: "Invited Talents — CastAnet" };
 
 type TalentProfileRow = {
   id: string;

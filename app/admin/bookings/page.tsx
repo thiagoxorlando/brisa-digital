@@ -3,7 +3,7 @@ import AdminBookings from "@/features/admin/AdminBookings";
 import { getUnifiedBookingStatus } from "@/lib/bookingStatus";
 import { createServerClient } from "@/lib/supabase";
 
-export const metadata: Metadata = { title: "Bookings — Admin — BrisaHub" };
+export const metadata: Metadata = { title: "Bookings — Admin — CastAnet" };
 
 export default async function AdminBookingsPage() {
   const supabase = createServerClient({ useServiceRole: true });

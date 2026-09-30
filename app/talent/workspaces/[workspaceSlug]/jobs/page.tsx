@@ -10,7 +10,7 @@ import { hasActivePremiumWorkspaceTalentMembership } from "@/lib/workspacePortal
 import { isGenderEligible } from "@/lib/genderNormalization";
 import WorkspaceJobListClient, { type WorkspaceJob } from "@/features/talent/WorkspaceJobListClient";
 
-export const metadata: Metadata = { title: "Premium Portal Jobs — BrisaHub" };
+export const metadata: Metadata = { title: "Premium Portal Jobs — CastAnet" };
 
 type Props = { params: Promise<{ workspaceSlug: string }> };
 

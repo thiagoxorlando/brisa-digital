@@ -21,10 +21,10 @@ async function getTalentByUsername(username: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   const talent = await getTalentByUsername(username);
-  if (!talent) return { title: "Perfil nao encontrado - BrisaHub" };
+  if (!talent) return { title: "Perfil nao encontrado - CastAnet" };
 
   return {
-    title: `${talent.full_name ?? username} - BrisaHub`,
+    title: `${talent.full_name ?? username} - CastAnet`,
     description: talent.bio ?? undefined,
   };
 }

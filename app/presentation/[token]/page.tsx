@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .select("title")
     .eq("token", token)
     .single();
-  return { title: data?.title ?? "Apresentação de talentos — BrisaHub" };
+  return { title: data?.title ?? "Apresentação de talentos — CastAnet" };
 }
 
 export default async function PresentationPage({ params }: Props) {

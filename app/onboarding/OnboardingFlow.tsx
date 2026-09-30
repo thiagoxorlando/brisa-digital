@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAgencyLanding } from "@/lib/getAgencyLanding";
 import { useT } from "@/lib/LanguageContext";
-import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
+import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
 
 type Role = "agency" | "talent";
 
@@ -182,12 +182,12 @@ export default function OnboardingFlow({
               <div className="relative flex h-full flex-col">
                 <div>
                   <Image
-                    src={heroBrandImage}
-                    alt="BrisaHub"
-                    width={heroBrandImage.width}
-                    height={heroBrandImage.height}
+                    src={brandLogo}
+                    alt="CastAnet"
+                    width={brandLogo.width}
+                    height={brandLogo.height}
                     priority
-                    className="h-auto w-full max-w-[120px]"
+                    className="h-auto w-full max-w-[200px]"
                   />
                 </div>
 

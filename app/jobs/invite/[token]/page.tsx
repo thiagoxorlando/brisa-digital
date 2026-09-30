@@ -13,9 +13,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
   const supabase = createServerClient({ useServiceRole: true });
   const { data: link } = await supabase.from("job_invite_links").select("job_id").eq("token", token).maybeSingle();
-  if (!link) return { title: "Convite inválido — BrisaHub" };
+  if (!link) return { title: "Convite inválido — CastAnet" };
   const { data: job } = await supabase.from("jobs").select("title").eq("id", link.job_id).maybeSingle();
-  return { title: job?.title ? `${job.title} — Convite BrisaHub` : "Convite privado — BrisaHub" };
+  return { title: job?.title ? `${job.title} — Convite CastAnet` : "Convite privado — CastAnet" };
 }
 
 function formatBudget(value: number | null | undefined) {
@@ -73,7 +73,7 @@ function InviteState({
           </div>
         </div>
         <div className="border-t border-zinc-100 px-6 py-4 text-[12px] text-zinc-400">
-          Powered by BrisaHub
+          Powered by CastAnet
         </div>
       </div>
     </main>

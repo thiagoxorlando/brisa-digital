@@ -365,7 +365,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
           : Math.max(0, gross - commissionAmount);
         const payoutTx = payoutTxMap.get(c.id);
         // Internal mode: talent receives the full gross amount directly from the agency.
-        // BrisaHub does not process the payout and must not deduct commission.
+        // CastAnet does not process the payout and must not deduct commission.
         // Escrow mode: use the actual wallet payout tx, falling back to net_amount.
         const earnings = isInternal
           ? gross
@@ -854,7 +854,7 @@ export default function TalentFinances({ paymentMode = "escrow" }: { paymentMode
                             </div>
                             <div>
                               <p className="text-zinc-400 mb-0.5">Origem</p>
-                              <p className="font-semibold text-zinc-800">BrisaHub</p>
+                              <p className="font-semibold text-zinc-800">CastAnet</p>
                             </div>
                             {transferRef && (
                               <div className="col-span-2">

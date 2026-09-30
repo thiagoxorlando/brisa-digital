@@ -83,7 +83,7 @@ function UnavailableJobState({
       <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8 sm:px-8">
         <header className="mb-8 flex items-center justify-between">
           <Link href="/" className="text-[15px] font-bold tracking-tight">
-            BrisaHub
+            CastAnet
           </Link>
         </header>
 
@@ -104,7 +104,7 @@ function UnavailableJobState({
               href="/"
               className="mt-6 inline-flex items-center justify-center rounded-xl border border-[#DDE6E6] bg-white px-5 py-3 text-[14px] font-bold text-[#1F2D2E] transition-colors hover:border-[#B8D4D4]"
             >
-              Voltar para a BrisaHub
+              Voltar para a CastAnet
             </Link>
           </div>
         </section>
@@ -123,7 +123,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { data } = await supabase.from("jobs").select("title").eq("id", id).maybeSingle();
 
   return {
-    title: data?.title ? `${data.title} — BrisaHub` : "Vaga não disponível — BrisaHub",
+    title: data?.title ? `${data.title} — CastAnet` : "Vaga não disponível — CastAnet",
   };
 }
 
@@ -191,7 +191,7 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
         <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8 sm:px-8">
           <header className="mb-8 flex items-center justify-between">
             <Link href="/" className="text-[15px] font-bold tracking-tight">
-              BrisaHub
+              CastAnet
             </Link>
             {user ? (
               <Link href={dashboardHref} className="text-[13px] font-semibold text-[#0E7C86]">
@@ -329,7 +329,7 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
       <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-5 py-8 sm:px-8">
         <header className="mb-8 flex items-center justify-between">
           <Link href="/" className="text-[15px] font-bold tracking-tight">
-            BrisaHub
+            CastAnet
           </Link>
           {user ? (
             <Link href={nextPath} className="text-[13px] font-semibold text-[#0E7C86]">

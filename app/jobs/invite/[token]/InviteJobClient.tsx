@@ -90,7 +90,7 @@ export default function InviteJobClient({
       <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between">
           <Link href="/" className="text-[15px] font-bold tracking-tight text-[#1F2D2E]">
-            BrisaHub
+            CastAnet
           </Link>
           {!isLoggedIn ? (
             <Link href={`/login?next=${next}`} className="text-[13px] font-semibold text-[#0E7C86] hover:underline">
@@ -229,7 +229,7 @@ export default function InviteJobClient({
             <p className="text-center text-[12px] text-zinc-400">
               Powered by{" "}
               <Link href="/" className="font-semibold text-zinc-500 transition-colors hover:text-zinc-700">
-                BrisaHub
+                CastAnet
               </Link>
             </p>
           </aside>

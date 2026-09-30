@@ -4,7 +4,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import AvailabilityCalendar from "@/features/talent/AvailabilityCalendar";
 import AvailabilityHeader from "@/features/talent/AvailabilityHeader";
 
-export const metadata: Metadata = { title: "Availability — BrisaHub" };
+export const metadata: Metadata = { title: "Availability — CastAnet" };
 
 export default async function AvailabilityPage() {
   const session = await createSessionClient();

@@ -9,8 +9,8 @@ import { getAgencyLanding } from "@/lib/getAgencyLanding";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
-import heroBrandImage from "@/public/landing/brisahub-hero-brand.png";
-// Real BrisaHub product screenshots
+import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
+// Real CastAnet product screenshots
 import ssAgencyDashboard  from "@/public/images/screenshots/agencydashboard.png";
 import ssAgencyJobs       from "@/public/images/screenshots/agencyjobs.png";
 import ssAgencyJobDetail  from "@/public/images/screenshots/agencyjobid.png";
@@ -372,13 +372,13 @@ export default function Home() {
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-20 border-b border-white/8 bg-[#061214]/95 px-5 backdrop-blur-md lg:px-10">
         <div className="mx-auto flex h-16 max-w-7xl items-center">
-          <Link href="/" aria-label="BrisaHub">
+          <Link href="/" aria-label="CastAnet">
             <Image
-              src={heroBrandImage}
-              alt="BrisaHub"
-              width={heroBrandImage.width}
-              height={heroBrandImage.height}
-              className="h-auto w-full max-w-[80px]"
+              src={brandLogo}
+              alt="CastAnet"
+              width={brandLogo.width}
+              height={brandLogo.height}
+              className="h-auto w-full max-w-[160px]"
             />
           </Link>
 
@@ -619,11 +619,11 @@ export default function Home() {
         <div className="relative flex justify-center pb-12 pt-6">
           <div className="absolute left-1/2 top-0 h-px w-80 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#1ABC9C]/45 to-transparent" />
           <Image
-            src={heroBrandImage}
-            alt="BrisaHub"
-            width={heroBrandImage.width}
-            height={heroBrandImage.height}
-            className="h-auto w-full max-w-[130px] opacity-78 drop-shadow-[0_0_32px_rgba(26,188,156,0.75)]"
+            src={brandLogo}
+            alt="CastAnet"
+            width={brandLogo.width}
+            height={brandLogo.height}
+            className="h-auto w-full max-w-[240px] opacity-78 drop-shadow-[0_0_32px_rgba(26,188,156,0.75)]"
           />
         </div>
       </section>
@@ -1237,11 +1237,11 @@ export default function Home() {
       <footer className="border-t border-white/8 px-5 py-7 lg:px-10">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
           <Image
-            src={heroBrandImage}
-            alt="BrisaHub"
-            width={heroBrandImage.width}
-            height={heroBrandImage.height}
-            className="h-auto w-full max-w-[64px] mx-auto sm:mx-0 opacity-70"
+            src={brandLogo}
+            alt="CastAnet"
+            width={brandLogo.width}
+            height={brandLogo.height}
+            className="h-auto w-full max-w-[140px] mx-auto sm:mx-0 opacity-70"
           />
           <p className="text-[12px] text-white/30">{t("landing_footer_rights")}</p>
         </div>

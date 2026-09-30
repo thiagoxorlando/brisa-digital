@@ -25,7 +25,7 @@ import WorkspaceOnboardingChecklist from "@/features/agency/WorkspaceOnboardingC
 import { buildWorkspaceDashboardCounts } from "@/lib/readModels/workspaceDashboard";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 
-export const metadata: Metadata = { title: "Premium Workspace — BrisaHub" };
+export const metadata: Metadata = { title: "Premium Workspace — CastAnet" };
 
 type WorkspaceJob = {
   id: string;

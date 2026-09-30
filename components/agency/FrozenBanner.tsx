@@ -26,8 +26,8 @@ export default function FrozenBanner() {
         </div>
         <p className="text-[13px] font-medium text-rose-800 leading-snug">
           {isPT
-            ? "Sua assinatura PRO está inativa. Reative o PRO para continuar usando o BrisaHub."
-            : "Your PRO subscription is inactive. Reactivate PRO to continue using BrisaHub."}
+            ? "Sua assinatura PRO está inativa. Reative o PRO para continuar usando o CastAnet."
+            : "Your PRO subscription is inactive. Reactivate PRO to continue using CastAnet."}
         </p>
       </div>
       <Link

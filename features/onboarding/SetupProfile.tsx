@@ -1096,7 +1096,7 @@ export default function SetupProfile({
             {role === "agency" ? "Configuração da Agência" : "Configure seu Perfil"}
           </p>
           <h1 className="text-[1.65rem] font-semibold tracking-tight text-zinc-900">
-            {role === "agency" ? "Complete os dados da sua agência" : "Bem-vindo à BrisaHub"}
+            {role === "agency" ? "Complete os dados da sua agência" : "Bem-vindo à CastAnet"}
           </h1>
           <p className="mt-2 text-[13px] text-zinc-500">
             {role === "agency"

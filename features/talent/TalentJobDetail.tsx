@@ -627,7 +627,7 @@ export default function TalentJobDetail({
   /** Platform payment mode — hides commission/referral economics in internal mode. */
   paymentMode?: "escrow" | "internal";
 }) {
-  // In internal mode BrisaHub does not intermediate payment. Show agreed amount only;
+  // In internal mode CastAnet does not intermediate payment. Show agreed amount only;
   // do not subtract platform commission and do not display referral economics.
   const isInternal = paymentMode === "internal";
   const router = useRouter();
@@ -986,8 +986,8 @@ export default function TalentJobDetail({
               </div>
               <p className="text-[11px] text-zinc-400 pt-0.5">
                 {pt
-                  ? "Pagamento direto pela agência. O BrisaHub registra apenas a confirmação de pagamento."
-                  : "Direct payment by agency. BrisaHub records payment confirmation only."}
+                  ? "Pagamento direto pela agência. O CastAnet registra apenas a confirmação de pagamento."
+                  : "Direct payment by agency. CastAnet records payment confirmation only."}
               </p>
             </div>
           ) : (() => {

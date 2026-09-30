@@ -214,7 +214,7 @@ export default function ClientPresentation({ token }: { token: string }) {
           </div>
           <h1 className="text-[1.1rem] font-bold text-white">Apresentação expirada</h1>
           <p className="mt-2 text-[13px] leading-relaxed text-white/50">Este link não está mais ativo. Entre em contato com a agência.</p>
-          <p className="mt-8 text-[11px] text-white/20">Powered by BrisaHub</p>
+          <p className="mt-8 text-[11px] text-white/20">Powered by CastAnet</p>
         </div>
       </div>
     );
@@ -232,7 +232,7 @@ export default function ClientPresentation({ token }: { token: string }) {
           </div>
           <h1 className="text-[1.1rem] font-bold text-white">Apresentação não encontrada</h1>
           <p className="mt-2 text-[13px] leading-relaxed text-white/50">Verifique o link e tente novamente.</p>
-          <p className="mt-8 text-[11px] text-white/20">Powered by BrisaHub</p>
+          <p className="mt-8 text-[11px] text-white/20">Powered by CastAnet</p>
         </div>
       </div>
     );
@@ -464,7 +464,7 @@ export default function ClientPresentation({ token }: { token: string }) {
               className="h-5 w-5 rounded-md"
               style={{ background: `linear-gradient(135deg, ${brandColor}, ${accentColor})` }}
             />
-            <span className="text-[12px] font-bold text-zinc-700">BrisaHub</span>
+            <span className="text-[12px] font-bold text-zinc-700">CastAnet</span>
           </div>
           <p className="text-[10px] text-zinc-400">Plataforma de casting e talentos</p>
         </div>

@@ -50,8 +50,8 @@ export function buildReferralEmail({
   location,
   jobUrl,
 }: ReferralEmailDetails) {
-  const safeReferrerName = escapeHtml(referrerName || "Um talento da BrisaHub");
-  const safeJobTitle = escapeHtml(jobTitle || "Oportunidade na BrisaHub");
+  const safeReferrerName = escapeHtml(referrerName || "Um talento da CastAnet");
+  const safeJobTitle = escapeHtml(jobTitle || "Oportunidade na CastAnet");
   const safeAgencyName = agencyName?.trim() ? escapeHtml(agencyName.trim()) : null;
   const safeLocation = location?.trim() ? escapeHtml(location.trim()) : null;
   const safeJobUrl = escapeHtml(jobUrl);
@@ -66,23 +66,23 @@ export function buildReferralEmail({
     safeLocation ? `Local/formato: ${location?.trim()}` : "",
   ].filter(Boolean);
 
-  const subject = "Você foi indicado para uma oportunidade na BrisaHub";
+  const subject = "Você foi indicado para uma oportunidade na CastAnet";
 
   return {
     subject,
     text: [
       "Olá,",
       "",
-      `${referrerName || "Um talento da BrisaHub"} indicou você para esta oportunidade:`,
-      jobTitle || "Oportunidade na BrisaHub",
+      `${referrerName || "Um talento da CastAnet"} indicou você para esta oportunidade:`,
+      jobTitle || "Oportunidade na CastAnet",
       ...textMetadata,
       "",
-      "Para visualizar a vaga e participar, crie sua conta ou faça login na BrisaHub usando o link abaixo.",
+      "Para visualizar a vaga e participar, crie sua conta ou faça login na CastAnet usando o link abaixo.",
       jobUrl,
       "",
       "Se essa indicação resultar em contratação/conclusão paga do job, quem indicou você poderá receber 2% de comissão sobre esse job, conforme as regras da plataforma.",
       "",
-      "BrisaHub",
+      "CastAnet",
     ].join("\n"),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#18181b">
@@ -99,7 +99,7 @@ export function buildReferralEmail({
           }
         </div>
         <p style="font-size:15px;line-height:1.6;margin:0 0 22px;color:#3f3f46">
-          Para visualizar a vaga e participar, crie sua conta ou faça login na BrisaHub usando o link abaixo.
+          Para visualizar a vaga e participar, crie sua conta ou faça login na CastAnet usando o link abaixo.
         </p>
         <p style="margin:0 0 24px">
           <a href="${safeJobUrl}"
@@ -111,7 +111,7 @@ export function buildReferralEmail({
         <p style="font-size:13px;line-height:1.6;margin:0 0 26px;color:#71717a">
           Se essa indicação resultar em contratação/conclusão paga do job, quem indicou você poderá receber 2% de comissão sobre esse job, conforme as regras da plataforma.
         </p>
-        <p style="font-size:13px;font-weight:700;margin:0;color:#18181b">BrisaHub</p>
+        <p style="font-size:13px;font-weight:700;margin:0;color:#18181b">CastAnet</p>
       </div>
     `,
   };

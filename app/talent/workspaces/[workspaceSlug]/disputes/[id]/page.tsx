@@ -8,7 +8,7 @@ import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@
 import { resolveContractAmounts } from "@/lib/contractStatus";
 import { brl } from "@/lib/brl";
 
-export const metadata: Metadata = { title: "Dispute Detail — BrisaHub" };
+export const metadata: Metadata = { title: "Dispute Detail — CastAnet" };
 
 type Props = { params: Promise<{ workspaceSlug: string; id: string }> };
 
@@ -184,7 +184,7 @@ export default async function WorkspaceTalentDisputeDetailPage({ params }: Props
                   <div className="rounded-2xl bg-emerald-50 p-4">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600">Valor para você</p>
                     <p className="mt-1 text-[22px] font-semibold text-emerald-900">{brl(Number(dispute.talent_amount))}</p>
-                    <p className="mt-1 text-[12px] text-emerald-700">Creditado na sua carteira BrisaHub.</p>
+                    <p className="mt-1 text-[12px] text-emerald-700">Creditado na sua carteira CastAnet.</p>
                   </div>
                 ) : null}
                 {(dispute.talent_amount == null || Number(dispute.talent_amount) === 0) && dispute.resolution_action === "refund" ? (
@@ -206,7 +206,7 @@ export default async function WorkspaceTalentDisputeDetailPage({ params }: Props
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Status</p>
               <h2 className="mt-1 text-[18px] font-semibold text-zinc-950">Em andamento</h2>
               <div className="mt-5 rounded-2xl bg-zinc-50 p-4 text-[13px] leading-6 text-zinc-600">
-                Sua disputa foi recebida e está sendo analisada pela equipe BrisaHub. Você será notificado quando houver uma decisão.
+                Sua disputa foi recebida e está sendo analisada pela equipe CastAnet. Você será notificado quando houver uma decisão.
               </div>
               <div className="mt-4 rounded-2xl bg-amber-50 p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-600">Em análise</p>
@@ -219,7 +219,7 @@ export default async function WorkspaceTalentDisputeDetailPage({ params }: Props
       </div>
 
       <section className="rounded-3xl border border-zinc-100 bg-white p-5 shadow-sm">
-        <h2 className="text-[18px] font-semibold text-zinc-950">Comunicações da BrisaHub</h2>
+        <h2 className="text-[18px] font-semibold text-zinc-950">Comunicações da CastAnet</h2>
         <p className="mt-1 text-[12px] text-zinc-400">Atualizações públicas da equipe de suporte sobre esta disputa.</p>
 
         <div className="mt-5 space-y-3">

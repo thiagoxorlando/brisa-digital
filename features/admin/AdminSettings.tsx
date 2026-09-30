@@ -225,7 +225,7 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
       <Section title="Pagamentos da plataforma">
         <SettingRow
           label="Modo de pagamento padrão"
-          description="Padrão global para agências sem override individual. internal = agência paga externamente; escrow = custódia BrisaHub."
+          description="Padrão global para agências sem override individual. internal = agência paga externamente; escrow = custódia CastAnet."
         >
           <select
             value={settings.default_payment_mode}
@@ -233,7 +233,7 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
             className="rounded-lg border border-zinc-200 px-3 py-2 text-[13px] text-zinc-800 focus:border-zinc-400 focus:outline-none w-48"
           >
             <option value="internal">Internal (pagamento externo)</option>
-            <option value="escrow">Escrow (custódia BrisaHub)</option>
+            <option value="escrow">Escrow (custódia CastAnet)</option>
           </select>
         </SettingRow>
         <SettingRow
@@ -255,7 +255,7 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
         </SettingRow>
         <SettingRow
           label="Custódia habilitada por padrão"
-          description="Para agências em modo escrow sem override, habilita a custódia BrisaHub automaticamente"
+          description="Para agências em modo escrow sem override, habilita a custódia CastAnet automaticamente"
         >
           <Toggle checked={settings.default_escrow_enabled} onChange={(v) => update("default_escrow_enabled", v)} />
         </SettingRow>

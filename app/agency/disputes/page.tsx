@@ -7,7 +7,7 @@ import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
 import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, type DisputeStatus } from "@/lib/disputePolicy";
 import { brl } from "@/lib/brl";
 
-export const metadata: Metadata = { title: "Disputes — BrisaHub" };
+export const metadata: Metadata = { title: "Disputes — CastAnet" };
 
 function fmtDate(value: string | null | undefined) {
   if (!value) return "-";
