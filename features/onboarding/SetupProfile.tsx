@@ -7,7 +7,10 @@ import { useT } from "@/lib/LanguageContext";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabel } from "@/lib/talentCategories";
 import { formatCpf, isValidCpf, digitsOnly, formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/cpf";
-import { buildPlanSettingsFallback, formatPlanMonthlyPrice, planLimitHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { CHECKOUT_CURRENCY, resolvePlanPricing } from "@/lib/planPricing";
+import { startPlanCheckout } from "@/lib/planCheckoutClient";
+import ProTrialCheckoutModal from "@/features/agency/ProTrialCheckoutModal";
 
 type Role = "agency" | "talent" | null;
 type AgencyPlan = "free" | "pro" | "premium";
@@ -88,7 +91,7 @@ type TalentErrors = {
 type AgencyErrors = Partial<Record<keyof AgencyForm, string>>;
 
 function planDisplayPrice(plan: PublicPlanSetting) {
-  return plan.is_available ? formatPlanMonthlyPrice(plan.price) : "Em breve";
+  return resolvePlanPricing(plan).isOffered ? formatPlanPricing(plan, "pt-BR").primaryPrice : "Em breve";
 }
 
 const TALENT_DEFAULTS: TalentForm = {
@@ -270,7 +273,7 @@ function validateTalent(form: TalentForm, customOtherText: string, lang: string)
   return errors;
 }
 
-function validateAgency(form: AgencyForm, lang: string): AgencyErrors {
+function validateAgency(form: AgencyForm, lang: string, requiresDocument: boolean): AgencyErrors {
   const errors: AgencyErrors = {};
   if (!form.companyName.trim()) errors.companyName = lang === "en" ? "Company name is required." : "Nome da empresa é obrigatório.";
   else if (form.companyName.trim().length < 2) errors.companyName = lang === "en" ? "Must be at least 2 characters." : "Deve ter pelo menos 2 caracteres.";
@@ -279,8 +282,8 @@ function validateAgency(form: AgencyForm, lang: string): AgencyErrors {
   if (!form.country.trim()) errors.country = lang === "en" ? "Country is required." : "País é obrigatório.";
   if (!form.city.trim()) errors.city = lang === "en" ? "City is required." : "Cidade é obrigatória.";
   if (form.description.length > 500) errors.description = lang === "en" ? "Description must be at most 500 characters." : "Descrição deve ter no máximo 500 caracteres.";
-  // CPF/CNPJ only required for PT/Brazilian users — EN users use Stripe (no CPF needed)
-  if (lang !== "en") {
+  // CPF/CNPJ: Brazilian users, and any paid plan billed in BRL (Asaas needs it).
+  if (requiresDocument) {
     if (!form.cpfCnpj.trim()) errors.cpfCnpj = "CPF ou CNPJ é obrigatório.";
     else if (!isValidCpfCnpj(normalizeCpfCnpj(form.cpfCnpj))) errors.cpfCnpj = "CPF (11 dígitos) ou CNPJ (14 dígitos) inválido.";
   }
@@ -635,6 +638,21 @@ function AgencySetup({
   const [manualCheckMsg, setManualCheckMsg] = useState<string | null>(null);
   const [livePlans, setLivePlans] = useState<LivePlans>(buildPlanSettingsFallback);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // PRO card step (Asaas) and the signed-in email shown in the card form.
+  const [proCheckoutOpen, setProCheckoutOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? ""));
+  }, []);
+  // Same rule as signup: driven by the selected plan's currency, not the UI language.
+  const formPricing = resolvePlanPricing(livePlans[form.plan] ?? buildPlanSettingsFallback()[form.plan]);
+  const requiresDocument = lang !== "en" || (formPricing.isPaid && formPricing.currency === CHECKOUT_CURRENCY);
+  // Availability + paid status come from the shared resolver only.
+  const offered = {
+    free: resolvePlanPricing(livePlans.free).isOffered,
+    pro: resolvePlanPricing(livePlans.pro).isOffered,
+    premium: resolvePlanPricing(livePlans.premium).isOffered,
+  };
 
   useEffect(() => {
     void fetch("/api/plan-settings").then(async (res) => {
@@ -700,7 +718,8 @@ function AgencySetup({
   function set<K extends keyof AgencyForm>(key: K, value: AgencyForm[K]) {
     const updated = { ...form, [key]: value };
     setForm(updated);
-    setErrors(validateAgency(updated, lang));
+    const updatedPricing = resolvePlanPricing(livePlans[updated.plan] ?? buildPlanSettingsFallback()[updated.plan]);
+    setErrors(validateAgency(updated, lang, lang !== "en" || (updatedPricing.isPaid && updatedPricing.currency === CHECKOUT_CURRENCY)));
     setServerError("");
   }
 
@@ -733,12 +752,19 @@ function AgencySetup({
   async function handleSubmit() {
     if (loading) return;
 
-    const validation = validateAgency(form, lang);
+    const validation = validateAgency(form, lang, requiresDocument);
     setErrors(validation);
     if (Object.keys(validation).length > 0) return;
 
     const selectedPlan = livePlans[form.plan];
-    if (!selectedPlan?.is_available) {
+    const selectedPricing = resolvePlanPricing(selectedPlan);
+    // A paid plan the active processor can't bill (e.g. USD while only Asaas/BRL
+    // is active) is displayed but cannot be bought yet — stop before saving.
+    if (selectedPricing.isOffered && selectedPricing.isPaid && !selectedPricing.isCheckoutSupported) {
+      setErrors({ plan: lang === "en" ? "This plan is not available for online purchase yet." : "Este plano ainda não pode ser contratado online." });
+      return;
+    }
+    if (!selectedPricing.isOffered) {
       setErrors({ plan: "Este plano ainda não está disponível." });
       return;
     }
@@ -746,8 +772,10 @@ function AgencySetup({
     setServerError("");
     setLoading(true);
 
+    // PRO collects the card in-page (no new tab); other paid plans open the
+    // hosted Asaas invoice in a new tab.
     let paymentWindow: Window | null = null;
-    if (selectedPlan.price > 0) {
+    if (selectedPricing.isPaid && form.plan !== "pro") {
       paymentWindow = window.open("", "_blank", "noopener,noreferrer");
     }
 
@@ -795,7 +823,7 @@ function AgencySetup({
         return;
       }
 
-      if (selectedPlan.price > 0) {
+      if (selectedPricing.isPaid && form.plan !== "free") {
         const cleanDoc = normalizeCpfCnpj(form.cpfCnpj);
         if (!isValidCpfCnpj(cleanDoc)) {
           paymentWindow?.close();
@@ -804,16 +832,25 @@ function AgencySetup({
           return;
         }
 
-        const checkoutRes = await fetch("/api/asaas/plan/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cpfCnpj: cleanDoc, plan: form.plan }),
-        });
-        const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
+        // PRO: Asaas card step (trial + intro offer) in ProTrialCheckoutModal.
+        if (form.plan === "pro") {
+          setProCheckoutOpen(true);
+          setLoading(false);
+          return;
+        }
 
-        if (!checkoutRes.ok || !checkoutJson.url) {
+        let checkoutJson: { url?: string };
+        try {
+          checkoutJson = await startPlanCheckout(form.plan, { cpfCnpj: cleanDoc });
+        } catch (err) {
           paymentWindow?.close();
-          setServerError(checkoutJson.error ?? "Erro ao iniciar pagamento. Tente novamente.");
+          setServerError(err instanceof Error ? err.message : "Erro ao iniciar pagamento. Tente novamente.");
+          setLoading(false);
+          return;
+        }
+        if (!checkoutJson.url) {
+          paymentWindow?.close();
+          setServerError("Erro ao iniciar pagamento. Tente novamente.");
           setLoading(false);
           return;
         }
@@ -912,7 +949,7 @@ function AgencySetup({
           <Field label="Nome do contato/responsável *" error={errors.contactName}>
             <input className={inputCls(!!errors.contactName)} placeholder="Carlos Rodrigues" value={form.contactName} onChange={(event) => set("contactName", event.target.value)} />
           </Field>
-          {lang !== "en" && (
+          {requiresDocument && (
             <Field label="CPF / CNPJ *" error={errors.cpfCnpj} hint="Necessário para emissão de cobranças">
               <input
                 className={inputCls(!!errors.cpfCnpj)}
@@ -960,11 +997,11 @@ function AgencySetup({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <button
             type="button"
-            onClick={() => { if (livePlans.free.is_available) set("plan", "free"); }}
-            disabled={!livePlans.free.is_available}
+            onClick={() => { if (offered.free) set("plan", "free"); }}
+            disabled={!offered.free}
             className={[
               "rounded-2xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60",
-              form.plan === "free" && livePlans.free.is_available ? "border-zinc-900 bg-zinc-50 shadow-sm" : "border-zinc-200 hover:border-zinc-300",
+              form.plan === "free" && offered.free ? "border-zinc-900 bg-zinc-50 shadow-sm" : "border-zinc-200 hover:border-zinc-300",
             ].join(" ")}
           >
             <div className="mb-2 flex items-center justify-between">
@@ -972,7 +1009,7 @@ function AgencySetup({
               <span className="text-[13px] font-bold text-zinc-900">{planDisplayPrice(livePlans.free)}</span>
             </div>
             <ul className="space-y-1">
-              {livePlans.free.is_available
+              {offered.free
                 ? planLimitHighlights(livePlans.free).map((item) => <li key={item} className="text-[12px] text-zinc-500">· {item}</li>)
                 : <li className="text-[12px] text-zinc-500">· Em breve</li>}
             </ul>
@@ -980,20 +1017,20 @@ function AgencySetup({
 
           <button
             type="button"
-            onClick={() => { if (livePlans.pro.is_available) set("plan", "pro"); }}
-            disabled={!livePlans.pro.is_available}
+            onClick={() => { if (offered.pro) set("plan", "pro"); }}
+            disabled={!offered.pro}
             className={[
               "rounded-2xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60",
-              form.plan === "pro" && livePlans.pro.is_available ? "border-indigo-600 bg-indigo-50 shadow-sm" : "border-zinc-200 hover:border-indigo-300",
+              form.plan === "pro" && offered.pro ? "border-indigo-600 bg-indigo-50 shadow-sm" : "border-zinc-200 hover:border-indigo-300",
             ].join(" ")}
           >
             <div className="mb-1 flex items-center gap-2">
               <span className="text-[14px] font-semibold text-zinc-900">{livePlans.pro.name}</span>
-              <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white">{livePlans.pro.is_available ? "POPULAR" : "Em breve"}</span>
+              <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white">{offered.pro ? "POPULAR" : "Em breve"}</span>
             </div>
             <p className="mb-2 text-[13px] font-bold text-indigo-700">{planDisplayPrice(livePlans.pro)}</p>
             <ul className="space-y-1">
-              {livePlans.pro.is_available
+              {offered.pro
                 ? planLimitHighlights(livePlans.pro).map((item) => <li key={item} className="text-[12px] text-zinc-500">· {item}</li>)
                 : <li className="text-[12px] text-zinc-500">· Em breve</li>}
             </ul>
@@ -1001,20 +1038,20 @@ function AgencySetup({
 
           <button
             type="button"
-            onClick={() => { if (livePlans.premium.is_available) set("plan", "premium"); }}
-            disabled={!livePlans.premium.is_available}
+            onClick={() => { if (offered.premium) set("plan", "premium"); }}
+            disabled={!offered.premium}
             className={[
               "rounded-2xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60",
-              form.plan === "premium" && livePlans.premium.is_available ? "border-indigo-600 bg-indigo-50 shadow-sm" : "border-zinc-200 hover:border-indigo-300",
+              form.plan === "premium" && offered.premium ? "border-indigo-600 bg-indigo-50 shadow-sm" : "border-zinc-200 hover:border-indigo-300",
             ].join(" ")}
           >
             <div className="mb-1 flex items-center gap-2">
               <span className="text-[14px] font-semibold text-zinc-900">{livePlans.premium.name}</span>
-              {!livePlans.premium.is_available ? <span className="rounded-full bg-zinc-400 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white">Em breve</span> : null}
+              {!offered.premium ? <span className="rounded-full bg-zinc-400 px-2 py-0.5 text-[9px] font-bold tracking-wider text-white">Em breve</span> : null}
             </div>
             <p className="mb-2 text-[13px] font-bold text-indigo-700">{planDisplayPrice(livePlans.premium)}</p>
             <ul className="space-y-1">
-              {livePlans.premium.is_available
+              {offered.premium
                 ? planLimitHighlights(livePlans.premium).map((item) => <li key={item} className="text-[12px] text-zinc-500">· {item}</li>)
                 : <li className="text-[12px] text-zinc-500">· Em breve</li>}
             </ul>
@@ -1037,6 +1074,25 @@ function AgencySetup({
       >
         {loading ? "Salvando..." : "Salvar Perfil"}
       </button>
+
+      {proCheckoutOpen && (
+        <ProTrialCheckoutModal
+          email={userEmail}
+          planLabel={livePlans.pro.name}
+          priceSummary={formatPlanPricing(livePlans.pro, lang === "en" ? "en" : "pt-BR").promoSummary || formatPlanPricing(livePlans.pro, lang === "en" ? "en" : "pt-BR").primaryPrice}
+          trialDays={resolvePlanPricing(livePlans.pro).trialDays}
+          initialHolderName={form.contactName.trim()}
+          initialCpfCnpj={form.cpfCnpj}
+          initialPhone={form.phone}
+          submitting={false}
+          onClose={() => setProCheckoutOpen(false)}
+          onSubmit={async (payload) => {
+            await startPlanCheckout("pro", payload);
+            setProCheckoutOpen(false);
+            onDone();
+          }}
+        />
+      )}
     </div>
   );
 }

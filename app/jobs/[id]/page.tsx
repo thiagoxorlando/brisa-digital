@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import { notFound } from "next/navigation";
 import ReferralClaimOnView from "@/components/referrals/ReferralClaimOnView";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
@@ -82,8 +83,8 @@ function UnavailableJobState({
     <main className="min-h-screen bg-[#F8FAFC] text-[#1F2D2E]">
       <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8 sm:px-8">
         <header className="mb-8 flex items-center justify-between">
-          <Link href="/" className="text-[15px] font-bold tracking-tight">
-            CastAnet
+          <Link href="/" aria-label="CastAnet" className="flex items-center">
+            <Logo background="light" size="sm" />
           </Link>
         </header>
 
@@ -190,9 +191,9 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
 
         <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8 sm:px-8">
           <header className="mb-8 flex items-center justify-between">
-            <Link href="/" className="text-[15px] font-bold tracking-tight">
-              CastAnet
-            </Link>
+            <Link href="/" aria-label="CastAnet" className="flex items-center">
+            <Logo background="light" size="sm" />
+          </Link>
             {user ? (
               <Link href={dashboardHref} className="text-[13px] font-semibold text-[#0E7C86]">
                 Acessar vaga
@@ -328,8 +329,8 @@ export default async function PublicJobPage({ params, searchParams }: Props) {
     <main className="min-h-screen bg-[#F8FAFC] text-[#1F2D2E]">
       <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-5 py-8 sm:px-8">
         <header className="mb-8 flex items-center justify-between">
-          <Link href="/" className="text-[15px] font-bold tracking-tight">
-            CastAnet
+          <Link href="/" aria-label="CastAnet" className="flex items-center">
+            <Logo background="light" size="sm" />
           </Link>
           {user ? (
             <Link href={nextPath} className="text-[13px] font-semibold text-[#0E7C86]">

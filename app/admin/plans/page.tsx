@@ -7,13 +7,16 @@ import AdminPlans, {
 import { getPlanLabel, parsePlan } from "@/lib/plans";
 import { createServerClient } from "@/lib/supabase";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
+import { resolveEffectiveAgencyPlan } from "@/lib/effectiveAgencyPlan";
 
 export const metadata: Metadata = { title: "Plans — Admin — CastAnet" };
 
 type AgencyProfileRow = {
   id: string;
+  full_name: string | null;
   plan: string | null;
   plan_status: string | null;
+  trial_ends_at: string | null;
   plan_expires_at: string | null;
   asaas_customer_id: string | null;
   asaas_subscription_id: string | null;
@@ -151,14 +154,14 @@ export default async function AdminPlansPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, plan, plan_status, plan_expires_at, asaas_customer_id, asaas_subscription_id, deleted_at, is_frozen")
+      .select("id, full_name, plan, plan_status, trial_ends_at, plan_expires_at, asaas_customer_id, asaas_subscription_id, deleted_at, is_frozen")
       .eq("role", "agency"),
     fetchAgencyRows(supabase),
     fetchPlanChargeRows(supabase),
     Promise.resolve(
       supabase
         .from("plan_settings")
-        .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price")
+        .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, included_agent_seats, extra_agent_seat_price, trial_days, intro_price, intro_cycles, recurring_price, currency")
         .order("plan_key"),
     )
       .then((r) => ({ data: (r.data ?? []) as PlanSettingRow[] }))
@@ -214,19 +217,20 @@ export default async function AdminPlansPage() {
   const agenciesData: AdminPlansAgency[] = ((profiles ?? []) as AgencyProfileRow[])
     .map((profile) => {
       const agency = agencyMap.get(profile.id);
-      const currentPlan = parsePlan(profile.plan);
+      // Same effective-plan rule as the agency layout (profiles.plan + active trial).
+      const currentPlan = resolveEffectiveAgencyPlan(profile);
       const agencyCharges = chargesByUser.get(profile.id) ?? [];
       const hasValidOwnerUser = authUserIdSet.has(profile.id);
       const hasValidProfile = !profile.deleted_at;
-      const hasAgencyRow = !!agency;
-      const isOrphan = !hasValidOwnerUser || !hasValidProfile || !hasAgencyRow;
+      // An agency account is its auth user + agency profile. The agencies row is
+      // optional configuration (company name, payment mode) — the app itself
+      // does not require it — so its absence does not make the account an orphan.
+      const isOrphan = !hasValidOwnerUser || !hasValidProfile;
       const orphanReason = !hasValidOwnerUser
         ? "Usuário deletado"
         : !hasValidProfile
           ? "Perfil deletado"
-          : !hasAgencyRow
-            ? "Agência deletada"
-            : null;
+          : null;
 
       const paidCharges = agencyCharges.filter((c) => normalizeStatus(c.status) === "paid");
       const pendingCharges = agencyCharges.filter((c) => {
@@ -253,13 +257,16 @@ export default async function AdminPlansPage() {
       const accountActive =
         !profile.deleted_at &&
         !profile.is_frozen &&
-        !!agency &&
         hasValidOwnerUser;
 
       return {
         id: profile.id,
         email: emailMap.get(profile.id) ?? null,
-        agencyName: agency?.company_name?.trim() || (isOrphan ? "Agência órfã" : "Agencia sem nome"),
+        agencyName:
+          agency?.company_name?.trim() ||
+          profile.full_name?.trim() ||
+          emailMap.get(profile.id) ||
+          (isOrphan ? "Agência órfã" : "Agencia sem nome"),
         contactName: agency?.contact_name?.trim() || null,
         currentPlan,
         currentPlanLabel: getPlanLabel(currentPlan),
@@ -318,7 +325,7 @@ export default async function AdminPlansPage() {
     intro_price: Number(row.intro_price ?? (parsePlan(row.plan_key) === "pro" ? 29 : 0)),
     intro_cycles: Number(row.intro_cycles ?? (parsePlan(row.plan_key) === "pro" ? 1 : 0)),
     recurring_price: Number(row.recurring_price ?? (parsePlan(row.plan_key) === "pro" ? 79 : 0)),
-    currency: ((row as Record<string, unknown>).currency === "BRL" ? "BRL" : "USD") as "USD" | "BRL",
+    currency: ((row as Record<string, unknown>).currency === "USD" ? "USD" : "BRL") as "USD" | "BRL",
   }));
 
   const planHistory: PlanSettingHistoryEntry[] = planHistoryResult.data.map((row) => ({

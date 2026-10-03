@@ -29,13 +29,13 @@ export const metadata: Metadata = {
   ],
   icons: {
     icon: [
-      { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/brand/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/brand/castanet-new/WEB/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/castanet-new/WEB/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/brand/castanet-new/WEB/favicon-16.png", sizes: "16x16", type: "image/png" },
     ],
-    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/brand/castanet-new/WEB/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: { title: "CastAnet" },
-  other: { "msapplication-TileImage": "/brand/mstile-150x150.png" },
   openGraph: {
     title: "CastAnet — Agency Talent Management Platform",
     description:
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "CastAnet",
     images: [
       {
-        url: "/brand/castanet-og-1200x630.png",
+        url: "/brand/castanet-new/WEB/castanet-og-1200x630.png",
         width: 1200,
         height: 630,
         alt: "CastAnet",
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     title: "CastAnet — Agency Talent Management Platform",
     description:
       "Private workspace for creative agencies: branded talent portal, digital contracts, escrow payments and internal agents in one place.",
-    images: ["/brand/castanet-og-1200x630.png"],
+    images: ["/brand/castanet-new/WEB/castanet-og-1200x630.png"],
   },
 };
 

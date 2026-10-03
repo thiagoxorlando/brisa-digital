@@ -11,6 +11,7 @@ import { getUserPremiumWorkspace } from "@/lib/premiumWorkspace.server";
 import { resolveAgencyConfig } from "@/lib/agencyConfig";
 import { getLivePlanSetting } from "@/lib/planSettings.server";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
+import { resolveEffectiveAgencyPlan } from "@/lib/effectiveAgencyPlan";
 
 // ── Routes private workspace agents may NOT access ────────────────────────────
 
@@ -85,16 +86,9 @@ export default async function AgencyLayout({
   }
 
   // ── Resolve effective plan ────────────────────────────────────────────────────
-  // Promote "free" → "pro" when Stripe trial is confirmed active in DB.
-  // Guard: never promote when plan_status="canceled" (webhook may leave a stale
-  // trial_ends_at timestamp on canceled subscriptions).
-  const rawPlan    = profile?.plan ?? "free";
-  const isCanceled = profile?.plan_status === "canceled";
-  const trialActive = !isCanceled && (
-    profile?.plan_status === "trialing" ||
-    (profile?.trial_ends_at ? new Date(profile.trial_ends_at as string) > new Date() : false)
-  );
-  const effectivePlan = rawPlan === "free" && trialActive ? "pro" : rawPlan;
+  // Shared rule (also used by Admin > Planos): profiles.plan, promoted
+  // "free" → "pro" during an active trial, never when canceled.
+  const effectivePlan = resolveEffectiveAgencyPlan(profile ?? {});
 
   // ── Active / frozen determination ─────────────────────────────────────────────
   // An agency is ACTIVE when they have a live PRO or Premium subscription.

@@ -6,7 +6,10 @@ import { useT } from "@/lib/LanguageContext";
 import { PLAN_DEFINITIONS, type Plan } from "@/lib/plans";
 import { brl, usd } from "@/lib/brl";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
-import { formatPlanPrice } from "@/lib/planSettings.shared";
+import { formatPlanMonthlyPrice, formatPlanPrice } from "@/lib/planSettings.shared";
+import { resolvePlanPricing } from "@/lib/planPricing";
+import { startPlanCheckout } from "@/lib/planCheckoutClient";
+import ProTrialCheckoutModal from "@/features/agency/ProTrialCheckoutModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,7 +37,7 @@ interface Props {
   proTrialUsed?: boolean;
   /** Current intro_cycles_remaining from the profile row (null = no intro, 0 = done). */
   introCyclesRemaining?: number | null;
-  /** Unused for Stripe flow — kept for Asaas backward compatibility. */
+  /** Prefill for the Asaas PRO card form. */
   checkoutDefaults?: {
     email?: string;
     holderName?: string;
@@ -42,16 +45,6 @@ interface Props {
     phone?: string;
   };
 }
-
-type PlanChangeResponse = {
-  effectiveAt?: string;
-  url?: string;
-  provider?: string;
-  mode?: string;
-  planStatus?: string;
-  trialEndsAt?: string | null;
-  nextChargeDate?: string | null;
-};
 
 // ── Plan definitions (UI only) ────────────────────────────────────────────────
 
@@ -255,87 +248,6 @@ function chargeStatusColor(status: string | null) {
   }
 }
 
-// ── Plan change modal ─────────────────────────────────────────────────────────
-
-interface ModalProps {
-  plan: PlanDef;
-  currentPlanKey: PlanKey;
-  currentPrice: number;
-  planExpiresAt: string | null;
-  onSuccess: (newPlan: PlanKey, result: PlanChangeResponse) => void;
-  onUnavailable: (message: string) => void;
-  onClose: () => void;
-}
-
-function PlanChangeModal({
-  plan,
-  displayName,
-  displayPriceLabel,
-  onUnavailable,
-  onClose,
-  t,
-}: Pick<ModalProps, "plan" | "onUnavailable" | "onClose"> & { displayName: string; displayPriceLabel: string; t: (k: string) => string }) {
-  const isToFree = (plan.key as string) === "free";
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleConfirm() {
-    setSubmitting(true);
-    setSubmitting(false);
-    onClose();
-    onUnavailable(t("common_unexpected_error"));
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-zinc-100">
-          <div>
-            <div className={`h-[3px] w-12 rounded-full bg-gradient-to-r ${plan.gradient} mb-3`} />
-            <h2 className="text-[17px] font-semibold text-zinc-900">
-              {isToFree ? t("billing_plan_cancel") : `${t("billing_plan_upgrade_to")} ${displayName}`}
-            </h2>
-            <p className="text-[13px] text-zinc-400 mt-0.5">
-              {"period" in plan && plan.period ? `${displayPriceLabel}${plan.period}` : displayPriceLabel}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 transition-colors mt-0.5 cursor-pointer">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="px-6 py-5 space-y-5">
-          <p className="text-[13px] text-zinc-600 bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-3">
-            {t("common_unexpected_error")}
-          </p>
-        </div>
-
-        <div className="px-6 pb-6 pt-3 flex gap-3 border-t border-zinc-100">
-          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 text-[13px] font-medium text-zinc-600 hover:border-zinc-300 transition-colors cursor-pointer">
-            {t("action_cancel")}
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={submitting}
-            className={[
-              "flex-1 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
-              isToFree
-                ? "bg-[#647B7B] hover:bg-[#4A6262]"
-                : "bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] hover:from-[#17A58A] hover:to-[#22B5C2]",
-            ].join(" ")}
-          >
-            {submitting ? t("billing_plan_processing") : t("action_confirm")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function BillingDashboard({
@@ -346,9 +258,9 @@ export default function BillingDashboard({
   nextChargeDate,
   trialEndsAt,
   proTrialEnabled = true,
-  proTrialDays = 7,
   proTrialUsed = false,
   introCyclesRemaining = null,
+  checkoutDefaults,
 }: Props) {
   const { t, lang } = useT();
   const isActivePaid = initialPlan !== "free";
@@ -367,7 +279,7 @@ export default function BillingDashboard({
       new Date(currentTrialEndsAt) > new Date() &&
       activePlan !== "free");
   const isTrialing = isEffectivelyTrialing;
-  // pro_trial_used is set to true as soon as the Stripe trial starts.
+  // pro_trial_used is set to true as soon as the (Asaas) trial starts.
   // It means "eligibility exhausted" (no second trial), NOT "currently reactivating".
   // A brand-new account has pro_trial_used=true AND plan_status=trialing simultaneously.
   // Use isReactivation (trial used + NOT currently in trial) to guard pricing display.
@@ -375,10 +287,11 @@ export default function BillingDashboard({
   const trialDaysLeft = currentTrialEndsAt ? Math.max(0, Math.ceil((new Date(currentTrialEndsAt).getTime() - Date.now()) / 86_400_000)) : null;
   const [expiresAt, setExpiresAt] = useState(planExpiresAt);
   const [pendingChange] = useState<{ plan: PlanKey; effectiveAt: string } | null>(null);
-  const [changingTo, setChangingTo] = useState<PlanDef | null>(null);
+  const [proCheckoutOpen, setProCheckoutOpen] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [returnBanner, setReturnBanner] = useState<"success" | "canceled" | "frozen" | null>(getBillingReturnBanner);
-  const [proLoading, setProLoading] = useState(false);
+  // PRO buttons stay disabled while the Asaas card form is open.
+  const proLoading = proCheckoutOpen;
   const [premiumLoading, setPremiumLoading] = useState(false);
   const [receiptCharge, setReceiptCharge] = useState<PlanCharge | null>(null);
 
@@ -394,49 +307,40 @@ export default function BillingDashboard({
   function effectiveSetting(p: PlanDef) {
     return livePlans[p.key] ?? buildPlanSettingsFallback()[p.key];
   }
-  function effectivePrice(p: PlanDef) {
-    return effectiveSetting(p).price;
+  /** Resolved offer for this agency: returning subscribers get no trial/intro. */
+  function pricingFor(p: PlanDef) {
+    return resolvePlanPricing(effectiveSetting(p), { trialEligible: !isReactivation });
   }
+  function effectivePrice(p: PlanDef) {
+    return pricingFor(p).recurringPrice;
+  }
+  const perMonth = lang === "en" ? "/month" : "/mês";
   function effectivePriceLabel(p: PlanDef) {
     const setting = effectiveSetting(p);
-    if (!setting.is_available) return t("billing_plan_soon");
+    const pricing = pricingFor(p);
+    if (!pricing.isOffered) return t("billing_plan_soon");
     // Reactivation (not in trial, trial already used): show recurring price as headline.
     // Active trial (isTrialing=true, proTrialUsed=true): keep intro price as headline.
-    if (p.key === "pro" && isReactivation && setting.recurring_price > 0) {
-      return formatPlanPrice(setting.recurring_price, setting.currency);
+    if (p.key === "pro" && isReactivation && pricing.recurringPrice > 0) {
+      return formatPlanPrice(pricing.recurringPrice, pricing.currency, lang);
     }
     return formatPlanPricing(setting, lang).primaryPrice;
   }
   function effectiveTrialLabel(p: PlanDef) {
     if (p.key !== "pro" || !proTrialEnabled) return null;
-    const setting = effectiveSetting(p);
-    const { currency } = setting;
-    const trialDays      = setting.trial_days > 0 ? setting.trial_days : proTrialDays;
-    const introPrice     = setting.intro_price;
-    const introCycles    = setting.intro_cycles;
-    const recurringPrice = setting.recurring_price;
-    const fmt      = (n: number) => formatPlanPrice(n, currency);
-    const perMonth = currency === "USD" ? "/month" : "/mês";
+    const pricing = pricingFor(p);
+    const { recurringPrice } = pricing;
+    const fmt = (n: number) => formatPlanPrice(n, pricing.currency, lang);
 
     if (introCyclesRemaining != null && introCyclesRemaining > 0) {
-      return recurringPrice > 0 ? `Then ${fmt(recurringPrice)}${perMonth}` : null;
+      if (recurringPrice <= 0) return null;
+      return lang === "en" ? `Then ${fmt(recurringPrice)}${perMonth}` : `Depois ${fmt(recurringPrice)}${perMonth}`;
     }
-    if (introCyclesRemaining === 0) {
+    if (introCyclesRemaining === 0 || isReactivation) {
       return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
     }
-    if (isReactivation) {
-      return recurringPrice > 0 ? `${fmt(recurringPrice)}${perMonth}` : null;
-    }
-    if (trialDays > 0 && introPrice > 0 && introCycles > 0 && recurringPrice > 0) {
-      return `${trialDays}-day free trial · then ${fmt(introPrice)}${perMonth}`;
-    }
-    if (introPrice > 0 && introCycles > 0 && recurringPrice > 0) {
-      return `${fmt(introPrice)} first month · then ${fmt(recurringPrice)}${perMonth}`;
-    }
-    if (trialDays > 0) {
-      return `${trialDays}-day free trial`;
-    }
-    return null;
+    // First subscription: trial · intro · then regular price, all from the resolver.
+    return formatPlanPricing(effectiveSetting(p), lang).promoSummary;
   }
 
   const currentPlanDef = getPlanDef(activePlan);
@@ -448,34 +352,47 @@ export default function BillingDashboard({
     setTimeout(() => setToast(null), 5000);
   }
 
-  async function handleStripeCheckout() {
-    setProLoading(true);
+  /** PRO: Asaas card form (trial + intro offer resolved server-side). */
+  function openProCheckout() {
+    if (!pricingFor(getPlanDef("pro")).isCheckoutSupported) {
+      showToast(lang === "en" ? "This plan is not available for online purchase yet." : "Este plano ainda não pode ser contratado online.", false);
+      return;
+    }
+    setProCheckoutOpen(true);
+  }
+
+  /** Other paid plans: hosted Asaas invoice. Only reachable when the plan is offered. */
+  async function handleHostedCheckout(planKey: Exclude<PlanKey, "free" | "pro">) {
+    setPremiumLoading(true);
     try {
-      const res  = await fetch("/api/stripe/create-checkout", { method: "POST" });
-      const data = await res.json().catch(() => ({})) as { url?: string; error?: string };
-      if (!res.ok || !data.url) {
-        showToast(data.error ?? t("general_error"), false);
+      const result = await startPlanCheckout(planKey);
+      if (!result.url) {
+        showToast(t("general_error"), false);
         return;
       }
-      window.location.assign(data.url);
-    } catch {
-      showToast(t("general_error"), false);
+      window.location.assign(result.url);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t("general_error"), false);
     } finally {
-      setProLoading(false);
+      setPremiumLoading(false);
     }
   }
 
   function handlePlanClick(p: PlanDef) {
-    const setting = effectiveSetting(p);
-    if (!setting.is_available) {
+    const pricing = pricingFor(p);
+    if (!pricing.isOffered) {
       showToast(t("billing_plan_soon"), false);
+      return;
+    }
+    // Displayed, but no online checkout for its currency yet (only Asaas/BRL is active).
+    if (pricing.isPaid && !pricing.isCheckoutSupported && p.key !== activePlan) {
+      showToast(lang === "en" ? "This plan is not available for online purchase yet." : "Este plano ainda não pode ser contratado online.", false);
       return;
     }
     if ((p.key as string) === "free" && activePlan !== "free") { void handleCancelSubscription(); return; }
     if (p.key === activePlan) return;
-    if (p.key === "pro") { void handleStripeCheckout(); return; }
-    if (setting.price > 0) { setChangingTo(p); return; }
-    setChangingTo(p);
+    if (p.key === "pro") { openProCheckout(); return; }
+    if (pricing.isPaid) { void handleHostedCheckout(p.key); return; }
   }
 
   async function handleCancelSubscription() {
@@ -519,21 +436,20 @@ export default function BillingDashboard({
                     {trialDaysLeft} {trialDaysLeft === 1 ? t("billing_trial_day_remaining") : t("billing_trial_days_remaining")}
                   </p>
                   {currentTrialEndsAt && (() => {
-                    const setting = effectiveSetting(getPlanDef("pro"));
-                    const fmt = (n: number) => formatPlanPrice(n, setting.currency);
-                    const perMonth = setting.currency === "USD" ? "/month" : "/mês";
+                    const proPricing = pricingFor(getPlanDef("pro"));
+                    const fmt = (n: number) => formatPlanPrice(n, proPricing.currency, lang);
                     return (
                       <div className="space-y-0.5">
                         <p className="text-[13px] text-white/90">
                           {t("billing_trial_first_charge")} {fmtDate(currentTrialEndsAt, lang)}
                         </p>
-                        {setting.intro_price > 0 && setting.recurring_price > 0 ? (
+                        {proPricing.hasIntro ? (
                           <p className="text-[12px] text-white/70">
-                            {fmt(setting.intro_price)} {t("billing_trial_promo_first_month")} · {t("billing_trial_promo_then")} {fmt(setting.recurring_price)}{perMonth}
+                            {fmt(proPricing.introPrice)} {t("billing_trial_promo_first_month")} · {t("billing_trial_promo_then")} {fmt(proPricing.recurringPrice)}{perMonth}
                           </p>
-                        ) : setting.recurring_price > 0 ? (
+                        ) : proPricing.recurringPrice > 0 ? (
                           <p className="text-[12px] text-white/70">
-                            {fmt(setting.recurring_price)}{perMonth}
+                            {fmt(proPricing.recurringPrice)}{perMonth}
                           </p>
                         ) : null}
                       </div>
@@ -629,16 +545,34 @@ export default function BillingDashboard({
       )}
 
       {/* Modals */}
-      {changingTo && (
-        <PlanChangeModal
-          plan={changingTo}
-          displayName={effectiveSetting(changingTo).name}
-          displayPriceLabel={effectivePriceLabel(changingTo)}
-          onUnavailable={(message) => showToast(message, false)}
-          onClose={() => setChangingTo(null)}
-          t={t}
-        />
-      )}
+      {proCheckoutOpen && (() => {
+        const proSetting = effectiveSetting(getPlanDef("pro"));
+        const proPricing = pricingFor(getPlanDef("pro"));
+        const proLines = formatPlanPricing(proSetting, lang);
+        return (
+          <ProTrialCheckoutModal
+            email={checkoutDefaults?.email ?? ""}
+            planLabel={proSetting.name}
+            priceSummary={
+              proPricing.hasTrial || proPricing.hasIntro
+                ? (proLines.promoSummary || proLines.primaryPrice)
+                : formatPlanMonthlyPrice(proPricing.recurringPrice, lang, proPricing.currency)
+            }
+            trialDays={proPricing.trialDays}
+            initialHolderName={checkoutDefaults?.holderName ?? ""}
+            initialCpfCnpj={checkoutDefaults?.cpfCnpj ?? ""}
+            initialPhone={checkoutDefaults?.phone ?? ""}
+            submitting={false}
+            onClose={() => setProCheckoutOpen(false)}
+            onSubmit={async (payload) => {
+              await startPlanCheckout("pro", payload);
+              setProCheckoutOpen(false);
+              // Full reload so the server-rendered subscription state is fresh.
+              window.location.assign("/agency/billing?success=true");
+            }}
+          />
+        );
+      })()}
       {receiptCharge && (
         <ReceiptModal charge={receiptCharge} onClose={() => setReceiptCharge(null)} t={t} lang={lang} />
       )}
@@ -670,16 +604,16 @@ export default function BillingDashboard({
                 {lang === "en"
                   ? proTrialUsed
                     ? "Reactivate your PRO subscription to restore full access."
-                    : "Start your 7-day free PRO trial to restore full access."
+                    : `Start your ${pricingFor(getPlanDef("pro")).trialDays}-day free PRO trial to restore full access.`
                   : proTrialUsed
                     ? "Reative sua assinatura PRO para restaurar o acesso completo."
-                    : "Inicie seu teste grátis de 7 dias do PRO para restaurar o acesso completo."}
+                    : `Inicie seu teste grátis de ${pricingFor(getPlanDef("pro")).trialDays} dias do PRO para restaurar o acesso completo.`}
               </p>
             </div>
             <div className="flex-shrink-0">
               <button
                 type="button"
-                onClick={handleStripeCheckout}
+                onClick={openProCheckout}
                 disabled={proLoading}
                 className="rounded-xl bg-white px-6 py-3 text-[14px] font-black text-rose-600 hover:bg-white/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_14px_rgba(0,0,0,0.15)] whitespace-nowrap"
               >
@@ -757,7 +691,7 @@ export default function BillingDashboard({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {PLANS.map((p) => {
             const setting = effectiveSetting(p);
-            const available = setting.is_available;
+            const available = pricingFor(p).isOffered;
             const isLoading = (p.key === "pro" && proLoading) || (p.key === "premium" && premiumLoading);
             const isCurrent  = activePlan === p.key;
             const isDowngrade = effectivePrice(p) < effectivePrice(currentPlanDef);
@@ -935,11 +869,10 @@ export default function BillingDashboard({
           {(expiresAt || nextChargeDate || (isEffectivelyTrialing && currentTrialEndsAt)) && activePlan !== "free" ? (
             <div className="space-y-1.5">
               {(() => {
-                const setting = effectiveSetting(currentPlanDef);
-                const introPrice = setting.intro_price;
-                const recurringPrice = setting.recurring_price;
-                const perMonth = setting.currency === "USD" ? "/month" : "/mês";
-                const fmt = (n: number) => formatPlanPrice(n, setting.currency);
+                const currentPricing = pricingFor(currentPlanDef);
+                const introPrice = currentPricing.hasIntro ? currentPricing.introPrice : 0;
+                const recurringPrice = currentPricing.recurringPrice;
+                const fmt = (n: number) => formatPlanPrice(n, currentPricing.currency, lang);
                 // During trial: show intro price as first charge amount
                 if (isEffectivelyTrialing && introPrice > 0) {
                   return (

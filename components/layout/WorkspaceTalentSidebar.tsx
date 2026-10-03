@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState, type CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -8,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useT } from "@/lib/LanguageContext";
 import { useUserProfile } from "@/lib/useUserProfile";
 import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
-import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
+import Logo from "@/components/Logo";
 
 type Props = {
   isOpen: boolean;
@@ -351,15 +350,9 @@ export default function WorkspaceTalentSidebar({ isOpen, onClose }: Props) {
           {/* Powered by CastAnet */}
           <Link
             href="/"
-            className="flex items-center justify-center gap-2 py-1.5 opacity-40 hover:opacity-70 transition-opacity"
+            className="flex items-center justify-center gap-2 py-2 opacity-40 hover:opacity-70 transition-opacity"
           >
-            <Image
-              src={brandLogo}
-              alt="CastAnet"
-              width={brandLogo.width}
-              height={brandLogo.height}
-              className="h-auto w-36"
-            />
+            <Logo background="dark" size="xs" />
           </Link>
         </div>
       </aside>

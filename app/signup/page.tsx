@@ -1,18 +1,19 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
+import Logo from "@/components/Logo";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { supabase } from "@/lib/supabase";
 import { TALENT_CATEGORY_LABELS, talentCategoryLabelForLang } from "@/lib/talentCategories";
 import { formatCpf, formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { CHECKOUT_CURRENCY, resolvePlanPricing } from "@/lib/planPricing";
+import { startPlanCheckout } from "@/lib/planCheckoutClient";
+import ProTrialCheckoutModal from "@/features/agency/ProTrialCheckoutModal";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
-// ProTrialCheckoutModal removed — PRO signup now redirects to Stripe Checkout.
 
 type LivePlans = Record<Plan, PublicPlanSetting>;
 
@@ -290,6 +291,8 @@ function SignupPageContent() {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [manualCheckMsg, setManualCheckMsg] = useState<string | null>(null);
+  // PRO card step (Asaas): shown after the account + profile are created.
+  const [proCheckoutOpen, setProCheckoutOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [livePlans, setLivePlans] = useState<LivePlans>(buildPlanSettingsFallback);
@@ -327,9 +330,13 @@ function SignupPageContent() {
   };
   const roleCopy = roleCopyMap[account.role];
   const selectedPlan = useMemo(() => livePlans[agency.plan] ?? buildPlanSettingsFallback()[agency.plan], [agency.plan, livePlans]);
+  const selectedPricing = useMemo(() => resolvePlanPricing(selectedPlan), [selectedPlan]);
+  // CPF/CNPJ: Brazilian signups, and any paid plan billed in BRL (Asaas needs it).
+  // Driven by the plan's currency, not by the UI language.
+  const requiresDocument = lang !== "en" || (selectedPricing.isPaid && selectedPricing.currency === CHECKOUT_CURRENCY);
 
   const formatPlanLine = (plan: PublicPlanSetting) =>
-    plan.is_available ? formatPlanPricing(plan, lang).primaryPrice : t("plan_coming_soon");
+    resolvePlanPricing(plan).isOffered ? formatPlanPricing(plan, lang).primaryPrice : t("plan_coming_soon");
 
   const isEmailLocked = !!(referredEmail && account.role === "talent");
 
@@ -384,9 +391,7 @@ function SignupPageContent() {
     else if (account.password.trim().length < 6) nextErrors.password = t("signup_val_password_len");
     if (!agency.agencyName.trim()) nextErrors.agencyName = t("signup_val_agency_name");
     if (!agency.responsibleName.trim()) nextErrors.responsibleName = t("signup_val_responsible");
-    // CPF/CNPJ is required only for Brazilian (PT) signups.
-    // US/EN agencies use Stripe Checkout; Stripe handles billing identity.
-    if (lang !== "en") {
+    if (requiresDocument) {
       if (!agency.cpfCnpj.trim()) nextErrors.cpfCnpj = t("signup_val_cpfcnpj");
       else if (!isValidCpfCnpj(agency.cpfCnpj)) nextErrors.cpfCnpj = t("signup_val_cpfcnpj_invalid");
     }
@@ -395,7 +400,7 @@ function SignupPageContent() {
     if (!agency.city.trim()) nextErrors.city = t("signup_val_city_agency");
     if (!agency.state.trim()) nextErrors.state = t("signup_val_state_agency");
     if (agency.description.length > 500) nextErrors.description = t("signup_val_desc_len");
-    if (!livePlans[agency.plan]?.is_available) nextErrors.plan = t("signup_val_plan_unavail");
+    if (!selectedPricing.isOffered) nextErrors.plan = t("signup_val_plan_unavail");
     if (!account.termsAccepted) nextErrors.termsAccepted = t("signup_val_terms");
     return nextErrors;
   }
@@ -435,7 +440,7 @@ function SignupPageContent() {
         if (pollRef.current) clearInterval(pollRef.current);
         const params = new URLSearchParams();
         if (nextPath) params.set("next", nextPath);
-        if (account.role === "agency" && livePlans[agency.plan]?.price > 0) params.set("plan", agency.plan);
+        if (account.role === "agency" && selectedPricing.isPaid) params.set("plan", agency.plan);
         const qs = params.toString();
         router.push(qs ? `/onboarding?${qs}` : "/onboarding");
       } else {
@@ -457,8 +462,17 @@ function SignupPageContent() {
       return;
     }
 
-    // PRO: create auth user + profile, then redirect to Stripe Checkout.
-    // No card data is collected by CastAnet — Stripe handles payment securely.
+    // A paid plan priced in a currency the active processor can't bill (e.g. USD
+    // while only Asaas/BRL is active) is displayed but cannot be bought yet.
+    if (account.role === "agency" && selectedPricing.isPaid && !selectedPricing.isCheckoutSupported) {
+      setServerError(lang === "en"
+        ? "This plan is not available for online purchase yet. Please contact us."
+        : "Este plano ainda não pode ser contratado online. Fale com a gente.");
+      return;
+    }
+
+    // PRO: create auth user + profile, then collect the card for the Asaas
+    // subscription (trial + intro offer) in ProTrialCheckoutModal.
     if (account.role === "agency" && agency.plan === "pro") {
       setLoading(true);
 
@@ -497,7 +511,7 @@ function SignupPageContent() {
         }
       }
 
-      // Create profile + agency records before redirecting to Stripe.
+      // Create profile + agency records before the Asaas card step.
       // /api/auth/signup is the same route used by free agency signup.
       const profileRes = await fetch("/api/auth/signup", {
         method: "POST",
@@ -529,17 +543,9 @@ function SignupPageContent() {
         return;
       }
 
-      // Redirect to Stripe Checkout — no card data is ever handled by CastAnet.
-      const checkoutRes = await fetch("/api/stripe/create-checkout", { method: "POST" });
-      const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
-
-      if (!checkoutRes.ok || !checkoutJson.url) {
-        setServerError(checkoutJson.error ?? t("signup_error_payment"));
-        setLoading(false);
-        return;
-      }
-
-      window.location.assign(checkoutJson.url);
+      // Asaas card step — the card form posts to /api/asaas/plan/checkout.
+      setProCheckoutOpen(true);
+      setLoading(false);
       return;
     }
 
@@ -553,7 +559,7 @@ function SignupPageContent() {
 
     // Only open a payment tab for non-PRO paid plans (premium) that return a hosted checkout URL
     let paymentWindow: Window | null = null;
-    if (account.role === "agency" && selectedPlan.price > 0) {
+    if (account.role === "agency" && selectedPricing.isPaid) {
       paymentWindow = window.open("", "_blank", "noopener,noreferrer");
     }
 
@@ -686,17 +692,19 @@ function SignupPageContent() {
 
       await linkReferral(data.user.id);
 
-      if (account.role === "agency" && selectedPlan.price > 0) {
-        const checkoutRes = await fetch("/api/asaas/plan/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cpfCnpj: normalizeCpfCnpj(agency.cpfCnpj), plan: agency.plan }),
-        });
-        const checkoutJson = await checkoutRes.json().catch(() => ({})) as { url?: string; error?: string };
-
-        if (!checkoutRes.ok || !checkoutJson.url) {
+      if (account.role === "agency" && selectedPricing.isPaid && agency.plan !== "free") {
+        let checkoutJson: { url?: string };
+        try {
+          checkoutJson = await startPlanCheckout(agency.plan, { cpfCnpj: normalizeCpfCnpj(agency.cpfCnpj) });
+        } catch (err) {
           paymentWindow?.close();
-          setServerError(checkoutJson.error ?? t("signup_error_payment"));
+          setServerError(err instanceof Error ? err.message : t("signup_error_payment"));
+          setLoading(false);
+          return;
+        }
+        if (!checkoutJson.url) {
+          paymentWindow?.close();
+          setServerError(t("signup_error_payment"));
           setLoading(false);
           return;
         }
@@ -791,14 +799,7 @@ function SignupPageContent() {
           <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:32px_32px]" />
           <div className="relative flex h-full flex-col">
             <div>
-              <Image
-                src={brandLogo}
-                alt="CastAnet"
-                width={brandLogo.width}
-                height={brandLogo.height}
-                priority
-                className="h-auto w-full max-w-[200px]"
-              />
+              <Logo background="dark" size="lg" lgSize="xl" />
             </div>
 
             <div className="mt-10 space-y-5 lg:mt-16">
@@ -1058,8 +1059,8 @@ function SignupPageContent() {
                                 <input className={inputClass(!!errors.responsibleName)} placeholder="Carla Mendes" value={agency.responsibleName} onChange={(event) => setAgencyField("responsibleName", event.target.value)} />
                               </LabeledInput>
                             </div>
-                            {/* CPF/CNPJ shown only for Brazilian (PT) signups */}
-                            {lang !== "en" && (
+                            {/* CPF/CNPJ: same rule as validation (requiresDocument) */}
+                            {requiresDocument && (
                               <LabeledInput label={t("signup_cpfcnpj_label")} error={errors.cpfCnpj}>
                                 <input className={inputClass(!!errors.cpfCnpj)} inputMode="numeric" maxLength={18} placeholder="00.000.000/0001-00" value={agency.cpfCnpj} onChange={(event) => setAgencyField("cpfCnpj", formatCpfCnpj(event.target.value))} />
                               </LabeledInput>
@@ -1117,7 +1118,7 @@ function SignupPageContent() {
                           {/* ── Pro (featured, default) ── */}
                           {(() => {
                             const active = agency.plan === "pro";
-                            const proAvailable = livePlans.pro.is_available;
+                            const proAvailable = resolvePlanPricing(livePlans.pro).isOffered;
                             const proPricing = formatPlanPricing(livePlans.pro, lang);
                             return (
                               <button
@@ -1161,7 +1162,7 @@ function SignupPageContent() {
                           {/* ── Premium (coming soon) ── */}
                           {(() => {
                             const active = agency.plan === "premium";
-                            const available = livePlans.premium.is_available;
+                            const available = resolvePlanPricing(livePlans.premium).isOffered;
                             return (
                               <button
                                 type="button"
@@ -1202,25 +1203,25 @@ function SignupPageContent() {
                         <div className="mt-4 rounded-2xl border border-[#DDE6E6] bg-[#F7FBFB] px-4 py-3">
                           <p className="text-[12px] font-semibold text-[#1F2D2E]">
                             {t("signup_chosen_plan_prefix")}{" "}
-                            {agency.plan === "pro"
-                              ? (lang === "en" ? "Pro Trial" : "Teste PRO")
+                            {selectedPricing.hasTrial
+                              ? (lang === "en" ? `${selectedPlan.name} Trial` : `Teste ${selectedPlan.name}`)
                               : selectedPlan.name}
                           </p>
                           <p className="mt-1 text-[12px] leading-5 text-[#647B7B]">
                             {(() => {
-                              if (!selectedPlan.is_available) return t("signup_plan_unavail_msg");
-                              // Pro trial: show clear trial → intro → recurring breakdown
-                              if (agency.plan === "pro") {
+                              if (!selectedPricing.isOffered) return t("signup_plan_unavail_msg");
+                              // Any plan with a trial: trial → (intro) → regular price, from the resolver.
+                              if (selectedPricing.hasTrial) {
                                 const pp = formatPlanPricing(selectedPlan, lang);
-                                const trial   = pp.trialLine   ?? (lang === "en" ? "7-day free trial" : "7 dias grátis");
-                                const intro   = pp.introLine   ?? "";
-                                const recur   = pp.recurringLine ?? "";
+                                const firstCharge = pp.isIntroOffer
+                                  ? `${pp.introLine}, ${pp.recurringLine}`
+                                  : pp.primaryPrice;
                                 return lang === "en"
-                                  ? `You will start with a ${trial}. Your first charge is ${intro}, ${recur}.`
-                                  : `Você começará com ${trial}. Sua primeira cobrança será ${intro}, ${recur}.`;
+                                  ? `You will start with a ${pp.trialLine}. Your first charge is ${firstCharge}.`
+                                  : `Você começará com ${pp.trialLine}. Sua primeira cobrança será ${firstCharge}.`;
                               }
                               // Premium / other paid plans
-                              if (selectedPlan.price > 0) {
+                              if (selectedPricing.isPaid) {
                                 return `${t("signup_plan_paid_desc_a")} ${selectedPlan.name} ${t("signup_plan_paid_desc_b")}`;
                               }
                               return t("signup_plan_unavail_msg");
@@ -1297,7 +1298,31 @@ function SignupPageContent() {
       </div>
     </div>
 
-    {/* ProTrialCheckoutModal removed — PRO signup now uses Stripe Checkout */}
+    {proCheckoutOpen && (
+      <ProTrialCheckoutModal
+        email={account.email.trim()}
+        planLabel={livePlans.pro.name}
+        priceSummary={formatPlanPricing(livePlans.pro, lang).promoSummary || formatPlanPricing(livePlans.pro, lang).primaryPrice}
+        trialDays={resolvePlanPricing(livePlans.pro).trialDays}
+        initialHolderName={agency.responsibleName.trim()}
+        initialCpfCnpj={agency.cpfCnpj}
+        initialPhone={agency.phone}
+        submitting={false}
+        onClose={() => {
+          // The account already exists on the Free plan; PRO can be activated later in Billing.
+          setProCheckoutOpen(false);
+          router.push("/onboarding");
+        }}
+        onSubmit={async (payload) => {
+          await startPlanCheckout("pro", payload);
+          setProCheckoutOpen(false);
+          const params = new URLSearchParams();
+          if (nextPath) params.set("next", nextPath);
+          params.set("plan", "pro");
+          router.push(`/onboarding?${params.toString()}`);
+        }}
+      />
+    )}
     </>
   );
 }

@@ -103,11 +103,8 @@ export default function RoleSelectionPage() {
     <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center px-4">
 
       {/* Logo */}
-      <div className="flex items-center gap-2.5 mb-12">
-        <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-zinc-100">
-          <Logo size="md" />
-        </div>
-        <span className="text-[16px] font-semibold tracking-tight text-zinc-900">CastAnet</span>
+      <div className="mb-12">
+        <Logo background="light" size="lg" />
       </div>
 
       {/* Heading */}

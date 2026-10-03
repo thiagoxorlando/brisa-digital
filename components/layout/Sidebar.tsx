@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -11,7 +10,7 @@ import { useT } from "@/lib/LanguageContext";
 import { useSubscription } from "@/lib/SubscriptionContext";
 import { useAgencyConfig } from "@/lib/AgencyConfigContext";
 import { useWorkspacePortal } from "@/lib/WorkspacePortalContext";
-import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
+import Logo from "@/components/Logo";
 import { buildAdminNavGroups } from "@/lib/adminNav";
 import type { AdminSidebarMetrics } from "@/lib/adminSidebarMetrics";
 import { ROUTE_TO_NAV_KEY } from "@/lib/adminSidebarMetrics";
@@ -671,14 +670,8 @@ export default function Sidebar({ isOpen, onClose, adminMetrics = null, hideEscr
               </div>
             </Link>
           ) : (
-            <Link href={isWorkspaceAgent ? "/agency/workspace" : "/"} className="flex flex-1 items-center justify-center">
-              <Image
-                src={brandLogo}
-                alt="CastAnet"
-                width={brandLogo.width}
-                height={brandLogo.height}
-                className="h-auto w-full max-w-[170px]"
-              />
+            <Link href={isWorkspaceAgent ? "/agency/workspace" : "/"} className="flex flex-1 items-center pl-1">
+              <Logo background="dark" size="md" />
             </Link>
           )}
           <button

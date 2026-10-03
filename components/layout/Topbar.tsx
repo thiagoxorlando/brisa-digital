@@ -121,7 +121,8 @@ export default function Topbar({ onMenuClick, homeHref }: TopbarProps) {
       <div className="h-[2px] bg-gradient-to-r from-[#1ABC9C]/40 via-[#27C1D6]/50 to-transparent" />
       <div className="flex items-center justify-between px-6 py-4">
       <div className="flex min-w-0 items-center gap-4">
-        {/* Logo removed from topbar — already shown in sidebar */}
+        {/* Desktop shows the full logo in the sidebar; on mobile the sidebar is a
+            drawer, so the topbar carries the compact symbol. */}
         <button
           onClick={onMenuClick}
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-[#647B7B] transition-colors hover:bg-[#E6F0F0] hover:text-[#1F2D2E] lg:hidden"
@@ -131,6 +132,7 @@ export default function Topbar({ onMenuClick, homeHref }: TopbarProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
+        <Logo variant="symbol" size="md" className="lg:hidden" />
 
         <div className="min-w-0">
           <h1 className="truncate text-[14px] font-semibold leading-none tracking-tight text-[#1F2D2E]">

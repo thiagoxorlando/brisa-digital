@@ -32,7 +32,22 @@ import {
   getOrCreateIntroCoupon,
 } from "@/lib/stripe";
 
+/**
+ * DORMANT: Asaas is the only active payment processor for this release
+ * (BRL). No signup/onboarding/Billing flow calls this route; it is disabled so
+ * it cannot be reached directly either. The implementation below is kept for
+ * future international (USD) billing — flip this flag to re-enable it.
+ */
+const STRIPE_CHECKOUT_ENABLED = false;
+
 export async function POST(_req: NextRequest) {
+  if (!STRIPE_CHECKOUT_ENABLED) {
+    return NextResponse.json(
+      { error: "Este fluxo de pagamento foi desativado. Use Asaas." },
+      { status: 410 },
+    );
+  }
+
   // ── Auth ───────────────────────────────────────────────────────────────────
 
   const session = await createSessionClient();

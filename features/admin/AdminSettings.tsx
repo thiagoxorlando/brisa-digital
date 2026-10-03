@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 
 export type PlatformSettings = {
   platform_name: string;
@@ -108,7 +109,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function AdminSettings({ initialSettings }: { initialSettings: PlatformSettings }) {
+export default function AdminSettings({
+  initialSettings,
+  premiumAvailable,
+}: {
+  initialSettings: PlatformSettings;
+  /** Real Premium availability (plan_settings.premium.is_available via the pricing resolver). */
+  premiumAvailable: boolean;
+}) {
   const [settings, setSettings] = useState<PlatformSettings>(initialSettings);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -348,8 +356,16 @@ export default function AdminSettings({ initialSettings }: { initialSettings: Pl
         <SettingRow label="Compartilhamento público de vagas" description="Permite compartilhar vagas via link público">
           <Toggle checked={settings.public_job_sharing_enabled} onChange={(v) => update("public_job_sharing_enabled", v)} />
         </SettingRow>
-        <SettingRow label="Plano Premium" description="Habilita o plano Premium (informativo — use plan_settings para disponibilidade real)">
-          <Toggle checked={settings.premium_plan_enabled} onChange={(v) => update("premium_plan_enabled", v)} />
+        {/* Read-only: Premium availability has a single source of truth — Admin > Planos. */}
+        <SettingRow label="Plano Premium" description="A disponibilidade dos planos é configurada somente em Admin > Planos.">
+          <div className="flex items-center gap-3">
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${premiumAvailable ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-500"}`}>
+              {premiumAvailable ? "Disponível" : "Indisponível"}
+            </span>
+            <Link href="/admin/plans" className="text-[12px] font-semibold text-[#0E7C86] hover:underline">
+              Gerenciar em Planos
+            </Link>
+          </div>
         </SettingRow>
       </Section>
 

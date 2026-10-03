@@ -245,8 +245,8 @@ export async function POST(req: NextRequest) {
       status: "processing",
       provider_status: "processing",
       description: feeAmount > 0
-        ? `Saque BrisaHub (taxa ${feeAmount.toFixed(2)})`
-        : "Saque BrisaHub",
+        ? `Saque CastAnet (taxa ${feeAmount.toFixed(2)})`
+        : "Saque CastAnet",
     } as Record<string, unknown>)
     .select("id")
     .single();
@@ -295,7 +295,7 @@ export async function POST(req: NextRequest) {
       value: netAmount,
       pixAddressKey: pixKey,
       pixAddressKeyType: pixKeyType,
-      description: "Saque BrisaHub",
+      description: "Saque CastAnet",
     });
 
     const providerStatus = transfer.status ?? "processing";

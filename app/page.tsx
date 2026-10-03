@@ -9,7 +9,7 @@ import { getAgencyLanding } from "@/lib/getAgencyLanding";
 import { buildPlanSettingsFallback, formatPlanPricing, planLimitHighlights, premiumSeatHighlights, type PublicPlanSetting } from "@/lib/planSettings.shared";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
-import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
+import Logo from "@/components/Logo";
 // Real CastAnet product screenshots
 import ssAgencyDashboard  from "@/public/images/screenshots/agencydashboard.png";
 import ssAgencyJobs       from "@/public/images/screenshots/agencyjobs.png";
@@ -261,9 +261,7 @@ export default function Home() {
   const statsItems = [
     { value: "100%", label: t("landing_stat1_label"), desc: t("landing_stat1_desc") },
     { value: "2",    label: t("landing_stat2_label"), desc: t("landing_stat2_desc") },
-    lang === "en"
-      ? { value: "Stripe", label: "Billing", desc: "Secure card billing" }
-      : { value: "PIX",  label: t("landing_stat3_label"), desc: t("landing_stat3_desc") },
+    { value: "PIX",  label: t("landing_stat3_label"), desc: t("landing_stat3_desc") },
     { value: "PT/EN", label: t("landing_stat4_label"), desc: t("landing_stat4_desc") },
   ];
 
@@ -290,18 +288,13 @@ export default function Home() {
   }));
   const activeShowcase = showcaseTabs.find((t) => t.id === activeTab) ?? showcaseTabs[0];
 
-  // US launch (EN): show PRO (primary offer) + Premium (coming soon) only.
-  // Brazil (PT): show all three plans including Free.
-  const plans = lang === "en"
-    ? [
-        { key: "pro"     as const, audience: t("landing_plan_pro_audience"),     summary: t("landing_plan_pro_summary"),     featured: true,  premium: false },
-        { key: "premium" as const, audience: t("landing_plan_premium_audience"), summary: t("landing_plan_premium_summary"), featured: false, premium: true  },
-      ]
-    : [
-        { key: "free"    as const, audience: t("landing_plan_free_audience"),    summary: t("landing_plan_free_summary"),    featured: false, premium: false },
-        { key: "pro"     as const, audience: t("landing_plan_pro_audience"),     summary: t("landing_plan_pro_summary"),     featured: true,  premium: false },
-        { key: "premium" as const, audience: t("landing_plan_premium_audience"), summary: t("landing_plan_premium_summary"), featured: false, premium: true  },
-      ];
+  // Same plans in every language — only the translated text differs.
+  // Availability, currency, prices and trials come from plan_settings.
+  const plans = [
+    { key: "free"    as const, audience: t("landing_plan_free_audience"),    summary: t("landing_plan_free_summary"),    featured: false, premium: false },
+    { key: "pro"     as const, audience: t("landing_plan_pro_audience"),     summary: t("landing_plan_pro_summary"),     featured: true,  premium: false },
+    { key: "premium" as const, audience: t("landing_plan_premium_audience"), summary: t("landing_plan_premium_summary"), featured: false, premium: true  },
+  ];
 
   const ctrustItems = [t("landing_ctrust_item1"), t("landing_ctrust_item2"), t("landing_ctrust_item3")];
 
@@ -372,14 +365,11 @@ export default function Home() {
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-20 border-b border-white/8 bg-[#061214]/95 px-5 backdrop-blur-md lg:px-10">
         <div className="mx-auto flex h-16 max-w-7xl items-center">
-          <Link href="/" aria-label="CastAnet">
-            <Image
-              src={brandLogo}
-              alt="CastAnet"
-              width={brandLogo.width}
-              height={brandLogo.height}
-              className="h-auto w-full max-w-[160px]"
-            />
+          <Link href="/" aria-label="CastAnet" className="flex flex-shrink-0 items-center">
+            {/* Phones: the nav also holds the language toggle and both auth
+                buttons, so the symbol keeps them on one line. */}
+            <Logo variant="symbol" background="dark" size="md" className="sm:hidden" />
+            <Logo background="dark" size="sm" lgSize="md" className="hidden sm:block" />
           </Link>
 
           {/* Center section links — hidden on mobile */}
@@ -615,16 +605,9 @@ export default function Home() {
 
         </div>
 
-        {/* Bottom logo — centered, glowing */}
+        {/* Section divider (the logo already leads the page in the nav) */}
         <div className="relative flex justify-center pb-12 pt-6">
           <div className="absolute left-1/2 top-0 h-px w-80 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#1ABC9C]/45 to-transparent" />
-          <Image
-            src={brandLogo}
-            alt="CastAnet"
-            width={brandLogo.width}
-            height={brandLogo.height}
-            className="h-auto w-full max-w-[240px] opacity-78 drop-shadow-[0_0_32px_rgba(26,188,156,0.75)]"
-          />
         </div>
       </section>
 
@@ -1075,12 +1058,13 @@ export default function Home() {
             </p>
           </div>
 
-          <div className={`mt-14 grid items-stretch gap-6 ${lang === "en" ? "lg:grid-cols-2 max-w-3xl mx-auto" : "lg:grid-cols-3"}`}>
+          <div className="mt-14 grid items-stretch gap-6 lg:grid-cols-3">
             {plans.map((plan) => {
               const livePlan = livePlans[plan.key] ?? buildPlanSettingsFallback()[plan.key];
-              const isDisabled = !livePlan.is_available;
-              const highlights = getPlanHighlights(livePlan);
               const pricing = formatPlanPricing(livePlan, lang);
+              const isOffered = pricing.pricing.isOffered;
+              const isDisabled = !isOffered;
+              const highlights = getPlanHighlights(livePlan);
 
               return <div
                 key={plan.key}
@@ -1107,28 +1091,30 @@ export default function Home() {
                   <p className="text-sm font-bold text-white/40">{plan.audience}</p>
                   <h3 className="mt-4 text-2xl font-black text-white">{livePlan.name}</h3>
                   <p className="mt-3 text-sm leading-6 text-white/50">{plan.summary}</p>
-                  {livePlan.is_available ? (
-                    plan.key === "pro" && pricing.isIntroOffer && pricing.hasTrial ? (
-                      /* ── PRO trial offer — new high-impact hierarchy ── */
+                  {isOffered ? (
+                    pricing.hasTrial ? (
+                      /* ── Trial offer (any plan with trial_days > 0) ── */
                       <div className="mt-5 space-y-3">
                         {/* Tier 1: 7 DAYS FREE — largest element */}
                         <div>
                           <p className="text-[2.75rem] font-black tracking-[-0.04em] leading-none text-emerald-400">
-                            {livePlan.trial_days} {lang === "en" ? "DAYS FREE" : "DIAS GRÁTIS"}
+                            {pricing.trialHeadline}
                           </p>
-                          {/* Tier 2: $0 TODAY */}
+                          {/* Tier 2: R$ 0 today */}
                           <p className="mt-2 text-[1.6rem] font-black tracking-[-0.03em] text-white leading-none">
-                            {t("plan_pro_zero_today")}
+                            {pricing.todayLine}
                           </p>
                         </div>
-                        {/* Tier 3: Then only $29 first month */}
+                        {/* Tier 3: intro price (if any), else the regular price after the trial */}
                         <p className="text-[14px] font-semibold text-white/75 leading-snug">
-                          {t("plan_pro_then_first").replace("{price}", pricing.introLine?.replace(/Then |Depois /i, "").replace(/ first month.*|no primeiro.*$/i, "").trim() ?? "")}
+                          {pricing.isIntroOffer ? pricing.introThenLine : pricing.recurringLine}
                         </p>
-                        {/* Tier 4: Regular price $79/month */}
-                        <p className="text-[12px] text-white/40">
-                          {t("plan_pro_regular")} {pricing.recurringLine?.replace(/^Then |^Depois /i, "")}
-                        </p>
+                        {/* Tier 4: regular price after the promotional period */}
+                        {pricing.isIntroOffer ? (
+                          <p className="text-[12px] text-white/40">
+                            {pricing.afterPromoLine}
+                          </p>
+                        ) : null}
                       </div>
                     ) : (
                       /* Default pricing display (free plan, no trial, PT mode) */
@@ -1142,12 +1128,12 @@ export default function Home() {
                   ) : (
                     <p className="mt-4 text-4xl font-black tracking-[-0.04em] text-white/45">{t("plan_coming_soon")}</p>
                   )}
-                  {livePlan.is_available && plan.key === "free" && (
+                  {isOffered && plan.key === "free" && (
                     <p className="mt-5 text-[13px] font-semibold text-white/50">
                       {isEscrow ? "20% por contratação concluída" : "Sem mensalidade"}
                     </p>
                   )}
-                  {livePlan.is_available && plan.key === "pro" && (
+                  {isOffered && pricing.hasTrial && (
                     <p className="mt-3 text-[12px] text-white/40">{t("plan_pro_no_charge")}</p>
                   )}
                   <ul className="mt-6 space-y-3 pb-7">
@@ -1172,7 +1158,7 @@ export default function Home() {
                           : "border border-white/12 bg-white/8 text-white hover:bg-white/12",
                       ].join(" ")}
                     >
-                      {plan.featured && pricing.hasTrial
+                      {pricing.hasTrial
                         ? t("plan_pro_cta")
                         : `${t("plan_cta_prefix")} ${livePlan.name}`}
                     </Link>
@@ -1236,13 +1222,9 @@ export default function Home() {
       {/* ── Footer ── */}
       <footer className="border-t border-white/8 px-5 py-7 lg:px-10">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-          <Image
-            src={brandLogo}
-            alt="CastAnet"
-            width={brandLogo.width}
-            height={brandLogo.height}
-            className="h-auto w-full max-w-[140px] mx-auto sm:mx-0 opacity-70"
-          />
+          <Link href="/" aria-label="CastAnet" className="mx-auto flex items-center sm:mx-0">
+            <Logo background="dark" size="sm" />
+          </Link>
           <p className="text-[12px] text-white/30">{t("landing_footer_rights")}</p>
         </div>
       </footer>

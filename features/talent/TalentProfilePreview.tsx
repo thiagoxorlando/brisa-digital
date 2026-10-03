@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import { talentCategoryLabel } from "@/lib/talentCategories";
 import { avatarGradient, initials } from "@/lib/talentDisplay";
 
@@ -44,7 +45,7 @@ export default function TalentProfilePreview({ talent }: { talent: TalentProfile
             </svg>
             Elenco de Talentos
           </Link>
-          <span className="text-[13px] font-semibold tracking-tight text-zinc-900">CastAnet</span>
+          <Logo background="light" size="sm" />
         </div>
       </div>
 

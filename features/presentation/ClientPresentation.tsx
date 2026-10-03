@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { initials } from "@/lib/talentDisplay";
+import Logo from "@/components/Logo";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -459,13 +460,7 @@ export default function ClientPresentation({ token }: { token: string }) {
 
         {/* Footer */}
         <div className="mt-20 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2 opacity-35">
-            <div
-              className="h-5 w-5 rounded-md"
-              style={{ background: `linear-gradient(135deg, ${brandColor}, ${accentColor})` }}
-            />
-            <span className="text-[12px] font-bold text-zinc-700">CastAnet</span>
-          </div>
+          <Logo background="light" size="xs" />
           <p className="text-[10px] text-zinc-400">Plataforma de casting e talentos</p>
         </div>
       </main>

@@ -24,6 +24,7 @@ import { createSessionClient } from "@/lib/supabase.server";
 import WorkspaceOnboardingChecklist from "@/features/agency/WorkspaceOnboardingChecklist";
 import { buildWorkspaceDashboardCounts } from "@/lib/readModels/workspaceDashboard";
 import { getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
+import { resolvePlanPricing } from "@/lib/planPricing";
 
 export const metadata: Metadata = { title: "Premium Workspace — CastAnet" };
 
@@ -54,7 +55,7 @@ function LockedScreen({ premiumAvailable, t }: { premiumAvailable: boolean; t: T
     plan_key: "premium",
     included_agent_seats: 2,
     extra_agent_seat_price: 0,
-    currency: "USD",
+    currency: "BRL",
   });
 
   return (
@@ -439,10 +440,10 @@ export default async function WorkspacePage() {
 
   if (!workspaceAccess) {
     if (profile.plan !== "premium") {
-      return <LockedScreen premiumAvailable={premiumPlan.is_available} t={t} />;
+      return <LockedScreen premiumAvailable={resolvePlanPricing(premiumPlan).isOffered} t={t} />;
     }
     workspaceAccess = await ensurePremiumWorkspaceForAgency(user.id);
-    if (!workspaceAccess) return <LockedScreen premiumAvailable={premiumPlan.is_available} t={t} />;
+    if (!workspaceAccess) return <LockedScreen premiumAvailable={resolvePlanPricing(premiumPlan).isOffered} t={t} />;
   }
 
   const { workspace, membership } = workspaceAccess;

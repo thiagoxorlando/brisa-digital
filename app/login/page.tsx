@@ -1,6 +1,5 @@
 ﻿"use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -9,7 +8,7 @@ import { getAgencyLanding } from "@/lib/getAgencyLanding";
 import { getTalentLanding } from "@/lib/getTalentLanding";
 import { useT } from "@/lib/LanguageContext";
 import LanguageSelector from "@/components/LanguageSelector";
-import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
+import Logo from "@/components/Logo";
 
 const ROLE_HOME: Record<string, string> = {
   talent: "/talent/dashboard",
@@ -131,14 +130,7 @@ function LoginPageContent() {
         <div className="absolute inset-0 opacity-[0.04]" style={{backgroundImage:"linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)",backgroundSize:"48px 48px"}} />
 
         <div className="relative">
-          <Image
-            src={brandLogo}
-            alt="CastAnet"
-            width={brandLogo.width}
-            height={brandLogo.height}
-            className="h-auto w-full max-w-[200px]"
-            priority
-          />
+          <Logo background="dark" size="xl" />
         </div>
 
         <div className="relative space-y-6">
@@ -182,15 +174,8 @@ function LoginPageContent() {
           <div className="w-full max-w-[400px]">
 
             {/* Mobile logo */}
-            <div className="flex justify-center mb-10 lg:hidden">
-              <Image
-                src={brandLogo}
-                alt="CastAnet"
-                width={brandLogo.width}
-                height={brandLogo.height}
-                priority
-                className="h-auto w-full max-w-[220px]"
-              />
+            <div className="flex justify-center mb-12 lg:hidden">
+              <Logo background="dark" size="lg" />
             </div>
 
             {/* Form card */}

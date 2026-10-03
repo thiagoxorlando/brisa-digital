@@ -1,7 +1,8 @@
 /**
- * @deprecated Phase 4B.5 — no longer imported anywhere.
- * PRO subscriptions now use Stripe Checkout (POST /api/stripe/create-checkout).
- * This file can be deleted once confirmed safe.
+ * Card capture for the PRO subscription on Asaas (the only active processor).
+ * Used by signup, onboarding and Billing; the parent posts the payload to
+ * POST /api/asaas/plan/checkout. Price copy comes from the shared plan
+ * pricing resolver via `priceSummary` — this component never computes prices.
  */
 "use client";
 
@@ -33,7 +34,8 @@ export type ProTrialCheckoutPayload = {
 type Props = {
   email: string;
   planLabel: string;
-  priceLabel: string;
+  /** Resolved offer summary, e.g. "7 dias gratis · R$ 29 no primeiro mes · Depois R$ 79/mes". */
+  priceSummary: string;
   trialDays: number;
   initialHolderName: string;
   initialCpfCnpj: string;
@@ -70,7 +72,7 @@ function formatPostalCode(value: string) {
 export default function ProTrialCheckoutModal({
   email,
   planLabel,
-  priceLabel,
+  priceSummary,
   trialDays,
   initialHolderName,
   initialCpfCnpj,
@@ -79,6 +81,7 @@ export default function ProTrialCheckoutModal({
   onClose,
   onSubmit,
 }: Props) {
+  const hasTrial = trialDays > 0;
   const [holderName, setHolderName] = useState(initialHolderName);
   const [cpfCnpj, setCpfCnpj] = useState(initialCpfCnpj);
   const [phone, setPhone] = useState(initialPhone);
@@ -189,7 +192,7 @@ export default function ProTrialCheckoutModal({
         ccv: normalizedCcv,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel iniciar o teste gratis.");
+      setError(err instanceof Error ? err.message : "Nao foi possivel iniciar a assinatura.");
     } finally {
       setLoading(false);
     }
@@ -207,10 +210,12 @@ export default function ProTrialCheckoutModal({
         <div className="border-b border-zinc-100 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-500">Teste gratis</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-500">{hasTrial ? "Teste gratis" : "Assinatura"}</p>
               <h2 className="mt-1 text-[20px] font-semibold text-zinc-900">Ativar {planLabel}</h2>
               <p className="mt-1 text-[13px] text-zinc-500">
-                Validamos seu cartao hoje e a primeira cobranca acontece em {trialDays} dias.
+                {hasTrial
+                  ? `Validamos seu cartao hoje e a primeira cobranca acontece em ${trialDays} dias.`
+                  : "A assinatura e cobrada no cartao informado."}
               </p>
             </div>
             <button onClick={onClose} className="text-zinc-400 transition-colors hover:text-zinc-700">
@@ -222,8 +227,10 @@ export default function ProTrialCheckoutModal({
 
           <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-[12px] text-indigo-800">
             <p className="font-semibold">Resumo</p>
-            <p className="mt-1">Plano {planLabel} por {priceLabel}/mes.</p>
-            <p className="mt-0.5">Nenhuma cobranca hoje. Primeira cobranca ao final do teste gratis.</p>
+            <p className="mt-1">Plano {planLabel}: {priceSummary}.</p>
+            {hasTrial ? (
+              <p className="mt-0.5">Nenhuma cobranca hoje. Primeira cobranca ao final do teste gratis.</p>
+            ) : null}
           </div>
         </div>
 
@@ -395,7 +402,7 @@ export default function ProTrialCheckoutModal({
               disabled={!canSubmit}
               className="flex-1 rounded-xl bg-gradient-to-r from-[#1ABC9C] to-[#27C1D6] px-4 py-3 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting || loading ? "Validando cartao..." : "Iniciar teste gratis"}
+              {submitting || loading ? "Validando cartao..." : hasTrial ? "Iniciar teste gratis" : "Assinar"}
             </button>
           </div>
 

@@ -1,11 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAgencyLanding } from "@/lib/getAgencyLanding";
 import { useT } from "@/lib/LanguageContext";
-import brandLogo from "@/public/brand/castanet-logo-horizontal-white.png";
+import Logo from "@/components/Logo";
 
 type Role = "agency" | "talent";
 
@@ -181,14 +180,7 @@ export default function OnboardingFlow({
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(39,193,214,0.24),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(26,188,156,0.18),transparent_28%)]" />
               <div className="relative flex h-full flex-col">
                 <div>
-                  <Image
-                    src={brandLogo}
-                    alt="CastAnet"
-                    width={brandLogo.width}
-                    height={brandLogo.height}
-                    priority
-                    className="h-auto w-full max-w-[200px]"
-                  />
+                  <Logo background="dark" size="lg" lgSize="xl" />
                 </div>
 
                 <div className="mt-10 space-y-5">

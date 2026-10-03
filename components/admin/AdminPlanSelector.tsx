@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buildPlanSettingsFallback, formatPlanPrice, type PublicPlanSetting } from "@/lib/planSettings.shared";
+import { resolvePlanPricing } from "@/lib/planPricing";
 
 const PLANS = [
   { key: "free",    color: "bg-zinc-100 text-zinc-700 border-zinc-200" },
@@ -216,7 +217,7 @@ export default function AdminPlanSelector({ userId, currentPlan, currentRole }: 
                     >
                       <span className="block">{setting.name}</span>
                       <span className={`block text-[10px] font-normal mt-0.5 ${isActive ? "opacity-60" : "opacity-40"}`}>
-                        {available ? formatPlanPrice(setting.price) : "Em breve"}
+                        {available ? formatPlanPrice(resolvePlanPricing(setting).recurringPrice, setting.currency) : "Em breve"}
                       </span>
                     </button>
                   );

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -313,7 +314,7 @@ export default function JobSubmitForm({ job }: { job: Job | null }) {
             </svg>
             Voltar para Vaga
           </Link>
-          <span className="text-[14px] font-semibold text-zinc-900 tracking-tight">CastAnet</span>
+          <Logo background="light" size="sm" />
         </div>
       </nav>
 

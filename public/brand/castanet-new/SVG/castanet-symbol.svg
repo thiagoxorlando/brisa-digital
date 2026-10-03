@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+<defs>
+  <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#DDF7FA"/><stop offset=".30" stop-color="#8CCAD2"/>
+    <stop offset=".58" stop-color="#0A6974"/><stop offset="1" stop-color="#02D5C4"/>
+  </linearGradient>
+  <linearGradient id="g2" x1="1" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#04E0D0"/><stop offset=".38" stop-color="#0C8E98"/>
+    <stop offset=".72" stop-color="#063C47"/><stop offset="1" stop-color="#01BEB0"/>
+  </linearGradient>
+  <linearGradient id="g3" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#B7E2E7"/><stop offset=".45" stop-color="#3E8C98"/>
+    <stop offset="1" stop-color="#071E27"/>
+  </linearGradient>
+</defs>
+<!-- angular folded C -->
+<path d="M190 500 L405 205 L765 205 L625 365 L480 365 L380 500 Z" fill="url(#g1)"/>
+<path d="M190 500 L405 795 L765 795 L625 635 L480 635 L380 500 Z" fill="url(#g2)"/>
+<path d="M190 500 L405 205 L480 365 L380 500 L480 635 L405 795 Z" fill="url(#g3)"/>
+<path d="M405 205 L765 205 L625 365 L480 365 Z" fill="url(#g1)" opacity=".98"/>
+<path d="M405 795 L765 795 L625 635 L480 635 Z" fill="url(#g2)" opacity=".98"/>
+</svg>

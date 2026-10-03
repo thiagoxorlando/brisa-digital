@@ -17,7 +17,8 @@ const BOOLEAN_KEYS = new Set([
   "new_talent_signup_enabled",
   "referrals_enabled",
   "public_job_sharing_enabled",
-  "premium_plan_enabled",
+  // premium_plan_enabled is no longer writable: plan availability is configured
+  // only in plan_settings (Admin > Planos). The legacy row is left in the DB.
   "automatic_pix_withdrawals_enabled",
   "maintenance_mode_enabled",
   "require_terms_acceptance",

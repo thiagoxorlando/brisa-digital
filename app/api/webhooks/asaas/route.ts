@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { notifyAdmins } from "@/lib/notify";
 import { updateSubscription } from "@/lib/asaas";
+import { resolvePlanPricing } from "@/lib/planPricing";
+import { parsePlan } from "@/lib/plans";
 import {
   parsePlanExternalReference,
   syncAgencyTrialFromAsaasSubscription,
@@ -146,12 +148,18 @@ async function handleIntroCycleDecrement(
     const planKey = profile.plan ?? "pro";
     const { data: planSettingRow } = await supabase
       .from("plan_settings")
-      .select("recurring_price")
+      .select("recurring_price, price")
       .eq("plan_key", planKey)
       .maybeSingle();
 
+    // Regular price via the shared resolver (recurring_price; legacy `price`
+    // only if recurring_price is absent).
     const recurringPrice = planSettingRow
-      ? Number((planSettingRow as Record<string, unknown>).recurring_price ?? 0)
+      ? resolvePlanPricing({
+          ...(planSettingRow as { recurring_price?: number | null; price?: number | null }),
+          plan_key: parsePlan(planKey),
+          is_available: true,
+        }).recurringPrice
       : 0;
 
     if (recurringPrice > 0 && subscriptionId) {
@@ -399,7 +407,7 @@ export async function POST(req: NextRequest) {
           user_id: userId,
           type: "plan_charge",
           amount: payment.value,
-          description: `Assinatura ${planLabel} - BrisaHub`,
+          description: `Assinatura ${planLabel} - CastAnet`,
           payment_id: payment.id,
           provider: "asaas",
           status: "pending",

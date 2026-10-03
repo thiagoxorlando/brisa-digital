@@ -24,6 +24,7 @@ import { isValidAsaasMobilePhone, normalizeAsaasMobilePhone } from "@/lib/asaasP
 import { parsePlan, PLAN_KEYS, type Plan } from "@/lib/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj, digitsOnly } from "@/lib/cpf";
 import { getPlatformSettings } from "@/lib/platformSettings.server";
+import { CHECKOUT_CURRENCY, resolvePlanPricing } from "@/lib/planPricing";
 import { resolveAsaasRemoteIp } from "@/lib/requestIp";
 
 type ProCheckoutInput = {
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
 
   const { data: planSetting, error: planSettingError } = await supabase
     .from("plan_settings")
-    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, trial_days, intro_price, intro_cycles, recurring_price")
+    .select("plan_key, name, price, commission_percent, is_available, job_limit, max_hires_per_job, trial_days, intro_price, intro_cycles, recurring_price, currency")
     .eq("plan_key", requestedPlan)
     .maybeSingle();
 
@@ -119,19 +120,33 @@ export async function POST(req: NextRequest) {
   if (!planSetting) {
     return NextResponse.json({ error: "Plano invalido." }, { status: 400 });
   }
-  if (!Boolean(planSetting.is_available)) {
+
+  // Same resolver as the pricing cards, signup, onboarding and Billing.
+  const pricing = resolvePlanPricing({ ...planSetting, plan_key: requestedPlan });
+
+  if (!pricing.isOffered) {
     return NextResponse.json({ error: "Este plano ainda nao esta disponivel." }, { status: 422 });
   }
-
-  const planPrice = Number(planSetting.price);
-  if (!Number.isFinite(planPrice) || planPrice <= 0) {
+  if (!pricing.isPaid) {
     return NextResponse.json({ error: "Este plano nao requer checkout." }, { status: 400 });
+  }
+  // Asaas bills in BRL only. Refuse rather than charge BRL for a plan that is
+  // configured (and therefore displayed) in another currency.
+  if (pricing.currency !== CHECKOUT_CURRENCY) {
+    console.error("[asaas/plan/checkout] plan currency is not billable by Asaas", {
+      plan: requestedPlan,
+      currency: pricing.currency,
+    });
+    return NextResponse.json(
+      { error: "Este plano esta com a moeda configurada incorretamente. Contate o suporte." },
+      { status: 422 },
+    );
   }
 
   const [profileResult, agencyResult, subscriptionProfile, platformSettings] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, cpf_cnpj")
+      .select("full_name, cpf_cnpj, pro_trial_used")
       .eq("id", user.id)
       .single(),
     supabase
@@ -201,6 +216,14 @@ export async function POST(req: NextRequest) {
 
   // ── Non-PRO path ──────────────────────────────────────────────────────────────
   if (requestedPlan !== "pro") {
+    // This path is a hosted Asaas invoice due immediately — it cannot honour a
+    // free trial. Refuse instead of charging on day one a plan advertised with a trial.
+    if (pricing.hasTrial) {
+      return NextResponse.json(
+        { error: "Este plano com teste gratis ainda nao pode ser contratado online." },
+        { status: 422 },
+      );
+    }
     if (existingSubId) {
       try {
         const payments = await getSubscriptionPayments(existingSubId);
@@ -225,10 +248,10 @@ export async function POST(req: NextRequest) {
       subscription = await createSubscription({
         customer: customerId,
         billingType: "CREDIT_CARD",
-        value: planPrice,
+        value: pricing.firstChargeAmount,
         nextDueDate: nextDueDateStr,
         cycle: "MONTHLY",
-        description: `Assinatura ${planLabel} - BrisaHub`,
+        description: `Assinatura ${planLabel} - CastAnet`,
         externalReference: `plan:${requestedPlan}:${user.id}`,
       });
     } catch (err) {
@@ -258,12 +281,24 @@ export async function POST(req: NextRequest) {
       subscription_provider: "asaas",
     });
 
+    // Intro offer: same tracking as the PRO path, so the Asaas webhook switches
+    // the subscription to recurring_price after the intro cycles are paid.
+    if (pricing.hasIntro) {
+      await supabase
+        .from("profiles")
+        .update({
+          intro_cycles_remaining:     pricing.introCycles,
+          current_subscription_price: pricing.firstChargeAmount,
+        } as Record<string, unknown>)
+        .eq("id", user.id);
+    }
+
     if (firstPaymentId) {
       const { error: chargeErr } = await supabase.from("wallet_transactions").insert({
         user_id: user.id,
         type: "plan_charge",
-        amount: planPrice,
-        description: `Assinatura ${planLabel} - BrisaHub`,
+        amount: pricing.firstChargeAmount,
+        description: `Assinatura ${planLabel} - CastAnet`,
         payment_id: firstPaymentId,
         provider: "asaas",
         status: "pending",
@@ -288,23 +323,22 @@ export async function POST(req: NextRequest) {
   const trialsEnabled          = Boolean(platformSettings.trials_enabled           ?? true);
   const trialAutoChargeEnabled = Boolean(platformSettings.trial_auto_charge_enabled ?? true);
 
-  const planSettingRow = planSetting as Record<string, unknown>;
-  const planTrialDays    = Math.max(0, Number(planSettingRow.trial_days     ?? 7));
-  const planIntroPrice   = Number(planSettingRow.intro_price   ?? 0);
-  const planIntroCycles  = Math.max(0, Number(planSettingRow.intro_cycles  ?? 0));
-  const planRecurring    = Number(planSettingRow.recurring_price ?? 0);
-
-  // Determine which price to use for the Asaas subscription creation
-  // Use intro_price if > 0 and intro is configured, otherwise fall back to plan price
-  const subscriptionPrice =
-    planIntroPrice > 0 && planIntroCycles > 0
-      ? planIntroPrice
-      : planPrice;
+  // Effective offer from the shared resolver. The trial + intro offer is a
+  // one-time first-subscription promotion (same rule the Billing page shows):
+  // agencies with pro_trial_used pay the regular recurring price immediately.
+  const proTrialUsed = Boolean(profileRaw?.pro_trial_used);
+  const proPricing = resolvePlanPricing(
+    { ...planSetting, plan_key: requestedPlan },
+    { trialEligible: !proTrialUsed },
+  );
+  const planIntroCycles   = proPricing.hasIntro ? proPricing.introCycles : 0;
+  const planRecurring     = proPricing.recurringPrice;
+  const subscriptionPrice = proPricing.firstChargeAmount;
 
   // Determine trial days: plan_settings value, gated by platform kill-switch
   const trialDays =
     trialsEnabled && trialAutoChargeEnabled
-      ? planTrialDays
+      ? proPricing.trialDays
       : 0;
 
   const now                    = new Date();
@@ -370,6 +404,7 @@ export async function POST(req: NextRequest) {
           .from("profiles")
           .update({
             intro_cycles_remaining:     planIntroCycles > 0 ? planIntroCycles : null,
+            pro_trial_used:             true, // one-time trial consumed (parity with the former Stripe flow)
             current_subscription_price: subscriptionPrice,
           } as Record<string, unknown>)
           .eq("id", user.id);
@@ -466,7 +501,7 @@ export async function POST(req: NextRequest) {
       value:             subscriptionPrice,
       nextDueDate:       nextDueDateStr,
       cycle:             "MONTHLY",
-      description:       `Assinatura ${planLabel} - BrisaHub`,
+      description:       `Assinatura ${planLabel} - CastAnet`,
       externalReference: `plan:${requestedPlan}:${user.id}`,
       creditCard: {
         holderName:  checkoutInput.holderName,
@@ -526,6 +561,7 @@ export async function POST(req: NextRequest) {
         .from("profiles")
         .update({
           intro_cycles_remaining:     planIntroCycles > 0 ? planIntroCycles : null,
+          pro_trial_used:             true, // one-time trial consumed (parity with the former Stripe flow)
           current_subscription_price: subscriptionPrice,
         } as Record<string, unknown>)
         .eq("id", user.id);
@@ -630,7 +666,7 @@ export async function POST(req: NextRequest) {
       user_id:     user.id,
       type:        "plan_charge",
       amount:      subscriptionPrice,
-      description: `Assinatura ${planLabel} - BrisaHub`,
+      description: `Assinatura ${planLabel} - CastAnet`,
       payment_id:  firstPaymentId,
       provider:    "asaas",
       status:      "pending",

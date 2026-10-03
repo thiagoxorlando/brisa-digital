@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { brl } from "@/lib/brl";
 import type { Plan } from "@/lib/plans";
-import { premiumSeatHighlights } from "@/lib/planSettings.shared";
+import { formatPlanPricing, premiumSeatHighlights } from "@/lib/planSettings.shared";
+import { resolvePlanPricing } from "@/lib/planPricing";
 import { useT } from "@/lib/LanguageContext";
 import type { GlobalPaymentDefaults } from "@/lib/agencyConfig";
 
@@ -373,26 +374,10 @@ function PlanSettingsSection({
                 )}
               </div>
 
-              <div className={`grid grid-cols-2 gap-4 ${isPremium ? "lg:grid-cols-7" : "lg:grid-cols-5"}`}>
-                {/* Price — fixed R$ prefix with flex, no absolute overlap */}
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                    Preço (BRL)
-                  </label>
-                  <div className="flex items-stretch rounded-xl border border-zinc-200 overflow-hidden focus-within:border-[#0E7C86] transition-colors">
-                    <span className="flex items-center px-3 text-[13px] font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-200 select-none flex-shrink-0">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={setting.price}
-                      onChange={(e) => updateSetting(index, "price", Number(e.target.value))}
-                      className="flex-1 min-w-0 px-3 py-2.5 text-[13px] text-[#1F2D2E] bg-white focus:outline-none"
-                    />
-                  </div>
-                </div>
+              {/* The legacy plan_settings.price column is not edited here: it duplicated
+                  recurring_price. It is kept in the DB for backward compatibility and
+                  sent back unchanged; the regular price is "Preço recorrente regular". */}
+              <div className={`grid grid-cols-2 gap-4 ${isPremium ? "lg:grid-cols-6" : "lg:grid-cols-4"}`}>
 
                 {/* Commission */}
                 <div>
@@ -521,10 +506,10 @@ function PlanSettingsSection({
               {/* Intro pricing — shown for paid plans (pro, premium) */}
               {setting.plan_key !== "free" ? (
                 <div className="mt-4 space-y-3 border-t border-zinc-100 pt-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#647B7B]">Launch offer &amp; pricing</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-[#647B7B]">Preço e oferta</p>
                   {/* Currency selector */}
                   <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">Currency</label>
+                    <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">Moeda</label>
                     <div className="flex gap-2">
                       {(["USD", "BRL"] as const).map((c) => (
                         <button
@@ -541,11 +526,16 @@ function PlanSettingsSection({
                         </button>
                       ))}
                     </div>
+                    {setting.currency !== "BRL" ? (
+                      <p className="mt-1.5 text-[11px] text-amber-700">
+                        O Asaas cobra apenas em BRL — este plano não poderá ser contratado enquanto a moeda for {setting.currency}.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Free trial (days)
+                        Teste grátis (dias)
                       </label>
                       <input
                         type="number"
@@ -558,11 +548,11 @@ function PlanSettingsSection({
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Intro price
+                        Preço promocional
                       </label>
                       <div className="flex items-stretch rounded-xl border border-zinc-200 overflow-hidden focus-within:border-[#0E7C86] transition-colors">
                         <span className="flex items-center px-3 text-[13px] font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-200 select-none flex-shrink-0">
-                          {setting.currency === "USD" ? "$" : "R$"}
+                          {currencySymbol(setting.currency)}
                         </span>
                         <input
                           type="number"
@@ -576,7 +566,7 @@ function PlanSettingsSection({
                     </div>
                     <div>
                       <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Promo months
+                        Meses promocionais
                       </label>
                       <input
                         type="number"
@@ -588,12 +578,12 @@ function PlanSettingsSection({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#647B7B] mb-1.5">
-                        Recurring price
+                      <label className="block text-[11px] font-semibold uppercase tracking-widest text-[#0E7C86] mb-1.5">
+                        Preço recorrente regular /mês
                       </label>
                       <div className="flex items-stretch rounded-xl border border-zinc-200 overflow-hidden focus-within:border-[#0E7C86] transition-colors">
                         <span className="flex items-center px-3 text-[13px] font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-200 select-none flex-shrink-0">
-                          {setting.currency === "USD" ? "$" : "R$"}
+                          {currencySymbol(setting.currency)}
                         </span>
                         <input
                           type="number"
@@ -606,14 +596,13 @@ function PlanSettingsSection({
                       </div>
                     </div>
                   </div>
-                  {setting.intro_price > 0 && setting.recurring_price > 0 ? (
-                    <p className="text-[11px] text-[#647B7B]">
-                      {setting.trial_days > 0 ? `${setting.trial_days}-day free trial → ` : ""}
-                      {setting.intro_cycles} {setting.intro_cycles === 1 ? "month" : "months"} at{" "}
-                      {setting.currency === "USD" ? `$${setting.intro_price}` : `R$${setting.intro_price}`}{" "}
-                      → then {setting.currency === "USD" ? `$${setting.recurring_price}` : `R$${setting.recurring_price}`}/month
-                    </p>
-                  ) : null}
+                  {/* What customers see/pay — produced by the shared pricing resolver. */}
+                  <p className="text-[11px] text-[#647B7B]">
+                    Oferta efetiva:{" "}
+                    {resolvePlanPricing(setting).isPaid
+                      ? (formatPlanPricing(setting, "pt-BR").promoSummary || formatPlanPricing(setting, "pt-BR").primaryPrice)
+                      : "sem preço recorrente — o plano não pode ser disponibilizado."}
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -785,6 +774,11 @@ function AllPendingCharges({ agencies }: { agencies: AdminPlansAgency[] }) {
   );
 }
 
+
+function currencySymbol(currency: "USD" | "BRL"): string {
+  return currency === "USD" ? "$" : "R$";
+}
+
 export default function AdminPlans({ agencies, globalPaymentDefaults, summary, planSettings, planHistory, activeByPlan }: AdminPlansProps) {
   const { t } = useT();
   const [search, setSearch] = useState("");
@@ -795,14 +789,13 @@ export default function AdminPlans({ agencies, globalPaymentDefaults, summary, p
 
   const freeJobLimit = planSettings.find((s) => s.plan_key === "free")?.job_limit ?? 1;
 
-  const filteredAgencies = agencies.filter((agency) => {
+  const baseAgencies = agencies.filter((agency) => {
     const query = search.trim().toLowerCase();
     const matchesSearch =
       !query ||
       agency.agencyName.toLowerCase().includes(query) ||
       (agency.contactName ?? "").toLowerCase().includes(query) ||
       (agency.email ?? "").toLowerCase().includes(query);
-    const matchesPlan = planFilter === "all" || agency.currentPlan === planFilter;
     const matchesStatus =
       statusFilter === "all" ||
       agency.planStatus === statusFilter ||
@@ -814,8 +807,16 @@ export default function AdminPlans({ agencies, globalPaymentDefaults, summary, p
       ownerFilter === "all" ||
       (ownerFilter === "active_only" && !agency.isOrphan) ||
       (ownerFilter === "orphan" && agency.isOrphan);
-    return matchesSearch && matchesPlan && matchesStatus && matchesOwner;
+    return matchesSearch && matchesStatus && matchesOwner;
   });
+  // Table and counters share one dataset: the plan filter narrows the table,
+  // and the Free/Pro/Premium counters count the same rows by effective plan.
+  const filteredAgencies = planFilter === "all" ? baseAgencies : baseAgencies.filter((agency) => agency.currentPlan === planFilter);
+  const countByPlan = {
+    free: baseAgencies.filter((agency) => agency.currentPlan === "free").length,
+    pro: baseAgencies.filter((agency) => agency.currentPlan === "pro").length,
+    premium: baseAgencies.filter((agency) => agency.currentPlan === "premium").length,
+  };
 
   return (
     <div className="max-w-7xl space-y-8">
@@ -833,9 +834,9 @@ export default function AdminPlans({ agencies, globalPaymentDefaults, summary, p
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard label="Free" value={String(summary.freeCount)} />
-        <SummaryCard label="Pro" value={String(summary.proCount)} />
-        <SummaryCard label="Premium" value={String(summary.premiumCount)} />
+        <SummaryCard label="Free" value={String(countByPlan.free)} />
+        <SummaryCard label="Pro" value={String(countByPlan.pro)} />
+        <SummaryCard label="Premium" value={String(countByPlan.premium)} />
         <SummaryCard label="Receita paga" value={brl(summary.totalRevenuePaid)} />
         <SummaryCard
           label="Cobranças pendentes"

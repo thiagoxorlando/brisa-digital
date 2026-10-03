@@ -1,11 +1,9 @@
 /**
- * POST /api/auth/signup-pro — DEPRECATED (Phase 4B.5)
+ * POST /api/auth/signup-pro — DEPRECATED
  *
- * This route previously handled PRO agency signup via Asaas credit-card
- * subscription creation. It collected CPF/CNPJ, phone, and raw card data.
- *
- * It has been replaced by the Stripe Checkout flow:
- *   POST /api/stripe/create-checkout  →  Stripe-hosted payment page
+ * Legacy PRO signup endpoint. Paid plans are started through the single
+ * active checkout route:
+ *   POST /api/asaas/plan/checkout  (Asaas, BRL — see lib/planCheckoutClient.ts)
  *
  * The signup page (app/signup/page.tsx) no longer calls this route.
  * Returns 410 Gone to any client that still has this route cached.
@@ -17,8 +15,7 @@ export async function POST() {
   return NextResponse.json(
     {
       error:   "This endpoint has been deprecated.",
-      message: "Asaas subscription signup has been removed. Use Stripe Checkout via POST /api/stripe/create-checkout.",
-      docs:    "https://stripe.com/docs/billing/subscriptions",
+      message: "Use POST /api/asaas/plan/checkout to start a paid plan.",
     },
     { status: 410 },
   );

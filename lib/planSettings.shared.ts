@@ -1,7 +1,7 @@
 import { PLAN_DEFINITIONS, PLAN_KEYS, type Plan } from "@/lib/plans";
-import { brlPlan, usdPlan } from "@/lib/brl";
+import { resolvePlanPricing, type PlanCurrency, type PlanPricingInput, type ResolvedPlanPricing } from "@/lib/planPricing";
 
-export type PlanCurrency = "USD" | "BRL";
+export type { PlanCurrency } from "@/lib/planPricing";
 
 export type PublicPlanSetting = {
   plan_key: Plan;
@@ -22,16 +22,20 @@ export type PublicPlanSetting = {
   intro_cycles: number;
   /** Regular monthly price in the plan's currency after the intro period. */
   recurring_price: number;
-  /** Pricing currency — determines display symbol and locale. */
+  /** Pricing currency — determines the money symbol only, never the copy language. */
   currency: PlanCurrency;
 };
 
+/**
+ * Hardcoded fallback used only when plan_settings cannot be read (and as the
+ * client's initial state before /api/plan-settings resolves). Mirrors the
+ * release configuration: BRL, Asaas-billable.
+ */
 export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
   const result = {} as Record<Plan, PublicPlanSetting>;
 
   for (const plan of PLAN_KEYS) {
     const def = PLAN_DEFINITIONS[plan];
-    // PRO defaults to USD launch pricing; other plans default to BRL.
     const isProPlan = plan === "pro";
     result[plan] = {
       plan_key: plan,
@@ -48,7 +52,7 @@ export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
       intro_price: isProPlan ? 29 : 0,
       intro_cycles: isProPlan ? 1 : 0,
       recurring_price: isProPlan ? 79 : 0,
-      currency: isProPlan ? "USD" : "BRL",
+      currency: "BRL",
     };
   }
 
@@ -56,91 +60,133 @@ export function buildPlanSettingsFallback(): Record<Plan, PublicPlanSetting> {
 }
 
 /**
- * Format a plan price amount according to the plan's currency.
- * USD → "$29"  |  BRL → "R$ 97"
+ * The single plan-price formatter used in every locale.
+ *
+ * The CURRENCY comes only from the plan's configuration; the language only
+ * picks the number style. No conversion, no exchange rates:
+ *   BRL 79  → pt-BR "R$ 79"   | en "R$79"
+ *   USD 129 → pt-BR "US$ 129" | en "$129"
  */
-export function formatPlanPrice(price: number, currency: PlanCurrency = "USD"): string {
-  return currency === "USD" ? usdPlan(price) : brlPlan(price);
+export function formatPlanPrice(
+  price: number,
+  currency: PlanCurrency = "BRL",
+  lang: "pt-BR" | "en" = "pt-BR",
+): string {
+  const amount = Number.isFinite(Number(price)) ? Number(price) : 0;
+  return new Intl.NumberFormat(lang === "en" ? "en-US" : "pt-BR", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 export function formatPlanMonthlyPrice(
   price: number,
   lang: "pt-BR" | "en" = "en",
-  currency: PlanCurrency = "USD",
+  currency: PlanCurrency = "BRL",
 ): string {
-  if (price === 0) return formatPlanPrice(0, currency);
+  if (price === 0) return formatPlanPrice(0, currency, lang);
   const period = lang === "en" ? "/month" : "/mês";
-  return `${formatPlanPrice(price, currency)}${period}`;
+  return `${formatPlanPrice(price, currency, lang)}${period}`;
 }
 
 export type PlanPricingLines = {
-  /** Headline price to render large: intro_price/month for intro offers, else price/month. */
+  /** The resolved offer every line below is derived from. */
+  pricing: ResolvedPlanPricing;
+  /** Headline price: intro price/month for intro offers, else regular price/month. */
   primaryPrice: string;
-  /** "7 days free" | "7 dias grátis". Null when trial_days = 0. */
+  /** "1 DIA GRÁTIS" / "7 DIAS GRÁTIS" | "1 DAY FREE" / "7 DAYS FREE". Null without a trial. */
+  trialHeadline: string | null;
+  /** "1 dia grátis" / "7 dias grátis" | "1-day free trial". Null without a trial. */
   trialLine: string | null;
-  /** "$29 first month" | "R$ 97 no primeiro mês". Null when no intro offer. */
+  /** "R$ 29 no primeiro mês" | "R$29 first month". Null without an intro offer. */
   introLine: string | null;
-  /** "Then $79/month" | "Depois R$ 147/mês". Null when no separate recurring price. */
+  /** "Depois US$ 129/mês" | "Then $129/month". Null when there is nothing after a trial/intro. */
   recurringLine: string | null;
   /** Compact single-line summary for modals/tooltips. */
   promoSummary: string | null;
+  /** "US$ 0 hoje" | "$0 today". Null without a trial. */
+  todayLine: string | null;
+  /** "Depois R$ 29 no primeiro mês" | "Then R$29 for the first month". Null without an intro offer. */
+  introThenLine: string | null;
+  /** "R$ 79/mês após o período promocional" | "R$79/month afterwards". Null without an intro offer. */
+  afterPromoLine: string | null;
   isIntroOffer: boolean;
   hasTrial: boolean;
 };
 
 /**
- * Returns structured pricing display lines derived entirely from plan_settings DB values.
- * Currency-aware: USD plans show "$29", BRL plans show "R$ 97".
+ * Display lines for a plan, derived from resolvePlanPricing() — never from raw
+ * columns. Every amount uses the plan's configured currency; `lang` only
+ * changes the wording and number style. Portuguese does not mean BRL and
+ * English does not mean USD.
  * Use this everywhere a plan's price is shown — never hardcode amounts.
  */
 export function formatPlanPricing(
-  setting: PublicPlanSetting,
+  setting: PlanPricingInput,
   lang: "pt-BR" | "en" = "en",
 ): PlanPricingLines {
-  const { trial_days, intro_price, intro_cycles, recurring_price, price, currency } = setting;
+  const pricing = resolvePlanPricing(setting);
+  const { currency, trialDays, introPrice, introCycles, recurringPrice, hasIntro, hasTrial } = pricing;
   const pt = lang !== "en";
-  const hasTrial = trial_days > 0;
-  const hasIntro = intro_price > 0 && intro_cycles > 0 && recurring_price > 0;
   const perMonth = pt ? "/mês" : "/month";
+  const fmt = (amount: number) => formatPlanPrice(amount, currency, lang);
+
+  const trialHeadline = hasTrial
+    ? (pt ? `${trialDays} ${trialDays === 1 ? "DIA GRÁTIS" : "DIAS GRÁTIS"}` : `${trialDays} ${trialDays === 1 ? "DAY FREE" : "DAYS FREE"}`)
+    : null;
+  const trialLine = hasTrial
+    ? (pt ? `${trialDays} ${trialDays === 1 ? "dia grátis" : "dias grátis"}` : `${trialDays}-day free trial`)
+    : null;
+  const todayLine = hasTrial ? (pt ? `${fmt(0)} hoje` : `${fmt(0)} today`) : null;
 
   if (hasIntro) {
-    const trialLine = hasTrial
-      ? (pt ? `${trial_days} dias grátis` : `${trial_days}-day free trial`)
-      : null;
     const introLine = pt
-      ? (intro_cycles === 1
-          ? `${formatPlanPrice(intro_price, currency)} no primeiro mês`
-          : `${formatPlanPrice(intro_price, currency)} por ${intro_cycles} meses`)
-      : (intro_cycles === 1
-          ? `${formatPlanPrice(intro_price, currency)} first month`
-          : `${formatPlanPrice(intro_price, currency)} for ${intro_cycles} months`);
+      ? (introCycles === 1 ? `${fmt(introPrice)} no primeiro mês` : `${fmt(introPrice)}/mês por ${introCycles} meses`)
+      : (introCycles === 1 ? `${fmt(introPrice)} first month` : `${fmt(introPrice)}/month for ${introCycles} months`);
+    const introThenLine = pt
+      ? (introCycles === 1 ? `Depois ${fmt(introPrice)} no primeiro mês` : `Depois ${fmt(introPrice)}/mês por ${introCycles} meses`)
+      : (introCycles === 1 ? `Then ${fmt(introPrice)} for the first month` : `Then ${fmt(introPrice)}/month for ${introCycles} months`);
     const recurringLine = pt
-      ? `Depois ${formatPlanPrice(recurring_price, currency)}${perMonth}`
-      : `Then ${formatPlanPrice(recurring_price, currency)}${perMonth}`;
-
-    const promoSummary = [trialLine, introLine, recurringLine].filter(Boolean).join(" · ");
+      ? `Depois ${fmt(recurringPrice)}${perMonth}`
+      : `Then ${fmt(recurringPrice)}${perMonth}`;
+    const afterPromoLine = pt
+      ? `${fmt(recurringPrice)}${perMonth} após o período promocional`
+      : `${fmt(recurringPrice)}${perMonth} afterwards`;
 
     return {
-      primaryPrice: `${formatPlanPrice(intro_price, currency)}${perMonth}`,
+      pricing,
+      primaryPrice: `${fmt(introPrice)}${perMonth}`,
+      trialHeadline,
       trialLine,
       introLine,
       recurringLine,
-      promoSummary,
+      promoSummary: [trialLine, introLine, recurringLine].filter(Boolean).join(" · "),
+      todayLine,
+      introThenLine,
+      afterPromoLine,
       isIntroOffer: true,
       hasTrial,
     };
   }
 
-  const trialLine = hasTrial
-    ? (pt ? `${trial_days} dias grátis` : `${trial_days}-day free trial`)
+  // No intro offer: after a trial (if any) the regular price applies directly.
+  const recurringLine = hasTrial
+    ? (pt ? `Depois ${fmt(recurringPrice)}${perMonth}` : `Then ${fmt(recurringPrice)}${perMonth}`)
     : null;
 
   return {
-    primaryPrice: formatPlanMonthlyPrice(price, lang, currency),
+    pricing,
+    primaryPrice: formatPlanMonthlyPrice(recurringPrice, lang, currency),
+    trialHeadline,
     trialLine,
     introLine: null,
-    recurringLine: null,
-    promoSummary: trialLine,
+    recurringLine,
+    promoSummary: [trialLine, recurringLine].filter(Boolean).join(" · ") || null,
+    todayLine,
+    introThenLine: null,
+    afterPromoLine: null,
     isIntroOffer: false,
     hasTrial,
   };

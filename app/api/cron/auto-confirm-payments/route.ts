@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { getPlatformSetting, getGlobalPaymentDefaults } from "@/lib/platformSettings.server";
@@ -5,17 +6,38 @@ import { logAdminAction } from "@/lib/auditLog";
 import { notify } from "@/lib/notify";
 
 // Called by an external cron (e.g. Vercel Cron, GitHub Actions, uptime service).
-// Requires CRON_SECRET header to prevent unauthorized triggering.
+// Requires CRON_SECRET to prevent unauthorized triggering.
 //
 // Auto-confirms internal-mode payments where:
 //   - agency_payment_sent_at IS set
 //   - talent_payment_confirmed_at IS NULL
 //   - agency_payment_sent_at < NOW() - (internal_payment_auto_confirm_days)
 
-export async function POST(req: NextRequest) {
+/**
+ * Fails closed: the job only runs when CRON_SECRET is configured AND the
+ * request presents it, either as `x-cron-secret: <secret>` or as
+ * `Authorization: Bearer <secret>` (the header Vercel Cron sends).
+ */
+function isAuthorizedCronRequest(req: NextRequest): { ok: true } | { ok: false; status: 403 | 503 } {
   const secret = process.env.CRON_SECRET ?? "";
-  if (secret && req.headers.get("x-cron-secret") !== secret) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!secret) return { ok: false, status: 503 };
+
+  const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
+  const provided = req.headers.get("x-cron-secret") ?? bearer;
+  if (!provided) return { ok: false, status: 403 };
+
+  const a = Buffer.from(provided);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b) ? { ok: true } : { ok: false, status: 403 };
+}
+
+export async function POST(req: NextRequest) {
+  const auth = isAuthorizedCronRequest(req);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.status === 503 ? "Cron not configured" : "Forbidden" },
+      { status: auth.status },
+    );
   }
 
   const autoConfirmDays = await getPlatformSetting<number>(

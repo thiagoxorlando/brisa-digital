@@ -57,7 +57,7 @@ function hex(h: string): [number, number, number] {
 
 async function fetchLogoDataUrl(): Promise<string | null> {
   try {
-    const res = await fetch("/brand/castanet-symbol.png");
+    const res = await fetch("/brand/castanet-new/PNG/castanet-symbol-256x256.png");
     if (!res.ok) return null;
     const blob = await res.blob();
     return new Promise((resolve) => {

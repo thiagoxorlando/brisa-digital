@@ -63,7 +63,7 @@ export async function PATCH(req: NextRequest) {
           intro_price: Number(r.intro_price ?? 0),
           intro_cycles: Number(r.intro_cycles ?? 0),
           recurring_price: Number(r.recurring_price ?? 0),
-          currency: (r.currency === "USD" || r.currency === "BRL") ? r.currency : "USD",
+          currency: (r.currency === "USD" || r.currency === "BRL") ? r.currency : "BRL",
         },
       ];
     }),
@@ -123,7 +123,7 @@ export async function PATCH(req: NextRequest) {
     const introPrice = Math.max(0, Number(setting.intro_price ?? 0));
     const introCycles = Math.max(0, Math.floor(Number(setting.intro_cycles ?? 0)));
     const recurringPrice = Math.max(0, Number(setting.recurring_price ?? 0));
-    const currency = setting.currency === "BRL" ? "BRL" : "USD";
+    const currency = setting.currency === "USD" ? "USD" : "BRL";
 
     if (!Number.isFinite(trialDays)) {
       return NextResponse.json({ error: "trial_days must be a non-negative integer." }, { status: 400 });
@@ -145,6 +145,16 @@ export async function PATCH(req: NextRequest) {
 
     const newIsAvailable = Boolean(setting.is_available);
     const newName = String(setting.name ?? planKey);
+
+    // A paid plan can only be offered with a regular recurring price — otherwise
+    // the shared pricing resolver treats it as not offered and checkout would
+    // refuse it. Block the inconsistent state here instead.
+    if (planKey !== "free" && newIsAvailable && recurringPrice <= 0) {
+      return NextResponse.json(
+        { error: `Defina o preço recorrente regular do plano "${planKey}" antes de disponibilizá-lo.` },
+        { status: 400 },
+      );
+    }
 
     const nameChanged = newName !== current.name;
     const priceChanged = price !== current.price;

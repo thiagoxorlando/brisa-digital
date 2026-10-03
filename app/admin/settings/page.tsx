@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { redirect } from "next/navigation";
 import { getAllPlatformSettings } from "@/lib/platformSettings.server";
 import AdminSettings, { type PlatformSettings } from "@/features/admin/AdminSettings";
+import { getLivePlanSetting } from "@/lib/planSettings.server";
+import { resolvePlanPricing } from "@/lib/planPricing";
 
 export const metadata: Metadata = { title: "Settings — Admin — CastAnet" };
 
@@ -82,7 +84,10 @@ export default async function AdminSettingsPage() {
         <h1 className="text-[22px] font-semibold text-[#1F2D2E]">Configurações</h1>
         <p className="text-[14px] text-[#647B7B] mt-1">Controles globais da plataforma CastAnet.</p>
       </div>
-      <AdminSettings initialSettings={settings} />
+      <AdminSettings
+        initialSettings={settings}
+        premiumAvailable={resolvePlanPricing(await getLivePlanSetting("premium")).isOffered}
+      />
     </div>
   );
 }

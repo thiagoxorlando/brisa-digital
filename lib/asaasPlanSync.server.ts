@@ -292,7 +292,7 @@ export async function startAgencyPlanTrial(params: {
       amount: paymentValue,
       status: "pending",
       payment_id: paymentId,
-      description: `Assinatura ${planLabel} - BrisaHub`,
+      description: `Assinatura ${planLabel} - CastAnet`,
       provider: "asaas",
     } as Record<string, unknown>);
 
@@ -471,7 +471,7 @@ export async function syncAgencyPlanFromAsaasPayment(params: {
         amount: payment.value,
         status: "paid",
         payment_id: payment.id,
-        description: `Assinatura ${planLabel} - BrisaHub`,
+        description: `Assinatura ${planLabel} - CastAnet`,
         provider: "asaas",
         processed_at: now,
       } as Record<string, unknown>);

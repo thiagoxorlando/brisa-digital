@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       billingType:       "PIX",
       value:             amount,
       dueDate:           nextDayDate(),
-      description:       "Depósito BrisaHub",
+      description:       "Depósito CastAnet",
       externalReference: tx.id,
     } as Parameters<typeof createPayment>[0] & { externalReference?: string });
 
